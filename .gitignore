@@ -1,0 +1,5 @@
+os.zip
+*.vfd
+*.exe
+build/*
+build.bat
