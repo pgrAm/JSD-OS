@@ -72,6 +72,23 @@ void* memcpy(void* dest, const void* src, size_t num)
     return dest;
 }
 
+int memcmp (const void * ptr1, const void * ptr2, size_t num)
+{
+	const unsigned char* ptra = (const unsigned char*)ptr1;
+	const unsigned char* ptrb = (const unsigned char*)ptr2;
+
+    while(num--) 
+	{
+		unsigned char result = *ptra++ - *ptrb++;
+
+		if(result != 0)
+		{
+			return result;
+		}
+    }
+	
+    return 0;
+}
 
 /*
 void* memset(void* ptr, int value, size_t num)

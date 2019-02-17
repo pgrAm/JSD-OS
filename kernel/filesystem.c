@@ -125,19 +125,17 @@ fs_index filesystem_resolve_location_on_disk(const file_stream* f)
 	return fat12_get_cluster(f->file->location_on_disk, f->seekpos, &drives[f->file->disk]);
 }	
 	
-fs_index filesystem_read_chunk(const file_stream* f, fs_index chunk_index)
+fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 {
 	if(f->location_on_disk == chunk_index)
 	{
 		//great we already have data in the buffer
-		printf("already have chunk\n");
-		
 		return filesystem_get_next_location_on_disk(f, chunk_index);
 	}
 	
-	filesystem_drive* d = &drives[f->file->disk];
+	f->location_on_disk = chunk_index;
 	
-	printf("reading new chunk");
+	filesystem_drive* d = &drives[f->file->disk];
 	
 	switch(d->format)
 	{
@@ -149,36 +147,50 @@ fs_index filesystem_read_chunk(const file_stream* f, fs_index chunk_index)
 	return 0;
 }
 
-int filesystem_read_file(uint8_t* dst, size_t len, file_stream* f)
+int filesystem_read_file(void* dst, size_t len, file_stream* f)
 {
 	fs_index location = filesystem_resolve_location_on_disk(f);
 
 	size_t buf_start = f->seekpos % CHUNK_READ_SIZE;
+	size_t buf_end_size = (f->seekpos + len) % CHUNK_READ_SIZE;
 	
-	size_t numChunks = ((buf_start + len) + (CHUNK_READ_SIZE - 1)) / CHUNK_READ_SIZE;
-	size_t size_remaining = len;
+	if(len < CHUNK_READ_SIZE)
+	{
+		buf_end_size = 0; //start and end are in the same chunk
+	}
+	
+	size_t buf_start_size = ((len - buf_end_size) % CHUNK_READ_SIZE);
+	
+	size_t numChunks = (len - (buf_start_size + buf_end_size)) / CHUNK_READ_SIZE;
+	
+	if(buf_start_size != 0)
+	{
+		location = filesystem_read_chunk(f, location);		
+		memcpy(dst, f->buffer + buf_start, buf_start_size);
+		dst += buf_start_size;
+	}
 	
 	while(numChunks--)
 	{
 		location = filesystem_read_chunk(f, location);
-		
-		memcpy(dst, f->buffer + buf_start, (size_remaining % CHUNK_READ_SIZE) - buf_start);
-		
-		size_remaining -= (CHUNK_READ_SIZE - buf_start);
-		
-		buf_start = 0;
-		
-		//if we're still reading then seek forward
-		//otherwise we'll keep the cached data for the next read
-		if(numChunks) 
-		{
-			f->location_on_disk = location;
-		}
+		memcpy(dst, f->buffer, CHUNK_READ_SIZE);
+		dst += CHUNK_READ_SIZE;
+	}
+	
+	if(buf_end_size != 0)
+	{
+		filesystem_read_chunk(f, location);
+		memcpy(dst, f->buffer, buf_end_size);
 	}
 	
 	f->seekpos += len;
 	
 	return len;
+}
+
+void filesystem_seek_file(file_stream* f, size_t pos)
+{
+	f->seekpos = pos;
 }
 
 int filesystem_close_file(file_stream* f)

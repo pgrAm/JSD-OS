@@ -65,12 +65,14 @@ directory* filesystem_mount_root_directory(size_t drive);
 file_stream* filesystem_open_file(const char* name);
 file_stream* filesystem_open_handle(file_handle* f);
 
+void filesystem_seek_file(file_stream* f, size_t pos);
+
 inline size_t filesystem_get_size(file_stream* f)
 {
 	return f->file->size;
 }
 
-int filesystem_read_file(uint8_t* dst, size_t len, file_stream* f);
+int filesystem_read_file(void* dst, size_t len, file_stream* f);
 int filesystem_close_file(file_stream* f);
 
 file_handle* filesystem_find_file_in_dir(directory* d, const char* name);

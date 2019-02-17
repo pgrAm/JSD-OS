@@ -206,11 +206,13 @@ size_t fat12_read_clusters(uint8_t* dest, size_t bufferSize, size_t cluster, con
 {
 	fat12_drive* f = (fat12_drive*)d->impl_data;
 	
-	size_t num_sectors = bufferSize / (f->bytes_per_sector * f->sectors_per_cluster);
-	
-	while(num_sectors--)
+	size_t num_clusters = bufferSize / f->cluster_size;
+
+	while(num_clusters--)
 	{
 		floppy_read_sectors(f->index, fat12_cluster_to_lba(f, cluster), dest, f->sectors_per_cluster);
+		
+		dest += f->cluster_size;
 		
 		cluster = fat12_get_next_cluster(cluster, d);
 		

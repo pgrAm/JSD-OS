@@ -9,9 +9,6 @@ typedef struct
 	uint32_t length;
 } memory_block;
 
-#define PAGE_SIZE 4096
-#define PAGE_TABLE_SIZE 1024
-
 #define PT_INDEX_MASK (PAGE_TABLE_SIZE - 1)
 #define PAGE_ADDRESS_MASK (PAGE_SIZE - 1)
 
@@ -20,6 +17,8 @@ typedef struct
 
 uint32_t* const last_pde_address = (uint32_t*)((uint32_t)(PAGE_TABLE_SIZE - 1) * (uint32_t)PAGE_TABLE_SIZE * (uint32_t)PAGE_SIZE);
 uint32_t* const current_page_directory = (uint32_t*)((uint32_t)MAXIMUM_ADDRESS - (uint32_t)PAGE_ADDRESS_MASK);
+
+uint32_t* kernel_page_directory;
 
 #define GET_PAGE_TABLE_ADDRESS(pd_index) ((uint32_t*)(last_pde_address + (PAGE_TABLE_SIZE * pd_index)))
 
@@ -270,6 +269,40 @@ void memmanager_init_page_dir(uint32_t* page_dir, uint32_t physaddr)
 	page_dir[PAGE_TABLE_SIZE - 1] = physaddr | PAGE_PRESENT | PAGE_RW;
 }
 
+uint32_t memmanager_new_memory_space()
+{
+	//were gonna need a new malloc type allocator too
+	
+	uint32_t* process_page_dir = memmanager_allocate_pages(1, PAGE_PRESENT | PAGE_RW);
+	
+	memmanager_init_page_dir(process_page_dir, memmanager_get_physical((uint32_t)process_page_dir));
+	
+	printf("new dir initialized\n");
+	
+	//process_page_dir[0] = current_page_directory[0] & ~PAGE_USER;
+	
+	for(size_t i = 0; i < PAGE_TABLE_SIZE - 1; i++)
+	{
+		process_page_dir[i] = current_page_directory[i] & ~PAGE_USER;
+	}
+	
+	printf("new table initialized\n");
+	
+	set_page_directory((uint32_t*)memmanager_get_physical((uint32_t)process_page_dir));
+	
+	printf("page dir set\n");
+	
+	return (uint32_t)process_page_dir;
+}
+
+uint32_t memmanager_exit_memory_space(uint32_t pdir)
+{
+	set_page_directory(kernel_page_directory);
+	memmanager_free_pages((void*)pdir, 1);
+	
+	return 1;
+}
+
 int load_exe(file_handle* file)
 {
 	file_stream* f = filesystem_open_handle(file);
@@ -325,7 +358,7 @@ void memmanager_init(void)
 {
 	memory_map[0].length = _multiboot->m_memoryHi * 1024;
 	
-	uint32_t* kernel_page_directory = (uint32_t*)memmanager_allocate_physical_page();
+	kernel_page_directory = (uint32_t*)memmanager_allocate_physical_page();
 	uint32_t* first_page_table = (uint32_t*)memmanager_allocate_physical_page();
 	
 	memmanager_init_page_dir(kernel_page_directory, (uint32_t)kernel_page_directory);

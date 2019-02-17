@@ -146,6 +146,7 @@ int get_command(char* input)
 				if(dataBuf[i] != '\r')
 				{
 					putchar(dataBuf[i]);
+					//printf("%X,", dataBuf[i]);
 				}
 			}
 			
@@ -164,6 +165,12 @@ int get_command(char* input)
 			if(strcmp("EXE", file->type) == 0)
 			{
 				int p = load_exe(file);
+				printf("%d\n", p);
+				return p;
+			}
+			else if(strcmp("ELF", file->type) == 0)
+			{
+				int p = run_elf(file);
 				printf("%d\n", p);
 				return p;
 			}

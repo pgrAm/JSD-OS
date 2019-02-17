@@ -21,16 +21,21 @@ void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, uint8_t* buf, size_t 
 	//printf("dma begin to virtual address %X\n", (uint32_t)buf);
 	
 	//dma don't know wtf virtual adresses are, it needs the real deal (physical address)
-	buf = (uint8_t*)memmanager_get_physical((uint32_t)buf);
+	uint32_t physbuf = memmanager_get_physical((uint32_t)buf);
 	
-	if((uint32_t)buf > 0xFFFFFF)
+	if((physbuf >> 16) != ((physbuf + length) >> 16))
+	{
+		printf("DMA Cannot cross 64k boundary\n");
+	}
+	
+	if(physbuf > 0xFFFFFF)
 	{
 		printf("Cannot use ISA dma above 16MB\n");
 	}
 	
 	//printf("dma begin to physical address %X\n", (uint32_t)buf);
 	
-	size_t offset = (size_t)buf & 0xFFFF;
+	size_t offset = physbuf & 0xFFFF;
 	
 	length--;
 	
@@ -39,7 +44,7 @@ void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, uint8_t* buf, size_t 
     outb(mode_register[channel],	mode + channel);
     outb(adress_port[channel],		offset & 0x00FF);
     outb(adress_port[channel],		(offset & 0xFF00) >> 8);
-    outb(page_port[channel],		(size_t)buf >> 16);
+    outb(page_port[channel],		physbuf >> 16);
     outb(count_port[channel],		length & 0x00FF);
     outb(count_port[channel],		(length & 0xFF00) >> 8);
     outb(mask_register[channel],	channel);

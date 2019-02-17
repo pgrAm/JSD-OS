@@ -7,6 +7,8 @@
 void* memcpy(void* dest, const void* src, size_t num);
 void* memset(void* ptr, int value, size_t num);
 
+int memcmp ( const void * ptr1, const void * ptr2, size_t num );
+
 size_t strlen(const char* str);
 int strcmp(const char* str1, const char* str2);
 int strcasecmp(const char* str1, const char* str2);
