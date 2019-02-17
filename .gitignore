@@ -3,3 +3,8 @@ os.zip
 *.exe
 build/*
 build.bat
+drivers/asm_output.s
+drivers/asm_output.s
+*.o
+*.o
+test.txt

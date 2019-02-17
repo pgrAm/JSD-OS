@@ -135,7 +135,7 @@ int handle_escape_sequence(const char* sequence)
 	
 	seq++;
 	
-	if(*seq = '[') //CSI control code
+	if(*seq == '[') //CSI control code
 	{	
 		size_t argnum = 0;
 	

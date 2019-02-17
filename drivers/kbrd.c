@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "idt/idt.h"
+#include "../kernel/interrupt.h"
 #include "portio.h"
 
 const char keymap[256]  = "\0\x1b""1234567890-=\b\tqwertyuiop[]\n\0asdfghjkl;\'`\0\\zxcvbnm,./\0*\0 \0""1234567890\0\0""789-456+1230.";

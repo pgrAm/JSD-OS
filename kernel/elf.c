@@ -6,14 +6,9 @@
 
 #include "elf.h"
 
-const char elf_magic[4] = {0x7f, 'E', 'L', 'F'};
-
 int elf_is_readable(ELF_ident* file_identifer)
 {
-	putchar(file_identifer->magic[0]);
-	putchar(file_identifer->magic[1]);
-	putchar(file_identifer->magic[2]);
-	putchar(file_identifer->magic[3]);
+	static const char elf_magic[4] = {0x7f, 'E', 'L', 'F'};
 	
 	if(memcmp(file_identifer->magic, elf_magic, 4) != 0)
 	{
@@ -61,7 +56,7 @@ void read_elf(file_handle* file)
 	
 	file_stream* f = filesystem_open_handle(file);
 	
-	printf("elf file opened\n");
+	//printf("elf file opened\n");
 	
 	filesystem_read_file(&file_identifer, sizeof(ELF_ident), f);
 	
@@ -83,7 +78,7 @@ void read_elf(file_handle* file)
 				{
 					case ELF_PTYPE_LOAD:
 					{
-						printf("loading segment at %X", pg_header.virtual_address);
+						printf("loading segment at %X\n", pg_header.virtual_address);
 						
 						//clear mem_size bytes at virtual_address to 0
 						size_t num_pages = (pg_header.mem_size + (PAGE_SIZE - 1)) / PAGE_SIZE;

@@ -5,6 +5,7 @@
 #include "../drivers/floppy.h"
 #include "../drivers/fat12.h"
 
+#include "interrupt.h"
 #include "memorymanager.h"
 #include "multiboot.h"
 #include "console.h"
@@ -22,6 +23,11 @@ extern uint32_t getEIP(void);
 
 //extern uint32_t a20_enable;
 
+__attribute__((interrupt)) void syscall(struct interrupt_frame* frame)
+{
+    puts("Syscall successfull!");
+}
+
 void kernel_main() 
 {
 	initialize_video();
@@ -31,6 +37,8 @@ void kernel_main()
 	idt_init();
 	isrs_init();
 	irqs_init();
+	
+	idt_install_handler(0x80, syscall, IDT_SEGMENT_KERNEL, IDT_SOFTWARE_INTERRUPT);
 	
 	//printf("EIP=%X\n", getEIP());
 	//while(1);

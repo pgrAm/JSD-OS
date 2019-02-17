@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
+#include "../kernel/interrupt.h"
 #include "portio.h"
 #include "sysclock.h"
 #include "floppy.h"
@@ -174,7 +175,7 @@ void lba_to_chs(uint8_t driveNum, size_t lba, size_t *cylinder, size_t *head, si
 
 void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_sectors)
 {
-	printf("reading %d sectors\n", num_sectors);
+	//printf("reading %d sectors\n", num_sectors);
 	
 	size_t cylinder, head, sector;
 	

@@ -1,4 +1,4 @@
-#include "idt/idt.h"
+#include "../kernel/interrupt.h"
 
 #include <stdio.h>
 #include <time.h>
