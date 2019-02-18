@@ -21,13 +21,6 @@ struct tm sys_time;
 
 extern uint32_t getEIP(void);
 
-//extern uint32_t a20_enable;
-
-__attribute__((interrupt)) void syscall(struct interrupt_frame* frame)
-{
-    puts("Syscall successfull!");
-}
-
 void kernel_main() 
 {
 	initialize_video();
@@ -37,14 +30,6 @@ void kernel_main()
 	idt_init();
 	isrs_init();
 	irqs_init();
-	
-	idt_install_handler(0x80, syscall, IDT_SEGMENT_KERNEL, IDT_SOFTWARE_INTERRUPT);
-	
-	//printf("EIP=%X\n", getEIP());
-	//while(1);
-	//
-	//printf("memset=%X\n", (uint32_t)&memset);
-	//printf("strlen=%X\n", (uint32_t)&strlen);
 	
 	memmanager_init();
 	
@@ -57,11 +42,7 @@ void kernel_main()
 
 	clear_screen();
 	
-	//uint8_t* p = memmanager_allocate_pages(16);
-	
-	//p[0] = 1;
-	
-	//return;
+	setup_syscalls();
 	
 	printf("***");
 	

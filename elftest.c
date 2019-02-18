@@ -1,6 +1,8 @@
+#include "api/syscalls.h"
+
 int main(void)
 {
-	__asm__ ("int $0x80");
+	print_string("hello world\n");
 	
 	return 42;
 }
