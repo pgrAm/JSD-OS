@@ -4,6 +4,7 @@
 global handle_syscall
 
 handle_syscall:
+	sti
 	cmp ebx, num_syscalls
 	ja .invalid_call
 	call [syscall_table+4*ebx]

@@ -145,5 +145,5 @@ getEIP:
 ; downwards, so we declare the size of the data before declaring
 ; the identifier '_sys_stack'
 SECTION .bss
-    resb 8192               ; This reserves 8KBytes of memory here
+    ;resb 8192               ; This reserves 8KBytes of memory here
 _sys_stack:

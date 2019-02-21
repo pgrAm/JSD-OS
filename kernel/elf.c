@@ -49,12 +49,14 @@ int elf_is_compatible(ELF_header32* file_header)
 	return 1;
 }
 
-void read_elf(file_handle* file)
+extern void run_user_code(void* address, void* stack);
+
+int read_elf(file_handle* file)
 {
 	ELF_ident file_identifer;
 	ELF_header32 file_header;
 	
-	file_stream* f = filesystem_open_handle(file);
+	file_stream* f = filesystem_open_handle(file, 0);
 	
 	//printf("elf file opened\n");
 	
@@ -94,27 +96,31 @@ void read_elf(file_handle* file)
 				}
 			}
 			
+			filesystem_close_file(f);
+			
 			if(file_header.type == ELF_TYPE_EXEC)
 			{
-				int (*p)(void) = (void*)file_header.entry_point;
+				void* stack = memmanager_allocate_pages(1, PAGE_USER | PAGE_PRESENT | PAGE_RW);
 				
-				int r = p();
+				run_user_code((void*)file_header.entry_point, stack + PAGE_SIZE);
 				
-				printf("Process returned %d\n", r);
+				//printf("Process returned %d\n", r);
 			}
 		}
 	}
 
 	filesystem_close_file(f);
+	
+	return -1;
 }
 
 int run_elf(file_handle* file)
 {
 	uint32_t p = memmanager_new_memory_space();
 	
-	read_elf(file);
+	int r = read_elf(file);
 	
 	memmanager_exit_memory_space(p);
 	
-	return 1;
+	return r;
 }

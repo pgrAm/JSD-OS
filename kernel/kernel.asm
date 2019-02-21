@@ -18,7 +18,6 @@ start:
 	cmpsd             ;compare addresses to see if the're equivalent.
 	popad
 	jne A20_on
-	;mov dword [a20_enable], 1
 	call deal_with_a20
 	A20_on:
 	
@@ -31,7 +30,12 @@ start:
 	mov fs, ax
 	mov gs, ax
 	
-runkernel:		
+	call loadTSS
+	
+runkernel:	
+	mov ebp, 0x90000 ; Update our stack position so it is right at the top of the free space.
+	mov esp, ebp 
+	
 	call kernel_main 	; invoke main () in our C kernel
 	jmp $ 		; Hang forever when we return from the kernel
 
@@ -77,28 +81,50 @@ loadGDT:
 	lgdt [gdt_descriptor]
 	ret
 
-;	mov ebp, 0x90000 ; Update our stack position so it is right at the top of the free space.
-;	mov esp, ebp 
-;	jmp runkernel
-
+loadTSS:
+	mov	ax, GDT_TSS_SEG | 3
+	ltr ax
+	ret
+	
 ; GDT
 gdt_start :
 gdt_null :
 dq 0x0000000000000000
 gdt_code : 	
 dw 0xffff 	
-dw 0x0 
-db 0x0 		
-db 10011010b
-db 11001111b
-db 0x0 		
+dw 0x0000 
+db 0x00 		
+db 0x9A
+db 0xCF ;flags and top nibble of limit
+db 0x00 		
 gdt_data : 	
 dw 0xffff 	
-dw 0x0 		
-db 0x0		
-db 10010010b
-db 11001111b
-db 0x0 		
+dw 0x0000 		
+db 0x00		
+db 0x92
+db 0xCF ;flags and top nibble of limit
+db 0x00
+gdt_usr_code : 	
+dw 0xffff 	
+dw 0x0000 
+db 0x00 		
+db 0xFA
+db 0xCF ;flags and top nibble of limit
+db 0x00 		
+gdt_usr_data : 	
+dw 0xffff 	
+dw 0x0000 		
+db 0x00		
+db 0xF2
+db 0xCF ;flags and top nibble of limit
+db 0x00
+gdt_tss:
+dw TSS_SIZE & 0x0000FFFF		;this is the limit for the tss
+dw TSS_OFFSET & 0x0000FFFF		;this is the base for the tss
+db (TSS_OFFSET >> 16) & 0xFF	;this the the high bits	fot the base
+db 0x89	
+db ((TSS_SIZE >> 16) & 0x0F) | 0x40	;= ((limit & 0xF0000) >> 16) | 0x40
+db 0x00 				
 gdt_end :
  	
 gdt_descriptor :
@@ -107,3 +133,39 @@ dd gdt_start
 
 GDT_CODE_SEG equ gdt_code - gdt_start
 GDT_DATA_SEG equ gdt_data - gdt_start
+GDT_USER_CODE_SEG equ gdt_usr_code - gdt_start
+GDT_USER_DATA_SEG equ gdt_usr_data - gdt_start
+GDT_TSS_SEG equ gdt_tss - gdt_start
+
+tss_begin:
+	dd 	0x00000000
+	dd	0x00090000			;kernel stack pointer
+	dd	GDT_DATA_SEG		;kernel stack segment
+	times 23 dd 0x00000000
+tss_end:
+
+TSS_SIZE equ (tss_end - tss_begin)
+TSS_OFFSET equ 0x1000 + tss_begin - $$
+
+user_code:
+	;cli
+	out dx, al
+	ret
+
+global run_user_code
+run_user_code:
+	mov ebx, [esp + 4] ;code address
+	mov ecx, [esp + 8] ;stack address
+
+	mov ax,	GDT_USER_DATA_SEG | 3
+	mov ds,	ax
+	mov es,	ax 
+	mov fs,	ax 
+	mov gs,	ax ;we don't need to worry about SS. it's handled by iret
+	
+	push GDT_USER_DATA_SEG | 3 	;user data segment with bottom 2 bits set for ring 3
+	push ecx 					;push our current stack just for the heck of it
+	pushf
+	push GDT_USER_CODE_SEG | 3	;user code segment with bottom 2 bits set for ring 3
+	push ebx 					;address of the user function
+	iret

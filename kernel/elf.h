@@ -105,7 +105,7 @@ typedef struct
 	uint64_t	alignment;			//alignment requirements for segment
 } ELF_program_header64;
 
-void read_elf(file_handle* file);
+int read_elf(file_handle* file);
 int run_elf(file_handle* file);
 
 #endif

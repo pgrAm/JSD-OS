@@ -175,8 +175,6 @@ void lba_to_chs(uint8_t driveNum, size_t lba, size_t *cylinder, size_t *head, si
 
 void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_sectors)
 {
-	//printf("reading %d sectors\n", num_sectors);
-	
 	size_t cylinder, head, sector;
 	
 	lba_to_chs(driveNum, lba, &cylinder, &head, &sector);
@@ -199,6 +197,8 @@ void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_
 		
 		wait_for_irq6(); // wait for irq6 to signal operation complete
 		
+		//printf("irq6\n");
+		
 		uint8_t st0 = floppy_getbyte();
 		
 		for(int b = 0; b < 6; b++)
@@ -215,7 +215,6 @@ void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_
 			return; //read success!
 		} 
 
-		//printf("read failed trying again\n");
 		floppy_reset(driveNum);
 	}
 	

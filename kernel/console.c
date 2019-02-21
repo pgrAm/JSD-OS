@@ -133,7 +133,7 @@ int get_command(char* input)
 	{
 		file_stream* file;
 		
-		if((file = filesystem_open_file(strtok(NULL, "\"\'\n"))))
+		if((file = filesystem_open_file(strtok(NULL, "\"\'\n"), 0)))
 		{
 			size_t file_size = filesystem_get_size(file);
 			
@@ -177,7 +177,7 @@ int get_command(char* input)
 	
 			uint8_t *dataBuf = (uint8_t*)malloc(file->size);
 			
-			file_stream* f = filesystem_open_handle(file);
+			file_stream* f = filesystem_open_handle(file, 0);
 			
 			filesystem_read_file(dataBuf, file->size, f);
 			

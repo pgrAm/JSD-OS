@@ -85,7 +85,7 @@ file_handle* filesystem_find_file_on_disk(size_t driveNumber, const char* name)
 	return filesystem_find_file_in_dir(root, name);
 }
 
-file_stream* filesystem_open_handle(file_handle* f)
+SYSCALL_HANDLER file_stream* filesystem_open_handle(file_handle* f, int flags)
 {	
 	file_stream* stream = (file_stream*)malloc(sizeof(file_stream));
 	
@@ -98,7 +98,7 @@ file_stream* filesystem_open_handle(file_handle* f)
 }
 
 
-file_stream* filesystem_open_file(const char* name)
+SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags)
 {
 	if(rootDir == NULL)
 	{
@@ -109,7 +109,7 @@ file_stream* filesystem_open_file(const char* name)
 	
 	if(f != NULL)
 	{
-		return filesystem_open_handle(f);
+		return filesystem_open_handle(f, flags);
 	}
 	
 	return NULL;
@@ -147,8 +147,13 @@ fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 	return 0;
 }
 
-int filesystem_read_file(void* dst, size_t len, file_stream* f)
+SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f)
 {
+	if(f == NULL)
+	{
+		return 0;
+	}	
+	
 	fs_index location = filesystem_resolve_location_on_disk(f);
 
 	size_t buf_start = f->seekpos % CHUNK_READ_SIZE;
@@ -165,7 +170,7 @@ int filesystem_read_file(void* dst, size_t len, file_stream* f)
 	
 	if(buf_start_size != 0)
 	{
-		location = filesystem_read_chunk(f, location);		
+		location = filesystem_read_chunk(f, location);	
 		memcpy(dst, f->buffer + buf_start, buf_start_size);
 		dst += buf_start_size;
 	}
@@ -185,6 +190,8 @@ int filesystem_read_file(void* dst, size_t len, file_stream* f)
 	
 	f->seekpos += len;
 	
+	//printf("done\n");
+	
 	return len;
 }
 
@@ -193,9 +200,9 @@ void filesystem_seek_file(file_stream* f, size_t pos)
 	f->seekpos = pos;
 }
 
-int filesystem_close_file(file_stream* f)
+SYSCALL_HANDLER int filesystem_close_file(file_stream* f)
 {
 	free(f->buffer);
 	free(f);
-	return 1;
+	return 0;
 }

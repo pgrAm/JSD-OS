@@ -37,7 +37,7 @@ void kernel_main()
 	sysclock_init();
 	
 	floppy_init();
-
+	
 	filesystem_setup_drives();
 
 	clear_screen();

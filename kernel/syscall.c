@@ -1,20 +1,30 @@
 #include "interrupt.h"
-
+#include "syscall.h"
+#include "filesystem.h"
 //A syscall is accomplished by
 //putting the arguments into EAX, ECX, EDX, EDI, ESI
 //put the system call index into EBX
 //int 0x80
 //EAX has the return value
-__attribute__((regcall)) void syscall_print_string(const char *a)
+SYSCALL_HANDLER void syscall_print_string(const char *a)
 {
 	print_string(a);
+}
+
+SYSCALL_HANDLER void syscall_exit(int val)
+{
+	enter_console();
 }
 
 extern void handle_syscall();
 
 const void* syscall_table[] =
 {
-	syscall_print_string
+	syscall_print_string,
+	filesystem_open_file,
+	filesystem_close_file, 
+	filesystem_read_file,
+	syscall_exit
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

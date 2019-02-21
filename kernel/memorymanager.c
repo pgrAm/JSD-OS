@@ -135,10 +135,14 @@ void memmanager_map_page(uint32_t virtual_address, uint32_t physical_address, ui
 {
 	uint32_t pd_index = virtual_address >> 22;
 	uint32_t pt_entry = current_page_directory[pd_index];
-	
+
 	if(!(pt_entry & PAGE_PRESENT)) //page table is not present
 	{
 		memmanager_create_new_page_table(pd_index);	
+	}
+	else if((flags & PAGE_USER) && !(pt_entry & PAGE_USER))
+	{
+		printf("page allocation error\n");
 	}
 	
 	uint32_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
@@ -281,7 +285,7 @@ uint32_t memmanager_new_memory_space()
 	
 	//process_page_dir[0] = current_page_directory[0] & ~PAGE_USER;
 	
-	for(size_t i = 0; i < PAGE_TABLE_SIZE - 1; i++)
+	for(size_t i = 0; i < 2; i++)
 	{
 		process_page_dir[i] = current_page_directory[i] & ~PAGE_USER;
 	}
@@ -305,7 +309,7 @@ uint32_t memmanager_exit_memory_space(uint32_t pdir)
 
 int load_exe(file_handle* file)
 {
-	file_stream* f = filesystem_open_handle(file);
+	file_stream* f = filesystem_open_handle(file, 0);
 	
 	size_t num_code_pages = (file->size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 	
