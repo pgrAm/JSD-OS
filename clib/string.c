@@ -60,17 +60,17 @@ int strcasecmp(const char* s1, const char* s2)
     return *(const unsigned char*)s1 - *(const unsigned char*)s2;
 }
 
-void* memcpy(void* dest, const void* src, size_t num) 
-{
-	char* dst8 = (char*)dest;
-    char* src8 = (char*)src;
-
-    while(num--) 
-	{
-		*dst8++ = *src8++;
-    }
-    return dest;
-}
+//void* memcpy(void* dest, const void* src, size_t num) 
+//{
+//	char* dst8 = (char*)dest;
+//    char* src8 = (char*)src;
+//
+//    while(num--) 
+//	{
+//		*dst8++ = *src8++;
+//    }               
+//    return dest;
+//}
 
 int memcmp (const void * ptr1, const void * ptr2, size_t num)
 {
@@ -121,16 +121,16 @@ void* memset(void* ptr, int value, size_t num)
     return ptr;
 }*/
 
-void* memset(void* ptr, int value, size_t num)
-{
-	unsigned char* ptr8 = (unsigned char*)ptr;
-
-    while(num--) 
-	{
-		*ptr8++ = (unsigned char)value;
-    }
-    return ptr;
-}
+//void* memset(void* ptr, int value, size_t num)
+//{
+//	unsigned char* ptr8 = (unsigned char*)ptr;
+//
+//    while(num--) 
+//	{
+//		*ptr8++ = (unsigned char)value;
+//    }
+//    return ptr;
+//}
 
 size_t strlen(const char* str)
 {

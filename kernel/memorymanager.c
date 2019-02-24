@@ -88,7 +88,7 @@ void memmanager_create_new_page_table(uint32_t pd_index)
 	memset(page_table, 0, PAGE_SIZE);
 }
 
-uint32_t memmanager_get_unmapped_pages(size_t num_pages, uint32_t flags)
+void* memmanager_get_unmapped_pages(size_t num_pages, uint32_t flags)
 {
 	for(size_t pd_index = 0; pd_index < PAGE_TABLE_SIZE; pd_index++)
 	{
@@ -98,7 +98,7 @@ uint32_t memmanager_get_unmapped_pages(size_t num_pages, uint32_t flags)
 			
 			if(num_pages < PAGE_TABLE_SIZE)
 			{
-				return (pd_index << 22);
+				return (void*)(pd_index << 22);
 			}
 		}
 		
@@ -119,7 +119,7 @@ uint32_t memmanager_get_unmapped_pages(size_t num_pages, uint32_t flags)
 			
 			if(pages_found == num_pages)
 			{
-				uint32_t virtual_address = (pd_index << 22) + ((pt_index - pages_found) << 12);
+				void* virtual_address = (void*)((pd_index << 22) + ((pt_index - pages_found) << 12));
 				
 				return virtual_address;
 			}
@@ -128,7 +128,7 @@ uint32_t memmanager_get_unmapped_pages(size_t num_pages, uint32_t flags)
 	
 	//printf("couldn't find page\n");
 	
-	return (uint32_t)NULL;
+	return NULL;
 }
 
 void memmanager_map_page(uint32_t virtual_address, uint32_t physical_address, uint32_t flags)
@@ -152,10 +152,15 @@ void memmanager_map_page(uint32_t virtual_address, uint32_t physical_address, ui
 	//printf("%X mapped to physical address %X\n", virtual_address, physical_address);	
 }
 
-void* memmanager_virtual_alloc(uint32_t virtual_address, size_t n, uint32_t flags)
+SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, uint32_t flags)
 {
+	if(virtual_address == NULL)
+	{
+		virtual_address = memmanager_get_unmapped_pages(n, flags);
+	}
+	
 	size_t num_pages = n;
-	uint32_t page_virtual_address = virtual_address;
+	uint32_t page_virtual_address = (uint32_t)virtual_address;
 	
 	//printf("Attempting to allocate %d pages\n", num_pages);	
 	
@@ -203,7 +208,7 @@ void* memmanager_virtual_alloc(uint32_t virtual_address, size_t n, uint32_t flag
 					memset((uint32_t*)virtual_address, 0, n*PAGE_SIZE);
 					
 					//printf("Successfully allocated %d pages at %X\n", n, virtual_address);		
-					return (void*)virtual_address;
+					return virtual_address;
 				}
 			}
 		}
@@ -212,13 +217,6 @@ void* memmanager_virtual_alloc(uint32_t virtual_address, size_t n, uint32_t flag
 	printf("could not allocate enough pages");
 	
 	return NULL;
-}
-
-void* memmanager_allocate_pages(size_t num_pages, uint32_t flags)
-{
-	uint32_t virtual_address = memmanager_get_unmapped_pages(num_pages, flags);
-	
-	return memmanager_virtual_alloc(virtual_address, num_pages, flags);
 }
 
 int memmanager_free_pages(void* page, size_t num_pages)
@@ -277,7 +275,7 @@ uint32_t memmanager_new_memory_space()
 {
 	//were gonna need a new malloc type allocator too
 	
-	uint32_t* process_page_dir = memmanager_allocate_pages(1, PAGE_PRESENT | PAGE_RW);
+	uint32_t* process_page_dir = memmanager_virtual_alloc(NULL, 1, PAGE_PRESENT | PAGE_RW);
 	
 	memmanager_init_page_dir(process_page_dir, memmanager_get_physical((uint32_t)process_page_dir));
 	
@@ -292,17 +290,22 @@ uint32_t memmanager_new_memory_space()
 	
 	//printf("new table initialized\n");
 	
-	set_page_directory((uint32_t*)memmanager_get_physical((uint32_t)process_page_dir));
+	//set_page_directory((uint32_t*)memmanager_get_physical((uint32_t)process_page_dir));
 	
 	//printf("page dir set\n");
 	
 	return (uint32_t)process_page_dir;
 }
 
+void memmanager_enter_memory_space(uint32_t memspace)
+{
+	set_page_directory((uint32_t*)memmanager_get_physical((uint32_t)memspace));
+}
+
 uint32_t memmanager_exit_memory_space(uint32_t pdir)
 {
 	set_page_directory(kernel_page_directory);
-	memmanager_free_pages((void*)pdir, 1);
+	//memmanager_free_pages((void*)pdir, 1);
 	
 	return 1;
 }
@@ -313,14 +316,14 @@ int load_exe(file_handle* file)
 	
 	size_t num_code_pages = (file->size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 	
-	uint8_t* code_seg = memmanager_allocate_pages(num_code_pages, PAGE_PRESENT | PAGE_RW);
+	uint8_t* code_seg = memmanager_virtual_alloc(NULL, num_code_pages, PAGE_PRESENT | PAGE_RW);
 	
 	filesystem_read_file(code_seg, file->size, f);
 	filesystem_close_file(f);
 	
 	uint32_t code_seg_physical = memmanager_get_physical((uint32_t)code_seg);
 	
-	uint32_t* process_page_dir = memmanager_allocate_pages(1, PAGE_PRESENT | PAGE_RW);
+	uint32_t* process_page_dir = memmanager_virtual_alloc(NULL, 1, PAGE_PRESENT | PAGE_RW);
 	uint32_t* old_page_dir = (uint32_t*)memmanager_get_physical((uint32_t)current_page_directory);
 	
 	memmanager_init_page_dir(process_page_dir, memmanager_get_physical((uint32_t)process_page_dir));

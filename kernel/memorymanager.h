@@ -1,15 +1,17 @@
 #ifndef _MEMORYMANAGER_H
 #define _MEMORYMANAGER_H
 
+#include "syscall.h"
 #include "string.h"
 
 void memmanager_init(void);
-void* memmanager_allocate_pages(size_t num_pages, uint32_t flags);
-int memmanager_free_pages(void* page, size_t num_pages);
-void* memmanager_virtual_alloc(uint32_t virtual_address, size_t n, uint32_t flags);
 uint32_t memmanager_get_physical(uint32_t virtual_address);
 
+SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages);
+SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, uint32_t flags);
+
 uint32_t memmanager_new_memory_space();
+void memmanager_enter_memory_space(uint32_t memspace);
 uint32_t memmanager_exit_memory_space(uint32_t memspace);
 
 extern void set_page_directory(uint32_t* address);

@@ -17,7 +17,6 @@ void print_char(const char c);
 
 void set_cursor(uint16_t row, uint16_t col);
 
-void print_string(const char* str);
 void print_string_len(const char* str, size_t length);
 
 void clear_screen();

@@ -14,5 +14,5 @@ enable_paging:
 	
 global get_page_directory
 get_page_directory:
-	mov eax, cr0
+	mov eax, cr3
 	ret

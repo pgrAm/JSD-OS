@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void* memcpy(void* dest, const void* src, size_t num);
-void* memset(void* ptr, int value, size_t num);
+extern void* memcpy(void* dest, const void* src, size_t num);
+extern void* memset(void* ptr, int value, size_t num);
 
 int memcmp ( const void * ptr1, const void * ptr2, size_t num );
 

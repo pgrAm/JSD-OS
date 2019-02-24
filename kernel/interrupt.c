@@ -93,7 +93,7 @@ const char *exception_messages[] =
 
 void *irq_routines[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-void irq_install_handler(size_t irq, void (*handler)(struct interrupt_info *r))
+void irq_install_handler(size_t irq, void (*handler)(interrupt_info *r))
 {
     irq_routines[irq] = handler;
 }
@@ -166,18 +166,21 @@ extern uint32_t getcr2reg(void);
 
 #include <stdio.h>
 
-/* All of our Exception handling Interrupt Service Routines will
-*  point to this function. This will tell us what exception has
-*  happened! Right now, we simply halt the system by hitting an
-*  endless loop. All ISRs disable interrupts while they are being
-*  serviced as a 'locking' mechanism to prevent an IRQ from
-*  happening and messing up kernel data structures */
-void fault_handler(struct interrupt_info *r)
+void send_eoi(interrupt_info * r)
+{
+	if (r->int_no >= 40)
+    {
+        outb(0xA0, 0x20);
+    }
+
+    outb(0x20, 0x20);
+}
+
+void fault_handler(interrupt_info *r)
 {
     if (r->int_no < 32)
     {
-        print_string(exception_messages[r->int_no]);
-        print_string(" Exception. System Halted!\n");
+        printf("%s Exception. System Halted!\n", exception_messages[r->int_no]);
 		
 		printf("CS=%X\n", r->cs);
 		printf("EIP=%X\n", r->eip);
@@ -187,28 +190,28 @@ void fault_handler(struct interrupt_info *r)
 		{
 			if(r->err_code & 0x04)
 			{
-				print_string("user ");
+				printf("user ");
 			}
 			
 			if(r->err_code & 0x02)
 			{
-				print_string("write ");
+				printf("write ");
 			}
 			else
 			{
-				print_string("read ");
+				printf("read ");
 			}
 				
 			if(r->err_code & 0x01)
 			{
-				print_string("protection ");
+				printf("protection ");
 			}
 			else
 			{
-				print_string("invalid page ");
+				printf("invalid page ");
 			}
 			
-			print_string("violation\n");
+			printf("violation\n");
 			
 			printf("At Adress %X", getcr2reg());
 		}
@@ -221,10 +224,10 @@ void fault_handler(struct interrupt_info *r)
     }
 }
 
-void irq_handler(struct interrupt_info *r)
+void irq_handler(interrupt_info *r)
 {
     /* This	is a blank function pointer */
-    void (*handler)(struct interrupt_info *r);
+    void (*handler)(interrupt_info *r);
 
 	//memset(irq_routines, 0, sizeof(void*) * 16);
 	
@@ -237,17 +240,7 @@ void irq_handler(struct interrupt_info *r)
         handler(r);
     }
 
-    /* If the IDT entry that was invoked was greater than 40
-    *  (meaning IRQ8 - 15), then we need to send an EOI to
-    *  the slave controller */
-    if (r->int_no >= 40)
-    {
-        outb(0xA0, 0x20);
-    }
-
-    /* In either case, we need to send an EOI to the master
-    *  interrupt controller too */
-    outb(0x20, 0x20);
+	send_eoi(r);
 }
 
 extern void isr0();

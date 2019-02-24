@@ -1,0 +1,27 @@
+#ifndef SYSCALLS_H
+#define SYSCALLS_H
+
+#include <stdint.h>
+#include <stddef.h>
+#include <time.h>
+
+#include "interrupt.h"
+#include "syscall.h"
+#include "filesystem.h"
+#include "task.h"
+#include "memorymanager.h"
+#include "../drivers/sysclock.h"
+#include "../drivers/video.h"
+
+#define print_string print_string_len
+#define open filesystem_open_file
+#define close filesystem_close_file
+#define read filesystem_read_file
+#define exit syscall_exit
+#define master_time sysclock_get_master_time
+#define clock_ticks sysclock_get_ticks
+#define get_utc_offset sysclock_get_utc_offset
+#define alloc_pages memmanager_virtual_alloc
+#define free_pages memmanager_free_pages
+
+#endif

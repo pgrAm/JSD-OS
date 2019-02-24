@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "../drivers/video.h"
+#include "../api/syscalls.h"
 #include "../kernel/filesystem.h"
 #include "../kernel/task.h"
 #include "../kernel/memorymanager.h"
@@ -12,44 +12,40 @@ char console_user[] = "root";
 char prompt_char = ']';
 char command_buffer[256];
 
-directory* current_directory = NULL;
+//directory* current_directory = NULL;
 
 size_t drive_index = 0;
 
 void list_directory()
 {
-	if(current_directory == NULL)
-	{
-		printf("Invalid Directory\n");
-		return;
-	}
-	
-	printf("\n Name    Type  Size   Created     Modified\n\n");
-	
-	const char* format = " %-8s %s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n";
-	
-	size_t total_bytes = 0;
-	size_t i;
-	
-	for(i = 0; i < current_directory->num_files; i++)
-	{
-		struct tm created	= *localtime(&current_directory->file_list[i].time_created);
-		struct tm modified	= *localtime(&current_directory->file_list[i].time_modified);
-		
-		total_bytes += current_directory->file_list[i].size;
-		
-		printf(format,	current_directory->file_list[i].name, 
-						current_directory->file_list[i].type, 
-						current_directory->file_list[i].size, 
-						created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
-						modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
-	}
-	printf("\n %5d Files   %5d Bytes\n\n", i, total_bytes);
+	//if(current_directory == NULL)
+	//{
+	//	printf("Invalid Directory\n");
+	//	return;
+	//}
+	//
+	//printf("\n Name    Type  Size   Created     Modified\n\n");
+	//
+	//const char* format = " %-8s %s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n";
+	//
+	//size_t total_bytes = 0;
+	//size_t i;
+	//
+	//for(i = 0; i < current_directory->num_files; i++)
+	//{
+	//	struct tm created	= *localtime(&current_directory->file_list[i].time_created);
+	//	struct tm modified	= *localtime(&current_directory->file_list[i].time_modified);
+	//	
+	//	total_bytes += current_directory->file_list[i].size;
+	//	
+	//	printf(format,	current_directory->file_list[i].name, 
+	//					current_directory->file_list[i].type, 
+	//					current_directory->file_list[i].size, 
+	//					created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
+	//					modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
+	//}
+	//printf("\n %5d Files   %5d Bytes\n\n", i, total_bytes);
 }
-
-typedef int (*cMain)(int, char**);
-
-typedef int (*exeHeader)(void);
 
 int get_command(char* input)
 {
@@ -207,18 +203,12 @@ void prompt()
 
 int enter_console()
 {
-	//printf("dir=%X\n", current_directory);
-	
 	current_directory = filesystem_mount_root_directory(drive_index);
-	
-	//printf("EIP=%X\n", getEIP());
 	
 	if(current_directory == NULL)
 	{
 		printf("Could not mount root directory for drive %d %s\n", drive_index, drive_names[drive_index]);
 	}
-	
-	//printf("EIP=%X\n", getEIP());
 	
 	for(;;)
 	{

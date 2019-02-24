@@ -10,13 +10,10 @@ _start:                                 # @_start
 	push	ebx
 	push	edi
 	push	esi
-	sub	esp, 5
-	xor	esi, esi
-	xor	ebx, ebx
-	mov	eax, offset .L.str
-	#APP
-	int	128
-	#NO_APP
+	sub	esp, 8
+	push	offset .L.str
+	call	puts
+	add	esp, 4
 	xor	ebx, ebx
 	inc	ebx
 	mov	eax, offset .L.str.1
@@ -25,8 +22,8 @@ _start:                                 # @_start
 	int	128
 	#NO_APP
 	test	eax, eax
-	je	.LBB0_1
-# %bb.2:
+	je	.LBB0_3
+# %bb.1:
 	mov	edi, eax
 	lea	esi, [ebp - 17]
 	mov	ebx, 3
@@ -42,32 +39,23 @@ _start:                                 # @_start
 	int	128
 	#NO_APP
 	mov	byte ptr [esi + 4], 0
-	xor	ebx, ebx
-	mov	eax, esi
-	#APP
-	int	128
-	#NO_APP
-	xor	ebx, ebx
-	mov	eax, offset .L.str.3
-	#APP
-	int	128
-	#NO_APP
-	mov	esi, 42
-	mov	ebx, 4
-	mov	eax, 42
-	#APP
-	int	128
-	#NO_APP
-	jmp	.LBB0_3
-.LBB0_1:
-	xor	ebx, ebx
-	mov	eax, offset .L.str.2
-	#APP
-	int	128
-	#NO_APP
+.LBB0_2:                                # =>This Inner Loop Header: Depth=1
+	push	esi
+	call	puts
+	add	esp, 4
+	push	offset .L.str.3
+	call	puts
+	add	esp, 4
+	push	offset .L.str.4
+	call	puts
+	add	esp, 4
+	jmp	.LBB0_2
 .LBB0_3:
-	mov	eax, esi
-	add	esp, 5
+	push	offset .L.str.2
+	call	puts
+	add	esp, 4
+	xor	eax, eax
+	add	esp, 8
 	pop	esi
 	pop	edi
 	pop	ebx
@@ -96,6 +84,11 @@ _start:                                 # @_start
 .L.str.3:
 	.asciz	"\n"
 	.size	.L.str.3, 2
+
+	.type	.L.str.4,@object        # @.str.4
+.L.str.4:
+	.asciz	"hi\n\n"
+	.size	.L.str.4, 5
 
 
 	.ident	"clang version 7.0.0 (tags/RELEASE_700/final)"

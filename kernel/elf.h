@@ -2,6 +2,7 @@
 #define ELF_H
 
 #include <stdint.h>
+#include "task.h"
 
 #define ELF_BIT_WIDTH_64 0x02
 #define ELF_BIT_WIDTH_32 0x01
@@ -105,7 +106,6 @@ typedef struct
 	uint64_t	alignment;			//alignment requirements for segment
 } ELF_program_header64;
 
-int read_elf(file_handle* file);
-int run_elf(file_handle* file);
+int load_elf(file_handle* file, process* newTask);
 
 #endif

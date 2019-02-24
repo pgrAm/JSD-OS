@@ -1,18 +1,19 @@
 #include <time.h>
 #include <stdio.h>
-#include "../drivers/sysclock.h"
+#include <sys/syscalls.h>
 
 #define IS_LEAP_YEAR(a) ((a % 4 == 0) && ((a % 100) || (a % 400 == 0)))
 #define DAYS_IN_YEAR(n) (IS_LEAP_YEAR(n) ? 366 : 365)
 
 #define THE_BEGINNING_OF_TIME 1970 	//throughout this file "the beginning of time" will refer to:
 #define THE_MOMENT_OF_CREATION 0 	//January 1, 1970
-#define GREGORIAN_CYCLE 146097 //a gregorian cycle is 146,097 days long
+#define GREGORIAN_CYCLE 146097 		//a gregorian cycle is 146,097 days long
+
 static struct tm date_ret;
 
 struct tm* localtime(const time_t* timer)
 {
-	time_t local_time = (*timer) + (time_t)sysclock_get_utc_offset();
+	time_t local_time = (*timer) + (time_t)get_utc_offset();
 	
 	return gmtime(&local_time);
 }
@@ -24,8 +25,6 @@ char* ctime(const time_t * timer)
 
 char* asctime(const struct tm *t)
 {
-	//const struct tm *t = timeptr;
-
 	static const char wdays[][4] = {
 		"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
 	};
@@ -44,7 +43,7 @@ char* asctime(const struct tm *t)
 
 time_t time(time_t* timer)
 {
-	time_t the_current_time = sysclock_get_master_time();
+	time_t the_current_time = master_time();
 
 	if(timer != NULL)
 	{
@@ -56,7 +55,7 @@ time_t time(time_t* timer)
 
 clock_t clock(void)
 {
-	return (clock_t)sysclock_get_ticks();
+	return clock_ticks();
 }
 
 const int8_t days_per_month[2][12] = {

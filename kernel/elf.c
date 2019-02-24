@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "filesystem.h"
 #include "memorymanager.h"
@@ -49,9 +50,7 @@ int elf_is_compatible(ELF_header32* file_header)
 	return 1;
 }
 
-extern void run_user_code(void* address, void* stack);
-
-int read_elf(file_handle* file)
+int load_elf(file_handle* file, process* newTask)
 {
 	ELF_ident file_identifer;
 	ELF_header32 file_header;
@@ -68,6 +67,9 @@ int read_elf(file_handle* file)
 		
 		if(elf_is_compatible(&file_header))
 		{
+			newTask->num_segments = file_header.pgh_entries;
+			newTask->segments = (segment*)malloc(sizeof(segment) * newTask->num_segments);
+			
 			for(int i = 0; i < file_header.pgh_entries; i++)
 			{
 				//seek ahead to the program header table
@@ -80,10 +82,14 @@ int read_elf(file_handle* file)
 				{
 					case ELF_PTYPE_LOAD:
 					{
+						size_t num_pages = (pg_header.mem_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
+						
+						newTask->segments[i].pointer = (void*)pg_header.virtual_address;
+						newTask->segments[i].num_pages = num_pages;
+						
 						printf("loading segment at %X\n", pg_header.virtual_address);
 						
 						//clear mem_size bytes at virtual_address to 0
-						size_t num_pages = (pg_header.mem_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 						memmanager_virtual_alloc(pg_header.virtual_address, num_pages, PAGE_USER | PAGE_PRESENT | PAGE_RW);
 						
 						//copy file_size bytes from offset to virtual_address
@@ -96,31 +102,20 @@ int read_elf(file_handle* file)
 				}
 			}
 			
-			filesystem_close_file(f);
-			
 			if(file_header.type == ELF_TYPE_EXEC)
 			{
-				void* stack = memmanager_allocate_pages(1, PAGE_USER | PAGE_PRESENT | PAGE_RW);
-				
-				run_user_code((void*)file_header.entry_point, stack + PAGE_SIZE);
-				
-				//printf("Process returned %d\n", r);
+				newTask->user_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_USER | PAGE_PRESENT | PAGE_RW);	
+				newTask->entry_point = (void*)file_header.entry_point;
+			}
+			else
+			{
+				newTask->user_stack_top = NULL;
+				newTask->entry_point = NULL;
 			}
 		}
 	}
 
 	filesystem_close_file(f);
 	
-	return -1;
-}
-
-int run_elf(file_handle* file)
-{
-	uint32_t p = memmanager_new_memory_space();
-	
-	int r = read_elf(file);
-	
-	memmanager_exit_memory_space(p);
-	
-	return r;
+	return 0;
 }

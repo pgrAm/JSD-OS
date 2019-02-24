@@ -137,8 +137,11 @@ GDT_USER_CODE_SEG equ gdt_usr_code - gdt_start
 GDT_USER_DATA_SEG equ gdt_usr_data - gdt_start
 GDT_TSS_SEG equ gdt_tss - gdt_start
 
+
+global tss_esp0_location
 tss_begin:
 	dd 	0x00000000
+tss_esp0_location:
 	dd	0x00090000			;kernel stack pointer
 	dd	GDT_DATA_SEG		;kernel stack segment
 	times 23 dd 0x00000000
@@ -146,11 +149,6 @@ tss_end:
 
 TSS_SIZE equ (tss_end - tss_begin)
 TSS_OFFSET equ 0x1000 + tss_begin - $$
-
-user_code:
-	;cli
-	out dx, al
-	ret
 
 global run_user_code
 run_user_code:
@@ -164,8 +162,51 @@ run_user_code:
 	mov gs,	ax ;we don't need to worry about SS. it's handled by iret
 	
 	push GDT_USER_DATA_SEG | 3 	;user data segment with bottom 2 bits set for ring 3
-	push ecx 					;push our current stack just for the heck of it
-	pushf
+	push ecx 					;push the new user stack
+	pushf						;push flags
 	push GDT_USER_CODE_SEG | 3	;user code segment with bottom 2 bits set for ring 3
 	push ebx 					;address of the user function
 	iret
+	
+global current_task_TCB
+current_task_TCB dd 0
+
+struc TCB
+    .esp:	resd 1
+    .esp0:	resd 1
+    .cr3:	resd 1
+endstruc
+	
+global switch_task
+switch_task:
+	pushfd
+	cli
+    push ebx
+    push esi
+    push edi
+    push ebp
+
+    mov edi, [current_task_TCB]		;edi = address of the previous task's "thread control block"
+    mov [edi + TCB.esp], esp		;Save ESP for previous task's kernel stack in the thread's TCB
+
+    ;Load next task's state
+    mov esi, [esp + (5+1)*4]		;esi = address of the next task's "thread control block" (parameter passed on stack)
+    mov [current_task_TCB], esi		;Current task's TCB is the next task TCB
+
+    mov esp, [esi + TCB.esp]		;Load ESP for next task's kernel stack from the thread's TCB
+    mov eax, [esi + TCB.cr3]		;eax = address of page directory for next task
+    mov ebx, [esi + TCB.esp0]		;ebx = address for the top of the next task's kernel stack
+    mov [tss_esp0_location], ebx	;Adjust the ESP0 field in the TSS (used by CPU for for CPL=3 -> CPL=0 privilege level changes)
+    mov ecx, cr3					;ecx = previous task's virtual address space
+
+    cmp eax, ecx					;Does the virtual address space need to being changed?
+    je .doneVAS						;no, virtual address space is the same, so don't reload it and cause TLB flushes
+    mov cr3, eax					;yes, load the next task's virtual address space
+.doneVAS:
+    pop ebp
+    pop edi
+    pop esi
+    pop ebx
+	popfd
+    ret
+	

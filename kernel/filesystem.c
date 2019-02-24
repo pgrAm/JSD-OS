@@ -85,6 +85,11 @@ file_handle* filesystem_find_file_on_disk(size_t driveNumber, const char* name)
 	return filesystem_find_file_in_dir(root, name);
 }
 
+file_handle* filesystem_find_file(const char* name)
+{
+	return filesystem_find_file_on_disk(0, name);
+}
+
 SYSCALL_HANDLER file_stream* filesystem_open_handle(file_handle* f, int flags)
 {	
 	file_stream* stream = (file_stream*)malloc(sizeof(file_stream));
@@ -189,8 +194,6 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f)
 	}
 	
 	f->seekpos += len;
-	
-	//printf("done\n");
 	
 	return len;
 }

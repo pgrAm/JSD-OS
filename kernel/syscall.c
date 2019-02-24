@@ -1,14 +1,17 @@
 #include "interrupt.h"
 #include "syscall.h"
 #include "filesystem.h"
+#include "task.h"
+#include "memorymanager.h"
+#include "../drivers/sysclock.h"
 //A syscall is accomplished by
 //putting the arguments into EAX, ECX, EDX, EDI, ESI
 //put the system call index into EBX
 //int 0x80
 //EAX has the return value
-SYSCALL_HANDLER void syscall_print_string(const char *a)
+SYSCALL_HANDLER void syscall_print_string(const char *a, size_t len)
 {
-	print_string(a);
+	print_string_len(a, len);
 }
 
 SYSCALL_HANDLER void syscall_exit(int val)
@@ -22,9 +25,15 @@ const void* syscall_table[] =
 {
 	syscall_print_string,
 	filesystem_open_file,
-	filesystem_close_file, 
+	filesystem_close_file,
 	filesystem_read_file,
-	syscall_exit
+	syscall_exit,
+	spawn_process, 
+	sysclock_get_master_time,
+	sysclock_get_ticks,
+	sysclock_get_utc_offset,
+	memmanager_virtual_alloc,
+	memmanager_free_pages
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

@@ -1,7 +1,7 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include "../kernel/memorymanager.h"
+#include <sys/syscalls.h>
 
 #define _HAVE_UINTPTR_T
 
@@ -51,12 +51,18 @@ int liballoc_unlock()
 	return 0;
 }
 
+#ifdef __KERNEL
+	#define MALLOC_FLAGS (PAGE_PRESENT | PAGE_RW)
+#else
+	#define MALLOC_FLAGS (PAGE_USER | PAGE_PRESENT | PAGE_RW)
+#endif
+	
 void* liballoc_alloc(size_t n)
 {
-	return memmanager_allocate_pages(n, PAGE_PRESENT | PAGE_RW);
+	return alloc_pages(NULL, n, MALLOC_FLAGS);
 }
 
 int liballoc_free(void* p, size_t n)
 {
-	return memmanager_free_pages(p, n);
+	return free_pages(p, n);
 }

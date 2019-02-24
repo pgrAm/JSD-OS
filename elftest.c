@@ -1,16 +1,18 @@
-#include "api/syscalls.h"
+#include <sys/syscalls.h>
+
+#include <stdio.h>
 
 int _start(void)
 {
 	//while(1);
 	
-	print_string("testing\n");
+	puts("testing\n");
 	
 	file_stream* f = open("test.elf", 0);
 	
 	if(f == NULL)
 	{
-		print_string("cannot open file\n");
+		puts("cannot open file\n");
 		return 0;
 	}
 	
@@ -24,9 +26,12 @@ int _start(void)
 	
 	buf[4] = 0;
 	
-	print_string(buf);
-	
-	print_string("\n");
+	while(1)
+	{
+		puts(buf);
+		puts("\n");
+		puts("hi\n\n");
+	}
 	
 	exit(42);
 	

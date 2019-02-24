@@ -9,6 +9,7 @@
 #include "memorymanager.h"
 #include "multiboot.h"
 #include "console.h"
+#include "task.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -24,7 +25,7 @@ extern uint32_t getEIP(void);
 void kernel_main() 
 {
 	initialize_video();
-
+	
 	puts("Kernel Booted\n");
 	
 	idt_init();
@@ -32,6 +33,8 @@ void kernel_main()
 	irqs_init();
 	
 	memmanager_init();
+	
+	setup_stdin();
 	
 	keyboard_init();
 	sysclock_init();
@@ -43,6 +46,8 @@ void kernel_main()
 	clear_screen();
 	
 	setup_syscalls();
+	
+	setup_first_task(); //we are now running as a kernel level task
 	
 	printf("***");
 	
@@ -71,13 +76,6 @@ void kernel_main()
 	sys_time = *localtime(&t_time);
 	
 	printf("EST Time: %s\n", asctime(&sys_time));
-	
-	FILE* rs232 = fopen("COM1:", "w");
-	
-	if(rs232 != NULL)
-	{
-		fprintf(rs232, "test rs232 %d", time(NULL));
-	}
 
 	enter_console();
 	

@@ -22,12 +22,12 @@ void sysclock_set_master_time(time_t newtime)
 	sysclock_master_time = newtime;
 }
 
-time_t sysclock_get_master_time(void)
+SYSCALL_HANDLER time_t sysclock_get_master_time(void)
 {
 	return sysclock_master_time;
 }
 
-clock_t sysclock_get_ticks(void)
+SYSCALL_HANDLER clock_t sysclock_get_ticks(void)
 {
 	return timer_ticks;
 }

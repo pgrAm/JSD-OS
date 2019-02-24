@@ -274,34 +274,3 @@ void print_string_len(const char* str, size_t length)
 	
 	set_cursor_offset((int)vmem - VIDEOMEM);
 }
-
-void print_string(const char* str) 
-{
-	char* vmem = (char*)VIDEOMEM;
-	vmem += cursorpos;
-	
-	const char* currentchar = str;
-	
-	while(*currentchar != '\0')
-	{
-		if(*currentchar == '\x1b') //ANSI escape sequence
-		{
-			currentchar += handle_escape_sequence(currentchar);
-		}
-		else
-		{
-			cursorpos += handle_char(*currentchar, vmem);
-		}
-		
-		currentchar++;
-		
-		if(cursorpos >= 0xfa0)
-		{
-			scroll_up();
-		}
-		
-		vmem = (char*)(VIDEOMEM + cursorpos);
-	}
-	
-	set_cursor_offset((int)vmem - VIDEOMEM);
-}
