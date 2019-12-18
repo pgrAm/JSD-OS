@@ -12,6 +12,7 @@
 #include "memorymanager.h"
 #include "../drivers/sysclock.h"
 #include "../drivers/video.h"
+#include "../drivers/kbrd.h"
 
 #define print_string print_string_len
 #define open filesystem_open_file
@@ -23,5 +24,6 @@
 #define get_utc_offset sysclock_get_utc_offset
 #define alloc_pages memmanager_virtual_alloc
 #define free_pages memmanager_free_pages
-
+#define getkey get_keypress
+#define wait_and_getkey wait_and_get_keypress
 #endif

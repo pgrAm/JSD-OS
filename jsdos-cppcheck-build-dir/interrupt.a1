@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="943106090">
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/Documents/GitHub/JSD-OS/drivers/portio.h:7:6" call-funcname="outb" call-argnr="2" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/interrupt.c" linenr="134" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/Documents/GitHub/JSD-OS/drivers/portio.h:7:6" call-funcname="outb" call-argnr="2" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/interrupt.c" linenr="135" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/interrupt.h:34:6" call-funcname="idt_install_handler" call-argnr="1" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/interrupt.c" linenr="291" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/>  </FileInfo>
+  <FileInfo check="Bounds checking">
+    <ArraySize array="exception_messages" size="32"/>
+    <ArraySize array="idt" size="256"/>
+    <ArraySize array="irq_routines" size="16"/>
+  </FileInfo>
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/interrupt.h:32:6" my-argnr="1" my-argname="r" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/interrupt.c" linenr="171"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/interrupt.c:179:6" my-argnr="1" my-argname="r" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/interrupt.c" linenr="181"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/interrupt.c:227:6" my-argnr="1" my-argname="r" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/interrupt.c" linenr="236"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="idt_install_handler" lineNumber="30"/>
+    <functiondecl functionName="idt_init" lineNumber="40"/>
+    <functiondecl functionName="irq_install_handler" lineNumber="96"/>
+    <functiondecl functionName="irq_uninstall_handler" lineNumber="102"/>
+    <functiondecl functionName="irq_remap" lineNumber="124"/>
+    <functiondecl functionName="irqs_init" lineNumber="141"/>
+    <functiondecl functionName="send_eoi" lineNumber="169"/>
+    <functiondecl functionName="fault_handler" lineNumber="179"/>
+    <functiondecl functionName="irq_handler" lineNumber="227"/>
+    <functiondecl functionName="isrs_init" lineNumber="288"/>
+    <functioncall functionName="address"/>
+    <functioncall functionName="cs"/>
+    <functioncall functionName="eip"/>
+    <functioncall functionName="err_code"/>
+    <functioncall functionName="esp"/>
+    <functioncall functionName="flags"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="getcr2reg"/>
+    <functioncall functionName="handler"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="idt"/>
+    <functioncall functionName="idt_install_handler"/>
+    <functioncall functionName="idt_load"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="int_no"/>
+    <functioncall functionName="irq"/>
+    <functioncall functionName="irq0"/>
+    <functioncall functionName="irq1"/>
+    <functioncall functionName="irq10"/>
+    <functioncall functionName="irq11"/>
+    <functioncall functionName="irq12"/>
+    <functioncall functionName="irq13"/>
+    <functioncall functionName="irq14"/>
+    <functioncall functionName="irq15"/>
+    <functioncall functionName="irq2"/>
+    <functioncall functionName="irq3"/>
+    <functioncall functionName="irq4"/>
+    <functioncall functionName="irq5"/>
+    <functioncall functionName="irq6"/>
+    <functioncall functionName="irq7"/>
+    <functioncall functionName="irq8"/>
+    <functioncall functionName="irq9"/>
+    <functioncall functionName="irq_remap"/>
+    <functioncall functionName="irq_routines"/>
+    <functioncall functionName="isr0"/>
+    <functioncall functionName="isr1"/>
+    <functioncall functionName="isr10"/>
+    <functioncall functionName="isr11"/>
+    <functioncall functionName="isr12"/>
+    <functioncall functionName="isr13"/>
+    <functioncall functionName="isr14"/>
+    <functioncall functionName="isr15"/>
+    <functioncall functionName="isr16"/>
+    <functioncall functionName="isr17"/>
+    <functioncall functionName="isr18"/>
+    <functioncall functionName="isr19"/>
+    <functioncall functionName="isr2"/>
+    <functioncall functionName="isr20"/>
+    <functioncall functionName="isr21"/>
+    <functioncall functionName="isr22"/>
+    <functioncall functionName="isr23"/>
+    <functioncall functionName="isr24"/>
+    <functioncall functionName="isr25"/>
+    <functioncall functionName="isr26"/>
+    <functioncall functionName="isr27"/>
+    <functioncall functionName="isr28"/>
+    <functioncall functionName="isr29"/>
+    <functioncall functionName="isr3"/>
+    <functioncall functionName="isr30"/>
+    <functioncall functionName="isr31"/>
+    <functioncall functionName="isr4"/>
+    <functioncall functionName="isr5"/>
+    <functioncall functionName="isr6"/>
+    <functioncall functionName="isr7"/>
+    <functioncall functionName="isr8"/>
+    <functioncall functionName="isr9"/>
+    <functioncall functionName="memset"/>
+    <functioncall functionName="outb"/>
+    <functioncall functionName="printf"/>
+    <functioncall functionName="r"/>
+    <functioncall functionName="sel"/>
+    <functioncall functionName="send_eoi"/>
+    <functioncall functionName="sizeof"/>
+    <functioncall functionName="uint16_t"/>
+    <functioncall functionName="uint32_t"/>
+    <functioncall functionName="uint8_t"/>
+  </FileInfo>
+</analyzerinfo>

@@ -28,11 +28,22 @@ int task_is_running(int pid)
 	return (current_task_TCB->pid == pid);
 }
 
+int this_task_is_active()
+{
+	return task_is_running(active_process);
+}
+
 void run_next_task()
 {
+	int_lock l = lock_interrupts();
+	
 	//lock tasks
 	active_process = (active_process + 1) % num_processes;
 	//unlock tasks
+	
+	printf("\n%d:\n", active_process);
+	
+	unlock_interrupts(l);
 	
 	switch_to_task(active_process);
 }
@@ -55,11 +66,21 @@ void start_user_process(process* t)
 	__asm__ volatile ("hlt");
 }
 
-SYSCALL_HANDLER void spawn_process(const char* path, int flags)
+SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 {
+	//we need to copy the path onto the stack 
+	//otherwise it will be in the address space of another process
+	int t = strlen(p);
+	char path[80];
+	memcpy(path, p, t + 1);
+
+	uint32_t oldcr3 = get_page_directory();
+	
 	process* newTask = (process*)malloc(sizeof(process));
 	
 	newTask->address_space = memmanager_new_memory_space();
+	
+	//printf("created new memory space\n");
 	
 	memmanager_enter_memory_space(newTask->address_space);
 	
@@ -70,7 +91,12 @@ SYSCALL_HANDLER void spawn_process(const char* path, int flags)
 	newTask->tc_block.cr3 = memmanager_get_physical(newTask->address_space);
 	newTask->tc_block.pid = num_processes++;
 	
-	load_elf(filesystem_find_file(path), newTask);
+	if(!load_elf(path, newTask))
+	{
+		set_page_directory(oldcr3);
+		memmanager_destroy_memory_space(newTask->address_space);
+		return;
+	}
 	
 	((uint32_t*)newTask->tc_block.esp)[7] = (uint32_t)newTask; 
 	((uint32_t*)newTask->tc_block.esp)[5] = (uint32_t)start_user_process; //this is where the new process will start executing
@@ -84,14 +110,19 @@ SYSCALL_HANDLER void spawn_process(const char* path, int flags)
 	
 	if(flags & WAIT_FOR_PROCESS)
 	{
-		//lock tasks
-		if(task_is_running(active_process))
+		int_lock l = lock_interrupts();
+		
+		if(this_task_is_active())
 		{
 			active_process = this_process;
 		}
+		
 		//unlock tasks
+		unlock_interrupts(l);
 		
 		switch_to_task(this_process);
+		
+		printf("we're back\n");
 	}
 }
 

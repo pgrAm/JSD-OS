@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="2217882034">
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c:43:5" my-argnr="1" my-argname="s1" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c" linenr="45"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c:53:5" my-argnr="1" my-argname="s1" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c" linenr="55"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c:144:7" my-argnr="2" my-argname="source" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c" linenr="146"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c:150:7" my-argnr="1" my-argname="destination" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c" linenr="152"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c:150:7" my-argnr="2" my-argname="source" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c" linenr="152"/>
+  </FileInfo>
+  <FileInfo check="Uninitialized variables">
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c:43:5" my-argnr="1" my-argname="s1" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c" linenr="45"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c:53:5" my-argnr="1" my-argname="s1" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c" linenr="55"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c:144:7" my-argnr="2" my-argname="source" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c" linenr="146"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c:150:7" my-argnr="2" my-argname="source" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/clib/string.c" linenr="152"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="strtok" lineNumber="4"/>
+    <functiondecl functionName="strcmp" lineNumber="43"/>
+    <functiondecl functionName="strcasecmp" lineNumber="53"/>
+    <functiondecl functionName="memcmp" lineNumber="75"/>
+    <functiondecl functionName="strlen" lineNumber="135"/>
+    <functiondecl functionName="strcat" lineNumber="144"/>
+    <functiondecl functionName="strcpy" lineNumber="150"/>
+    <functioncall functionName="buffer"/>
+    <functioncall functionName="continue"/>
+    <functioncall functionName="delimiters"/>
+    <functioncall functionName="destination"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="memcpy"/>
+    <functioncall functionName="ptr1"/>
+    <functioncall functionName="ptr2"/>
+    <functioncall functionName="s2"/>
+    <functioncall functionName="source"/>
+    <functioncall functionName="str"/>
+    <functioncall functionName="strlen"/>
+    <functioncall functionName="toupper"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

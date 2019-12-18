@@ -4,6 +4,7 @@
 #include "task.h"
 #include "memorymanager.h"
 #include "../drivers/sysclock.h"
+#include "../drivers/kbrd.h"
 //A syscall is accomplished by
 //putting the arguments into EAX, ECX, EDX, EDI, ESI
 //put the system call index into EBX
@@ -16,8 +17,19 @@ SYSCALL_HANDLER void syscall_print_string(const char *a, size_t len)
 
 SYSCALL_HANDLER void syscall_exit(int val)
 {
-	enter_console();
+	//enter_console();
 }
+
+SYSCALL_HANDLER void syscall_video_clear_screen(void)
+{
+	clear_screen();
+}
+
+SYSCALL_HANDLER void syscall_video_delete_char(size_t n)
+{
+	delete_chars(n);
+}
+
 
 extern void handle_syscall();
 
@@ -33,7 +45,11 @@ const void* syscall_table[] =
 	sysclock_get_ticks,
 	sysclock_get_utc_offset,
 	memmanager_virtual_alloc,
-	memmanager_free_pages
+	memmanager_free_pages,
+	get_keypress,
+	wait_and_get_keypress,
+	syscall_video_clear_screen,
+	syscall_video_delete_char
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

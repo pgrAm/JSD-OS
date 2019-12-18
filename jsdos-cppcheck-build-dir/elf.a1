@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="868878327">
+        <error id="invalidPrintfArgType_sint" severity="warning" msg="%d in format string (no. 1) requires &apos;int&apos; but the argument type is &apos;unsigned int&apos;." verbose="%d in format string (no. 1) requires &apos;int&apos; but the argument type is &apos;unsigned int&apos;." cwe="686">
+            <location file0="C:\Users\jaked\Documents\GitHub\JSD-OS\kernel\elf.c" file="C:\Users\jaked\Documents\GitHub\JSD-OS\kernel\elf.c" line="98"/>
+        </error>
+        <error id="invalidPrintfArgType_sint" severity="portability" msg="%d in format string (no. 1) requires &apos;int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." verbose="%d in format string (no. 1) requires &apos;int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." cwe="686">
+            <location file0="C:\Users\jaked\Documents\GitHub\JSD-OS\kernel\elf.c" file="C:\Users\jaked\Documents\GitHub\JSD-OS\kernel\elf.c" line="103"/>
+        </error>
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/filesystem.h:74:30" call-funcname="filesystem_open_file" call-argnr="2" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/elf.c" linenr="60" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/memorymanager.h:11:23" call-funcname="memmanager_virtual_alloc" call-argnr="1" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/elf.c" linenr="117" call-argexpr="NULL" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/filesystem.h:74:30" call-funcname="filesystem_open_file" call-argnr="1" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/elf.c" linenr="60" my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/elf.h:109:5" my-argnr="1"/>
+  </FileInfo>
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/filesystem.h:69:15" my-argnr="1" my-argname="f" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/filesystem.h" linenr="71"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/elf.c:10:5" my-argnr="1" my-argname="file_identifer" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/elf.c" linenr="14"/>
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/elf.c:43:5" my-argnr="1" my-argname="file_header" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/elf.c" linenr="45"/>
+  </FileInfo>
+  <FileInfo check="Uninitialized variables">
+    <unsafe-usage my-id="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/filesystem.h:69:15" my-argnr="1" my-argname="f" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/kernel/filesystem.h" linenr="71"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="elf_is_readable" lineNumber="10"/>
+    <functiondecl functionName="elf_is_compatible" lineNumber="43"/>
+    <functiondecl functionName="load_elf" lineNumber="53"/>
+    <functioncall functionName="FORMAT_FAT32"/>
+    <functioncall functionName="NULL"/>
+    <functioncall functionName="asm"/>
+    <functioncall functionName="break"/>
+    <functioncall functionName="default"/>
+    <functioncall functionName="elf_is_compatible"/>
+    <functioncall functionName="elf_is_readable"/>
+    <functioncall functionName="elf_magic"/>
+    <functioncall functionName="entry_point"/>
+    <functioncall functionName="f"/>
+    <functioncall functionName="file_header"/>
+    <functioncall functionName="file_identifer"/>
+    <functioncall functionName="file_size"/>
+    <functioncall functionName="filesystem_close_file"/>
+    <functioncall functionName="filesystem_open_file"/>
+    <functioncall functionName="filesystem_read_file"/>
+    <functioncall functionName="filesystem_seek_file"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="magic"/>
+    <functioncall functionName="malloc"/>
+    <functioncall functionName="mem_size"/>
+    <functioncall functionName="memcmp"/>
+    <functioncall functionName="memmanager_virtual_alloc"/>
+    <functioncall functionName="num_pages"/>
+    <functioncall functionName="num_segments"/>
+    <functioncall functionName="offset"/>
+    <functioncall functionName="path"/>
+    <functioncall functionName="pg_header"/>
+    <functioncall functionName="pgh_entries"/>
+    <functioncall functionName="printf"/>
+    <functioncall functionName="size"/>
+    <functioncall functionName="sizeof"/>
+    <functioncall functionName="switch"/>
+    <functioncall functionName="type"/>
+    <functioncall functionName="virtual_address"/>
+  </FileInfo>
+</analyzerinfo>

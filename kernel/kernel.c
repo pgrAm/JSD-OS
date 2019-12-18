@@ -18,8 +18,6 @@
 
 extern struct multiboot_info* _multiboot;
 
-struct tm sys_time;
-
 extern uint32_t getEIP(void);
 
 void kernel_main() 
@@ -34,9 +32,6 @@ void kernel_main()
 	
 	memmanager_init();
 	
-	setup_stdin();
-	
-	keyboard_init();
 	sysclock_init();
 	
 	floppy_init();
@@ -48,6 +43,8 @@ void kernel_main()
 	setup_syscalls();
 	
 	setup_first_task(); //we are now running as a kernel level task
+	
+	keyboard_init();
 	
 	printf("***");
 	
@@ -71,13 +68,25 @@ void kernel_main()
 	
 	printf("UNIX TIME: %d\n", t_time);
 	
-	printf("%u KB Low Memory\n%u KB High Memory\n\n", _multiboot->m_memoryLo, (_multiboot->m_memoryHi));
+	size_t free_mem = memmanager_num_bytes_free();
+	size_t total_mem = memmanager_mem_size();
 	
-	sys_time = *localtime(&t_time);
+	printf("%u KB free / %u KB Memory\n\n", free_mem / 1024, total_mem / 1024);
+	
+	struct tm sys_time = *localtime(&t_time);
 	
 	printf("EST Time: %s\n", asctime(&sys_time));
 
-	enter_console();
+	int drive_index = 0;
+	
+	directory* current_directory = filesystem_mount_root_directory(drive_index);
+	
+	if(current_directory == NULL)
+	{
+		printf("Could not mount root directory for drive %d\n", drive_index);
+	}
+	
+	spawn_process("shell.elf", WAIT_FOR_PROCESS);
 	
 	for(;;);
 }

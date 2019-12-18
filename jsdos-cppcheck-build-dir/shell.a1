@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="4008655225">
+        <error id="variableScope" severity="style" msg="The scope of the variable &apos;temp&apos; can be reduced." verbose="The scope of the variable &apos;temp&apos; can be reduced. Warning: Be careful when fixing this message, especially when there are inner loops. Here is an example where cppcheck will write that the scope for &apos;i&apos; can be reduced:\012void f(int x)\012{\012    int i = 0;\012    if (x) {\012        // it&apos;s safe to move &apos;int i = 0;&apos; here\012        for (int n = 0; n &lt; 10; ++n) {\012            // it is possible but not safe to move &apos;int i = 0;&apos; here\012            do_something(&amp;i);\012        }\012    }\012}\012When you see this message it is always safe to reduce the variable scope 1 level." cwe="398">
+            <location file0="C:\Users\jaked\Documents\GitHub\JSD-OS\shell\shell.c" file="C:\Users\jaked\Documents\GitHub\JSD-OS\shell\shell.c" line="57"/>
+            <symbol>temp</symbol>
+        </error>
+        <error id="unreadVariable" severity="style" msg="Variable &apos;temp&apos; is assigned a value that is never used." verbose="Variable &apos;temp&apos; is assigned a value that is never used." cwe="563">
+            <location file0="C:\Users\jaked\Documents\GitHub\JSD-OS\shell\shell.c" file="C:\Users\jaked\Documents\GitHub\JSD-OS\shell\shell.c" line="57"/>
+            <symbol>temp</symbol>
+        </error>
+        <error id="unreadVariable" severity="style" msg="Variable &apos;file&apos; is assigned a value that is never used." verbose="Variable &apos;file&apos; is assigned a value that is never used." cwe="563">
+            <location file0="C:\Users\jaked\Documents\GitHub\JSD-OS\shell\shell.c" file="C:\Users\jaked\Documents\GitHub\JSD-OS\shell\shell.c" line="129"/>
+            <symbol>file</symbol>
+        </error>
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/Documents/GitHub/JSD-OS/shell/shell.c:47:5" call-funcname="get_command" call-argnr="1" filename="C:/Users/jaked/Documents/GitHub/JSD-OS/shell/shell.c" linenr="215" call-argexpr="NULL" call-argvaluetype="0" call-argvalue="0"/>  </FileInfo>
+  <FileInfo check="Bounds checking">
+    <ArraySize array="command_buffer" size="256"/>
+    <ArraySize array="console_user" size="5"/>
+    <ArraySize array="drive_names" size="2"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="list_directory" lineNumber="16"/>
+    <functiondecl functionName="get_command" lineNumber="47"/>
+    <functiondecl functionName="prompt" lineNumber="198"/>
+    <functiondecl functionName="_start" lineNumber="203"/>
+    <functioncall functionName="NULL"/>
+    <functioncall functionName="WAIT_FOR_PROCESS"/>
+    <functioncall functionName="break"/>
+    <functioncall functionName="c"/>
+    <functioncall functionName="command_buffer"/>
+    <functioncall functionName="console_user"/>
+    <functioncall functionName="drive_index"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="get_command"/>
+    <functioncall functionName="getchar"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="input"/>
+    <functioncall functionName="keyword"/>
+    <functioncall functionName="list_directory"/>
+    <functioncall functionName="open"/>
+    <functioncall functionName="printf"/>
+    <functioncall functionName="prompt"/>
+    <functioncall functionName="prompt_char"/>
+    <functioncall functionName="putchar"/>
+    <functioncall functionName="spawn_process"/>
+    <functioncall functionName="strcmp"/>
+    <functioncall functionName="strtok"/>
+    <functioncall functionName="temp"/>
+    <functioncall functionName="time"/>
+    <functioncall functionName="video_clear"/>
+    <functioncall functionName="video_erase_chars"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

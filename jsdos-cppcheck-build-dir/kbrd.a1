@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="368027522">
+  <FileInfo check="Bounds checking">
+    <ArraySize array="keybuf" size="512"/>
+    <ArraySize array="keymap" size="256"/>
+    <ArraySize array="keys_states" size="256"/>
+    <ArraySize array="shftmap" size="256"/>
+  </FileInfo>
+        <error id="clarifyCalculation" severity="style" msg="Clarify calculation precedence for &apos;&amp;&apos; and &apos;?&apos;." verbose="Suspicious calculation. Please use parentheses to clarify the code. The code &apos;&apos;a&amp;b?c:d&apos;&apos; should be written as either &apos;&apos;(a&amp;b)?c:d&apos;&apos; or &apos;&apos;a&amp;(b?c:d)&apos;&apos;." cwe="783">
+            <location file0="C:\Users\jaked\Documents\GitHub\JSD-OS\drivers\kbrd.c" file="C:\Users\jaked\Documents\GitHub\JSD-OS\drivers\kbrd.c" line="100"/>
+        </error>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="add_keypress" lineNumber="18"/>
+    <functiondecl functionName="get_keypress" lineNumber="24"/>
+    <functiondecl functionName="wait_and_get_keypress" lineNumber="44"/>
+    <functiondecl functionName="handle_keyevent" lineNumber="64"/>
+    <functiondecl functionName="keyboard_init" lineNumber="119"/>
+    <functioncall functionName="AT_keyboard_init"/>
+    <functioncall functionName="VK_ALT"/>
+    <functioncall functionName="VK_BACKSPACE"/>
+    <functioncall functionName="VK_CTRL"/>
+    <functioncall functionName="VK_DOWN"/>
+    <functioncall functionName="VK_ENTER"/>
+    <functioncall functionName="VK_ESC"/>
+    <functioncall functionName="VK_LEFT"/>
+    <functioncall functionName="VK_RIGHT"/>
+    <functioncall functionName="VK_SHIFT"/>
+    <functioncall functionName="VK_TAB"/>
+    <functioncall functionName="VK_UP"/>
+    <functioncall functionName="active_process"/>
+    <functioncall functionName="add_keypress"/>
+    <functioncall functionName="asm"/>
+    <functioncall functionName="break"/>
+    <functioncall functionName="default"/>
+    <functioncall functionName="get_active_process"/>
+    <functioncall functionName="get_keypress"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="k"/>
+    <functioncall functionName="keybuf_back"/>
+    <functioncall functionName="keybuf_front"/>
+    <functioncall functionName="l"/>
+    <functioncall functionName="letter"/>
+    <functioncall functionName="lock_interrupts"/>
+    <functioncall functionName="run_next_task"/>
+    <functioncall functionName="scancode"/>
+    <functioncall functionName="switch"/>
+    <functioncall functionName="switch_to_task"/>
+    <functioncall functionName="task_is_running"/>
+    <functioncall functionName="this_task_is_active"/>
+    <functioncall functionName="uint16_t"/>
+    <functioncall functionName="uint8_t"/>
+    <functioncall functionName="unlock_interrupts"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

@@ -50,12 +50,20 @@ int elf_is_compatible(ELF_header32* file_header)
 	return 1;
 }
 
-int load_elf(file_handle* file, process* newTask)
+int load_elf(const char* path, process* newTask)
 {
 	ELF_ident file_identifer;
 	ELF_header32 file_header;
 	
-	file_stream* f = filesystem_open_handle(file, 0);
+	//printf("elf file opening\n");
+	
+	file_stream* f = filesystem_open_file(path, 0);
+	
+	if(f == NULL)
+	{
+		printf("could not open elf file\n");
+		return 0;
+	}
 	
 	//printf("elf file opened\n");
 	
@@ -87,10 +95,12 @@ int load_elf(file_handle* file, process* newTask)
 						newTask->segments[i].pointer = (void*)pg_header.virtual_address;
 						newTask->segments[i].num_pages = num_pages;
 						
-						printf("loading segment at %X\n", pg_header.virtual_address);
+						printf("loading %d byte segment at %X\n", pg_header.mem_size, pg_header.virtual_address);
 						
 						//clear mem_size bytes at virtual_address to 0
-						memmanager_virtual_alloc(pg_header.virtual_address, num_pages, PAGE_USER | PAGE_PRESENT | PAGE_RW);
+						memmanager_virtual_alloc((void*)pg_header.virtual_address, num_pages, PAGE_USER | PAGE_PRESENT | PAGE_RW);
+						
+						printf("segment allocated, used %d pages\n", num_pages);
 						
 						//copy file_size bytes from offset to virtual_address
 						filesystem_seek_file(f, pg_header.offset);
@@ -117,5 +127,5 @@ int load_elf(file_handle* file, process* newTask)
 
 	filesystem_close_file(f);
 	
-	return 0;
+	return 1;
 }

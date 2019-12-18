@@ -3,10 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "../api/syscalls.h"
-#include "../kernel/filesystem.h"
-#include "../kernel/task.h"
-#include "../kernel/memorymanager.h"
+#include <sys/syscalls.h>
 
 char console_user[] = "root";
 char prompt_char = ']';
@@ -68,7 +65,7 @@ int get_command(char* input)
 				if(c > command_buffer)
 				{
 					*c-- = '\0';
-					delete_chars(1);
+					video_erase_chars(1);
 				}
 			}
 			else
@@ -105,17 +102,17 @@ int get_command(char* input)
 	else if(strcmp("fd0:", keyword) == 0)
 	{
 		drive_index = 0;
-		current_directory = filesystem_mount_root_directory(drive_index);
+		//current_directory = filesystem_mount_root_directory(drive_index);
 	}
 	else if(strcmp("fd1:", keyword) == 0)
 	{
 		drive_index = 1;
-		current_directory = filesystem_mount_root_directory(drive_index);
+		//current_directory = filesystem_mount_root_directory(drive_index);
 	}
 	else if(strcmp("cls", keyword) == 0 || strcmp("clear", keyword) == 0)
 	{
 		printf("\x1b[2J\x1b[1;1H");
-		clear_screen();
+		video_clear();
 	}
 	else if(strcmp("echo", keyword) == 0)
 	{
@@ -129,66 +126,70 @@ int get_command(char* input)
 	{
 		file_stream* file;
 		
-		if((file = filesystem_open_file(strtok(NULL, "\"\'\n"), 0)))
+		if((file = open(strtok(NULL, "\"\'\n"), 0)))
 		{
-			size_t file_size = filesystem_get_size(file);
+			//size_t file_size = filesystem_get_size(file);
 			
-			char *dataBuf = (char*)malloc(file_size);
-			
-			filesystem_read_file(dataBuf, file_size, file);
-			
-			for(int i = 0; i < file_size; i++)
-			{
-				if(dataBuf[i] != '\r')
-				{
-					putchar(dataBuf[i]);
-					//printf("%X,", dataBuf[i]);
-				}
-			}
-			
-			filesystem_close_file(file);
-			free(dataBuf);
+			//char *dataBuf = (char*)malloc(file_size);
+			//
+			////filesystem_read_file(dataBuf, file_size, file);
+			//
+			//for(int i = 0; i < file_size; i++)
+			//{
+			//	if(dataBuf[i] != '\r')
+			//	{
+			//		putchar(dataBuf[i]);
+			//		//printf("%X,", dataBuf[i]);
+			//	}
+			//}
+			//
+			////filesystem_close_file(file);
+			//free(dataBuf);
 			
 			putchar('\n');
 		}
 	}
 	else
 	{
-		file_handle* file;
+		spawn_process(keyword, WAIT_FOR_PROCESS);
 		
-		if((file = filesystem_find_file_in_dir(current_directory, keyword)))
-		{	
-			if(strcmp("EXE", file->type) == 0)
-			{
-				int p = load_exe(file);
-				printf("%d\n", p);
-				return p;
-			}
-			else if(strcmp("ELF", file->type) == 0)
-			{
-				spawn_process(file->full_name, WAIT_FOR_PROCESS);
-				return 0;
-			}
-	
-			uint8_t *dataBuf = (uint8_t*)malloc(file->size);
-			
-			file_stream* f = filesystem_open_handle(file, 0);
-			
-			filesystem_read_file(dataBuf, file->size, f);
-			
-			if(strcmp("BAT", file->type) == 0)
-			{
-				get_command(dataBuf);
-			}
-			
-			filesystem_close_file(f);
-			free(dataBuf);
-		}
-		else
-		{
-			printf("File or Command not found\n");
-			return -1;
-		}
+		printf("back from execution");
+		
+		//file_handle* file;
+		//
+		//if((file = filesystem_find_file_in_dir(current_directory, keyword)))
+		//{	
+		//	if(strcmp("EXE", file->type) == 0)
+		//	{
+		//		int p = load_exe(file);
+		//		printf("%d\n", p);
+		//		return p;
+		//	}
+		//	else if(strcmp("ELF", file->type) == 0)
+		//	{
+		//		spawn_process(file->full_name, WAIT_FOR_PROCESS);
+		//		return 0;
+		//	}
+	    //
+		//	uint8_t *dataBuf = (uint8_t*)malloc(file->size);
+		//	
+		//	file_stream* f = filesystem_open_handle(file, 0);
+		//	
+		//	filesystem_read_file(dataBuf, file->size, f);
+		//	
+		//	if(strcmp("BAT", file->type) == 0)
+		//	{
+		//		get_command(dataBuf);
+		//	}
+		//	
+		//	filesystem_close_file(f);
+		//	free(dataBuf);
+		//}
+		//else
+		//{
+		//	printf("File or Command not found\n");
+		//	return -1;
+		//}
 	}
 
 	return 1;
@@ -201,14 +202,14 @@ void prompt()
 	printf("\x1b[32;22m%s\x1b[37m@%s%c", console_user, drive_names[drive_index], prompt_char);
 }
 
-int enter_console()
+int _start(void)
 {
-	current_directory = filesystem_mount_root_directory(drive_index);
+	//current_directory = filesystem_mount_root_directory(drive_index);
 	
-	if(current_directory == NULL)
-	{
-		printf("Could not mount root directory for drive %d %s\n", drive_index, drive_names[drive_index]);
-	}
+	//if(current_directory == NULL)
+	//{
+	//	printf("Could not mount root directory for drive %d %s\n", drive_index, drive_names[drive_index]);
+	//}
 	
 	for(;;)
 	{

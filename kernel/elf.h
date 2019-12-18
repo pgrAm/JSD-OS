@@ -106,6 +106,6 @@ typedef struct
 	uint64_t	alignment;			//alignment requirements for segment
 } ELF_program_header64;
 
-int load_elf(file_handle* file, process* newTask);
+int load_elf(const char* path, process* newTask);
 
 #endif

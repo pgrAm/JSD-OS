@@ -3,6 +3,22 @@
 
 #include "memorymanager.h"
 
+static inline void __flush_tlb()
+{
+   __asm__ volatile("mov %%cr3, %%eax\n"
+					"mov %%eax, %%cr3" 
+					:
+					: 
+					: "%eax", "memory");
+}
+
+static inline void __flush_tlb_page(uint32_t addr)
+{
+	__flush_tlb();
+	
+	//__asm__ volatile("invlpg (%0)" ::"r" (addr) : "memory");
+}
+
 typedef struct 
 {
 	uint32_t offset;
@@ -18,12 +34,12 @@ typedef struct
 uint32_t* const last_pde_address = (uint32_t*)((uint32_t)(PAGE_TABLE_SIZE - 1) * (uint32_t)PAGE_TABLE_SIZE * (uint32_t)PAGE_SIZE);
 uint32_t* const current_page_directory = (uint32_t*)((uint32_t)MAXIMUM_ADDRESS - (uint32_t)PAGE_ADDRESS_MASK);
 
-uint32_t* kernel_page_directory;
-
 #define GET_PAGE_TABLE_ADDRESS(pd_index) ((uint32_t*)(last_pde_address + (PAGE_TABLE_SIZE * pd_index)))
 
+extern void _BSS_END_;
+
 size_t num_memory_blocks = 2;
-memory_block memory_map[2] = {{0x00100000, 0}};//,{0x0000E000, 0x0007FFFF - 0x0000E000}};
+memory_block memory_map[2] = {{(uint32_t)&_BSS_END_, 0}, {0x00100000, 0}};//,{0x0000E000, 0x0007FFFF - 0x0000E000}};
 //memory_block memory_map[1] = {{0x00100000, 0xFFFFFFFF - 0x00100000}};
 
 uint32_t memmanager_get_pt_entry(uint32_t virtual_address)
@@ -81,6 +97,8 @@ void memmanager_create_new_page_table(uint32_t pd_index)
 {
 	current_page_directory[pd_index] = memmanager_allocate_physical_page() | PAGE_USER | PAGE_PRESENT | PAGE_RW;
 	
+	__flush_tlb();
+	
 	//printf("added new page table, %X\n", current_page_directory[pd_index]);
 	
 	uint32_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
@@ -88,7 +106,7 @@ void memmanager_create_new_page_table(uint32_t pd_index)
 	memset(page_table, 0, PAGE_SIZE);
 }
 
-void* memmanager_get_unmapped_pages(size_t num_pages, uint32_t flags)
+void* memmanager_get_unmapped_pages(const size_t num_pages, uint32_t flags)
 {
 	for(size_t pd_index = 0; pd_index < PAGE_TABLE_SIZE; pd_index++)
 	{
@@ -147,7 +165,16 @@ void memmanager_map_page(uint32_t virtual_address, uint32_t physical_address, ui
 	
 	uint32_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 	
-	page_table[(virtual_address >> 12) & PT_INDEX_MASK] = (physical_address & ~PAGE_ADDRESS_MASK) | flags;
+	uint32_t pt_index = (virtual_address >> 12) & PT_INDEX_MASK;
+	
+	if(page_table[pt_index] & PAGE_PRESENT && physical_address != 0)
+	{
+		printf("warning page already exists!\n");
+	}
+	
+	page_table[pt_index] = (physical_address & ~PAGE_ADDRESS_MASK) | flags;
+	
+	__flush_tlb_page(virtual_address);
 	
 	//printf("%X mapped to physical address %X\n", virtual_address, physical_address);	
 }
@@ -203,7 +230,7 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 				
 				page_virtual_address += PAGE_SIZE;
 				
-				if(num_pages-- == 0)
+				if(--num_pages == 0)
 				{
 					memset((uint32_t*)virtual_address, 0, n*PAGE_SIZE);
 					
@@ -221,14 +248,15 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 
 int memmanager_free_pages(void* page, size_t num_pages)
 {
+	uint32_t virtual_address = (uint32_t)page;
+	
 	while(num_pages--)
 	{
-		uint32_t virtual_address = (uint32_t)page;
 		uint32_t physical_address = memmanager_get_pt_entry(virtual_address);
 		
 		memmanager_map_page(virtual_address, 0, 0); //unmap the page
 		
-		page += PAGE_SIZE; //next page
+		virtual_address += PAGE_SIZE; //next page
 		
 		if(!(physical_address & PAGE_PRESENT))
 		{
@@ -261,11 +289,8 @@ int memmanager_free_pages(void* page, size_t num_pages)
 
 void memmanager_init_page_dir(uint32_t* page_dir, uint32_t physaddr)
 {
-	for(size_t i = 0; i < PAGE_TABLE_SIZE - 1; i++)
-	{
-		//Mark page not present
-		page_dir[i] = 0;
-	}
+	//Mark pages not present
+	memset(page_dir, 0, PAGE_SIZE);
 	
 	//the last entry in the page dir is mapped to the page dir
 	page_dir[PAGE_TABLE_SIZE - 1] = physaddr | PAGE_PRESENT | PAGE_RW;
@@ -302,72 +327,46 @@ void memmanager_enter_memory_space(uint32_t memspace)
 	set_page_directory((uint32_t*)memmanager_get_physical((uint32_t)memspace));
 }
 
-uint32_t memmanager_exit_memory_space(uint32_t pdir)
+uint32_t memmanager_destroy_memory_space(uint32_t pdir)
 {
-	set_page_directory(kernel_page_directory);
-	//memmanager_free_pages((void*)pdir, 1);
+	//set_page_directory(kernel_page_directory);
+	memmanager_free_pages((void*)pdir, 1);
 	
 	return 1;
-}
-
-int load_exe(file_handle* file)
-{
-	file_stream* f = filesystem_open_handle(file, 0);
-	
-	size_t num_code_pages = (file->size + (PAGE_SIZE - 1)) / PAGE_SIZE;
-	
-	uint8_t* code_seg = memmanager_virtual_alloc(NULL, num_code_pages, PAGE_PRESENT | PAGE_RW);
-	
-	filesystem_read_file(code_seg, file->size, f);
-	filesystem_close_file(f);
-	
-	uint32_t code_seg_physical = memmanager_get_physical((uint32_t)code_seg);
-	
-	uint32_t* process_page_dir = memmanager_virtual_alloc(NULL, 1, PAGE_PRESENT | PAGE_RW);
-	uint32_t* old_page_dir = (uint32_t*)memmanager_get_physical((uint32_t)current_page_directory);
-	
-	memmanager_init_page_dir(process_page_dir, memmanager_get_physical((uint32_t)process_page_dir));
-	
-	//printf("page dir setup\n");
-	
-	//copy PT0 from the kernel's page dir into the process page dir
-	process_page_dir[0] = current_page_directory[0] & ~PAGE_USER;
-	
-	//printf("page dir mapped\n");
-	
-	set_page_directory((uint32_t*)memmanager_get_physical((uint32_t)process_page_dir));
-	
-	//printf("Inside process page dir\n");
-	
-	memmanager_map_page(0x50000, code_seg_physical, PAGE_USER | PAGE_PRESENT | PAGE_RW);
-	
-	//printf("Code Seg mapped\n");
-	
-	memmanager_map_page(0xB8000, 0xB8000, PAGE_USER | PAGE_PRESENT | PAGE_RW); //map the video memory
-	
-	int (*p)(void) = (void*)0x50000;
-	
-	int r = p();
-	
-	printf("Process returned %d\n", r);
-	
-	set_page_directory(old_page_dir);
-	
-	memmanager_free_pages(code_seg, 1);
-	
-	return r;
 }
 
 #include "multiboot.h"
 extern struct multiboot_info* _multiboot;
 
+size_t total_mem_size = 0;
+
+size_t memmanager_num_bytes_free(void)
+{
+	size_t sum = 0;
+	
+	for(size_t i = 0; i < num_memory_blocks; i++)
+	{
+		sum += memory_map[i].length;
+	}
+	
+	return sum;
+}
+
+size_t memmanager_mem_size(void)
+{
+	return total_mem_size;
+}
+
 void memmanager_init(void)
 {
 	//puts("memmanager init");
 	
-	memory_map[0].length = _multiboot->m_memoryHi * 1024;
+	total_mem_size = _multiboot->m_memoryLo * 1024 + _multiboot->m_memoryHi * 1024;
 	
-	kernel_page_directory = (uint32_t*)memmanager_allocate_physical_page();
+	memory_map[0].length = (_multiboot->m_memoryLo * 1024) - (uint32_t)&_BSS_END_;
+	memory_map[1].length = _multiboot->m_memoryHi * 1024;
+	
+	uint32_t* kernel_page_directory = (uint32_t*)memmanager_allocate_physical_page();
 	uint32_t* first_page_table = (uint32_t*)memmanager_allocate_physical_page();
 	
 	memmanager_init_page_dir(kernel_page_directory, (uint32_t)kernel_page_directory);

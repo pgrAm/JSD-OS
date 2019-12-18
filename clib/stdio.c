@@ -97,11 +97,6 @@ struct _internal_FILE _internal_stdin =
 	.writeptr = 0
 };		
 
-void setup_stdin()
-{
-	stdin->bufsize = 256;
-	stdin->buf = (char*)malloc(stdin->bufsize);
-}
 
 //struct _internal_FILE _internal_stderr = 	{ 
 //							.eof_indicator = 0, 	
@@ -221,15 +216,15 @@ int fputc(int character, FILE * stream)
 {
 	if(stream == stdin)
 	{
-		if(stdin->writeptr < stdin->bufsize)
-		{
-			stdin->buf[stdin->writeptr++] = character;
-		}
-		else
-		{
-			stdin->writeptr = 0;
-			stdin->readptr = 0;
-		}
+		//if(stdin->writeptr < stdin->bufsize)
+		//{
+		//	stdin->buf[stdin->writeptr++] = character;
+		//}
+		//else
+		//{
+		//	stdin->writeptr = 0;
+		//	stdin->readptr = 0;
+		//}
 	}
 	
 	//stream->print_c_func(stream, (unsigned char)character);
@@ -239,7 +234,9 @@ int fputc(int character, FILE * stream)
 
 int putchar(int character)
 {
-	print_string(&character, 1);
+	char c = (char)character;
+	
+	print_string(&c, 1);
 	
 	return character;
 }
@@ -248,9 +245,7 @@ int getc(FILE* stream)
 {
 	if(stream == stdin)
 	{
-		while(stdin->writeptr <= stdin->readptr); //wait for a character
-		
-		return stdin->buf[stdin->readptr++]; //read a character
+		return wait_and_getkey();
 	}
 	
 	return 0;//stream->get_c_func(stdin);

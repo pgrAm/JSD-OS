@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <time.h>
 
+#define WAIT_FOR_PROCESS 0x01
+
 enum syscall_indices
 {
 	SYSCALL_PRINT = 0,
@@ -18,7 +20,12 @@ enum syscall_indices
 	SYSCALL_TIMEZONE = 8,
 	SYSCALL_ALLOC_PAGES = 9,
 	SYSCALL_FREE_PAGES = 10,
+	SYSCALL_KEYGET = 11,
+	SYSCALL_WAIT_KEYGET = 12,
+	SYSCALL_CLEAR_SCREEN = 13, //these can be axed later
+	SYSCALL_ERASE_CHARS = 14 //these can be axed later
 };
+
 
 struct file_stream;
 typedef struct file_stream file_stream;
@@ -123,5 +130,24 @@ static inline int free_pages(void *p, size_t n)
 	return (int)do_syscall_2(SYSCALL_FREE_PAGES, (uint32_t)p, (uint32_t)n);
 }
 
+static inline uint8_t getkey()
+{
+	return (uint8_t)do_syscall_0(SYSCALL_KEYGET);
+}
+
+static inline uint8_t wait_and_getkey()
+{
+	return (uint8_t)do_syscall_0(SYSCALL_WAIT_KEYGET);
+}
+
+static inline void video_clear()
+{
+	do_syscall_0(SYSCALL_CLEAR_SCREEN);
+}
+
+static inline void video_erase_chars(size_t n)
+{
+	do_syscall_1(SYSCALL_ERASE_CHARS, (uint32_t)n);
+}
 
 #endif

@@ -12,7 +12,7 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 
 uint32_t memmanager_new_memory_space();
 void memmanager_enter_memory_space(uint32_t memspace);
-uint32_t memmanager_exit_memory_space(uint32_t memspace);
+uint32_t memmanager_destroy_memory_space(uint32_t memspace);
 
 extern void set_page_directory(uint32_t* address);
 extern void enable_paging(void);
@@ -29,5 +29,8 @@ int load_exe(file_handle* file_name);
 
 #define PAGE_SIZE 4096
 #define PAGE_TABLE_SIZE 1024
+
+size_t memmanager_num_bytes_free(void);
+size_t memmanager_mem_size(void);
 
 #endif

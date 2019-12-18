@@ -69,10 +69,11 @@ file_handle* filesystem_find_file_in_dir(directory* d, const char* name)
 		for(size_t i = 0; i < d->num_files; i++)
 		{
 			if(strcasecmp(d->file_list[i].full_name, name) == 0)
-			{
+			{			
 				return &d->file_list[i];
 			}
 		}
+		
 	}
 	
 	return NULL;
@@ -109,11 +110,11 @@ SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags)
 	{
 		return NULL;
 	}
-	
+		
 	file_handle* f = filesystem_find_file_in_dir(rootDir, name);
 	
 	if(f != NULL)
-	{
+	{	
 		return filesystem_open_handle(f, flags);
 	}
 	

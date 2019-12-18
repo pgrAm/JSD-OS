@@ -69,7 +69,7 @@ enum floppy_commands
 bool motor_is_ready[2] = {false, false};
 volatile bool operation_complete = false;
 
-void floppy_irq_handler(struct interrupt_info *r)
+void floppy_irq_handler(interrupt_info *r)
 {
 	operation_complete = true;
 }
@@ -203,7 +203,7 @@ void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_
 		
 		for(int b = 0; b < 6; b++)
 		{
-			floppy_getbyte ();
+			floppy_getbyte();
 		}
 		
 		floppy_sendbyte(SENSE_INTERRUPT); //now acknowledge the interrupt
@@ -215,6 +215,8 @@ void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_
 			return; //read success!
 		} 
 
+		printf("read failure #%d\n", i);
+		
 		floppy_reset(driveNum);
 	}
 	
@@ -289,16 +291,18 @@ int floppy_calibrate(uint8_t driveNum)
 		uint8_t st0 = floppy_getbyte();
 		uint8_t cyl = floppy_getbyte();
        
-        if(st0 & 0xC0) 
+        if(!(st0 & 0xC0)) 
 		{
-            continue;
-        }
-
-        if(cyl == 0) //reached cylinder 0
-		{
-            floppy_motor_off(driveNum);
-            return 0;
-        }
+			if(cyl == 0) //reached cylinder 0
+			{
+				floppy_motor_off(driveNum);
+				return 0;
+			}
+			
+			printf("Cylinder 0 not reached\n");
+		}
+		
+		printf("floppy calibrate failed %X\n", st0);
     }
 
     floppy_motor_off(driveNum);

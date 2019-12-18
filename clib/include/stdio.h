@@ -15,10 +15,6 @@ typedef size_t fpos_t;
 typedef struct _internal_FILE FILE;
 
 extern FILE* stdin;
-//extern FILE* stdout;
-//extern FILE* stderr;
-
-void setup_stdin();
 
 void clearerr(FILE* stream);
 FILE* fopen(const char* filename, const char* mode);

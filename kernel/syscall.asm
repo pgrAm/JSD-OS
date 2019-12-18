@@ -11,4 +11,4 @@ handle_syscall:
 	iret
 .invalid_call:
 	mov eax, 0xFFFFFFFF
-	iret
+	o32 iret
