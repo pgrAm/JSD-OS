@@ -1,4 +1,3 @@
-OUTPUT_FORMAT("binary")
 ENTRY(start)
 phys = 0x001000;
 SECTIONS
