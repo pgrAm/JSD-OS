@@ -30,7 +30,7 @@ enum syscall_indices
 struct file_stream;
 typedef struct file_stream file_stream;
 
-static inline uint32_t do_syscall_3(size_t   syscall_index, uint32_t arg0, uint32_t arg1, uint32_t arg2)
+static inline uint32_t do_syscall_3(size_t syscall_index, uint32_t arg0, uint32_t arg1, uint32_t arg2)
 {
 	uint32_t retval;
 	__asm__ volatile(	"int $0x80"
