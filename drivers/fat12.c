@@ -76,7 +76,7 @@ time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
 	return mktime(&file_time);
 }
 
-void fat12_mount_directory(directory* root, const fat12_drive* selected_drive, size_t logicalDriveNumber)
+void fat12_mount_directory(directory_handle* root, const fat12_drive* selected_drive, size_t logicalDriveNumber)
 {
 	uint8_t *root_directory = (uint8_t*)malloc(selected_drive->root_size * selected_drive->bytes_per_sector);
 	

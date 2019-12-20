@@ -34,13 +34,11 @@ int filesystem_setup_drives()
 	return NUM_DRIVES;
 }
 
-directory* rootDir = NULL;
-
-directory* filesystem_mount_root_directory(size_t driveNumber)
+SYSCALL_HANDLER directory_handle* filesystem_mount_drive(size_t driveNumber)
 {
 	if(driveNumber > NUM_DRIVES)
 	{
-		rootDir = NULL;
+		return NULL;
 	}
 	else
 	{
@@ -52,17 +50,16 @@ directory* filesystem_mount_root_directory(size_t driveNumber)
 			{
 				case FORMAT_FAT12:
 					fat12_mount_disk(d, driveNumber);
+					d->mounted = true;
 				break;
 			}
 		}
 		
-		rootDir = &d->root;
+		return &d->root;
 	}
-	
-	return rootDir;
 }
 
-file_handle* filesystem_find_file_in_dir(directory* d, const char* name)
+file_handle* filesystem_find_file_in_dir(directory_handle* d, const char* name)
 {
 	if(d != NULL)
 	{
@@ -73,7 +70,6 @@ file_handle* filesystem_find_file_in_dir(directory* d, const char* name)
 				return &d->file_list[i];
 			}
 		}
-		
 	}
 	
 	return NULL;
@@ -81,8 +77,7 @@ file_handle* filesystem_find_file_in_dir(directory* d, const char* name)
 
 file_handle* filesystem_find_file_on_disk(size_t driveNumber, const char* name)
 {
-	directory* root = filesystem_mount_root_directory(driveNumber);
-	
+	directory_handle* root = filesystem_mount_drive(driveNumber);
 	return filesystem_find_file_in_dir(root, name);
 }
 
@@ -103,18 +98,12 @@ SYSCALL_HANDLER file_stream* filesystem_open_handle(file_handle* f, int flags)
 	return stream;
 }
 
-
 SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags)
 {
-	if(rootDir == NULL)
-	{
-		return NULL;
-	}
-		
-	file_handle* f = filesystem_find_file_in_dir(rootDir, name);
+	file_handle* f = filesystem_find_file(name);
 	
 	if(f != NULL)
-	{	
+	{
 		return filesystem_open_handle(f, flags);
 	}
 	

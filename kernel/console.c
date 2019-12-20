@@ -12,7 +12,7 @@ char console_user[] = "root";
 char prompt_char = ']';
 char command_buffer[256];
 
-directory* current_directory = NULL;
+directory_handle* current_directory = NULL;
 
 size_t drive_index = 0;
 

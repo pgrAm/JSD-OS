@@ -18,8 +18,6 @@
 
 extern struct multiboot_info* _multiboot;
 
-extern uint32_t getEIP(void);
-
 void kernel_main() 
 {
 	initialize_video();
@@ -79,7 +77,7 @@ void kernel_main()
 
 	int drive_index = 0;
 	
-	directory* current_directory = filesystem_mount_root_directory(drive_index);
+	directory_handle* current_directory = filesystem_mount_drive(drive_index);
 	
 	if(current_directory == NULL)
 	{

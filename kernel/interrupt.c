@@ -182,10 +182,15 @@ void fault_handler(interrupt_info *r)
     {
         printf("%s Exception. System Halted!\n", exception_messages[r->int_no]);
 		
+        printf("GS=%X\n", r->gs);
+        printf("FS=%X\n", r->fs);
+        printf("ES=%X\n", r->es);
+        printf("DS=%X\n", r->ds);
+        printf("SS=%X\n", r->ss);
 		printf("CS=%X\n", r->cs);
 		printf("EIP=%X\n", r->eip);
 		printf("ESP=%X\n", r->esp);
-		
+
 		if (r->int_no == 14)
 		{
 			if(r->err_code & 0x04)
