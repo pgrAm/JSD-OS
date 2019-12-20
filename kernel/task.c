@@ -16,7 +16,7 @@ size_t num_processes = 1;
 
 TCB running_tasks[3];
 
-size_t active_process;
+size_t active_process = -1;
 
 int get_active_process()
 {
@@ -70,9 +70,14 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 {
 	//we need to copy the path onto the stack 
 	//otherwise it will be in the address space of another process
-	int t = strlen(p);
+	int pathlen = strlen(p);
+	if (pathlen > 80 - 1)
+	{
+		puts("Cannot launch process: filename too long\n");
+		return;
+	}
 	char path[80];
-	memcpy(path, p, t + 1);
+	memcpy(path, p, pathlen + 1);
 
 	uint32_t oldcr3 = get_page_directory();
 	
@@ -121,8 +126,6 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 		unlock_interrupts(l);
 		
 		switch_to_task(this_process);
-		
-		printf("we're back\n");
 	}
 }
 
