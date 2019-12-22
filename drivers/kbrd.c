@@ -5,6 +5,7 @@
 #include "../kernel/syscall.h"
 #include "kbrd.h"
 #include "at_kbrd.h"
+#include "locks.h"
 
 const key_type keymap[256]  = "\0\x1b""1234567890-=\b\tqwertyuiop[]\n\0asdfghjkl;\'`\0\\zxcvbnm,./\0*\0 \0""1234567890\0\0""789-456+1230.";
 const key_type shftmap[256] = "\0\x1b""!@#$%^&*()_+\b\tQWERTYUIOP{}\n\0ASDFGHJKL:\"~\0\\ZXCVBNM<>?\0*\0 \0""1234567890\0\0""789-456+1230.";

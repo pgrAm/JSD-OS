@@ -52,6 +52,8 @@ SYSCALL_HANDLER directory_handle* filesystem_mount_drive(size_t driveNumber)
 					fat12_mount_disk(d, driveNumber);
 					d->mounted = true;
 				break;
+				default:
+					return NULL;
 			}
 		}
 		
@@ -59,7 +61,7 @@ SYSCALL_HANDLER directory_handle* filesystem_mount_drive(size_t driveNumber)
 	}
 }
 
-file_handle* filesystem_find_file_in_dir(directory_handle* d, const char* name)
+file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* name)
 {
 	if(d != NULL)
 	{
@@ -77,7 +79,8 @@ file_handle* filesystem_find_file_in_dir(directory_handle* d, const char* name)
 
 file_handle* filesystem_find_file_on_disk(size_t driveNumber, const char* name)
 {
-	directory_handle* root = filesystem_mount_drive(driveNumber);
+	const directory_handle* root = filesystem_mount_drive(driveNumber);
+
 	return filesystem_find_file_in_dir(root, name);
 }
 
@@ -102,12 +105,7 @@ SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags)
 {
 	file_handle* f = filesystem_find_file(name);
 	
-	if(f != NULL)
-	{
-		return filesystem_open_handle(f, flags);
-	}
-	
-	return NULL;
+	return (f != NULL) ? filesystem_open_handle(f, flags) : NULL;
 }
 	
 fs_index filesystem_get_next_location_on_disk(const file_stream* f, fs_index chunk_index)
@@ -137,6 +135,8 @@ fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 		case FORMAT_FAT12:
 			return fat12_read_clusters(f->buffer, CHUNK_READ_SIZE, chunk_index, d);
 		break;
+		default:
+			return 0;
 	}
 	
 	return 0;

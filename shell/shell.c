@@ -145,16 +145,14 @@ int get_command(char* input)
 			//
 			////filesystem_close_file(file);
 			//free(dataBuf);
-			
+			close(file);
 			putchar('\n');
 		}
 	}
 	else
 	{
 		spawn_process(keyword, WAIT_FOR_PROCESS);
-		
-		printf("back from execution");
-		
+
 		//file_handle* file;
 		//
 		//if((file = filesystem_find_file_in_dir(current_directory, keyword)))

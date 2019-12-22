@@ -1,0 +1,15 @@
+{
+  "configurations": [
+    {
+      "inheritEnvironments": [
+        "vsdev"
+      ],
+      "name": "clang",
+      "includePath": [
+        "${workspaceRoot}\\**"
+      ],
+      "intelliSenseMode": "windows-clang-x86",
+      "compilerSwitches": "-std=c99"
+    }
+  ]
+}

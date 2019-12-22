@@ -1,6 +1,6 @@
 #include "video.h"
 #include "portio.h"
-#include "task.h"
+#include "locks.h"
 
 #include <stdlib.h>
 #include <ctype.h>

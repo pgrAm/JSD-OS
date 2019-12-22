@@ -2,6 +2,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/syscalls.h>
+#ifdef __KERNEL
+#include <locks.h>
+#endif
 
 #define _HAVE_UINTPTR_T
 
@@ -36,20 +39,30 @@ int atoi(const char * str)
 	
 	return n*sign;
 }
-
+#ifdef __KERNEL
+static volatile int_lock alloc_lock = 0;
 int liballoc_lock()
 {
-	//__asm__ ("cli");
-	
+	alloc_lock = lock_interrupts();	
 	return 0;
 }
 
 int liballoc_unlock()
 {
-	//__asm__ ("sti");
-	
+	unlock_interrupts(alloc_lock);	
 	return 0;
 }
+#else
+int liballoc_lock()
+{
+	return 0;
+}
+
+int liballoc_unlock()
+{
+	return 0;
+}
+#endif
 
 #ifdef __KERNEL
 	#define MALLOC_FLAGS (PAGE_PRESENT | PAGE_RW)

@@ -95,12 +95,12 @@ int load_elf(const char* path, process* newTask)
 						newTask->segments[i].pointer = (void*)pg_header.virtual_address;
 						newTask->segments[i].num_pages = num_pages;
 						
-						printf("loading %d byte segment at %X\n", pg_header.mem_size, pg_header.virtual_address);
+						//printf("loading %d byte segment at %X\n", pg_header.mem_size, pg_header.virtual_address);
 						
 						//clear mem_size bytes at virtual_address to 0
 						memmanager_virtual_alloc((void*)pg_header.virtual_address, num_pages, PAGE_USER | PAGE_PRESENT | PAGE_RW);
 						
-						printf("segment allocated, used %d pages\n", num_pages);
+						//printf("segment allocated, used %d pages\n", num_pages);
 						
 						//copy file_size bytes from offset to virtual_address
 						filesystem_seek_file(f, pg_header.offset);

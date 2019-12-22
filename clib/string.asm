@@ -32,3 +32,8 @@ memcpy:
 	pop esi
 	pop edi
 	ret
+
+global getSS
+getSS:
+	mov ax, ss
+	ret

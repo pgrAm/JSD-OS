@@ -167,7 +167,7 @@ run_user_code:
 	push GDT_USER_CODE_SEG | 3	;user code segment with bottom 2 bits set for ring 3
 	push ebx 					;address of the user function
 	iret
-	
+
 global current_task_TCB
 current_task_TCB dd 0
 

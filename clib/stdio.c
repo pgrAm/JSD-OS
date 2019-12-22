@@ -200,7 +200,7 @@ char *gets_s(char *str, size_t length) //!safe version of gets, if you provide a
 
 char *gets(char *str) //blatantly unsafe function please do not use: BUFFER OVERFLOW!!!
 {
-	char *c = str;
+	//char *c = str;
 	
 	//*c = stdin->get_c_func(stdin);
 	//while(*(c++) != '\n')
