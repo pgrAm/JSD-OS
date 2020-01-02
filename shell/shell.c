@@ -9,39 +9,58 @@ char console_user[] = "root";
 char prompt_char = ']';
 char command_buffer[256];
 
-//directory* current_directory = NULL;
+directory_handle* current_directory = NULL;
 
 size_t drive_index = 0;
 
 void list_directory()
 {
-	//if(current_directory == NULL)
-	//{
-	//	printf("Invalid Directory\n");
-	//	return;
-	//}
-	//
-	//printf("\n Name    Type  Size   Created     Modified\n\n");
-	//
-	//const char* format = " %-8s %s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n";
-	//
-	//size_t total_bytes = 0;
-	//size_t i;
-	//
-	//for(i = 0; i < current_directory->num_files; i++)
-	//{
-	//	struct tm created	= *localtime(&current_directory->file_list[i].time_created);
-	//	struct tm modified	= *localtime(&current_directory->file_list[i].time_modified);
-	//	
-	//	total_bytes += current_directory->file_list[i].size;
-	//	
-	//	printf(format,	current_directory->file_list[i].name, 
-	//					current_directory->file_list[i].type, 
-	//					current_directory->file_list[i].size, 
-	//					created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
-	//					modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
-	//}
-	//printf("\n %5d Files   %5d Bytes\n\n", i, total_bytes);
+	if(current_directory == NULL)
+	{
+		printf("Invalid Directory\n");
+		return;
+	}
+	
+	printf("\n Name    Type  Size   Created     Modified\n\n");
+	
+	const char* format = " %-12s %s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n";
+	
+	size_t total_bytes = 0;
+	size_t i = 0;
+	file_handle* f_handle = NULL;
+
+	while(f_handle = get_file_in_dir(current_directory, i++))
+	{
+		file_info f;
+		get_file_info(&f, f_handle);
+
+		struct tm created	= *localtime(&f.time_created);
+		struct tm modified	= *localtime(&f.time_modified);
+		
+		total_bytes += f.size;
+		
+		printf(format,	f.name, 
+						"N/A", 
+						f.size, 
+						created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
+						modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
+	}
+	printf("\n %5d Files   %5d Bytes\n\n", i, total_bytes);
+}
+
+int find_file_in_dir(const directory_handle* dir, file_info* f, const char* name)
+{
+	size_t i = 0;
+	file_handle* f_handle = NULL;
+	while (f_handle = get_file_in_dir(dir, i++))
+	{
+		get_file_info(f, f_handle);
+		if (strcasecmp(name, f->name) == 0)
+		{
+			return 0;
+		}
+	}
+	return -1;
 }
 
 int get_command(char* input)
@@ -102,12 +121,12 @@ int get_command(char* input)
 	else if(strcmp("fd0:", keyword) == 0)
 	{
 		drive_index = 0;
-		//current_directory = filesystem_mount_root_directory(drive_index);
+		current_directory = get_root_directory(drive_index);
 	}
 	else if(strcmp("fd1:", keyword) == 0)
 	{
 		drive_index = 1;
-		//current_directory = filesystem_mount_root_directory(drive_index);
+		current_directory = get_root_directory(drive_index);
 	}
 	else if(strcmp("cls", keyword) == 0 || strcmp("clear", keyword) == 0)
 	{
@@ -151,23 +170,22 @@ int get_command(char* input)
 	}
 	else
 	{
-		spawn_process(keyword, WAIT_FOR_PROCESS);
+		//spawn_process(keyword, WAIT_FOR_PROCESS);
 
-		//file_handle* file;
-		//
-		//if((file = filesystem_find_file_in_dir(current_directory, keyword)))
-		//{	
+		file_info file;
+		if(find_file_in_dir(current_directory, &file, keyword) == 0)
+		{	
 		//	if(strcmp("EXE", file->type) == 0)
 		//	{
 		//		int p = load_exe(file);
 		//		printf("%d\n", p);
 		//		return p;
 		//	}
-		//	else if(strcmp("ELF", file->type) == 0)
-		//	{
-		//		spawn_process(file->full_name, WAIT_FOR_PROCESS);
-		//		return 0;
-		//	}
+		//if(strcmp("ELF", file->type) == 0)
+		{
+			spawn_process(file.name, WAIT_FOR_PROCESS);
+			return 0;
+		}
 	    //
 		//	uint8_t *dataBuf = (uint8_t*)malloc(file->size);
 		//	
@@ -182,12 +200,12 @@ int get_command(char* input)
 		//	
 		//	filesystem_close_file(f);
 		//	free(dataBuf);
-		//}
-		//else
-		//{
-		//	printf("File or Command not found\n");
-		//	return -1;
-		//}
+		}
+		else
+		{
+			printf("File or Command not found\n");
+			return -1;
+		}
 	}
 
 	return 1;
@@ -202,12 +220,12 @@ void prompt()
 
 int _start(void)
 {
-	//current_directory = filesystem_mount_root_directory(drive_index);
+	current_directory = get_root_directory(drive_index);
 	
-	//if(current_directory == NULL)
-	//{
-	//	printf("Could not mount root directory for drive %d %s\n", drive_index, drive_names[drive_index]);
-	//}
+	if(current_directory == NULL)
+	{
+		printf("Could not mount root directory for drive %d %s\n", drive_index, drive_names[drive_index]);
+	}
 	
 	for(;;)
 	{

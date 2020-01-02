@@ -9,3 +9,5 @@ drivers/asm_output.s
 *.o
 test.txt
 notes.txt
+/.vs
+/run.bat

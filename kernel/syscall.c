@@ -45,7 +45,10 @@ const void* syscall_table[] =
 	get_keypress,
 	wait_and_get_keypress,
 	syscall_video_clear_screen,
-	syscall_video_delete_char
+	syscall_video_delete_char,
+	filesystem_get_file_in_dir,
+	filesystem_get_file_info,
+	filesystem_get_root_directory
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

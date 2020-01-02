@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <time.h>
+#include <files.h>
 
 #define WAIT_FOR_PROCESS 0x01
 
@@ -23,10 +24,16 @@ enum syscall_indices
 	SYSCALL_KEYGET = 11,
 	SYSCALL_WAIT_KEYGET = 12,
 	SYSCALL_CLEAR_SCREEN = 13, //these can be axed later
-	SYSCALL_ERASE_CHARS = 14 //these can be axed later
+	SYSCALL_ERASE_CHARS = 14, //these can be axed later
+	SYSCALL_GET_FILE_IN_DIR = 15,
+	SYSCALL_GET_FILE_INFO = 16,
+	SYSCALL_GET_ROOT_DIR = 17
 };
 
-
+struct file_handle;
+typedef struct file_handle file_handle;
+struct directory_handle;
+typedef struct directory_handle directory_handle;
 struct file_stream;
 typedef struct file_stream file_stream;
 
@@ -148,6 +155,21 @@ static inline void video_clear()
 static inline void video_erase_chars(size_t n)
 {
 	do_syscall_1(SYSCALL_ERASE_CHARS, (uint32_t)n);
+}
+
+static inline file_handle* get_file_in_dir(const directory_handle* d, size_t index)
+{
+	return (file_handle*)do_syscall_2(SYSCALL_GET_FILE_IN_DIR, (uint32_t)d, (uint32_t)index);
+}
+
+static inline int get_file_info(file_info* dst, const file_handle* src)
+{
+	return (int)do_syscall_2(SYSCALL_GET_FILE_INFO, (uint32_t)dst, (uint32_t)src);
+}
+
+static inline directory_handle* get_root_directory(size_t drive_index)
+{
+	return (directory_handle*)do_syscall_1(SYSCALL_GET_ROOT_DIR, (uint32_t)drive_index);
 }
 
 #endif

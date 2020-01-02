@@ -1,0 +1,17 @@
+#ifndef FILES_H
+#define FILES_H
+
+#include <stddef.h>
+#include <time.h>
+
+#define MAX_PATH 255
+
+typedef struct
+{
+	size_t size;
+	time_t time_created;
+	time_t time_modified;
+	char name[MAX_PATH];
+} file_info;
+
+#endif

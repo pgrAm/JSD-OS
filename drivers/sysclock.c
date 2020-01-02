@@ -175,7 +175,7 @@ void sysclock_get_date_time(struct tm* result)
     if(century_register != 0) 
 	{
 		result->tm_year += century * 100;
-    } 
+    }
 	else 
 	{
 		result->tm_year += (2014 / 100) * 100;
@@ -190,4 +190,9 @@ void sysclock_get_date_time(struct tm* result)
 	
 	result->tm_mon -= 1;
 	result->tm_year -= 1900;
+
+	printf("day of the month: %d\n", result->tm_mday);
+	printf("hour of day: %d\n", result->tm_hour);
+	printf("minute of hour: %d\n", result->tm_min);
+	printf("second of minute: %d\n", result->tm_sec);
 }

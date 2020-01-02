@@ -77,7 +77,7 @@ void kernel_main()
 
 	int drive_index = 0;
 	
-	directory_handle* current_directory = filesystem_mount_drive(drive_index);
+	directory_handle* current_directory = filesystem_get_root_directory(drive_index);
 	
 	if(current_directory == NULL)
 	{

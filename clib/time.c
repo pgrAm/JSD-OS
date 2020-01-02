@@ -8,6 +8,12 @@
 #define THE_BEGINNING_OF_TIME 1970 	//throughout this file "the beginning of time" will refer to:
 #define THE_MOMENT_OF_CREATION 0 	//January 1, 1970
 #define GREGORIAN_CYCLE 146097 		//a gregorian cycle is 146,097 days long
+#define YEARS_PER_CYCLE 400
+#define LEAP_DAYS_PER_CYCLE 97
+#define LEAP_DAYS_BEFORE_EPOCH 477
+#define DAYS_BEFORE_EPOCH (365 * THE_BEGINNING_OF_TIME + LEAP_DAYS_BEFORE_EPOCH)
+#define DAYS_PER_4_YEARS (365 * 4 + 1)
+#define DAYS_PER_100_YEARS (DAYS_PER_4_YEARS * 25 - 1)
 
 static struct tm date_ret;
 
@@ -81,8 +87,10 @@ time_t mktime(struct tm* timeptr)
 
 	unix_time += ordinal_date[IS_LEAP_YEAR(actual_year)][timeptr->tm_mon] * 86400;
 	
+	uint32_t last_year = actual_year - 1;
+
 	//there were 477 leap years between 0 AD and the beginning of time, so subtract that
-	unix_time += (((actual_year - THE_BEGINNING_OF_TIME) * 365) + ((actual_year / 4) - (actual_year / 100) + (actual_year / 400) - 477)) * 86400;
+	unix_time += (((actual_year - THE_BEGINNING_OF_TIME) * 365) + ((last_year / 4) - (last_year / 100) + (last_year / 400) - LEAP_DAYS_BEFORE_EPOCH)) * 86400;
 	
 	return unix_time;
 }
@@ -101,35 +109,39 @@ struct tm* gmtime(const time_t* timer)
     date_ret.tm_hour = (int)(currtime % 24);
 	date_ret.tm_min += (date_ret.tm_min < 0) ? (date_ret.tm_hour--, 60) : 0; //correct for dates before the beginning of time
 
-    currtime /= 24; //currtime now in days
-	date_ret.tm_wday = (int)((currtime + 4) % 7);
+	time_t days = currtime / 24; //currtime now in days
+	date_ret.tm_wday = (int)((days + 4) % 7);
 		
-	date_ret.tm_hour += (date_ret.tm_hour < 0) ? (currtime--, 24) : 0; //correct for dates before the beginning of time
+	date_ret.tm_hour += (date_ret.tm_hour < 0) ? (days--, 24) : 0; //correct for dates before the beginning of time
 	date_ret.tm_wday += (date_ret.tm_wday < 0) ? 7 : 0; //correct for dates before the beginning of time
 
-	int year = (146000*THE_BEGINNING_OF_TIME + 400*477 + 400*currtime) / GREGORIAN_CYCLE; 	//BEATIFUL MATH, derived from our calculation 
-																							//of the timestamp in the first place
-																							//technically this algorithm will give us
-																							//an approximate answer but the integer's 
-																							//lack of precision works in our favor
+	time_t days_since_1bc = DAYS_BEFORE_EPOCH + days + 1;
 
-	currtime -= ((year - THE_BEGINNING_OF_TIME) * 365) + ((97 * year / 400) - 477);
+	int year = YEARS_PER_CYCLE * (days_since_1bc / GREGORIAN_CYCLE);
+	int days_since_cycle = days_since_1bc %= GREGORIAN_CYCLE;
 
-	date_ret.tm_yday = (int)currtime;
-	
+	year += 100 * (days_since_cycle / DAYS_PER_100_YEARS);
+	days_since_cycle %= DAYS_PER_100_YEARS;
+
+	year += 4 * (days_since_cycle / DAYS_PER_4_YEARS);
+	days_since_cycle %= DAYS_PER_4_YEARS;
+
+	year += (days_since_cycle / 365);
+	days_since_cycle %= 365;
+
+	date_ret.tm_yday = (int)days_since_cycle;
+
 	uint32_t month = 0; //the current month
 	time_t dpm; //number of days in the current month
 		
-	while(currtime >= (dpm = (time_t)days_per_month[IS_LEAP_YEAR(year)][month])) //this has a constant running time but it still sucks
+	while(days_since_cycle >= (dpm = (time_t)days_per_month[IS_LEAP_YEAR(year)][month])) //this has a constant running time but it still sucks
 	{
-		currtime -= dpm;
+		days_since_cycle -= dpm;
 		month++;
 	}
 
-	date_ret.tm_mday = (int)currtime + 1;
-	
+	date_ret.tm_mday = (int)days_since_cycle + 1;
 	date_ret.tm_mon = month;
-
 	date_ret.tm_year = year - 1900;
 	
 	return &date_ret;

@@ -6,6 +6,8 @@
 
 #include "syscall.h"
 
+#include <api/files.h>
+
 typedef size_t fs_index; 
 
 //information about a file on disk
@@ -62,7 +64,7 @@ typedef struct
 }
 filesystem_drive;
 
-SYSCALL_HANDLER directory_handle* filesystem_mount_drive(size_t drive);
+SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t drive);
 
 void filesystem_seek_file(file_stream* f, size_t pos);
 
@@ -71,6 +73,9 @@ inline size_t filesystem_get_size(file_stream* f)
 	return f->file->size;
 }
 
+SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* src);
+SYSCALL_HANDLER file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index);
+SYSCALL_HANDLER directory_handle* filesystem_open_directory(const char* name, int flags);
 SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags);
 SYSCALL_HANDLER file_stream* filesystem_open_handle(file_handle* f, int flags);
 SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f);

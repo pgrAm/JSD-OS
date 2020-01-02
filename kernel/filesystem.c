@@ -34,7 +34,7 @@ int filesystem_setup_drives()
 	return NUM_DRIVES;
 }
 
-SYSCALL_HANDLER directory_handle* filesystem_mount_drive(size_t driveNumber)
+SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t driveNumber)
 {
 	if(driveNumber > NUM_DRIVES)
 	{
@@ -79,7 +79,7 @@ file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* 
 
 file_handle* filesystem_find_file_on_disk(size_t driveNumber, const char* name)
 {
-	const directory_handle* root = filesystem_mount_drive(driveNumber);
+	const directory_handle* root = filesystem_get_root_directory(driveNumber);
 
 	return filesystem_find_file_in_dir(root, name);
 }
@@ -99,6 +99,35 @@ SYSCALL_HANDLER file_stream* filesystem_open_handle(file_handle* f, int flags)
 	stream->buffer = (uint8_t*)malloc(CHUNK_READ_SIZE);
 	
 	return stream;
+}
+
+SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* src)
+{
+	if (src == NULL || dst == NULL) return -1;
+	//we should also check that these adresses are mapped properly
+	//maybe do a checksum too?
+
+	strcpy(dst->name, src->full_name);
+	dst->size = src->size;
+	dst->time_created = src->time_created;
+	dst->time_modified = src->time_modified;
+
+	return 0;
+}
+
+SYSCALL_HANDLER file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index)
+{
+	if (d != NULL && index < d->num_files)
+	{
+		return &(d->file_list[index]);
+	}
+
+	return NULL;
+}
+
+SYSCALL_HANDLER directory_handle* filesystem_open_directory(const char* name, int flags)
+{
+	return NULL;
 }
 
 SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags)
