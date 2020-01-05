@@ -45,8 +45,13 @@ disk_load:
 		
 	.SUCCESS:
         pop     cx
+		add     bx, _bytes_per_sector			    ; queue next buffer
+		jnc		.FINISH								; if we exceeded the segment size
+		mov		ax, es
+		add		ax, 0x1000							; increment the segment by 65536 bytes (4096)
+		mov		es, ax
+	.FINISH:
         pop     ax
-        add     bx, _bytes_per_sector			    ; queue next buffer
         inc     ax                                  ; queue next sector
         loop    .MAIN                               ; read next sector		
 		

@@ -18,18 +18,40 @@
 
 extern struct multiboot_info* _multiboot;
 
+bool set_text_mode(int cols, int rows);
+
+extern void _IMAGE_END_;
+
+int width = 90;
+int height = 30;
+
+void splash_text(int w)
+{
+	printf("***");
+	for (int i = 3; i < ((w / 2) - 3); i++)
+	{
+		putchar(' ');
+	}
+	printf("JSD/OS");
+	for (int i = 3; i < ((w / 2) - 3); i++)
+	{
+		putchar(' ');
+	}
+	printf("***");
+}
+
 void kernel_main() 
 {
-	initialize_video();
-	
-	puts("Kernel Booted\n");
-	
+	//puts("Kernel Booted\n");
+	initialize_video(80, 25);
+	printf("BSS END %X\n", &_IMAGE_END_);
+
 	idt_init();
 	isrs_init();
 	irqs_init();
 	
 	memmanager_init();
-	
+
 	sysclock_init();
 	
 	floppy_init();
@@ -44,21 +66,12 @@ void kernel_main()
 	
 	keyboard_init();
 	
-	printf("***");
-	
-	for(int i = 3; i < 37; i++)
+	if (set_text_mode(width, height))
 	{
-		putchar(' ');
+		initialize_video(width, height);
 	}
-	
-	printf("JSD/OS");
-	
-	for(int i = 3; i < 37; i++)
-	{
-		putchar(' ');
-	}
-	
-	printf("***");
+
+	splash_text(width);
 	
 	time_t t_time = time(NULL);
 	

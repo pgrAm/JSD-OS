@@ -148,7 +148,7 @@ tss_esp0_location:
 tss_end:
 
 TSS_SIZE equ (tss_end - tss_begin)
-TSS_OFFSET equ 0x1000 + tss_begin - $$
+TSS_OFFSET equ 0x8000 + tss_begin - $$
 
 global run_user_code
 run_user_code:

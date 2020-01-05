@@ -40,16 +40,18 @@ int atoi(const char * str)
 	return n*sign;
 }
 #ifdef __KERNEL
-static volatile int_lock alloc_lock = 0;
+//static volatile int_lock alloc_lock = 0;
+
+static kernel_mutex alloc_lock = { -1 };
 int liballoc_lock()
 {
-	alloc_lock = lock_interrupts();	
+	kernel_lock_mutex(&alloc_lock);
 	return 0;
 }
 
 int liballoc_unlock()
 {
-	unlock_interrupts(alloc_lock);	
+	kernel_unlock_mutex(&alloc_lock);
 	return 0;
 }
 #else

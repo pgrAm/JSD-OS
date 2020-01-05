@@ -178,7 +178,7 @@ size_t fat12_get_cluster(size_t current_cluster, size_t byte_offset, const files
 	
 	while(clusters_to_traverse--)
 	{
-		current_cluster = fat12_get_next_cluster(current_cluster, d) ;
+		current_cluster = fat12_get_next_cluster(current_cluster, d);
 	}
 	
 	return current_cluster;

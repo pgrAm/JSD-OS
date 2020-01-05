@@ -1,5 +1,5 @@
 ENTRY(start)
-phys = 0x001000;
+phys = 0x008000;
 SECTIONS
 {
   .text phys : AT(phys) {
@@ -21,4 +21,5 @@ SECTIONS
     _BSS_END_ = .;
   }
   end = .;
+  _IMAGE_END_ = .;
 }

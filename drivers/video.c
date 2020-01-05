@@ -4,15 +4,17 @@
 
 #include <stdlib.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 #define REG_SCREEN_CTRL 0x3D4
 #define REG_SCREEN_DATA 0x3D5
 
 #define VIDEOMEM 0xb8000
-#define NUMROWS 25
-#define NUMCOLS 80
+size_t NUMROWS = 25;
+size_t NUMCOLS = 80;
+size_t SCREEN_SIZE_BYTES = 80 * 25 * 2;
 
-volatile uint16_t cursorpos = 0;
+volatile size_t cursorpos = 0;
 
 inline char* get_current_draw_pointer()
 {
@@ -47,8 +49,13 @@ void set_color(uint8_t bgr, uint8_t fgr, uint8_t bright)
 	unlock_interrupts(lock);
 }
 
-void set_cursor_offset(uint16_t offset) 
+void set_cursor_offset(size_t offset) 
 { 
+	if (offset > SCREEN_SIZE_BYTES)
+	{
+		return;
+	}
+
 	int_lock lock = lock_interrupts();
 
 	cursorpos = offset;
@@ -57,6 +64,7 @@ void set_cursor_offset(uint16_t offset)
 	 // cursor LOW port to vga INDEX register
     outb(REG_SCREEN_CTRL, 0x0f);
     outb(REG_SCREEN_DATA, (uint8_t)(offset & 0xFF));
+
     // cursor HIGH port to vga INDEX register
     outb(REG_SCREEN_CTRL, 0x0E);
     outb(REG_SCREEN_DATA, (uint8_t)((offset >> 8) & 0xFF));
@@ -75,12 +83,16 @@ void delete_chars(size_t num)
 		*vmem = clearval;
 	}
 	
-	set_cursor_offset((uint32_t)vmem - 0xb8000);
+	set_cursor_offset((uint32_t)vmem - VIDEOMEM);
 }
 
-void initialize_video()
+void initialize_video(int col, int row)
 {
-	cursorpos = get_cursor_offset();
+	NUMROWS = row;
+	NUMCOLS = col;
+	SCREEN_SIZE_BYTES = col * row * 2;
+	set_cursor_visibility(true);
+	set_cursor_offset(0);
 }
 
 uint16_t get_cursor_offset()
@@ -95,30 +107,26 @@ uint16_t get_cursor_offset()
 }
 
 
-void set_cursor_visibility(uint8_t on)
+void set_cursor_visibility(bool on)
 {
 	int_lock lock = lock_interrupts();
 	outb(REG_SCREEN_CTRL, 0x0a);
-    outb(REG_SCREEN_DATA, on);
+	if (on)
+	{
+		outb(REG_SCREEN_DATA, inb(REG_SCREEN_DATA) & ~0x20);
+	}
+	else
+	{
+		outb(REG_SCREEN_DATA, inb(REG_SCREEN_DATA) | 0x20);
+	}
 	unlock_interrupts(lock);
 }
 
-void set_cursor(uint16_t row, uint16_t col) 
+void set_cursor_position(uint16_t row, uint16_t col)
 {
-	int_lock lock = lock_interrupts();
-	uint16_t offset = (row*80) + col;
-	 // cursor LOW port to vga INDEX register
-    outb(REG_SCREEN_CTRL, 0x0f);
-    outb(REG_SCREEN_DATA, (uint8_t)(offset&0xFF));
-    // cursor HIGH port to vga INDEX register
-    outb(REG_SCREEN_CTRL, 0x0E);
-    outb(REG_SCREEN_DATA, (uint8_t)((offset>>8)&0xFF));
-	
-	cursorpos = offset << 1;
-	unlock_interrupts(lock);
+	uint16_t offset = (row*NUMCOLS) + col;
+	set_cursor_offset(offset << 1);
 }
-
-
 
 void clear_screen()
 {
@@ -144,8 +152,8 @@ void clear_row(uint16_t row)
 void scroll_up()
 {
 	memcpy((void*)VIDEOMEM, (void*)(VIDEOMEM + 2*NUMCOLS), 2*NUMCOLS*NUMROWS);
-	set_cursor(24, 0);
-	clear_row(24);
+	set_cursor_position(NUMROWS - 1, 0);
+	clear_row(NUMROWS - 1);
 }
 
 static const int tab_size = 5;
@@ -186,7 +194,7 @@ int handle_escape_sequence(const char* sequence)
 				}
 				break;
 			case 'H': //move cursor
-				set_cursor(args[0] - 1, args[1] - 1);
+				set_cursor_position(args[0] - 1, args[1] - 1);
 				break;
 			case 'm': //SGR
 				for(int i = 0; i < argnum; i++)
@@ -240,7 +248,7 @@ int handle_char(const char source, char* dest)
 	switch(source)
 	{
 	case '\n':
-		offset = 160 - (((int)dest - VIDEOMEM) % 160);
+		offset = (2*NUMCOLS) - (((int)dest - VIDEOMEM) % (2 * NUMCOLS));
 		break;
 	case '\t':
 		offset = 2*tab_size - (((int)dest - VIDEOMEM) % (2*tab_size));
@@ -259,25 +267,6 @@ int handle_char(const char source, char* dest)
 	return offset;
 }
 
-void print_char(const char c)
-{
-	char* vmem = (char*)VIDEOMEM;
-	const char* end = vmem + 0xfa0;
-
-	int_lock lock = lock_interrupts();
-	vmem += cursorpos;
-	unlock_interrupts(lock);
-
-	vmem += handle_char(c, vmem);
-	if(vmem >= end)
-	{
-		scroll_up();
-		vmem = get_current_draw_pointer();
-	}
-	
-	set_cursor_offset((int)vmem - VIDEOMEM);
-}
-
 void print_string_len(const char* str, size_t length)
 {
 	char* vmem = get_current_draw_pointer();
@@ -285,6 +274,10 @@ void print_string_len(const char* str, size_t length)
 	const char* currentchar = str;
 	const char* lastchar = str + length;
 	
+	int_lock lock = lock_interrupts();
+	int output_position = cursorpos;
+	unlock_interrupts(lock);
+
 	for(; currentchar < lastchar; currentchar++)
 	{
 		if(*currentchar == '\x1b') //ANSI escape sequence
@@ -293,21 +286,16 @@ void print_string_len(const char* str, size_t length)
 		}
 		else
 		{
-			int offset = handle_char(*currentchar, vmem);
-			int_lock lock = lock_interrupts();
-			cursorpos += offset;
-			unlock_interrupts(lock);
+			output_position += handle_char(*currentchar, vmem);
 		}
 		
-		int_lock lock = lock_interrupts();
-		if(cursorpos >= 0xfa0)
+		if(output_position >= SCREEN_SIZE_BYTES)
 		{
 			scroll_up();
+			output_position = (NUMROWS - 1) * 2 * NUMCOLS;
 		}
-		
-		vmem = (char*)(VIDEOMEM + cursorpos);
-		unlock_interrupts(lock);
+		vmem = (char*)(VIDEOMEM + output_position);
 	}
 	
-	set_cursor_offset((int)vmem - VIDEOMEM);
+	set_cursor_offset(output_position);
 }

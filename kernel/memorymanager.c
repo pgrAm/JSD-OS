@@ -36,10 +36,10 @@ uint32_t* const current_page_directory = (uint32_t*)((uint32_t)MAXIMUM_ADDRESS -
 
 #define GET_PAGE_TABLE_ADDRESS(pd_index) ((uint32_t*)(last_pde_address + (PAGE_TABLE_SIZE * pd_index)))
 
-extern void _BSS_END_;
+extern void _IMAGE_END_;
 
 size_t num_memory_blocks = 2;
-memory_block memory_map[2] = {{(uint32_t)&_BSS_END_, 0}, {0x00100000, 0}};//,{0x0000E000, 0x0007FFFF - 0x0000E000}};
+memory_block memory_map[2] = {{(uint32_t)&_IMAGE_END_, 0}, {0x00100000, 0}};//,{0x0000E000, 0x0007FFFF - 0x0000E000}};
 //memory_block memory_map[1] = {{0x00100000, 0xFFFFFFFF - 0x00100000}};
 
 uint32_t memmanager_get_pt_entry(uint32_t virtual_address)
@@ -281,6 +281,7 @@ int memmanager_free_pages(void* page, size_t num_pages)
 				
 				break;
 			}
+			//otherwise we need to add a new block
 		}
 	}
 	
@@ -363,9 +364,11 @@ void memmanager_init(void)
 	
 	total_mem_size = _multiboot->m_memoryLo * 1024 + _multiboot->m_memoryHi * 1024;
 	
-	memory_map[0].length = (_multiboot->m_memoryLo * 1024) - (uint32_t)&_BSS_END_;
+	memory_map[0].length = (_multiboot->m_memoryLo * 1024) - (uint32_t)&_IMAGE_END_;
 	memory_map[1].length = _multiboot->m_memoryHi * 1024;
 	
+	//printf("Low memory limit %X\n", memory_map[0].offset + memory_map[0].length);
+
 	uint32_t* kernel_page_directory = (uint32_t*)memmanager_allocate_physical_page();
 	uint32_t* first_page_table = (uint32_t*)memmanager_allocate_physical_page();
 	

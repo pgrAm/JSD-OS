@@ -46,5 +46,6 @@ int task_is_running(int pid);
 int this_task_is_active();
 void switch_to_task(int pid);
 int get_active_process();
+int get_running_process();
 
 #endif

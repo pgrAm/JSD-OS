@@ -19,7 +19,16 @@ const size_t max_processes = 10;
 //this should be something like an std::vector
 TCB running_tasks[max_processes];
 
-size_t active_process = -1;
+size_t active_process = 0;
+
+int get_running_process()
+{
+	if (current_task_TCB == NULL)
+	{
+		return 0;
+	}
+	return current_task_TCB->pid;
+}
 
 int get_active_process()
 {
@@ -28,7 +37,7 @@ int get_active_process()
 
 int task_is_running(int pid)
 {
-	return (current_task_TCB->pid == pid);
+	return (get_running_process() == pid);
 }
 
 int this_task_is_active()
