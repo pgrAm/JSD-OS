@@ -97,7 +97,7 @@ SYSCALL_HANDLER file_stream* filesystem_open_handle(file_handle* f, int flags)
 	stream->seekpos = 0;
 	stream->file = f;
 	stream->buffer = (uint8_t*)malloc(CHUNK_READ_SIZE);
-	
+
 	return stream;
 }
 
@@ -137,9 +137,9 @@ SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags)
 	return (f != NULL) ? filesystem_open_handle(f, flags) : NULL;
 }
 	
-fs_index filesystem_get_next_location_on_disk(const file_stream* f, fs_index chunk_index)
+fs_index filesystem_get_next_location_on_disk(const file_stream* f, size_t byte_offset, fs_index chunk_index)
 {
-	return fat12_get_next_cluster(chunk_index, &drives[f->file->disk]);
+	return fat12_get_relative_cluster(chunk_index, byte_offset, &drives[f->file->disk]);
 }	
 	
 fs_index filesystem_resolve_location_on_disk(const file_stream* f)
@@ -152,7 +152,7 @@ fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 	if(f->location_on_disk == chunk_index)
 	{
 		//great we already have data in the buffer
-		return filesystem_get_next_location_on_disk(f, chunk_index);
+		return filesystem_get_next_location_on_disk(f, CHUNK_READ_SIZE, chunk_index);
 	}
 	
 	f->location_on_disk = chunk_index;
@@ -180,16 +180,18 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f)
 	
 	fs_index location = filesystem_resolve_location_on_disk(f);
 
+	size_t startchunk = f->seekpos / CHUNK_READ_SIZE;
+	size_t endchunk = (f->seekpos + len) / CHUNK_READ_SIZE;
+
 	size_t buf_start = f->seekpos % CHUNK_READ_SIZE;
 	size_t buf_end_size = (f->seekpos + len) % CHUNK_READ_SIZE;
 	
-	if(len < CHUNK_READ_SIZE)
+	if(startchunk == endchunk)
 	{
 		buf_end_size = 0; //start and end are in the same chunk
 	}
 	
 	size_t buf_start_size = ((len - buf_end_size) % CHUNK_READ_SIZE);
-	
 	size_t numChunks = (len - (buf_start_size + buf_end_size)) / CHUNK_READ_SIZE;
 	
 	if(buf_start_size != 0)

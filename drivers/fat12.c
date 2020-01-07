@@ -170,6 +170,22 @@ size_t fat12_get_next_cluster(size_t cluster, const filesystem_drive* fd)
 	return table_value;
 }
 
+size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd)
+{
+	fat12_drive* f = (fat12_drive*)fd->impl_data;
+
+	size_t num_clusters = byte_offset / f->cluster_size;
+
+	while (num_clusters--)
+	{
+		cluster = fat12_get_next_cluster(cluster, fd);
+
+		if (cluster >= 0xFF8) { break; }
+	}
+
+	return cluster;
+}
+
 size_t fat12_get_cluster(size_t current_cluster, size_t byte_offset, const filesystem_drive *d)
 {
 	fat12_drive* f = (fat12_drive*)d->impl_data;
@@ -211,7 +227,7 @@ size_t fat12_read_clusters(uint8_t* dest, size_t bufferSize, size_t cluster, con
 	while(num_clusters--)
 	{
 		floppy_read_sectors(f->index, fat12_cluster_to_lba(f, cluster), dest, f->sectors_per_cluster);
-		
+
 		dest += f->cluster_size;
 		
 		cluster = fat12_get_next_cluster(cluster, d);
