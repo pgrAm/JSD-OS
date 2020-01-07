@@ -180,6 +180,9 @@ void fault_handler(interrupt_info *r)
 {
     if (r->int_no < 32)
     {
+        set_video_mode(90, 60, VIDEO_TEXT_MODE);
+        clear_screen();
+
         printf("%s Exception. System Halted!\n", exception_messages[r->int_no]);
 		
         printf("GS=%X\n", r->gs);

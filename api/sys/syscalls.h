@@ -27,7 +27,9 @@ enum syscall_indices
 	SYSCALL_ERASE_CHARS = 14, //these can be axed later
 	SYSCALL_GET_FILE_IN_DIR = 15,
 	SYSCALL_GET_FILE_INFO = 16,
-	SYSCALL_GET_ROOT_DIR = 17
+	SYSCALL_GET_ROOT_DIR = 17,
+	SYSCALL_SET_VIDEO_MODE = 18,
+	SYSCALL_MAP_VIDEO_MEMORY = 19
 };
 
 struct file_handle;
@@ -172,4 +174,15 @@ static inline directory_handle* get_root_directory(size_t drive_index)
 	return (directory_handle*)do_syscall_1(SYSCALL_GET_ROOT_DIR, (uint32_t)drive_index);
 }
 
+#define VIDEO_8BPP 0x02
+#define VIDEO_TEXT_MODE 0x01
+static inline int set_video_mode(int width, int height, int flags)
+{
+	return (int)do_syscall_3(SYSCALL_SET_VIDEO_MODE, (uint32_t)width, (uint32_t)height, (uint32_t)flags);
+}
+
+static inline uint8_t* map_video_memory()
+{
+	return (uint8_t*)do_syscall_0(SYSCALL_MAP_VIDEO_MEMORY);
+}
 #endif
