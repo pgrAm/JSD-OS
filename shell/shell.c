@@ -21,15 +21,15 @@ void list_directory()
 		return;
 	}
 	
-	printf("\n Name    Type  Size   Created     Modified\n\n");
+	printf("\n Name     Type  Size   Created     Modified\n\n");
 	
-	const char* format = " %-12s %s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n";
+	const char* format = " %s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n";
 	
 	size_t total_bytes = 0;
 	size_t i = 0;
 	file_handle* f_handle = NULL;
 
-	while(f_handle = get_file_in_dir(current_directory, i++))
+	while((f_handle = get_file_in_dir(current_directory, i++)))
 	{
 		file_info f;
 		get_file_info(&f, f_handle);
@@ -39,8 +39,24 @@ void list_directory()
 		
 		total_bytes += f.size;
 		
-		printf(format,	f.name, 
-						"N/A", 
+		putchar(' ');
+
+		int i = 1;
+		char c = f.name[0];
+		while(c != '\0' && c != '.')
+		{
+			putchar(c);
+			c = f.name[i++];
+		}
+
+		int num_spaces = i;
+		while (num_spaces++ < 10)
+		{
+			putchar(' ');
+		}
+
+		printf(format, 
+						f.name + i, 
 						f.size, 
 						created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
 						modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
@@ -52,7 +68,7 @@ int find_file_in_dir(const directory_handle* dir, file_info* f, const char* name
 {
 	size_t i = 0;
 	file_handle* f_handle = NULL;
-	while (f_handle = get_file_in_dir(dir, i++))
+	while ((f_handle = get_file_in_dir(dir, i++)))
 	{
 		get_file_info(f, f_handle);
 		if (strcasecmp(name, f->name) == 0)
@@ -61,6 +77,12 @@ int find_file_in_dir(const directory_handle* dir, file_info* f, const char* name
 		}
 	}
 	return -1;
+}
+
+void clear_console()
+{
+	printf("\x1b[2J\x1b[1;1H");
+	video_clear();
 }
 
 int get_command(char* input)
@@ -130,8 +152,7 @@ int get_command(char* input)
 	}
 	else if(strcmp("cls", keyword) == 0 || strcmp("clear", keyword) == 0)
 	{
-		printf("\x1b[2J\x1b[1;1H");
-		video_clear();
+		clear_console();
 	}
 	else if(strcmp("echo", keyword) == 0)
 	{
@@ -141,71 +162,82 @@ int get_command(char* input)
 	{
 		list_directory();
 	}
+	else if (strcmp("mode", keyword) == 0)
+	{
+		int width = atoi(strtok(NULL, "\"\'\n "));
+		int height = atoi(strtok(NULL, "\"\'\n "));
+
+		if (set_video_mode(width, height, VIDEO_TEXT_MODE) == 0)
+		{
+			clear_console();
+		}
+	}
 	else if(strcmp("cat", keyword) == 0)
 	{
-		file_stream* file;
-		
-		if((file = open(strtok(NULL, "\"\'\n"), 0)))
+		const char* arg = strtok(NULL, "\"\'\n");
+		file_info file;
+		if (find_file_in_dir(current_directory, &file, arg) == 0)
 		{
-			//size_t file_size = filesystem_get_size(file);
-			
-			//char *dataBuf = (char*)malloc(file_size);
-			//
-			////filesystem_read_file(dataBuf, file_size, file);
-			//
-			//for(int i = 0; i < file_size; i++)
-			//{
-			//	if(dataBuf[i] != '\r')
-			//	{
-			//		putchar(dataBuf[i]);
-			//		//printf("%X,", dataBuf[i]);
-			//	}
-			//}
-			//
-			////filesystem_close_file(file);
-			//free(dataBuf);
-			close(file);
-			putchar('\n');
+			file_stream* fs = open(arg, 0);
+			if (fs)
+			{
+				char *dataBuf = (char*)malloc(file.size);
+				read(dataBuf, file.size, fs);
+				
+				for(size_t i = 0; i < file.size; i++)
+				{
+					if(dataBuf[i] != '\r')
+					{
+						putchar(dataBuf[i]);
+					}
+				}
+				
+				free(dataBuf);
+				close(fs);
+				putchar('\n');
+
+				return 0;
+			}
+			printf("Could open find file %s\n", arg);
+			return -1;
 		}
+		
+		printf("Could not find file %s\n", arg);
+		return -1;
 	}
 	else
 	{
-		//spawn_process(keyword, WAIT_FOR_PROCESS);
-
 		file_info file;
 		if(find_file_in_dir(current_directory, &file, keyword) == 0)
 		{	
-		//	if(strcmp("EXE", file->type) == 0)
-		//	{
-		//		int p = load_exe(file);
-		//		printf("%d\n", p);
-		//		return p;
-		//	}
-		//if(strcmp("ELF", file->type) == 0)
-		{
-			spawn_process(file.name, WAIT_FOR_PROCESS);
-			return 0;
+			const char* extension = strchr(file.name, '.') + 1;
+
+			if(strcasecmp("elf", extension) == 0)
+			{
+				spawn_process(file.name, WAIT_FOR_PROCESS);
+				return 0;
+			}
+
+			if (strcasecmp("bat", extension) == 0)
+			{
+				uint8_t* dataBuf = (uint8_t*)malloc(file.size);
+
+				file_stream* f = open(keyword, 0);
+				if (f)
+				{
+					read(dataBuf, file.size, f);
+					close(f);
+
+					get_command((char*)dataBuf);
+					free(dataBuf);
+
+					return 0;
+				}
+			}
 		}
-	    //
-		//	uint8_t *dataBuf = (uint8_t*)malloc(file->size);
-		//	
-		//	file_stream* f = filesystem_open_handle(file, 0);
-		//	
-		//	filesystem_read_file(dataBuf, file->size, f);
-		//	
-		//	if(strcmp("BAT", file->type) == 0)
-		//	{
-		//		get_command(dataBuf);
-		//	}
-		//	
-		//	filesystem_close_file(f);
-		//	free(dataBuf);
-		}
-		else
-		{
-			printf("File or Command not found\n");
-			return -1;
-		}
+
+		printf("File or Command not found\n");
+		return -1;
 	}
 
 	return 1;
