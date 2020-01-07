@@ -1,6 +1,7 @@
 #include "video.h"
 #include "portio.h"
 #include "locks.h"
+#include "task.h"
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -79,8 +80,7 @@ void delete_chars(size_t num)
 	
 	while(vmem > end)
 	{
-		vmem--;
-		*vmem = clearval;
+		*(--vmem) = clearval;
 	}
 	
 	set_cursor_offset((uint32_t)vmem - VIDEOMEM);
@@ -298,4 +298,36 @@ void print_string_len(const char* str, size_t length)
 	}
 	
 	set_cursor_offset(output_position);
+}
+
+extern bool set_vga_mode_by_attributes(int cols, int rows, int bpp, bool text);
+
+SYSCALL_HANDLER int set_video_mode(int width, int height, int flags)
+{
+	if (this_task_is_active())
+	{
+		int bpp = (flags & VIDEO_8BPP) ? 8 : 0;
+
+		if (set_vga_mode_by_attributes(width, height, bpp, !!(flags & VIDEO_TEXT_MODE)))
+		{
+			if (flags & VIDEO_TEXT_MODE)
+			{
+				initialize_video(width, height);
+			}
+			return 0;
+		}
+	}
+	return -1;
+}
+
+#include "../kernel/memorymanager.h"
+uint8_t* get_fb_addr();
+
+SYSCALL_HANDLER uint8_t* map_video_memory(void)
+{
+	if (this_task_is_active())
+	{
+		return (uint8_t*)memmanager_map_to_new_pages((uint32_t)get_fb_addr(), 0x10000 / PAGE_SIZE, PAGE_USER | PAGE_PRESENT | PAGE_RW);
+	}
+	return NULL;
 }

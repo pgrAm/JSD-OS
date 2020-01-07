@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include "../kernel/syscall.h"
 
 void set_color(uint8_t bgr, uint8_t fgr, uint8_t bright);
 
@@ -23,4 +24,8 @@ void clear_screen();
 
 void clear_row(uint16_t row);
 
+#define VIDEO_TEXT_MODE 0x01
+#define VIDEO_8BPP 0x02
+SYSCALL_HANDLER int set_video_mode(int width, int height, int flags);
+SYSCALL_HANDLER uint8_t* map_video_memory(void);
 #endif

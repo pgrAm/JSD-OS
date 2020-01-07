@@ -179,6 +179,18 @@ void memmanager_map_page(uint32_t virtual_address, uint32_t physical_address, ui
 	//printf("%X mapped to physical address %X\n", virtual_address, physical_address);	
 }
 
+void* memmanager_map_to_new_pages(uint32_t physical_address, size_t n, uint32_t flags)
+{
+	uint32_t virtual_address = memmanager_get_unmapped_pages(n, flags);
+
+	for (size_t i = 0; i < n; i++)
+	{
+		memmanager_map_page(virtual_address + i * PAGE_SIZE, physical_address + i * PAGE_SIZE, flags);
+	}
+
+	return virtual_address;
+}
+
 SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, uint32_t flags)
 {
 	if(virtual_address == NULL)

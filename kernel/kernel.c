@@ -17,13 +17,10 @@
 #include <time.h>
 
 extern struct multiboot_info* _multiboot;
-
-bool set_text_mode(int cols, int rows);
-
 extern void _IMAGE_END_;
 
-int width = 90;
-int height = 30;
+int width = 80;
+int height = 25;
 
 void splash_text(int w)
 {
@@ -66,10 +63,7 @@ void kernel_main()
 	
 	keyboard_init();
 	
-	if (set_text_mode(width, height))
-	{
-		initialize_video(width, height);
-	}
+	set_video_mode(width, height, VIDEO_TEXT_MODE);
 
 	splash_text(width);
 	
