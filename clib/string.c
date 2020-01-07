@@ -1,5 +1,19 @@
 #include <string.h>
 #include <ctype.h>
+#include <stdbool.h>
+
+const char* strchr(const char* str, int character)
+{
+    while (*str != (char)character)
+    {
+        if (*str == '\0')
+        {
+            return NULL;
+        }
+        str++;
+    }
+    return str;
+}
 
 char* strtok(char* str, const char* delimiters)
 {

@@ -13,6 +13,7 @@ size_t strlen(const char* str);
 int strcmp(const char* str1, const char* str2);
 int strcasecmp(const char* str1, const char* str2);
 char* strtok(char* str, const char* delimiters);
+const char* strchr(const char* str, int character);
 
 char* strcat(char* destination, const char* source);
 char* strcpy(char* destination, const char* source);
