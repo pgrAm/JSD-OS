@@ -18,19 +18,27 @@ uint8_t count_port[8]	= {0x01, 0x03, 0x05, 0x07, 0xC2, 0xC6, 0xCA, 0xCE};
 
 void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, uint8_t* buf, size_t length)
 {
-	//printf("dma begin to virtual address %X\n", (uint32_t)buf);
-	
 	//dma don't know wtf virtual adresses are, it needs the real deal (physical address)
 	uint32_t physbuf = memmanager_get_physical((uint32_t)buf);
 	
+	size_t start = (uint32_t)buf & ~(PAGE_SIZE - 1);
+	size_t end = (uint32_t)(buf + length) & ~(PAGE_SIZE - 1);
+	for (size_t i = start; i < end; i += PAGE_SIZE)
+	{
+		if (memmanager_get_physical(i) - memmanager_get_physical(i + PAGE_SIZE) > PAGE_SIZE)
+		{
+			puts("Buffer must be physically contiguous");
+		}
+	}
+
 	if((physbuf >> 16) != ((physbuf + length) >> 16))
 	{
-		printf("DMA Cannot cross 64k boundary\n");
+		puts("DMA Cannot cross 64k boundary\n");
 	}
 	
 	if(physbuf > 0xFFFFFF)
 	{
-		printf("Cannot use ISA dma above 16MB\n");
+		puts("Cannot use ISA dma above 16MB\n");
 	}
 	
 	//printf("dma begin to physical address %X\n", (uint32_t)buf);
