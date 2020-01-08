@@ -13,6 +13,19 @@
 
 filesystem_drive drives[NUM_DRIVES];
 
+struct filesystem_driver
+{
+	void (*mount_disk)(filesystem_drive* d, size_t logicalDriveNumber);
+	fs_index (*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_drive* fd);
+	fs_index (*read_chunks)(uint8_t* dest, size_t num_bytes, fs_index location, const filesystem_drive* fd);
+};
+
+filesystem_driver fat_driver = {
+	fat12_mount_disk,
+	fat12_get_relative_cluster,
+	fat12_read_clusters,
+};
+
 int filesystem_setup_drives()
 {
 	fat12_drive* floppy0 = (fat12_drive*)malloc(sizeof(fat12_drive));
@@ -23,13 +36,13 @@ int filesystem_setup_drives()
 	floppy1->type = TYPE_FLOPPY;
 	floppy1->index = 1;
 	
-	drives[0].format = FORMAT_FAT12;
 	drives[0].impl_data = (void*)floppy0;
 	drives[0].mounted = false;
+	drives[0].driver = &fat_driver;
 	
-	drives[1].format = FORMAT_FAT12;
 	drives[1].impl_data = (void*)floppy1;
 	drives[1].mounted = false;
+	drives[1].driver = &fat_driver;
 	
 	return NUM_DRIVES;
 }
@@ -46,15 +59,8 @@ SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t driveNumb
 		
 		if(!d->mounted)
 		{
-			switch(d->format)
-			{
-				case FORMAT_FAT12:
-					fat12_mount_disk(d, driveNumber);
-					d->mounted = true;
-				break;
-				default:
-					return NULL;
-			}
+			d->driver->mount_disk(d, driveNumber);
+			d->mounted = true;
 		}
 		
 		return &d->root;
@@ -139,12 +145,12 @@ SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags)
 	
 fs_index filesystem_get_next_location_on_disk(const file_stream* f, size_t byte_offset, fs_index chunk_index)
 {
-	return fat12_get_relative_cluster(chunk_index, byte_offset, &drives[f->file->disk]);
+	return drives[f->file->disk].driver->get_relative_location(chunk_index, byte_offset, &drives[f->file->disk]);
 }	
 	
 fs_index filesystem_resolve_location_on_disk(const file_stream* f)
 {
-	return fat12_get_cluster(f->file->location_on_disk, f->seekpos, &drives[f->file->disk]);
+	return filesystem_get_next_location_on_disk(f, f->seekpos, f->file->location_on_disk);
 }	
 	
 fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
@@ -159,16 +165,7 @@ fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 	
 	filesystem_drive* d = &drives[f->file->disk];
 	
-	switch(d->format)
-	{
-		case FORMAT_FAT12:
-			return fat12_read_clusters(f->buffer, CHUNK_READ_SIZE, chunk_index, d);
-		break;
-		default:
-			return 0;
-	}
-	
-	return 0;
+	return d->driver->read_chunks(f->buffer, CHUNK_READ_SIZE, chunk_index, d);
 }
 
 SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f)

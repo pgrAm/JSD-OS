@@ -49,18 +49,15 @@ typedef struct
 }
 directory_handle;
 
-typedef enum
-{
-	FORMAT_FAT12 = 0,
-	FORMAT_FAT32
-}driveFormats;
+struct filesystem_driver;
+typedef struct filesystem_driver filesystem_driver;
 
 typedef struct 
 {
 	bool mounted;
 	directory_handle root;
-	driveFormats format;
 	void* impl_data;
+	filesystem_driver* driver;
 }
 filesystem_drive;
 

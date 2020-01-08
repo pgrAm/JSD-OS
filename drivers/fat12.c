@@ -9,6 +9,17 @@
 #include <time.h>
 #include <stdbool.h>
 
+enum directory_attributes
+{
+	READ_ONLY = 0x01,
+	HIDDEN = 0x02,
+	SYSTEM = 0x04,
+	VOLUME_ID = 0x08,
+	DIRECTORY = 0x10,
+	ARCHIVE = 0x20,
+	LFN = READ_ONLY | HIDDEN | SYSTEM | VOLUME_ID
+};
+
 typedef struct 
 {
 	char 		name[8];
@@ -80,28 +91,11 @@ void fat12_mount_directory(directory_handle* root, const fat12_drive* selected_d
 {
 	uint8_t *root_directory = (uint8_t*)malloc(selected_drive->root_size * selected_drive->bytes_per_sector);
 	
-	//root_directory[0] = 0xfe;
-	//
-	//if(root_directory[0] == 0xfe)
-	//{
-	//	printf("sanity test successful\n");
-	//}
-	
-	//uint8_t root_directory[512 * 14];
-	
-	//printf("mounting root directory at %X\n", (uint32_t)root_directory);
-	
 	root->name = "";
-	//printf("m\n");
 	root->file_list = (file_handle*)malloc(selected_drive->root_entries * sizeof(file_handle));
-	//printf("m\n");
 	root->drive = logicalDriveNumber;
 	
-	//printf("mounting root directory at %X\n", (uint32_t)root->file_list);
-	//printf("root_size=%d\n", selected_drive->root_size);
 	size_t num_files = 0;
-	
-	//printf("sizeof(fat_directory_entry) = %d\n", sizeof(fat_directory_entry));
 	
 	for(size_t sector = 0; sector < selected_drive->root_size; sector++)
 	{
@@ -144,8 +138,6 @@ void fat12_mount_directory(directory_handle* root, const fat12_drive* selected_d
 	
 	root->num_files = num_files;
 	
-	//printf("Found %d files\n", (uint32_t)num_files);
-	
 	free(root_directory);
 }
 
@@ -184,20 +176,6 @@ size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const file
 	}
 
 	return cluster;
-}
-
-size_t fat12_get_cluster(size_t current_cluster, size_t byte_offset, const filesystem_drive *d)
-{
-	fat12_drive* f = (fat12_drive*)d->impl_data;
-	
-	size_t clusters_to_traverse = byte_offset / (f->bytes_per_sector * f->sectors_per_cluster);
-	
-	while(clusters_to_traverse--)
-	{
-		current_cluster = fat12_get_next_cluster(current_cluster, d);
-	}
-	
-	return current_cluster;
 }
 
 void fat12_mount_disk(filesystem_drive *d, size_t logicalDriveNumber)
