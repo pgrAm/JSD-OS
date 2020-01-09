@@ -29,7 +29,9 @@ enum syscall_indices
 	SYSCALL_GET_FILE_INFO = 16,
 	SYSCALL_GET_ROOT_DIR = 17,
 	SYSCALL_SET_VIDEO_MODE = 18,
-	SYSCALL_MAP_VIDEO_MEMORY = 19
+	SYSCALL_MAP_VIDEO_MEMORY = 19,
+	SYSCALL_OPEN_DIR = 20,
+	SYSCALL_CLOSE_DIR = 21
 };
 
 struct file_handle;
@@ -184,5 +186,13 @@ static inline int set_video_mode(int width, int height, int flags)
 static inline uint8_t* map_video_memory()
 {
 	return (uint8_t*)do_syscall_0(SYSCALL_MAP_VIDEO_MEMORY);
+}
+static inline directory_handle* open_dir(const char* name, int flags)
+{
+	return (directory_handle*)do_syscall_2(SYSCALL_OPEN_DIR, (uint32_t)name, (uint32_t)flags);
+}
+static inline int close_dir(directory_handle* dir) 
+{
+	return (int)do_syscall_1(SYSCALL_CLOSE_DIR, (uint32_t)dir);
 }
 #endif

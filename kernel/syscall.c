@@ -50,7 +50,9 @@ const void* syscall_table[] =
 	filesystem_get_file_info,
 	filesystem_get_root_directory,
 	set_video_mode,
-	map_video_memory
+	map_video_memory,
+	filesystem_open_directory,
+	filesystem_close_directory
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

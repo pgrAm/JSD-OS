@@ -18,6 +18,8 @@ typedef struct
 	
 	char* full_name;
 	
+	uint32_t flags;
+
 	size_t disk;
 	fs_index location_on_disk;
 	
@@ -58,6 +60,7 @@ typedef struct
 	directory_handle root;
 	void* impl_data;
 	filesystem_driver* driver;
+	uint32_t index;
 }
 filesystem_drive;
 
@@ -73,6 +76,7 @@ inline size_t filesystem_get_size(file_stream* f)
 SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* src);
 SYSCALL_HANDLER file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index);
 SYSCALL_HANDLER directory_handle* filesystem_open_directory(const char* name, int flags);
+SYSCALL_HANDLER int filesystem_close_directory(directory_handle* dir);
 SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags);
 SYSCALL_HANDLER file_stream* filesystem_open_handle(file_handle* f, int flags);
 SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f);

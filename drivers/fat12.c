@@ -53,6 +53,11 @@ typedef struct
 	uint32_t	total_sectors_big;
 } __attribute__((packed)) bpb;
 
+size_t fat12_cluster_to_lba(const fat12_drive* d, size_t cluster)
+{
+	return (cluster - 2) * d->sectors_per_cluster + d->datasector;
+}
+
 void fat12_read_bios_block(fat12_drive* d)
 {
 	uint8_t boot_sector[512];
@@ -61,7 +66,7 @@ void fat12_read_bios_block(fat12_drive* d)
 	
 	bpb* bios_block = (bpb*)(boot_sector + 0x00B);
 	
-	d->root_size 			= (32 * bios_block->root_entries) / 512; //number of sectors in root dir
+	d->root_size 			= (sizeof(fat_directory_entry) * bios_block->root_entries) / bios_block->bytes_per_sector; //number of sectors in root dir
 	d->fats_size 			= bios_block->number_of_FATs * bios_block->sectors_per_FAT;
 	d->root_location 		= d->fats_size + bios_block->reserved_sectors;
 	d->datasector 			= d->root_location + d->root_size;
@@ -87,58 +92,88 @@ time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
 	return mktime(&file_time);
 }
 
-void fat12_mount_directory(directory_handle* root, const fat12_drive* selected_drive, size_t logicalDriveNumber)
+void fat12_do_read_dir(directory_handle* dest, fs_index location, size_t locicaldrivenum, const fat12_drive* selected_drive)
 {
-	uint8_t *root_directory = (uint8_t*)malloc(selected_drive->root_size * selected_drive->bytes_per_sector);
-	
-	root->name = "";
-	root->file_list = (file_handle*)malloc(selected_drive->root_entries * sizeof(file_handle));
-	root->drive = logicalDriveNumber;
-	
+	uint8_t* raw_directory = (uint8_t*)malloc(selected_drive->bytes_per_sector);
+
+	dest->name = "";
+	dest->file_list = (file_handle*)malloc(selected_drive->root_entries * sizeof(file_handle));
+	dest->drive = locicaldrivenum;
+
 	size_t num_files = 0;
-	
-	for(size_t sector = 0; sector < selected_drive->root_size; sector++)
+
+	for (size_t sector = 0; sector < 1; sector++)
 	{
-		floppy_read_sectors(selected_drive->index, selected_drive->root_location + sector, root_directory, 1);
-		
-		for(size_t entry_number = 0; entry_number < 16; entry_number++)
+		size_t lba = (location == 0) ? selected_drive->root_location : fat12_cluster_to_lba(selected_drive, location);
+
+		floppy_read_sectors(selected_drive->index, lba + sector, raw_directory, 1);
+
+		for (size_t entry_number = 0; entry_number < (selected_drive->bytes_per_sector / sizeof(fat_directory_entry)); entry_number++)
 		{
-			fat_directory_entry* entry = (fat_directory_entry*)(root_directory + entry_number * sizeof(fat_directory_entry));
-			
-			if(entry->name[0] != 0)
+			fat_directory_entry* entry = (fat_directory_entry*)(raw_directory + entry_number * sizeof(fat_directory_entry));
+
+			if (entry->name[0] == 0) { break; } //end of directory
+
+			if (!(entry->attributes & LFN))
 			{
-				char* full_name = (char*)malloc(13*sizeof(char));
-			
-				root->file_list[num_files].name = (char*)malloc(9*sizeof(char));
-				memcpy(root->file_list[num_files].name, entry->name, 8);
-				root->file_list[num_files].name[8] = '\0';
-				
-				root->file_list[num_files].type = (char*)malloc(4*sizeof(char));
-				memcpy(root->file_list[num_files].type, entry->extension, 3);
-				root->file_list[num_files].type[3] = '\0';
-				
-				strcpy(full_name, strtok(root->file_list[num_files].name, " "));
-				strcat(full_name, ".");
-				strcat(full_name, strtok(root->file_list[num_files].type, " "));
-				
-				root->file_list[num_files].full_name = full_name;
-				
-				root->file_list[num_files].size = entry->file_size;
-				
-				root->file_list[num_files].time_created = fat12_time_to_time_t(entry->created_date, entry->created_time);				
-				root->file_list[num_files].time_modified = fat12_time_to_time_t(entry->modified_date, entry->modified_time);
-				
-				root->file_list[num_files].disk = logicalDriveNumber;
-				root->file_list[num_files].location_on_disk = entry->first_cluster;
-				
+				char* full_name = (char*)malloc(13 * sizeof(char));
+
+				dest->file_list[num_files].name = (char*)malloc(9 * sizeof(char));
+				memcpy(dest->file_list[num_files].name, entry->name, 8);
+				dest->file_list[num_files].name[8] = '\0';
+
+				dest->file_list[num_files].type = (char*)malloc(4 * sizeof(char));
+				memcpy(dest->file_list[num_files].type, entry->extension, 3);
+
+				//count chars in extenstion
+				size_t ext_length = 0;
+				for (; ext_length < 3 && entry->extension[ext_length] != ' '; ext_length++);
+				dest->file_list[num_files].type[ext_length] = '\0';
+
+				strcpy(full_name, strtok(dest->file_list[num_files].name, " "));
+				if (ext_length > 0)
+				{
+					strcat(full_name, ".");
+					strcat(full_name, strtok(dest->file_list[num_files].type, " "));
+				}
+
+				dest->file_list[num_files].full_name = full_name;
+
+				dest->file_list[num_files].size = entry->file_size;
+
+				dest->file_list[num_files].time_created = fat12_time_to_time_t(entry->created_date, entry->created_time);
+				dest->file_list[num_files].time_modified = fat12_time_to_time_t(entry->modified_date, entry->modified_time);
+
+				dest->file_list[num_files].disk = locicaldrivenum;
+				dest->file_list[num_files].location_on_disk = entry->first_cluster;
+
+				uint32_t flags = 0;
+
+				if (entry->attributes & DIRECTORY)
+				{
+					flags |= IS_DIR;
+				}
+
+				dest->file_list[num_files].flags = flags;
+
 				num_files++;
 			}
 		}
 	}
-	
-	root->num_files = num_files;
-	
-	free(root_directory);
+
+	dest->num_files = num_files;
+
+	free(raw_directory);
+}
+
+void fat12_read_dir(directory_handle* dest, fs_index location, const filesystem_drive* fd)
+{
+	fat12_do_read_dir(dest, location, fd->index, (fat12_drive*)fd->impl_data);
+}
+
+void fat12_mount_directory(directory_handle* root, const fat12_drive* selected_drive, size_t logicalDriveNumber)
+{
+	fat12_do_read_dir(root, 0, logicalDriveNumber, selected_drive);
 }
 
 size_t fat12_get_next_cluster(size_t cluster, const filesystem_drive* fd)
@@ -178,7 +213,7 @@ size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const file
 	return cluster;
 }
 
-void fat12_mount_disk(filesystem_drive *d, size_t logicalDriveNumber)
+void fat12_mount_disk(filesystem_drive *d)
 {
 	fat12_drive* f = (fat12_drive*)d->impl_data;
 	
@@ -188,15 +223,10 @@ void fat12_mount_disk(filesystem_drive *d, size_t logicalDriveNumber)
 	f->fat = (uint8_t*)malloc(f->bytes_per_sector);
 	f->cached_fat_sector = 0;
 	
-	fat12_mount_directory(&d->root, f, logicalDriveNumber);
+	fat12_mount_directory(&d->root, f, d->index);
 }
 
-size_t fat12_cluster_to_lba(fat12_drive* d, size_t cluster)
-{
-	return (cluster - 2) * d->sectors_per_cluster + d->datasector;
-}
-
-size_t fat12_read_clusters(uint8_t* dest, size_t bufferSize, size_t cluster, const filesystem_drive *d)
+size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, const filesystem_drive *d)
 {
 	fat12_drive* f = (fat12_drive*)d->impl_data;
 	

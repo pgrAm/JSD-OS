@@ -29,7 +29,8 @@ typedef struct
 	uint8_t* fat; //the file allocation table
 } fat12_drive;
 
-void fat12_mount_disk(filesystem_drive *d, size_t logicalDriveNumber);
-size_t fat12_read_clusters(uint8_t* dest, size_t bufferSize, size_t cluster, const filesystem_drive *d);
+void fat12_mount_disk(filesystem_drive *d);
+size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes, const filesystem_drive *d);
 size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd);
+void fat12_read_dir(directory_handle* dest, fs_index location, const filesystem_drive* fd);
 #endif

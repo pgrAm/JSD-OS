@@ -23,8 +23,6 @@ void list_directory()
 	
 	printf("\n Name     Type  Size   Created     Modified\n\n");
 	
-	const char* format = " %s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n";
-	
 	size_t total_bytes = 0;
 	size_t i = 0;
 	file_handle* f_handle = NULL;
@@ -38,28 +36,38 @@ void list_directory()
 		struct tm modified	= *localtime(&f.time_modified);
 		
 		total_bytes += f.size;
-		
-		putchar(' ');
 
-		int i = 1;
-		char c = f.name[0];
-		while(c != '\0' && c != '.')
+		if (f.flags & IS_DIR)
 		{
-			putchar(c);
-			c = f.name[i++];
+			printf(" %-8s (DIR)     -  %02d-%02d-%4d  %02d-%02d-%4d\n",
+				f.name,
+				created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
+				modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
 		}
-
-		int num_spaces = i;
-		while (num_spaces++ < 10)
+		else
 		{
 			putchar(' ');
-		}
 
-		printf(format, 
-						f.name + i, 
-						f.size, 
-						created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
-						modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
+			int i = 1;
+			char c = f.name[0];
+			while (c != '\0' && c != '.')
+			{
+				putchar(c);
+				c = f.name[i++];
+			}
+
+			int num_spaces = i;
+			while (num_spaces++ < 10)
+			{
+				putchar(' ');
+			}
+
+			printf(" %-3s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n",
+				f.name + i,
+				f.size,
+				created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
+				modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
+		}
 	}
 	printf("\n %5d Files   %5d Bytes\n\n", i, total_bytes);
 }
@@ -161,6 +169,20 @@ int get_command(char* input)
 	else if(strcmp("dir", keyword) == 0 || strcmp("ls", keyword) == 0 )
 	{
 		list_directory();
+	}
+	else if (strcmp("cd", keyword) == 0)
+	{
+		char* path = strtok(NULL, "\"\'\n");
+		if (path != NULL)
+		{
+			directory_handle* d = open_dir(path, 0);
+			if (d != NULL)
+			{
+				current_directory = d;
+				return 1;
+			}
+			printf("Could not find path %s\n", path);
+		}
 	}
 	else if (strcmp("mode", keyword) == 0)
 	{

@@ -15,15 +15,17 @@ filesystem_drive drives[NUM_DRIVES];
 
 struct filesystem_driver
 {
-	void (*mount_disk)(filesystem_drive* d, size_t logicalDriveNumber);
+	void (*mount_disk)(filesystem_drive* d);
 	fs_index (*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_drive* fd);
-	fs_index (*read_chunks)(uint8_t* dest, size_t num_bytes, fs_index location, const filesystem_drive* fd);
+	fs_index (*read_chunks)(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd);
+	void (*read_dir)(directory_handle* dest, fs_index location, const filesystem_drive* fd);
 };
 
 filesystem_driver fat_driver = {
 	fat12_mount_disk,
 	fat12_get_relative_cluster,
 	fat12_read_clusters,
+	fat12_read_dir
 };
 
 int filesystem_setup_drives()
@@ -39,12 +41,25 @@ int filesystem_setup_drives()
 	drives[0].impl_data = (void*)floppy0;
 	drives[0].mounted = false;
 	drives[0].driver = &fat_driver;
-	
+	drives[0].index = 0;
+
 	drives[1].impl_data = (void*)floppy1;
 	drives[1].mounted = false;
 	drives[1].driver = &fat_driver;
+	drives[1].index = 1;
 	
 	return NUM_DRIVES;
+}
+
+directory_handle* filesystem_open_directory_from_handle(const file_handle* f)
+{
+	if (!(f->flags & IS_DIR)) { return NULL; }
+
+	directory_handle* d = (directory_handle*)malloc(sizeof(directory_handle));
+
+	drives[f->disk].driver->read_dir(d, f->location_on_disk, &drives[f->disk]);
+
+	return d;
 }
 
 SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t driveNumber)
@@ -59,7 +74,7 @@ SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t driveNumb
 		
 		if(!d->mounted)
 		{
-			d->driver->mount_disk(d, driveNumber);
+			d->driver->mount_disk(d);
 			d->mounted = true;
 		}
 		
@@ -83,11 +98,48 @@ file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* 
 	return NULL;
 }
 
+file_handle* filesystem_find_file_in_dir_recursive(const directory_handle* d, const char* name)
+{
+	if (d == NULL || name == NULL) { return NULL; };
+
+	const char* path = strchr(name, '/');
+	while (path == name) //name begins with a '/'
+	{
+		name++;
+		path = strchr(name, '/');
+	}
+
+	if (path != NULL)
+	{
+		char dirname[MAX_PATH];
+		size_t name_len = path - name;
+		memcpy(dirname, name, name_len);
+		dirname[name_len] = '\0';
+
+		printf("searching in dir: %s\n", dirname);
+
+		file_handle* fd = filesystem_find_file_in_dir(d, dirname);
+
+		if(fd == NULL || !(fd->flags & IS_DIR)) { return NULL; }
+
+		directory_handle* dir = filesystem_open_directory_from_handle(fd);
+
+		file_handle* f = filesystem_find_file_in_dir_recursive(dir, path);
+
+		//filesystem_close_directory(dir);
+		return f;
+	}
+	else
+	{
+		return filesystem_find_file_in_dir(d, name);
+	}
+}
+
 file_handle* filesystem_find_file_on_disk(size_t driveNumber, const char* name)
 {
 	const directory_handle* root = filesystem_get_root_directory(driveNumber);
 
-	return filesystem_find_file_in_dir(root, name);
+	return filesystem_find_file_in_dir_recursive(root, name);
 }
 
 file_handle* filesystem_find_file(const char* name)
@@ -97,6 +149,8 @@ file_handle* filesystem_find_file(const char* name)
 
 SYSCALL_HANDLER file_stream* filesystem_open_handle(file_handle* f, int flags)
 {	
+	if (f->flags & IS_DIR) { return NULL; }
+
 	file_stream* stream = (file_stream*)malloc(sizeof(file_stream));
 	
 	stream->location_on_disk = 0;
@@ -115,6 +169,7 @@ SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* 
 
 	strcpy(dst->name, src->full_name);
 	dst->size = src->size;
+	dst->flags = src->flags;
 	dst->time_created = src->time_created;
 	dst->time_modified = src->time_modified;
 
@@ -131,9 +186,10 @@ SYSCALL_HANDLER file_handle* filesystem_get_file_in_dir(const directory_handle* 
 	return NULL;
 }
 
-SYSCALL_HANDLER directory_handle* filesystem_open_directory(const char* name, int flags)
+SYSCALL_HANDLER int filesystem_close_directory(directory_handle* d)
 {
-	return NULL;
+	free(d);
+	return 0;
 }
 
 SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags)
@@ -141,6 +197,13 @@ SYSCALL_HANDLER file_stream* filesystem_open_file(const char* name, int flags)
 	file_handle* f = filesystem_find_file(name);
 	
 	return (f != NULL) ? filesystem_open_handle(f, flags) : NULL;
+}
+
+SYSCALL_HANDLER directory_handle* filesystem_open_directory(const char* name, int flags)
+{
+	file_handle* f = filesystem_find_file(name);
+
+	return (f != NULL) ? filesystem_open_directory_from_handle(f) : NULL;
 }
 	
 fs_index filesystem_get_next_location_on_disk(const file_stream* f, size_t byte_offset, fs_index chunk_index)
@@ -165,7 +228,7 @@ fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 	
 	filesystem_drive* d = &drives[f->file->disk];
 	
-	return d->driver->read_chunks(f->buffer, CHUNK_READ_SIZE, chunk_index, d);
+	return d->driver->read_chunks(f->buffer, chunk_index, CHUNK_READ_SIZE, d);
 }
 
 SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f)
