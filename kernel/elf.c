@@ -57,7 +57,7 @@ int load_elf(const char* path, process* newTask)
 	
 	//printf("elf file opening\n");
 	
-	file_stream* f = filesystem_open_file(path, 0);
+	file_stream* f = filesystem_open_file(NULL, path, 0);
 	
 	if(f == NULL)
 	{

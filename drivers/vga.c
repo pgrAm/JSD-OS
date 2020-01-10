@@ -188,7 +188,7 @@ uint8_t* loadpsf(const char* file)
 		uint8_t charsize;	// Character size
 	} __attribute__((packed)) PSF_font;
 
-	file_stream* f = filesystem_open_file(file, 0);
+	file_stream* f = filesystem_open_file(NULL, file, 0);
 
 	if (!f) return NULL;
 

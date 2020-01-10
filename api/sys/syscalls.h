@@ -92,9 +92,9 @@ static inline void print_string(const char *a, size_t len)
 	do_syscall_2(SYSCALL_PRINT, (uint32_t)a, (uint32_t)len);
 }
 
-static inline file_stream* open(const char *path, int flags)
+static inline file_stream* open(directory_handle* rel, const char* path, int flags)
 {
-	return (file_stream*)do_syscall_2(SYSCALL_OPEN, (uint32_t)path, (uint32_t)flags);
+	return (file_stream*)do_syscall_3(SYSCALL_OPEN, (uint32_t)rel, (uint32_t)path, (uint32_t)flags);
 }
 
 static inline int close(file_stream* file)
@@ -187,9 +187,9 @@ static inline uint8_t* map_video_memory()
 {
 	return (uint8_t*)do_syscall_0(SYSCALL_MAP_VIDEO_MEMORY);
 }
-static inline directory_handle* open_dir(const char* name, int flags)
+static inline directory_handle* open_dir(directory_handle* rel, const char* path, int flags)
 {
-	return (directory_handle*)do_syscall_2(SYSCALL_OPEN_DIR, (uint32_t)name, (uint32_t)flags);
+	return (directory_handle*)do_syscall_3(SYSCALL_OPEN_DIR, (uint32_t)rel, (uint32_t)path, (uint32_t)flags);
 }
 static inline int close_dir(directory_handle* dir) 
 {

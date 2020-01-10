@@ -175,7 +175,7 @@ int get_command(char* input)
 		char* path = strtok(NULL, "\"\'\n");
 		if (path != NULL)
 		{
-			directory_handle* d = open_dir(path, 0);
+			directory_handle* d = open_dir(current_directory, path, 0);
 			if (d != NULL)
 			{
 				current_directory = d;
@@ -198,33 +198,28 @@ int get_command(char* input)
 	{
 		const char* arg = strtok(NULL, "\"\'\n");
 		file_info file;
-		if (find_file_in_dir(current_directory, &file, arg) == 0)
-		{
-			file_stream* fs = open(arg, 0);
-			if (fs)
-			{
-				char *dataBuf = (char*)malloc(file.size);
-				read(dataBuf, file.size, fs);
-				
-				for(size_t i = 0; i < file.size; i++)
-				{
-					if(dataBuf[i] != '\r')
-					{
-						putchar(dataBuf[i]);
-					}
-				}
-				
-				free(dataBuf);
-				close(fs);
-				putchar('\n');
 
-				return 0;
+		file_stream* fs = open(current_directory, arg, 0);
+		if (fs)
+		{
+			char *dataBuf = (char*)malloc(file.size);
+			read(dataBuf, file.size, fs);
+			
+			for(size_t i = 0; i < file.size; i++)
+			{
+				if(dataBuf[i] != '\r')
+				{
+					putchar(dataBuf[i]);
+				}
 			}
-			printf("Could open find file %s\n", arg);
-			return -1;
+			
+			free(dataBuf);
+			close(fs);
+			putchar('\n');
+
+			return 0;
 		}
-		
-		printf("Could not find file %s\n", arg);
+		printf("Could not open file %s\n", arg);
 		return -1;
 	}
 	else
@@ -244,7 +239,7 @@ int get_command(char* input)
 			{
 				uint8_t* dataBuf = (uint8_t*)malloc(file.size);
 
-				file_stream* f = open(keyword, 0);
+				file_stream* f = open(current_directory, keyword, 0);
 				if (f)
 				{
 					read(dataBuf, file.size, f);
