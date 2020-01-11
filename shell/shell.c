@@ -193,7 +193,7 @@ int get_command(char* input)
 			clear_console();
 		}
 	}
-	else if(strcmp("cat", keyword) == 0)
+	else if(strcmp("cat", keyword) == 0 || strcmp("type", keyword) == 0)
 	{
 		const char* arg = strtok(NULL, "\"\'\n");
 		file_info file;
