@@ -52,15 +52,7 @@ void set_cursor_offset(size_t offset)
 	}
 
 	cursorpos = offset;
-	
-	//offset >>= 1;
-	// // cursor LOW port to vga INDEX register
-    //outb(REG_SCREEN_CTRL, 0x0f);
-    //outb(REG_SCREEN_DATA, (uint8_t)(offset & 0xFF));
-	//
-    //// cursor HIGH port to vga INDEX register
-    //outb(REG_SCREEN_CTRL, 0x0E);
-    //outb(REG_SCREEN_DATA, (uint8_t)((offset >> 8) & 0xFF));
+	set_video_cursor(offset);
 }
 
 void video_erase_chars(size_t num)

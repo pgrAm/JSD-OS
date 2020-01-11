@@ -31,7 +31,8 @@ enum syscall_indices
 	SYSCALL_SET_VIDEO_MODE = 18,
 	SYSCALL_MAP_VIDEO_MEMORY = 19,
 	SYSCALL_OPEN_DIR = 20,
-	SYSCALL_CLOSE_DIR = 21
+	SYSCALL_CLOSE_DIR = 21,
+	SYSCALL_SET_VIDEO_CURSOR = 22
 };
 
 struct file_handle;
@@ -166,6 +167,11 @@ static inline directory_handle* get_root_directory(size_t drive_index)
 static inline int set_video_mode(int width, int height, int flags)
 {
 	return (int)do_syscall_3(SYSCALL_SET_VIDEO_MODE, (uint32_t)width, (uint32_t)height, (uint32_t)flags);
+}
+
+static inline int set_video_cursor(int offset)
+{
+	return (int)do_syscall_1(SYSCALL_SET_VIDEO_CURSOR, (uint32_t)offset);
 }
 
 static inline uint8_t* map_video_memory()

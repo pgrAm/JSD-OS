@@ -16,7 +16,7 @@ void delete_chars(size_t num);
 
 void set_cursor_visibility(bool on);
 
-void set_cursor_position(uint16_t row, uint16_t col);
+SYSCALL_HANDLER int set_cursor_offset(int offset);
 
 void print_string_len(const char* str, size_t length);
 

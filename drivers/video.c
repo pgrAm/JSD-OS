@@ -27,11 +27,11 @@ inline char* get_current_draw_pointer()
 
 #define clearval 0x0f00;
 
-void set_cursor_offset(size_t offset) 
+SYSCALL_HANDLER int set_cursor_offset(int offset)
 { 
 	if (offset > SCREEN_SIZE_BYTES)
 	{
-		return;
+		return -1;
 	}
 
 	int_lock lock = lock_interrupts();
@@ -48,6 +48,8 @@ void set_cursor_offset(size_t offset)
     outb(REG_SCREEN_DATA, (uint8_t)((offset >> 8) & 0xFF));
 
 	unlock_interrupts(lock);
+
+	return 0;
 }
 
 void delete_chars(size_t num)
