@@ -51,9 +51,9 @@ int filesystem_setup_drives()
 	return NUM_DRIVES;
 }
 
-directory_handle* filesystem_open_directory_from_handle(const file_handle* f)
+SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(file_handle* f, int flags)
 {
-	if (!(f->flags & IS_DIR)) { return NULL; }
+	if (f == NULL || !(f->flags & IS_DIR)) { return NULL; }
 
 	directory_handle* d = (directory_handle*)malloc(sizeof(directory_handle));
 
@@ -98,7 +98,7 @@ file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* 
 	return NULL;
 }
 
-file_handle* filesystem_find_file_in_dir_recursive(const directory_handle* d, const char* name)
+SYSCALL_HANDLER file_handle* filesystem_find_file_by_path(const directory_handle* d, const char* name)
 {
 	if(name == NULL) { return NULL; };
 
@@ -130,9 +130,9 @@ file_handle* filesystem_find_file_in_dir_recursive(const directory_handle* d, co
 			return fd; //just return the dir
 		}
 
-		directory_handle* dir = filesystem_open_directory_from_handle(fd);
+		directory_handle* dir = filesystem_open_directory_handle(fd, 0);
 
-		file_handle* f = filesystem_find_file_in_dir_recursive(dir, path);
+		file_handle* f = filesystem_find_file_by_path(dir, path);
 
 		//filesystem_close_directory(dir);
 		return f;
@@ -143,9 +143,9 @@ file_handle* filesystem_find_file_in_dir_recursive(const directory_handle* d, co
 	}
 }
 
-SYSCALL_HANDLER file_stream* filesystem_open_handle(file_handle* f, int flags)
+SYSCALL_HANDLER file_stream* filesystem_open_file_handle(file_handle* f, int flags)
 {	
-	if (f->flags & IS_DIR) { return NULL; }
+	if (f == NULL || f->flags & IS_DIR) { return NULL; }
 
 	file_stream* stream = (file_stream*)malloc(sizeof(file_stream));
 	
@@ -189,18 +189,16 @@ SYSCALL_HANDLER int filesystem_close_directory(directory_handle* d)
 	return 0;
 }
 
-SYSCALL_HANDLER file_stream* filesystem_open_file(directory_handle* rel, const char* name, int flags)
+SYSCALL_HANDLER file_stream* filesystem_open_file(const directory_handle* rel, const char* name, int flags)
 {
-	file_handle* f = filesystem_find_file_in_dir_recursive(rel, name);
-	
-	return (f != NULL) ? filesystem_open_handle(f, flags) : NULL;
+	file_handle* f = filesystem_find_file_by_path(rel, name);
+	return filesystem_open_file_handle(f, flags);
 }
 
-SYSCALL_HANDLER directory_handle* filesystem_open_directory(directory_handle* rel, const char* name, int flags)
+SYSCALL_HANDLER directory_handle* filesystem_open_directory(const directory_handle* rel, const char* name, int flags)
 {
-	file_handle* f = filesystem_find_file_in_dir_recursive(rel, name);
-
-	return (f != NULL) ? filesystem_open_directory_from_handle(f) : NULL;
+	file_handle* f = filesystem_find_file_by_path(rel, name);
+	return filesystem_open_directory_handle(f, flags);
 }
 	
 fs_index filesystem_get_next_location_on_disk(const file_stream* f, size_t byte_offset, fs_index chunk_index)

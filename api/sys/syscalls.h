@@ -10,7 +10,7 @@
 
 enum syscall_indices
 {
-	SYSCALL_PRINT = 0,
+	SYSCALL_FIND_PATH = 0,
 	SYSCALL_OPEN = 1,
 	SYSCALL_CLOSE = 2,
 	SYSCALL_READ = 3,
@@ -23,8 +23,8 @@ enum syscall_indices
 	SYSCALL_FREE_PAGES = 10,
 	SYSCALL_KEYGET = 11,
 	SYSCALL_WAIT_KEYGET = 12,
-	SYSCALL_CLEAR_SCREEN = 13, //these can be axed later
-	SYSCALL_ERASE_CHARS = 14, //these can be axed later
+	SYSCALL_OPEN_FILE_HANDLE = 13,
+	SYSCALL_OPEN_DIR_HANDLE = 14,
 	SYSCALL_GET_FILE_IN_DIR = 15,
 	SYSCALL_GET_FILE_INFO = 16,
 	SYSCALL_GET_ROOT_DIR = 17,
@@ -87,11 +87,6 @@ static inline void exit(int a)
 	do_syscall_1(SYSCALL_EXIT, (uint32_t)a);
 }
 
-static inline void print_string(const char *a, size_t len)
-{
-	do_syscall_2(SYSCALL_PRINT, (uint32_t)a, (uint32_t)len);
-}
-
 static inline file_stream* open(directory_handle* rel, const char* path, int flags)
 {
 	return (file_stream*)do_syscall_3(SYSCALL_OPEN, (uint32_t)rel, (uint32_t)path, (uint32_t)flags);
@@ -151,16 +146,6 @@ static inline uint8_t wait_and_getkey()
 	return (uint8_t)do_syscall_0(SYSCALL_WAIT_KEYGET);
 }
 
-static inline void video_clear()
-{
-	do_syscall_0(SYSCALL_CLEAR_SCREEN);
-}
-
-static inline void video_erase_chars(size_t n)
-{
-	do_syscall_1(SYSCALL_ERASE_CHARS, (uint32_t)n);
-}
-
 static inline file_handle* get_file_in_dir(const directory_handle* d, size_t index)
 {
 	return (file_handle*)do_syscall_2(SYSCALL_GET_FILE_IN_DIR, (uint32_t)d, (uint32_t)index);
@@ -194,5 +179,20 @@ static inline directory_handle* open_dir(directory_handle* rel, const char* path
 static inline int close_dir(directory_handle* dir) 
 {
 	return (int)do_syscall_1(SYSCALL_CLOSE_DIR, (uint32_t)dir);
+}
+
+static inline file_handle* find_path(const directory_handle* rel, const char* name)
+{
+	return (file_handle*)do_syscall_2(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name);
+}
+
+static inline directory_handle* open_dir_handle(file_handle* f, int flags)
+{
+	return (directory_handle*)do_syscall_2(SYSCALL_OPEN_DIR_HANDLE, (uint32_t)f, (uint32_t)flags);
+}
+
+static inline file_stream* open_file_handle(file_handle* f, int flags)
+{
+	return (file_stream*)do_syscall_2(SYSCALL_OPEN_FILE_HANDLE, (uint32_t)f, (uint32_t)flags);
 }
 #endif

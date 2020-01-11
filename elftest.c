@@ -1,15 +1,19 @@
 #include <sys/syscalls.h>
+#include <graphics/graphics.h>
 #include <stdio.h>
 
 extern uint16_t getSS();
 
 int _start(void)
 {
-	puts("testing\n");
+	//set_video_mode(90, 60, VIDEO_TEXT_MODE);
+
+	*(volatile uint8_t*)0 = 1;
+	//puts("testing\n");
 
 	do
 	{
-		set_video_mode(80, 50, VIDEO_TEXT_MODE);
+		initialize_text_mode(80, 50);
 		video_clear();
 		for (int i = 0; i < 256; i++)
 		{
@@ -17,7 +21,7 @@ int _start(void)
 		}
 		wait_and_getkey();
 
-		set_video_mode(80, 25, VIDEO_TEXT_MODE);
+		initialize_text_mode(80, 25);
 		video_clear();
 		for (int i = 0; i < 256; i++)
 		{

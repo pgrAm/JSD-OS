@@ -3,7 +3,9 @@
 #include <string.h>
 #include <stdint.h>
 #include <sys/syscalls.h>
-
+#ifndef __KERNEL
+#include <graphics/graphics.h>
+#endif
 //#include "../drivers/video.h"
 //#include "../drivers/kbrd.h"
 //#include "../drivers/rs232.h"

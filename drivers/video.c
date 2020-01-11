@@ -25,30 +25,7 @@ inline char* get_current_draw_pointer()
 	return vmem;
 }
 
-static const uint8_t vt100_colors[8] =
-{
-	0x00, 0x04, 0x02, 0x06, 0x01, 0x05, 0x03, 0x07
-};
-
-uint16_t clearval = 0x0f00;
-uint8_t color = 0x0f;
-uint8_t is_bright = 0x1;
-uint8_t fgr_color = 0x07;
-uint8_t bgr_color = 0x0;
-
-void set_color(uint8_t bgr, uint8_t fgr, uint8_t bright)
-{
-	int_lock lock = lock_interrupts();
-
-	fgr_color = fgr;
-	bgr_color = bgr;
-	
-	color = ((bgr & 0x0f) << 4) | ((fgr + (bright & 0x01) * 8) & 0x0f);
-	is_bright = bright;
-	clearval = ((uint16_t)color) << 8 | 0;
-
-	unlock_interrupts(lock);
-}
+#define clearval 0x0f00;
 
 void set_cursor_offset(size_t offset) 
 { 
@@ -158,89 +135,6 @@ void scroll_up()
 
 static const int tab_size = 5;
 
-int handle_escape_sequence(const char* sequence)
-{
-	static uint16_t cursorstore = 0;
-
-	char* seq = (char*)sequence;
-	
-	seq++;
-	
-	if(*seq == '[') //CSI control code
-	{	
-		size_t argnum = 0;
-	
-		unsigned int args[4] = {0, 0, 0, 0};
-		do
-		{
-			seq++;
-			while(isdigit(*seq))
-			{
-				args[argnum] = args[argnum] * 10 + *seq - '0';
-				seq++;
-			}
-			argnum++;
-		}
-		while(*seq == ';');
-		
-		unsigned int n = args[0];
-		
-		switch(*seq)
-		{
-			case 'J': //clear screen
-				if(n == 2)
-				{
-					clear_screen();
-				}
-				break;
-			case 'H': //move cursor
-				set_cursor_position(args[0] - 1, args[1] - 1);
-				break;
-			case 'm': //SGR
-				for(int i = 0; i < argnum; i++)
-				{
-					int comm = args[i];
-					
-					if(comm == 1)
-					{
-						set_color(bgr_color, fgr_color, 1);
-					}
-					else if(comm == 22)
-					{
-						set_color(bgr_color, fgr_color, 0);
-					}
-					else if(comm >= 30 && comm <= 37) //change text color
-					{
-						set_color(bgr_color, vt100_colors[comm - 30], is_bright);
-					}
-					else if(comm >= 40 && comm <= 47) //change background color
-					{
-						set_color(vt100_colors[comm - 40], fgr_color, is_bright);
-					}
-				}
-				break;
-			case 's':
-			{
-				int_lock lock = lock_interrupts();
-				cursorstore = cursorpos; //save the current cursor position
-				unlock_interrupts(lock);
-			}
-				break;
-			case 'u':
-			{
-				int_lock lock = lock_interrupts();
-				cursorpos = cursorstore; //restore the cursor
-				unlock_interrupts(lock);
-			}
-				break;
-			default:
-				break;
-		}
-	}
-	
-	return seq - sequence;
-}
-
 int handle_char(const char source, char* dest)
 {
 	int offset = 0;
@@ -259,7 +153,7 @@ int handle_char(const char source, char* dest)
 		break;
 	default:
 		*dest++ = source;
-		*dest = color;
+		//*dest = color;
 		offset = 2;
 		break;
 	}
@@ -280,14 +174,7 @@ void print_string_len(const char* str, size_t length)
 
 	for(; currentchar < lastchar; currentchar++)
 	{
-		if(*currentchar == '\x1b') //ANSI escape sequence
-		{
-			currentchar += handle_escape_sequence(currentchar);
-		}
-		else
-		{
-			output_position += handle_char(*currentchar, vmem);
-		}
+		output_position += handle_char(*currentchar, vmem);
 		
 		if(output_position >= SCREEN_SIZE_BYTES)
 		{

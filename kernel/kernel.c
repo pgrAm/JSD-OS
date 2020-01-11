@@ -22,21 +22,6 @@ extern void _IMAGE_END_;
 int width = 80;
 int height = 25;
 
-void splash_text(int w)
-{
-	printf("***");
-	for (int i = 3; i < ((w / 2) - 3); i++)
-	{
-		putchar(' ');
-	}
-	printf("JSD/OS");
-	for (int i = 3; i < ((w / 2) - 3); i++)
-	{
-		putchar(' ');
-	}
-	printf("***");
-}
-
 void kernel_main() 
 {
 	//puts("Kernel Booted\n");
@@ -63,24 +48,10 @@ void kernel_main()
 	
 	keyboard_init();
 	
-	set_video_mode(width, height, VIDEO_TEXT_MODE);
-
-	splash_text(width);
-	
-	time_t t_time = time(NULL);
-	
-	printf("UTC Time: %s\n", asctime(gmtime(&t_time)));
-	
-	printf("UNIX TIME: %d\n", t_time);
-	
 	size_t free_mem = memmanager_num_bytes_free();
 	size_t total_mem = memmanager_mem_size();
 	
 	printf("%u KB free / %u KB Memory\n\n", free_mem / 1024, total_mem / 1024);
-	
-	struct tm sys_time = *localtime(&t_time);
-	
-	printf("EST Time: %s\n", asctime(&sys_time));
 
 	int drive_index = 0;
 	

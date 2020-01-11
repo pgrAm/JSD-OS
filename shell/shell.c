@@ -4,6 +4,7 @@
 #include <time.h>
 
 #include <sys/syscalls.h>
+#include <graphics/graphics.h>
 
 char console_user[] = "root";
 char prompt_char = ']';
@@ -72,19 +73,17 @@ void list_directory()
 	printf("\n %5d Files   %5d Bytes\n\n", i, total_bytes);
 }
 
-int find_file_in_dir(const directory_handle* dir, file_info* f, const char* name)
+file_handle* find_file_in_dir(const directory_handle* dir, file_info* f, const char* name)
 {
-	size_t i = 0;
-	file_handle* f_handle = NULL;
-	while ((f_handle = get_file_in_dir(dir, i++)))
+	file_handle* f_handle = find_path(dir, name);
+	if (f_handle != NULL)
 	{
-		get_file_info(f, f_handle);
-		if (strcasecmp(name, f->name) == 0)
+		if (get_file_info(f, f_handle) == 0 && !(f->flags & IS_DIR))
 		{
-			return 0;
+			return f_handle;
 		}
 	}
-	return -1;
+	return NULL;
 }
 
 void clear_console()
@@ -189,7 +188,7 @@ int get_command(char* input)
 		int width = atoi(strtok(NULL, "\"\'\n "));
 		int height = atoi(strtok(NULL, "\"\'\n "));
 
-		if (set_video_mode(width, height, VIDEO_TEXT_MODE) == 0)
+		if (initialize_text_mode(width, height) == 0)
 		{
 			clear_console();
 		}
@@ -198,26 +197,24 @@ int get_command(char* input)
 	{
 		const char* arg = strtok(NULL, "\"\'\n");
 		file_info file;
-
-		file_stream* fs = open(current_directory, arg, 0);
-		if (fs)
+		file_handle* f_handle = find_file_in_dir(current_directory, &file, arg);
+		if (f_handle)
 		{
-			char *dataBuf = (char*)malloc(file.size);
-			read(dataBuf, file.size, fs);
-			
-			for(size_t i = 0; i < file.size; i++)
+			file_stream* fs = open_file_handle(f_handle, 0);
+			if (fs)
 			{
-				if(dataBuf[i] != '\r')
-				{
-					putchar(dataBuf[i]);
-				}
-			}
-			
-			free(dataBuf);
-			close(fs);
-			putchar('\n');
+				//printf("malloc'ing %d bytes\n", file.size);
+				char* dataBuf = (char*)malloc(file.size);
+				read(dataBuf, file.size, fs);
 
-			return 0;
+				print_string(dataBuf, file.size);
+
+				free(dataBuf);
+				close(fs);
+				putchar('\n');
+
+				return 0;
+			}
 		}
 		printf("Could not open file %s\n", arg);
 		return -1;
@@ -225,7 +222,7 @@ int get_command(char* input)
 	else
 	{
 		file_info file;
-		if(find_file_in_dir(current_directory, &file, keyword) == 0)
+		if(find_file_in_dir(current_directory, &file, keyword))
 		{	
 			const char* extension = strchr(file.name, '.') + 1;
 
@@ -267,8 +264,40 @@ void prompt()
 	printf("\x1b[32;22m%s\x1b[37m@%s%c", console_user, drive_names[drive_index], prompt_char);
 }
 
+int width = 90;
+int height = 30;
+
+void splash_text(int w)
+{
+	printf("***");
+	for (int i = 3; i < ((w / 2) - 3); i++)
+	{
+		putchar(' ');
+	}
+	printf("JSD/OS");
+	for (int i = 3; i < ((w / 2) - 3); i++)
+	{
+		putchar(' ');
+	}
+	printf("***");
+}
+
+
 int _start(void)
 {
+	initialize_text_mode(width, height);
+	splash_text(width);
+		
+	time_t t_time = time(NULL);
+
+	printf("UTC Time: %s\n", asctime(gmtime(&t_time)));
+
+	printf("UNIX TIME: %d\n", t_time);
+
+	struct tm sys_time = *localtime(&t_time);
+
+	printf("EST Time: %s\n", asctime(&sys_time));
+
 	current_directory = get_root_directory(drive_index);
 	
 	if(current_directory == NULL)
