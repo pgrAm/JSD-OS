@@ -49,6 +49,7 @@ SYSCALL_HANDLER key_type wait_and_get_keypress()
 	while((k = get_keypress()) == KEY_FAILURE)
 	{
 		//yield();
+		wait_for_interrupt();
 	}
 	
 	return k;

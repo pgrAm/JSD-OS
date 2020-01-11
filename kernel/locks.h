@@ -34,6 +34,11 @@ static inline void release_lock(volatile int* _lock)
 	*_lock = 0;
 }
 
+static inline void wait_for_interrupt()
+{
+	__asm__ volatile("hlt");
+}
+
 typedef struct
 {
 	volatile int ownerPID;
