@@ -144,8 +144,8 @@ void* memmanager_get_unmapped_pages(const size_t num_pages, uint32_t flags)
 		}
 	}
 	
-	//printf("couldn't find page\n");
-	
+	printf("couldn't find page\n");
+
 	return NULL;
 }
 
@@ -161,6 +161,7 @@ void memmanager_map_page(uint32_t virtual_address, uint32_t physical_address, ui
 	else if((flags & PAGE_USER) && !(pt_entry & PAGE_USER))
 	{
 		printf("page allocation error\n");
+		return;
 	}
 	
 	uint32_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
@@ -196,6 +197,14 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 	if(virtual_address == NULL)
 	{
 		virtual_address = memmanager_get_unmapped_pages(n, flags);
+
+		//if its still null then there were not enough contiguous unmapped pages
+		if (virtual_address == NULL)
+		{
+			printf("failure to get %d unmapped pages", n);
+			while (true);
+			return NULL;
+		}
 	}
 	
 	size_t num_pages = n;
