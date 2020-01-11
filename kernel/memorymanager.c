@@ -38,9 +38,39 @@ uint32_t* const current_page_directory = (uint32_t*)((uint32_t)MAXIMUM_ADDRESS -
 
 extern void _IMAGE_END_;
 
+#define MAX_NUM_MEMORY_BLOCKS 128
 size_t num_memory_blocks = 2;
-memory_block memory_map[2] = {{(uint32_t)&_IMAGE_END_, 0}, {0x00100000, 0}};//,{0x0000E000, 0x0007FFFF - 0x0000E000}};
+memory_block memory_map[MAX_NUM_MEMORY_BLOCKS] = {{(uint32_t)&_IMAGE_END_, 0}, {0x00100000, 0}};//,{0x0000E000, 0x0007FFFF - 0x0000E000}};
 //memory_block memory_map[1] = {{0x00100000, 0xFFFFFFFF - 0x00100000}};
+
+void memmanager_add_memory_block(size_t block_index, size_t address, size_t length)
+{
+	if (block_index >= MAX_NUM_MEMORY_BLOCKS)
+	{
+		puts("error maximum memory blocks reached");
+		return;
+	}
+	if (block_index < num_memory_blocks)
+	{
+		memmove(&memory_map[block_index + 1], &memory_map[block_index], num_memory_blocks - block_index);
+	}
+	memory_map[block_index].offset = address;
+	memory_map[block_index].length = length;
+	num_memory_blocks++;
+}
+
+void memmanager_remove_memory_block(size_t block_index)
+{
+	if (block_index >= MAX_NUM_MEMORY_BLOCKS) 
+	{
+		return;
+	}
+	if (block_index < (num_memory_blocks - 1))
+	{
+		memmove(&memory_map[block_index], &memory_map[block_index + 1], num_memory_blocks - block_index);
+	}
+	num_memory_blocks--;
+}
 
 uint32_t memmanager_get_pt_entry(uint32_t virtual_address)
 {
@@ -231,6 +261,8 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 					if(padding > 0)
 					{
 						//add a new block to the list
+						memmanager_add_memory_block(i, memory_map[i].offset, padding);
+						i++;
 					}
 					
 					memory_map[i].offset = aligned_addr;
@@ -244,7 +276,9 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 
 				if(memory_map[i].length == 0)
 				{
-					//remove the memory block from the list
+					//remove this block from the list
+					memmanager_remove_memory_block(i);
+					i--;
 				}
 				
 				memmanager_map_page(page_virtual_address, physical_address, flags);
@@ -292,17 +326,20 @@ int memmanager_free_pages(void* page, size_t num_pages)
 			{
 				physical_address = memory_map[i].offset;
 				memory_map[i].length += PAGE_SIZE;
-				
 				break;
 			}
 			else if(memory_map[i].offset == physical_address + PAGE_SIZE) //we have an adjacent block
 			{
 				memory_map[i].offset = physical_address;
 				memory_map[i].length += PAGE_SIZE;
-				
 				break;
 			}
-			//otherwise we need to add a new block
+			else if (memory_map[i].offset + memory_map[i].length > physical_address)
+			{
+				//otherwise we need to add a new block
+				memmanager_add_memory_block(i, physical_address, PAGE_SIZE);
+				break;
+			}
 		}
 	}
 	
