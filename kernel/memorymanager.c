@@ -14,9 +14,11 @@ static inline void __flush_tlb()
 
 static inline void __flush_tlb_page(uint32_t addr)
 {
+#ifndef __I386_ONLY
+	__asm__ volatile("invlpg (%0)" ::"r" (addr) : "memory");
+#else
 	__flush_tlb();
-	
-	//__asm__ volatile("invlpg (%0)" ::"r" (addr) : "memory");
+#endif
 }
 
 typedef struct 
@@ -40,8 +42,7 @@ extern void _IMAGE_END_;
 
 #define MAX_NUM_MEMORY_BLOCKS 128
 size_t num_memory_blocks = 2;
-memory_block memory_map[MAX_NUM_MEMORY_BLOCKS] = {{(uint32_t)&_IMAGE_END_, 0}, {0x00100000, 0}};//,{0x0000E000, 0x0007FFFF - 0x0000E000}};
-//memory_block memory_map[1] = {{0x00100000, 0xFFFFFFFF - 0x00100000}};
+memory_block memory_map[MAX_NUM_MEMORY_BLOCKS] = {{(uint32_t)&_IMAGE_END_, 0}, {0x00100000, 0}};
 
 void memmanager_add_memory_block(size_t block_index, size_t address, size_t length)
 {
@@ -350,7 +351,7 @@ int memmanager_free_pages(void* page, size_t num_pages)
 	return 0;
 }
 
-void memmanager_init_page_dir(uint32_t* page_dir, uint32_t physaddr)
+void memmanager_init_page_dir(__attribute__((nonnull)) uint32_t* page_dir, uint32_t physaddr)
 {
 	//Mark pages not present
 	memset(page_dir, 0, PAGE_SIZE);
@@ -361,26 +362,19 @@ void memmanager_init_page_dir(uint32_t* page_dir, uint32_t physaddr)
 
 uint32_t memmanager_new_memory_space()
 {
-	//were gonna need a new malloc type allocator too
+	uint32_t* process_page_dir = (uint32_t*)memmanager_virtual_alloc(NULL, 1, PAGE_PRESENT | PAGE_RW);
 	
-	uint32_t* process_page_dir = memmanager_virtual_alloc(NULL, 1, PAGE_PRESENT | PAGE_RW);
-	
+	if (process_page_dir == NULL)
+	{
+		return (uint32_t)NULL; //not enough free physical memory 
+	}
+
 	memmanager_init_page_dir(process_page_dir, memmanager_get_physical((uint32_t)process_page_dir));
-	
-	//printf("new dir initialized\n");
-	
-	//process_page_dir[0] = current_page_directory[0] & ~PAGE_USER;
 	
 	for(size_t i = 0; i < 2; i++)
 	{
 		process_page_dir[i] = current_page_directory[i] & ~PAGE_USER;
 	}
-	
-	//printf("new table initialized\n");
-	
-	//set_page_directory((uint32_t*)memmanager_get_physical((uint32_t)process_page_dir));
-	
-	//printf("page dir set\n");
 	
 	return (uint32_t)process_page_dir;
 }
@@ -422,31 +416,32 @@ size_t memmanager_mem_size(void)
 
 void memmanager_init(void)
 {
-	//puts("memmanager init");
-	
 	total_mem_size = _multiboot->m_memoryLo * 1024 + _multiboot->m_memoryHi * 1024;
 	
 	memory_map[0].length = (_multiboot->m_memoryLo * 1024) - (uint32_t)&_IMAGE_END_;
 	memory_map[1].length = _multiboot->m_memoryHi * 1024;
 	
-	//printf("Low memory limit %X\n", memory_map[0].offset + memory_map[0].length);
-
 	uint32_t* kernel_page_directory = (uint32_t*)memmanager_allocate_physical_page();
 	uint32_t* first_page_table = (uint32_t*)memmanager_allocate_physical_page();
 	
+	if (first_page_table == NULL || kernel_page_directory == NULL)
+	{
+		//were completelty f'cked in this case
+		puts("There's not enough ram to run the OS :(");
+		//we're totally hosed so just give up
+		while (true) 
+		{
+			__asm__ volatile ("cli;hlt");
+		}
+	}
+
 	memmanager_init_page_dir(kernel_page_directory, (uint32_t)kernel_page_directory);
-	
-	//puts("page dir init");
-	
-	//printf("%X\n", first_page_table);
 	
 	//map the first 4 MiB of memory to itself
 	for(size_t i = 0; i < PAGE_TABLE_SIZE; i++)
 	{
 		first_page_table[i] = (i * PAGE_SIZE) | PAGE_PRESENT | PAGE_RW;
 	}
-	
-	//puts("page table init");
 	
 	//Add the first 4 MiB to the page dir
 	kernel_page_directory[0] = ((uint32_t)first_page_table) | PAGE_PRESENT | PAGE_RW;
