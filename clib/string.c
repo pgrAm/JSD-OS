@@ -17,13 +17,13 @@ const char* strchr(const char* str, int character)
 
 char* strtok(char* str, const char* delimiters)
 {
-    static char* buffer;
+    static char* buffer = NULL;
 	
     if(str != NULL) 
 	{
 		buffer = str;
 	}
-    if(buffer[0] == '\0') 
+    if(buffer == NULL || buffer[0] == '\0')
 	{
 		return NULL;
 	}

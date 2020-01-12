@@ -81,8 +81,9 @@ uint16_t get_cursor_offset()
 	uint16_t offset = inb(REG_SCREEN_DATA);
 	outb(REG_SCREEN_CTRL, 0x0e);
 	offset += inb(REG_SCREEN_DATA) << 8;
-	return offset << 1;
 	unlock_interrupts(lock);
+
+	return offset << 1;
 }
 
 

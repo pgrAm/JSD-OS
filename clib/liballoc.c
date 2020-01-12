@@ -5,6 +5,8 @@
 //#include <stdio.h>
 //#include <stdlib.h>
 
+#include <string.h>
+
 #define VERSION 	"1.1"
 #define ALIGNMENT	16ul//4ul				///< This is the byte alignment that memory must be allocated on. IMPORTANT for GTK and other stuff.
 
@@ -107,37 +109,15 @@ static long long l_possibleOverruns = 0;	///< Number of possible overruns
 
 // ***********   HELPER FUNCTIONS  *******************************
 
-static void *liballoc_memset(void* s, int c, size_t n)
+static inline void *liballoc_memset(void* s, int c, size_t n)
 {
-	unsigned int i;
-	for ( i = 0; i < n ; i++)
-		((char*)s)[i] = c;
-	
-	return s;
+	// Jake Del Mastro 12/01/2020 - use standard optimized memset
+	return memset(s, c, n);
 }
-static void* liballoc_memcpy(void* s1, const void* s2, size_t n)
+static inline void* liballoc_memcpy(void* s1, const void* s2, size_t n)
 {
-  char *cdest;
-  char *csrc;
-  unsigned int *ldest = (unsigned int*)s1;
-  unsigned int *lsrc  = (unsigned int*)s2;
-
-  while ( n >= sizeof(unsigned int) )
-  {
-      *ldest++ = *lsrc++;
-	  n -= sizeof(unsigned int);
-  }
-
-  cdest = (char*)ldest;
-  csrc  = (char*)lsrc;
-  
-  while ( n > 0 )
-  {
-      *cdest++ = *csrc++;
-	  n -= 1;
-  }
-  
-  return s1;
+	// Jake Del Mastro 12/01/2020 - use standard optimized memcpy
+	return memcpy(s1, s2, n);
 }
  
 

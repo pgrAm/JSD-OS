@@ -104,6 +104,8 @@ uint32_t memmanager_allocate_physical_page()
 			if(padding > 0)
 			{
 				//add a new block to the list
+				memmanager_add_memory_block(i, memory_map[i].offset, padding);
+				i++;
 			}
 		
 			memory_map[i].offset += PAGE_SIZE + padding;
@@ -112,6 +114,8 @@ uint32_t memmanager_allocate_physical_page()
 			if(memory_map[i].length == 0)
 			{
 				//remove the memory block from the list
+				memmanager_remove_memory_block(i);
+				i--;
 			}
 			
 			return aligned_addr;
@@ -212,11 +216,11 @@ void memmanager_map_page(uint32_t virtual_address, uint32_t physical_address, ui
 
 void* memmanager_map_to_new_pages(uint32_t physical_address, size_t n, uint32_t flags)
 {
-	uint32_t virtual_address = memmanager_get_unmapped_pages(n, flags);
+	void* virtual_address = memmanager_get_unmapped_pages(n, flags);
 
 	for (size_t i = 0; i < n; i++)
 	{
-		memmanager_map_page(virtual_address + i * PAGE_SIZE, physical_address + i * PAGE_SIZE, flags);
+		memmanager_map_page((uint32_t)virtual_address + i * PAGE_SIZE, physical_address + i * PAGE_SIZE, flags);
 	}
 
 	return virtual_address;
@@ -324,7 +328,7 @@ int memmanager_free_pages(void* page, size_t num_pages)
 		{
 			if(memory_map[i].offset + memory_map[i].length == physical_address) //we have an adjacent block
 			{
-				physical_address = memory_map[i].offset;
+				//physical_address = memory_map[i].offset;
 				memory_map[i].length += PAGE_SIZE;
 				break;
 			}
