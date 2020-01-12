@@ -46,9 +46,9 @@ memmove:
 	mov ecx, 	[esp + 20]
 	mov esi, 	[esp + 16]
 	mov edi, 	[esp + 12]
+	mov eax, ecx
 	cmp esi, edi
 	jl	copy_backward
-	mov eax, ecx
 	shr ecx, 2		;convert bytes to dwords		
 	and eax, 3		;whats the remainder?
 	cld
@@ -62,7 +62,6 @@ memmove:
 copy_backward:
 	add esi, ecx
 	add edi, ecx
-	mov eax, ecx
 	shr ecx, 2		;convert bytes to dwords		
 	and eax, 3		;whats the remainder?
 	std
