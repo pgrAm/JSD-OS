@@ -69,9 +69,9 @@ enum floppy_commands
 bool motor_is_ready[2] = {false, false};
 volatile bool operation_complete = false;
 
-void floppy_irq_handler(interrupt_info *r)
-{
+void floppy_irq_handler(interrupt_info* r) {
 	operation_complete = true;
+	send_eoi(6 + 32);
 }
 
 void wait_for_irq6(void)

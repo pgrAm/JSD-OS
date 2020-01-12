@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stddef.h>
+#include <task.h>
 
 #include "interrupt.h"
 #include "../drivers/video.h"
@@ -24,7 +25,7 @@ struct idt_ptr
 struct idt_entry idt[256];
 struct idt_ptr idtp;
 
-/* This exists in 'start.asm', and is used to load our IDT */
+// This exists in 'interrupt.asm', and is used to load our IDT
 extern void idt_load();
 
 void idt_install_handler(uint8_t i, void* address, uint16_t sel, uint8_t flags)
@@ -45,8 +46,6 @@ void idt_init()
 
     /* Clear out the entire IDT, initializing it to zeros */
     memset(&idt, 0, sizeof(struct idt_entry) * 256);
-
-    /* Add any new ISRs to the IDT here using idt_set_gate */
 
     /* Points the processor's internal register to the new IDT */
     idt_load();
@@ -75,30 +74,30 @@ const char *exception_messages[] =
     "Coprocessor Fault",
     "Alignment Check",
     "Machine Check",
-    "Reserved",
-    "Reserved",
+    "SIMD Floating-Point",
+    "Virtualization",
     "Reserved",
     "Reserved",
     "Reserved",
 
+    "Reservedt",
     "Reserved",
     "Reserved",
     "Reserved",
     "Reserved",
     "Reserved",
-    "Reserved",
-    "Reserved",
+    "Security",
     "Reserved"
 };
 
-void *irq_routines[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+void* irq_routines[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-void irq_install_handler(size_t irq, void (*handler)(interrupt_info *r))
+void irq_install_handler(size_t irq, irq_func handler)
 {
     irq_routines[irq] = handler;
 }
 
-/* This clears the handler for a given IRQ */
+// This clears the handler for a given IRQ
 void irq_uninstall_handler(size_t irq)
 {
     irq_routines[irq] = 0;
@@ -140,43 +139,33 @@ void irq_remap(void)
 *  is just like installing the exception handlers */
 void irqs_init()
 {
-	memset(irq_routines, 0, sizeof(void*) * 16); //clear all irqs
-
+    memset(irq_routines, 0, sizeof(void*) * 16); //clear all irqs
     irq_remap();
 	
-    idt_install_handler(32, irq0, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(33, irq1, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(34, irq2, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-	idt_install_handler(35, irq3, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-	idt_install_handler(36, irq4, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(37, irq5, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(38, irq6, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-	idt_install_handler(39, irq7, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(40, irq8, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-	idt_install_handler(41, irq9, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(42, irq10, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(43, irq11, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-	idt_install_handler(44, irq12, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(45, irq13, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(46, irq14, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-	idt_install_handler(47, irq15, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(32, irq0,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(33, irq1,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(34, irq2,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(35, irq3,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(36, irq4,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(37, irq5,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(38, irq6,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(39, irq7,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(40, irq8,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(41, irq9,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(42, irq10,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(43, irq11,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(44, irq12,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(45, irq13,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(46, irq14,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    idt_install_handler(47, irq15,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
 }
 
 extern uint32_t getcr2reg(void);
 
 #include <stdio.h>
 
-void send_eoi(interrupt_info * r)
-{
-	if (r->int_no >= 40)
-    {
-        outb(0xA0, 0x20);
-    }
 
-    outb(0x20, 0x20);
-}
-
-void fault_handler(interrupt_info *r)
+void fault_handler(interrupt_info*r)
 {
     if (r->int_no < 32)
     {
@@ -228,28 +217,11 @@ void fault_handler(interrupt_info *r)
 			printf("ERR CODE = %X\n", r->err_code);
 		}
 		
+        exit_process(-1);
         for (;;);
     }
 }
 
-void irq_handler(interrupt_info *r)
-{
-    /* This	is a blank function pointer */
-    void (*handler)(interrupt_info *r);
-
-	//memset(irq_routines, 0, sizeof(void*) * 16);
-	
-    /* Find out if we have a custom handler to run for this
-    *  IRQ, and then finally, run it */
-    handler = irq_routines[r->int_no - 32];
-	
-    if(handler)
-    {
-        handler(r);
-    }
-
-	send_eoi(r);
-}
 
 extern void isr0();
 extern void isr1();
@@ -284,15 +256,6 @@ extern void isr29();
 extern void isr30();
 extern void isr31();
 
-/* This is a very repetitive function... it's not hard, it's
-*  just annoying. As you can see, we set the first 32 entries
-*  in the IDT to the first 32 ISRs. We can't use a for loop
-*  for this, because there is no way to get the function names
-*  that correspond to that given entry. We set the access
-*  flags to 0x8E. This means that the entry is present, is
-*  running in ring 0 (kernel level), and has the lower 5 bits
-*  set to the required '14', which is represented by 'E' in
-*  hex. */
 void isrs_init()
 {
 

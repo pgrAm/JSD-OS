@@ -1,6 +1,5 @@
 [bits 32] 
 [extern idtp]
-[extern asm_clear_screen]
 
 global idt_load
 idt_load:
@@ -8,7 +7,7 @@ idt_load:
     lidt [idtp]
 	ret
 
-;make 16 new global irqs
+	;make 16 new global irqs
 %assign i 0
 %rep 16
 	global irq %+ i
@@ -62,7 +61,7 @@ isr_common_stub:
     push es
     push fs
     push gs
-    mov ax, 0x10
+    mov ax, ss
     mov ds, ax
     mov es, ax
     mov fs, ax
@@ -81,30 +80,20 @@ isr_common_stub:
 	;sti
     iret
 
+extern irq_routines
+
 %macro irq0_15 2
 	irq%1:
 	cli
 	push byte 0
 	push byte %2
-	jmp irq_common_stub
-%endmacro	
-
-%assign i 0 ;define the first 15 irqs
-%rep 16
-	irq0_15 i, i+32
-%assign i i+1 
-%endrep 	
-
-extern irq_handler
-
-irq_common_stub:
     pusha
     push ds
     push es
     push fs
     push gs
 
-    mov ax, 0x10
+    mov ax, ss
     mov ds, ax
     mov es, ax
     mov fs, ax
@@ -112,38 +101,37 @@ irq_common_stub:
     mov eax, esp
 
     push eax
-    mov eax, irq_handler
+    mov eax, [irq_routines + 4*%1]
+    test eax, eax
+    jz .nocall
     call eax
-	
+.nocall:
+%if %1 >= 8
+    mov	al, 0xA0
+	out	0x20, al
+%endif
+    mov	al, 0x20
+	out	0x20, al
+
     pop eax
     pop gs
     pop fs
     pop es
     pop ds
 	
-	;mov	al, 0x20
-	;out	0x20, al
-	
     popa
     add esp, 8
 	sti
     iret
+%endmacro
+
+%assign i 0 ;define the first 15 irqs
+%rep 16
+	irq0_15 i, i+32
+%assign i i+1 
+%endrep 	
 
 global getcr2reg
 getcr2reg:
 	mov eax, cr2
 	ret
-	
-global getEIP
-getEIP:
-	mov eax, [esp]
-	ret
-	
-	
-; Here is the definition of our BSS section. Right now, we'll use
-; it just to store the stack. Remember that a stack actually grows
-; downwards, so we declare the size of the data before declaring
-; the identifier '_sys_stack'
-SECTION .bss
-    ;resb 8192               ; This reserves 8KBytes of memory here
-_sys_stack:

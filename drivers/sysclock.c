@@ -50,7 +50,7 @@ void sysclock_phase(uint32_t hz)
     outb(0x40, divisor >> 8);     			/* Set high byte of divisor */
 }
 
-void sysclock_irq(interrupt_info *r)
+void sysclock_irq(interrupt_info* r)
 {
     timer_ticks++;
 	
@@ -58,6 +58,8 @@ void sysclock_irq(interrupt_info *r)
 	{
 		sysclock_master_time++;
 	}
+
+	send_eoi(0 + 32);
 }
 
 /* Sets up the system clock by installing the timer handler

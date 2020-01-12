@@ -4,15 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 
-struct interrupt_frame
-{
-    uint32_t ip;
-    uint32_t cs;
-    uint32_t flags;
-    uint32_t sp;
-    uint32_t ss;
-} __attribute__((packed));
-
+#include <drivers/portio.h>
 typedef struct
 {
     uint32_t gs, fs, es, ds;      /* pushed the segs last */
@@ -29,11 +21,20 @@ typedef struct
 #define IDT_SOFTWARE_INTERRUPT (IDT_INT_PRESENT | IDT_INT_RING(3) | IDT_GATE_INT_32)
 #define IDT_SEGMENT_KERNEL 0x08
 
-void send_eoi(interrupt_info * r);
+typedef void (irq_func)(interrupt_info* r);
+
+static inline void send_eoi(size_t index)
+{
+    if (index >= 40)
+    {
+        outb(0xA0, 0x20);
+    }
+    outb(0x20, 0x20);
+}
 
 void idt_install_handler(uint8_t i, void* address, uint16_t sel, uint8_t flags);
 void idt_init();
-void irq_install_handler(size_t irq, void (*handler)(interrupt_info *r));
+void irq_install_handler(size_t irq, irq_func r);
 void irq_uninstall_handler(size_t irq);
 void isrs_init();
 void irqs_init();

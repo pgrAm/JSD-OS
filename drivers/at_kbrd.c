@@ -3,10 +3,8 @@
 #include "portio.h"
 #include "kbrd.h"
 
-void AT_keyboard_handler(interrupt_info *r)
-{
-	send_eoi(r);
-	
+void AT_keyboard_handler(interrupt_info* r) {
+	send_eoi(1 + 32);
 	handle_keyevent(inb(0x60));
 }
 
