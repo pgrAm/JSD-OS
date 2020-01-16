@@ -167,18 +167,25 @@ void lba_to_chs(uint8_t driveNum, size_t lba, size_t *cylinder, size_t *head, si
 	*sector = (lba % d->sectorsPerTrack) + 1;
 	
 	size_t track = lba / d->sectorsPerTrack;
-	
+
 	*cylinder = track / d->headsPerCylinder;
-	
+
 	*head = track % d->headsPerCylinder;
 }
 
 void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_sectors)
 {
+	floppy_drive* d = &floppy_drives[driveNum];
+	if (lba > d->numTracks * d->sectorsPerTrack* d->headsPerCylinder)
+	{
+		printf("lba#%d is out of bounds for floppy read\n", lba);
+		while (true);
+	}
+
 	size_t cylinder, head, sector;
 	
 	lba_to_chs(driveNum, lba, &cylinder, &head, &sector);
-	
+
 	for(uint8_t i = 0; i < 5; i++)
 	{		
 		floppy_seek(driveNum, cylinder, head);

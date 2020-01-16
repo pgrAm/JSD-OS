@@ -9,6 +9,8 @@
 #include <time.h>
 #include <stdbool.h>
 
+#define FAT12_EOF 0xFF8
+
 enum directory_attributes
 {
 	READ_ONLY = 0x01,
@@ -207,7 +209,7 @@ size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const file
 	{
 		cluster = fat12_get_next_cluster(cluster, fd);
 
-		if (cluster >= 0xFF8) { break; }
+		if (cluster >= FAT12_EOF) { break; }
 	}
 
 	return cluster;
@@ -228,6 +230,12 @@ void fat12_mount_disk(filesystem_drive *d)
 
 size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, const filesystem_drive *d)
 {
+	if (cluster >= FAT12_EOF)
+	{
+		//puts("read attempted, but eof reached");
+		return cluster;
+	}
+
 	fat12_drive* f = (fat12_drive*)d->impl_data;
 	
 	size_t num_clusters = bufferSize / f->cluster_size;
@@ -240,8 +248,9 @@ size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, con
 		
 		cluster = fat12_get_next_cluster(cluster, d);
 		
-		if(cluster >= 0xFF8)
+		if(cluster >= FAT12_EOF)
 		{
+			//puts("eof reached");
 			break;
 		}			
 	}
