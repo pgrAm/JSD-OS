@@ -103,6 +103,11 @@ SYSCALL_HANDLER void exit_process(int val)
 		active_process = next_pid;
 	}
 
+	for (size_t i = 0; i < current_process->num_segments; i++)
+	{
+		memmanager_free_pages(current_process->segments[i].pointer, current_process->segments[i].num_pages);
+	}
+
 	//we need to clean up before reenabline interupts or else we might never get it done
 	uint32_t memspace = current_process->address_space;
 	free(current_process);

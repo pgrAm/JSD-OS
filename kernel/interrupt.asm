@@ -79,57 +79,6 @@ isr_common_stub:
 	;sti
     iret
 
-extern irq_routines
-
-%macro irq0_15 2
-	irq%1:
-	cli
-	push byte 0
-	push byte %2
-    pusha
-    push ds
-    push es
-    push fs
-    push gs
-
-    mov ax, ss
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-    mov eax, esp
-
-    push eax
-    mov eax, [irq_routines + 4*%1]
-    test eax, eax
-    jz .nocall
-    call eax
-.nocall:
-%if %1 >= 8
-    mov	al, 0xA0
-	out	0x20, al
-%endif
-    mov	al, 0x20
-	out	0x20, al
-
-    pop eax
-    pop gs
-    pop fs
-    pop es
-    pop ds
-	
-    popa
-    add esp, 8
-	sti
-    iret
-%endmacro
-
-%assign i 0 ;define the first 15 irqs
-%rep 16
-	irq0_15 i, i+32
-%assign i i+1 
-%endrep 	
-
 global getcr2reg
 getcr2reg:
 	mov eax, cr2

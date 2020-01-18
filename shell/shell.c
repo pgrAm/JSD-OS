@@ -5,10 +5,14 @@
 
 #include <sys/syscalls.h>
 #include <graphics/graphics.h>
+#include <keyboard.h>
 
 char console_user[] = "root";
 char prompt_char = ']';
-char command_buffer[256];
+#define HISTORY_SIZE 4
+char command_buffers[HISTORY_SIZE][MAX_PATH];
+size_t command_buffer_index = 0;
+char* command_buffer = command_buffers[0];
 
 directory_handle* current_directory = NULL;
 
@@ -98,49 +102,65 @@ int get_command(char* input)
 	
 	if(input == NULL)
 	{
+		command_buffer = command_buffers[command_buffer_index++ % HISTORY_SIZE];
+
 		char *c = command_buffer;
-		
-		char* end = c + 256;
-		
-		char temp = '\0';
+		char* end = command_buffer + MAX_PATH;
 		
 		while(c < end)
 		{
-			temp = getchar();
-			
-			if(temp == '\b') 
+			key_type k = wait_and_getkey();
+			if ((k == VK_UP || k == VK_DOWN) && get_keystate(k))
 			{
-				if(c > command_buffer)
-				{
-					*c-- = '\0';
-					video_erase_chars(1);
-				}
+				command_buffer_index = (k == VK_UP) ? command_buffer_index-- : command_buffer_index++;
+				command_buffer_index %= HISTORY_SIZE;
+
+				video_erase_chars(c - command_buffer);
+
+				command_buffer = command_buffers[command_buffer_index];
+
+				printf("%s", command_buffer);
+				c = command_buffer + strlen(command_buffer);
+				end = command_buffer + MAX_PATH;
 			}
 			else
 			{
-				putchar(temp);
-				*c = temp;
-				c++;
-			}
-			
-			if(temp == '\n') 
-			{
-				break;
+				char temp = get_ascii_from_vk(k);
+
+				if (temp == '\b')
+				{
+					if (c > command_buffer)
+					{
+						*c-- = '\0';
+						video_erase_chars(1);
+					}
+				}
+				else if (temp != '\0')
+				{
+					putchar(temp);
+					*c = temp;
+					c++;
+				}
+
+				if (temp == '\n')
+				{
+					break;
+				}
 			}
 		}
 		
 		*c = '\0';
-		
+
 		keyword = strtok(command_buffer, " \n");
 	}
 	else
 	{
 		keyword = strtok(input, " \n");
-		
-		if(keyword == NULL)
-		{
-			return 0;
-		}
+	}
+
+	if (keyword == NULL)
+	{
+		return 0;
 	}
 	
 	if(strcmp("time", keyword) == 0)
@@ -305,6 +325,11 @@ int _start(void)
 		printf("Could not mount root directory for drive %d %s\n", drive_index, drive_names[drive_index]);
 	}
 	
+	for (size_t i = 0; i < HISTORY_SIZE; i++)
+	{
+		memset(command_buffers[i], '\0', MAX_PATH);
+	}
+
 	for(;;)
 	{
 		prompt();

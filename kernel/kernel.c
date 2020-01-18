@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-extern struct multiboot_info* _multiboot;
+//extern struct multiboot_info* _multiboot;
 extern void _IMAGE_END_;
 
 int width = 80;

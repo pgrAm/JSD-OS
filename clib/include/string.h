@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-extern void* memcpy(void* dest, const void* src, size_t num);
-extern void* memset(void* ptr, int value, size_t num);
+//extern void* memcpy(void* dest, const void* src, size_t num);
+//extern void* memset(void* ptr, int value, size_t num);
 extern void* memmove(void* dest, const void* src, size_t num);
 
 int memcmp ( const void * ptr1, const void * ptr2, size_t num );
@@ -18,5 +18,7 @@ const char* strchr(const char* str, int character);
 
 char* strcat(char* destination, const char* source);
 char* strcpy(char* destination, const char* source);
+
+#include <string386.inl>
 
 #endif

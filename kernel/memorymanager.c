@@ -53,7 +53,7 @@ void memmanager_add_memory_block(size_t block_index, size_t address, size_t leng
 	}
 	if (block_index < num_memory_blocks)
 	{
-		memmove(&memory_map[block_index + 1], &memory_map[block_index], num_memory_blocks - block_index);
+		memmove(&memory_map[block_index + 1], &memory_map[block_index], sizeof(memory_block) * (num_memory_blocks - block_index));
 	}
 	memory_map[block_index].offset = address;
 	memory_map[block_index].length = length;
@@ -68,7 +68,7 @@ void memmanager_remove_memory_block(size_t block_index)
 	}
 	if (block_index < (num_memory_blocks - 1))
 	{
-		memmove(&memory_map[block_index], &memory_map[block_index + 1], num_memory_blocks - block_index);
+		memmove(&memory_map[block_index], &memory_map[block_index + 1], sizeof(memory_block) * ((num_memory_blocks - 1) - block_index));
 	}
 	num_memory_blocks--;
 }
@@ -118,7 +118,7 @@ uint32_t memmanager_allocate_physical_page()
 				memmanager_remove_memory_block(i);
 				i--;
 			}
-			
+
 			return aligned_addr;
 		}
 	}
@@ -423,7 +423,7 @@ void memmanager_init(void)
 	
 	uint32_t* kernel_page_directory = (uint32_t*)memmanager_allocate_physical_page();
 	uint32_t* first_page_table = (uint32_t*)memmanager_allocate_physical_page();
-	
+
 	if (first_page_table == NULL || kernel_page_directory == NULL)
 	{
 		//were completelty f'cked in this case
@@ -445,10 +445,10 @@ void memmanager_init(void)
 	
 	//Add the first 4 MiB to the page dir
 	kernel_page_directory[0] = ((uint32_t)first_page_table) | PAGE_PRESENT | PAGE_RW;
-	
+
 	set_page_directory(kernel_page_directory);
-	
+
 	enable_paging();
-	
+
 	printf("paging enabled\n");
 }

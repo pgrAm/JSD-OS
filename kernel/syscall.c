@@ -43,7 +43,8 @@ const void* syscall_table[] =
 	map_video_memory,
 	filesystem_open_directory,
 	filesystem_close_directory,
-	set_cursor_offset
+	set_cursor_offset,
+	get_keystate
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

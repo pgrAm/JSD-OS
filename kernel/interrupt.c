@@ -37,17 +37,16 @@ void idt_install_handler(uint8_t i, void* address, uint16_t sel, uint8_t flags)
 	idt[i].address_high = (((uint32_t)address) >> 16) & 0xffff;
 }
 
-/* Installs the IDT */
 void idt_init()
 {
-    /* Sets the special IDT pointer up, just like in 'gdt.c' */
+    // Sets the special IDT pointer up
     idtp.limit = (sizeof (struct idt_entry) * 256) - 1;
     idtp.base = (uint32_t)(&idt);
 
-    /* Clear out the entire IDT, initializing it to zeros */
+    //Clear out the entire IDT, initializing it to zeros
     memset(&idt, 0, sizeof(struct idt_entry) * 256);
 
-    /* Points the processor's internal register to the new IDT */
+    // Points the processor's internal register to the new IDT
     idt_load();
 }
 
@@ -90,35 +89,21 @@ const char *exception_messages[] =
     "Reserved"
 };
 
-void* irq_routines[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+INTERRUPT_HANDLER void irq_stub(interrupt_frame* r)
+{
+    send_eoi(41);
+}
 
 void irq_install_handler(size_t irq, irq_func handler)
 {
-    irq_routines[irq] = handler;
+    idt_install_handler(32 + irq, handler, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
 }
 
 // This clears the handler for a given IRQ
 void irq_uninstall_handler(size_t irq)
 {
-    irq_routines[irq] = 0;
+    idt_install_handler(32 + irq, irq_stub, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
 }
-
-extern void irq0();
-extern void irq1();
-extern void irq2();
-extern void irq3();
-extern void irq4();
-extern void irq5();
-extern void irq6();
-extern void irq7();
-extern void irq8();
-extern void irq9();
-extern void irq10();
-extern void irq11();
-extern void irq12();
-extern void irq13();
-extern void irq14();
-extern void irq15();
 
 void irq_remap(void)
 {
@@ -139,25 +124,12 @@ void irq_remap(void)
 *  is just like installing the exception handlers */
 void irqs_init()
 {
-    memset(irq_routines, 0, sizeof(void*) * 16); //clear all irqs
     irq_remap();
 	
-    idt_install_handler(32, irq0,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(33, irq1,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(34, irq2,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(35, irq3,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(36, irq4,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(37, irq5,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(38, irq6,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(39, irq7,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(40, irq8,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(41, irq9,   IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(42, irq10,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(43, irq11,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(44, irq12,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(45, irq13,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(46, irq14,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    idt_install_handler(47, irq15,  IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    for (size_t i = 32; i < 48; i++)
+    {
+        idt_install_handler(32, irq_stub, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    }
 }
 
 extern uint32_t getcr2reg(void);

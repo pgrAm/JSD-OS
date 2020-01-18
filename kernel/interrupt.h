@@ -21,7 +21,18 @@ typedef struct
 #define IDT_SOFTWARE_INTERRUPT (IDT_INT_PRESENT | IDT_INT_RING(3) | IDT_GATE_INT_32)
 #define IDT_SEGMENT_KERNEL 0x08
 
-typedef void (irq_func)(interrupt_info* r);
+typedef struct
+{
+    uint32_t ip;
+    uint32_t cs;
+    uint32_t flags;
+    uint32_t sp;
+    uint32_t ss;
+} interrupt_frame;
+
+#define INTERRUPT_HANDLER __attribute__((interrupt))
+
+typedef INTERRUPT_HANDLER void (irq_func)(interrupt_frame* r);
 
 static inline void send_eoi(size_t index)
 {
@@ -38,4 +49,5 @@ void irq_install_handler(size_t irq, irq_func r);
 void irq_uninstall_handler(size_t irq);
 void isrs_init();
 void irqs_init();
+
 #endif

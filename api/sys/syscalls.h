@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <time.h>
 #include <files.h>
+#include <virtual_keys.h>
 
 #define WAIT_FOR_PROCESS 0x01
 
@@ -32,7 +33,8 @@ enum syscall_indices
 	SYSCALL_MAP_VIDEO_MEMORY = 19,
 	SYSCALL_OPEN_DIR = 20,
 	SYSCALL_CLOSE_DIR = 21,
-	SYSCALL_SET_VIDEO_CURSOR = 22
+	SYSCALL_SET_VIDEO_CURSOR = 22,
+	SYSCALL_GET_KEYSTATE = 23
 };
 
 struct file_handle;
@@ -137,14 +139,14 @@ static inline int free_pages(void *p, size_t n)
 	return (int)do_syscall_2(SYSCALL_FREE_PAGES, (uint32_t)p, (uint32_t)n);
 }
 
-static inline uint8_t getkey()
+static inline key_type getkey()
 {
-	return (uint8_t)do_syscall_0(SYSCALL_KEYGET);
+	return (key_type)do_syscall_0(SYSCALL_KEYGET);
 }
 
-static inline uint8_t wait_and_getkey()
+static inline key_type wait_and_getkey()
 {
-	return (uint8_t)do_syscall_0(SYSCALL_WAIT_KEYGET);
+	return (key_type)do_syscall_0(SYSCALL_WAIT_KEYGET);
 }
 
 static inline file_handle* get_file_in_dir(const directory_handle* d, size_t index)
@@ -201,4 +203,11 @@ static inline file_stream* open_file_handle(file_handle* f, int flags)
 {
 	return (file_stream*)do_syscall_2(SYSCALL_OPEN_FILE_HANDLE, (uint32_t)f, (uint32_t)flags);
 }
+
+static inline int get_keystate(key_type key)
+{
+	return (int)do_syscall_1(SYSCALL_GET_KEYSTATE, (uint32_t)key);
+}
+
+
 #endif

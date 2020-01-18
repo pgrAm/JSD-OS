@@ -7,7 +7,7 @@
 #include "sysclock.h"
 
 static volatile clock_t timer_ticks = 0;	//This represents the number of PIT ticks since bootup 
-										//It should be used for timing NOT timekeeping
+											//It should be used for timing NOT timekeeping
 
 static volatile time_t sysclock_master_time = 0; 	//Epoch time, counting seconds since January 1st 1970
 													//This will serve as our master system clock
@@ -44,13 +44,13 @@ int sysclock_get_utc_offset(void)
 
 void sysclock_phase(uint32_t hz)
 {
-    uint32_t divisor = 1193180 / hz;     	/* Calculate our divisor */
-    outb(0x43, 0x36);             			/* Set our command byte 0x36 */
-    outb(0x40, divisor & 0xFF);  			/* Set low byte of divisor */
-    outb(0x40, divisor >> 8);     			/* Set high byte of divisor */
+    uint32_t divisor = 1193180 / hz;     	// Calculate our divisor
+    outb(0x43, 0x36);             			// Set our command byte 0x36
+    outb(0x40, divisor & 0xFF);  			// Set low byte of divisor
+    outb(0x40, divisor >> 8);     			// Set high byte of divisor
 }
 
-void sysclock_irq(interrupt_info* r)
+INTERRUPT_HANDLER void sysclock_irq(interrupt_frame* r)
 {
     timer_ticks++;
 	
@@ -62,8 +62,7 @@ void sysclock_irq(interrupt_info* r)
 	send_eoi(0 + 32);
 }
 
-/* Sets up the system clock by installing the timer handler
-*  into IRQ0 */
+// Sets up the system clock
 void sysclock_init()
 {
 	timer_ticks = 0;
@@ -79,9 +78,7 @@ void sysclock_init()
 
 void sysclock_sleep(uint32_t ticks)
 {
-    uint32_t eticks;
-	
-    eticks = timer_ticks + ticks;
+	uint32_t eticks = timer_ticks + ticks;
     while(timer_ticks < eticks);
 }
 
