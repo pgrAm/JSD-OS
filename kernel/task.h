@@ -3,9 +3,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "syscall.h"
+#include <dynamic_object.h>
+#include <syscall.h>
 
-#define INVALID_PID (~0x0)
+#define INVALID_PID (~(size_t)0x0)
 typedef struct _process process;
 
 //Thread control block
@@ -18,20 +19,13 @@ typedef struct
 	process* p_data;
 } __attribute__((packed)) TCB; //tcb man, tcb...
 
-typedef struct
-{
-	void* pointer;
-	size_t num_pages;
-} segment;
-
 struct _process
 {
 	void* kernel_stack_top;
 	void* user_stack_top;
-	void* entry_point;
 	uint32_t address_space;
-	segment* segments;
-	size_t num_segments;
+	dynamic_object** objects;
+	size_t num_objects;
 	int parent_pid;
 	TCB tc_block;
 };

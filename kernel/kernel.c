@@ -22,6 +22,8 @@ extern void _IMAGE_END_;
 int width = 80;
 int height = 25;
 
+#include <elf.h>
+
 void kernel_main() 
 {
 	//puts("Kernel Booted\n");
@@ -62,6 +64,9 @@ void kernel_main()
 		printf("Could not mount root directory for drive %d\n", drive_index);
 	}
 	
+	dynamic_object ob;
+	load_elf("kbrd.drv", &ob);
+
 	spawn_process("shell.elf", WAIT_FOR_PROCESS);
 	
 	for(;;);

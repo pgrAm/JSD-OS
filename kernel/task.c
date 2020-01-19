@@ -70,7 +70,7 @@ void start_user_process(process* t)
 {
 	memmanager_enter_memory_space(t->address_space);
 	
-	run_user_code(t->entry_point, t->user_stack_top + PAGE_SIZE);
+	run_user_code(t->objects[0]->entry_point, t->user_stack_top + PAGE_SIZE);
 
 	__asm__ volatile ("hlt");
 }
@@ -103,10 +103,18 @@ SYSCALL_HANDLER void exit_process(int val)
 		active_process = next_pid;
 	}
 
-	for (size_t i = 0; i < current_process->num_segments; i++)
+	for (size_t object_index = 0; object_index < current_process->num_objects; object_index++)
 	{
-		memmanager_free_pages(current_process->segments[i].pointer, current_process->segments[i].num_pages);
+		dynamic_object* o = current_process->objects[object_index];
+
+		for (size_t i = 0; i < o->num_segments; i++)
+		{
+			memmanager_free_pages(o->segments[i].pointer, o->segments[i].num_pages);
+		}
+
+		free(o);
 	}
+	free(current_process->objects);
 
 	//we need to clean up before reenabline interupts or else we might never get it done
 	uint32_t memspace = current_process->address_space;
@@ -142,25 +150,26 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 	
 	newTask->parent_pid = current_task_TCB->pid;
 	newTask->address_space = memmanager_new_memory_space();
-	
-	//printf("created new memory space\n");
-
 	memmanager_enter_memory_space(newTask->address_space);
-	
-	newTask->kernel_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_PRESENT | PAGE_RW);	
-	
-	newTask->tc_block.esp0 = (uint32_t)newTask->kernel_stack_top + PAGE_SIZE;
-	newTask->tc_block.esp = newTask->tc_block.esp0 - (RESERVED_STACK_WORDS * sizeof(uint32_t));
-	newTask->tc_block.cr3 = memmanager_get_physical(newTask->address_space);
-	newTask->tc_block.pid = num_processes++;
-	newTask->tc_block.p_data = newTask;
 
-	if(!load_elf(path, newTask))
+	newTask->num_objects = 1;
+	newTask->objects = (dynamic_object**)malloc(sizeof(dynamic_object*));
+	newTask->objects[0] = (dynamic_object*)malloc(sizeof(dynamic_object));
+
+	if(!load_elf(path, newTask->objects[0]))
 	{
 		set_page_directory((uint32_t*)oldcr3);
 		memmanager_destroy_memory_space(newTask->address_space);
 		return;
 	}
+
+	newTask->user_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_USER | PAGE_PRESENT | PAGE_RW);
+	newTask->kernel_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_PRESENT | PAGE_RW);
+	newTask->tc_block.esp0 = (uint32_t)newTask->kernel_stack_top + PAGE_SIZE;
+	newTask->tc_block.esp = newTask->tc_block.esp0 - (RESERVED_STACK_WORDS * sizeof(uint32_t));
+	newTask->tc_block.cr3 = memmanager_get_physical(newTask->address_space);
+	newTask->tc_block.pid = num_processes++;
+	newTask->tc_block.p_data = newTask;
 
 	//we are setting up the stack of the new process
 	//these will be pop'ed into registers later

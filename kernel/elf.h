@@ -2,7 +2,6 @@
 #define ELF_H
 
 #include <stdint.h>
-#include "task.h"
 
 #define ELF_BIT_WIDTH_64 0x02
 #define ELF_BIT_WIDTH_32 0x01
@@ -18,7 +17,9 @@
 enum ELF_type
 {
 	ELF_TYPE_NONE = 0x00,
-	ELF_TYPE_EXEC = 0x02
+	ELF_TYPE_RELOCATE = 0x01,
+	ELF_TYPE_EXEC = 0x02,
+	ELF_TYPE_DYN = 0x03
 };
 
 enum ELF_pgheader_types
@@ -34,6 +35,29 @@ enum ELF_pgheader_types
 	ELF_PTYPE_HIOS		= 0x6FFFFFFF, 	
 	ELF_PTYPE_LOPROC	= 0x70000000, 	
 	ELF_PTYPE_HIPROC	= 0x7FFFFFFF 	
+};
+
+enum ELF_secheader_types
+{
+	SHT_NULL			= 0x0, 	//Section header table entry unused
+	SHT_PROGBITS		= 0x1, 	//Program data
+	SHT_SYMTAB			= 0x2, 	//Symbol table
+	SHT_STRTAB			= 0x3, 	//String table
+	SHT_RELA			= 0x4, 	//Relocation entries with addends
+	SHT_HASH			= 0x5, 	//Symbol hash table
+	SHT_DYNAMIC			= 0x6, 	//Dynamic linking information
+	SHT_NOTE			= 0x7, 	//Notes
+	SHT_NOBITS			= 0x8, 	//Program space with no data(bss)
+	SHT_REL				= 0x9, 	//Relocation entries, no addends
+	SHT_SHLIB			= 0x0A, //Reserved
+	SHT_DYNSYM			= 0x0B, //Dynamic linker symbol table
+	SHT_INIT_ARRAY		= 0x0E, //Array of constructors
+	SHT_FINI_ARRAY		= 0x0F, //Array of destructors
+	SHT_PREINIT_ARRAY	= 0x10, //Array of pre - constructors
+	SHT_GROUP			= 0x11, //Section group
+	SHT_SYMTAB_SHNDX	= 0x12, //Extended section indices
+	SHT_NUM				= 0x13, //Number of defined types.
+	SHT_LOOS			= 0x60000000 	//Start OS - specific.
 };
 
 typedef struct 
@@ -106,6 +130,57 @@ typedef struct
 	uint64_t	alignment;			//alignment requirements for segment
 } ELF_program_header64;
 
-int load_elf(const char* path, process* newTask);
+typedef struct
+{
+	uint32_t 	sh_name; 			//name of section
+	uint32_t 	sh_type;			//type of section
+	uint32_t	sh_flags;			//section flags
+	uint32_t	sh_addr;			//virtual address of the section in memory, for sections that are loaded. 
+	uint32_t	sh_offset;			//size of this section in the file 
+	uint32_t	sh_size;			//size of this section in memory
+	uint32_t	sh_link;			//index of associated section
+	uint32_t	sh_info;			//info depending on section type
+	uint32_t	sh_addralign;		
+	uint32_t	sh_entsize;			//size of each entry
+} ELF_section_header32;
+
+typedef struct {
+	uint32_t offset;
+	uint32_t info;
+} ELF_Rel32;
+
+typedef struct {
+	uint32_t offset;
+	uint32_t info;
+	uint32_t addend;
+} ELF_Rela32;
+
+typedef struct {
+	int32_t d_tag;
+	union {
+		uint32_t d_val;
+		uint32_t d_ptr;
+		uint32_t d_off;
+	} d_un;
+} ELF_dyn32;
+
+enum ELF_dyn_section_tags
+{
+	DT_NEEDED = 1,
+	DT_HASH = 4,
+	DT_STRTAB = 5, // Dynamic String Table
+	DT_SYMTAB = 6, // Dynamic Symbol Table
+	DT_RELA = 7,
+	DT_RELASZ = 8,
+	DT_RELAENT = 9,
+	DT_STRSZ = 10, // Size of string table
+	DT_INIT = 11, // initialization function
+	DT_INIT_ARRAY = 25, // array of constructors
+	DT_INIT_ARRAYSZ = 26 // size of the table of constructors
+};
+
+#include <dynamic_object.h>
+
+int load_elf(const char* path, dynamic_object* newTask);
 
 #endif
