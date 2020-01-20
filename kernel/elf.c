@@ -65,8 +65,8 @@ typedef struct span
 
 span elf_get_size(ELF_header32* file_header, file_stream* f)
 {
-	size_t min_address = ~(size_t)0;
-	size_t max_address = 0;
+	uintptr_t min_address = ~(uintptr_t)0;
+	uintptr_t max_address = 0;
 
 	for (size_t i = 0; i < file_header->pgh_entries; i++)
 	{

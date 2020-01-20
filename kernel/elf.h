@@ -60,6 +60,7 @@ enum ELF_secheader_types
 	SHT_LOOS			= 0x60000000 	//Start OS - specific.
 };
 
+#pragma pack(push, 1)
 typedef struct 
 {
 	char 		magic[4]; 		//should be 0x7F followed by "ELF"
@@ -163,6 +164,7 @@ typedef struct {
 		uint32_t d_off;
 	} d_un;
 } ELF_dyn32;
+#pragma pack(pop)
 
 enum ELF_dyn_section_tags
 {

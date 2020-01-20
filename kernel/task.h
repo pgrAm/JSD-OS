@@ -7,7 +7,7 @@
 #include <syscall.h>
 
 #define INVALID_PID (~(size_t)0x0)
-typedef struct _process process;
+typedef struct process process;
 
 //Thread control block
 typedef struct
@@ -19,11 +19,11 @@ typedef struct
 	process* p_data;
 } __attribute__((packed)) TCB; //tcb man, tcb...
 
-struct _process
+struct process
 {
 	void* kernel_stack_top;
 	void* user_stack_top;
-	uint32_t address_space;
+	uintptr_t address_space;
 	dynamic_object** objects;
 	size_t num_objects;
 	int parent_pid;
