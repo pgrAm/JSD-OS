@@ -4,7 +4,6 @@
 #include "../kernel/task.h"
 #include "../kernel/syscall.h"
 #include "kbrd.h"
-#include "at_kbrd.h"
 #include "locks.h"
 
 #define KEY_BUFFER_SIZE 512
@@ -90,5 +89,4 @@ void handle_keyevent(uint32_t scancode, bool down)
 void keyboard_init()
 {
 	memset(virtual_keystates, false, sizeof(bool) * NUM_VIRTUAL_KEYS);
-	AT_keyboard_init();
 }

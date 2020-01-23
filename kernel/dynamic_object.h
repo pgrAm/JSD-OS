@@ -2,6 +2,7 @@
 #define DYNAMIC_OBJECT_H
 
 #include <stddef.h>
+#include <util/hash.h>
 
 typedef struct
 {
@@ -14,8 +15,11 @@ typedef struct
 	void* entry_point;
 	segment* segments;
 	size_t num_segments;
-	void* dynamic_section;
-	void* sym_table;
+
+	void* linker_data;
+
+	hash_map* symbol_map;
+	hash_map* glob_data_symbol_map;
 } dynamic_object;
 
 #endif

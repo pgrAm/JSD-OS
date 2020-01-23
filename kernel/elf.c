@@ -6,8 +6,37 @@
 #include <memorymanager.h>
 #include <elf.h>
 
+#include <util/hash.h>
+
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+
+typedef struct ELF_linker_data
+{
+	ELF_dyn32* dynamic_section;
+	void* base_address;
+	//an array of null-terminated strings
+	//corresponding to needed symbols
+	char** dependencies;
+	size_t num_dependencies;
+
+	void (*init_func)(void);
+	void (**array_init_funcs)(void);
+	size_t num_array_init_funcs;
+
+	uint32_t* hash_table;
+	ELF_sym32* symbol_table;
+	size_t symbol_table_size;
+	char* string_table;
+	size_t string_table_size;
+
+	ELF_rel32* relocation_addr;
+	size_t relocation_entries;
+
+	hash_map* symbol_map;
+	hash_map* glob_data_symbol_map;
+} ELF_linker_data;
+
 
 int elf_is_readable(ELF_ident* file_identifer)
 {
@@ -88,6 +117,10 @@ span elf_get_size(ELF_header32* file_header, file_stream* f)
 	return retval;
 }
 
+int elf_read_symbols(ELF_linker_data* object);
+void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
+int elf_process_dynamic_section(ELF_linker_data* object);
+
 int load_elf(const char* path, dynamic_object* object)
 {
 	ELF_ident file_identifer;
@@ -119,6 +152,7 @@ int load_elf(const char* path, dynamic_object* object)
 			object->segments = (segment*)malloc(sizeof(segment) * object->num_segments);
 			object->segments[1].pointer = base_adress;
 			object->segments[1].num_pages = num_pages;
+			object->linker_data = NULL;
 
 			if (s.base != 0) //if the elf cares where its loaded then don't add the base adress
 			{
@@ -136,7 +170,12 @@ int load_elf(const char* path, dynamic_object* object)
 				switch(pg_header.type)
 				{
 					case ELF_PTYPE_DYNAMIC:
-						object->dynamic_section = base_adress + pg_header.virtual_address;
+						object->linker_data = malloc(sizeof(ELF_linker_data));
+						memset(object->linker_data, 0, sizeof(ELF_linker_data));
+						((ELF_linker_data*)object->linker_data)->base_address = base_adress;
+						((ELF_linker_data*)object->linker_data)->dynamic_section = base_adress + pg_header.virtual_address;
+						((ELF_linker_data*)object->linker_data)->symbol_map = object->symbol_map;
+						((ELF_linker_data*)object->linker_data)->glob_data_symbol_map = object->glob_data_symbol_map;
 					break;
 					case ELF_PTYPE_LOAD:
 					{
@@ -158,10 +197,198 @@ int load_elf(const char* path, dynamic_object* object)
 			}
 
 			object->entry_point = base_adress + file_header.entry_point;
+
+			elf_process_dynamic_section((ELF_linker_data*)object->linker_data);
 		}
 	}
 
 	filesystem_close_file(f);
 	
 	return 1;
+}
+
+int elf_process_dynamic_section(ELF_linker_data* object)
+{
+	if (object == NULL)
+	{
+		return 0;
+	}
+
+	object->num_dependencies = 0;
+
+	if (object->dynamic_section)
+	{
+		size_t relocation_entries = 0;
+		ELF_rel32* relocation_addr = NULL;
+
+		size_t plt_relocation_entries = 0;
+		ELF_rel32* plt_relocation_addr = NULL;
+
+		for (ELF_dyn32* entry = object->dynamic_section; entry->d_tag != DT_NULL; entry++)
+		{
+			switch (entry->d_tag)
+			{
+			case DT_PLTRELSZ:
+				plt_relocation_entries = entry->d_un.d_val / sizeof(ELF_rel32);
+				break;
+			case DT_JMPREL:
+				plt_relocation_addr = (ELF_rel32*)(object->base_address + entry->d_un.d_ptr);
+				break;
+			case DT_REL:
+				relocation_addr = (ELF_rel32*)(object->base_address + entry->d_un.d_ptr);
+				break;
+			case DT_RELSZ:
+				relocation_entries = entry->d_un.d_val / sizeof(ELF_rel32);
+				break;
+			case DT_HASH:
+				object->hash_table = (uint32_t*)(object->base_address + entry->d_un.d_ptr);
+				object->symbol_table_size = object->hash_table[1];
+				break;
+			case DT_STRTAB:
+				object->string_table = (char*)(object->base_address + entry->d_un.d_ptr);
+				break;
+			case DT_SYMTAB:
+				object->symbol_table = (ELF_sym32*)(object->base_address + entry->d_un.d_ptr);
+				break;
+			case DT_STRSZ:
+				object->string_table_size = entry->d_un.d_val;
+				break;
+			case DT_INIT:
+				object->init_func = (void (*)(void))(object->base_address + entry->d_un.d_ptr);
+				break;
+			case DT_INIT_ARRAY:
+				object->array_init_funcs = (void (**)(void))(object->base_address + entry->d_un.d_ptr);
+				break;
+			case DT_INIT_ARRAYSZ:
+				object->num_array_init_funcs = entry->d_un.d_val / sizeof(uintptr_t);
+				break;
+			case DT_NEEDED:
+				object->num_dependencies++;
+				break;
+			}
+		}
+		
+		//an array of null-terminated strings
+		object->dependencies = (char**)malloc(sizeof(char**) * object->num_dependencies);
+		size_t dependency_index = 0;
+
+		for(ELF_dyn32* entry = object->dynamic_section; entry->d_tag != DT_NULL; entry++)
+		{
+			if (entry->d_tag == DT_NEEDED)
+			{
+				object->dependencies[dependency_index++] = object->string_table + entry->d_un.d_val;
+			}
+		}
+
+		elf_read_symbols(object);
+
+		if (relocation_addr)
+		{
+			elf_process_relocation_section(object, relocation_addr, relocation_entries);
+		}
+
+		//this should wait till runtime, but I'll get lazy linking done later
+		if (plt_relocation_addr)
+		{
+			elf_process_relocation_section(object, plt_relocation_addr, plt_relocation_entries);
+		}
+	}
+
+	return 0;
+}
+
+#define ELF32_R_SYM(i) ((i) >> 8)
+#define ELF32_R_TYPE(i) ((uint8_t)(i))
+
+int elf_read_symbols(ELF_linker_data* object)
+{
+	if (object->symbol_table) 
+	{
+		for (size_t i = 0; i < object->symbol_table_size; i++)
+		{
+			ELF_sym32* symbol = &object->symbol_table[i];
+
+			const char* symbol_name = object->string_table + symbol->name;
+
+			uint32_t val;
+			if (!hashmap_lookup(object->symbol_map, symbol_name, &val))
+			{
+				//if this symbol exists in the image
+				if (symbol->section_index)
+				{
+					hashmap_insert(object->symbol_map, symbol_name, (uintptr_t)(object->base_address + symbol->value));
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+static inline bool elf_relocation_uses_symbol(uint8_t type)
+{
+	switch (type) 
+	{
+	case R_386_32:
+	case R_386_PC32:
+	case R_386_COPY:
+	case R_386_GLOB_DAT:
+	case R_386_JMP_SLOT:
+		return true;
+	default:
+		return false;
+	}
+}
+
+void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries)
+{
+	for(size_t entry = 0; entry < rel_entries; entry++)
+	{
+		uint32_t symbol_index = ELF32_R_SYM(table[entry].info);
+		uint8_t relocation_type = ELF32_R_TYPE(table[entry].info);
+
+		ELF_sym32* symbol = &object->symbol_table[symbol_index];
+		uintptr_t symbol_val = (uintptr_t)object->base_address + symbol->value;
+		const char* symbol_name = NULL;
+
+		if (elf_relocation_uses_symbol(relocation_type))
+		{
+			symbol_name = object->string_table + symbol->name;
+			if (!symbol_name || !hashmap_lookup(object->symbol_map, symbol_name, &symbol_val))
+			{
+				printf("Unable to locate symbol %d \"%s\"\n", symbol_index, symbol_name);
+				symbol_val = 0;
+			}
+		}
+
+		void* address = object->base_address + table[entry].offset;
+
+		switch (relocation_type)
+		{
+		case R_386_GLOB_DAT:
+			if (symbol_name)
+			{
+				hashmap_lookup(object->glob_data_symbol_map, symbol_name, &symbol_val);
+			}
+			*(uintptr_t*)(address) = symbol_val;
+			break;
+		case R_386_JMP_SLOT:
+			*(uintptr_t*)(address) = symbol_val;
+			break;
+		case R_386_32:
+			*(uintptr_t*)(address) = symbol_val + *((size_t*)(address));
+			break;
+		case R_386_PC32:
+			*(uintptr_t*)(address) = symbol_val + *((size_t*)(address)) - (uintptr_t)(address);
+			break;
+		case R_386_RELATIVE:
+			*(uintptr_t*)(address) = (uintptr_t)object->base_address + *((size_t*)(address));
+			break;
+		case R_386_COPY:
+			memcpy(address, (void*)symbol_val, symbol->size);
+			break;
+		default:
+			printf("Unsupported relocation type: %d", relocation_type);
+		}
+	}
 }
