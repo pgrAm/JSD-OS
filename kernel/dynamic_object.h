@@ -18,6 +18,7 @@ typedef struct
 
 	void* linker_data;
 
+	hash_map* lib_set;
 	hash_map* symbol_map;
 	hash_map* glob_data_symbol_map;
 } dynamic_object;

@@ -155,6 +155,9 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 	newTask->num_objects = 1;
 	newTask->objects = (dynamic_object**)malloc(sizeof(dynamic_object*));
 	newTask->objects[0] = (dynamic_object*)malloc(sizeof(dynamic_object));
+	newTask->objects[0]->symbol_map = hashmap_create(16);
+	newTask->objects[0]->glob_data_symbol_map = hashmap_create(16);
+	newTask->objects[0]->lib_set = hashmap_create(16);
 
 	if(!load_elf(path, newTask->objects[0], true))
 	{

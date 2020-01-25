@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include "filesystem.h"
+#include <memorymanager.h>
 #include "../drivers/fat12.h"
 
 #define NUM_DRIVES 2
@@ -152,7 +153,7 @@ SYSCALL_HANDLER file_stream* filesystem_open_file_handle(file_handle* f, int fla
 	stream->location_on_disk = 0;
 	stream->seekpos = 0;
 	stream->file = f;
-	stream->buffer = (uint8_t*)malloc(CHUNK_READ_SIZE);
+	stream->buffer = memmanager_virtual_alloc(NULL, 1, PAGE_RW | PAGE_PRESENT);//(uint8_t*)malloc(CHUNK_READ_SIZE);
 
 	return stream;
 }
@@ -281,7 +282,8 @@ void filesystem_seek_file(file_stream* f, size_t pos)
 
 SYSCALL_HANDLER int filesystem_close_file(file_stream* f)
 {
-	free(f->buffer);
+	memmanager_free_pages(f->buffer, 1);
+	//free(f->buffer);
 	free(f);
 	return 0;
 }

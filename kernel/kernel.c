@@ -61,6 +61,7 @@ void kernel_main()
 	}
 
 	dynamic_object ob;
+	ob.lib_set = hashmap_create(16);
 	ob.symbol_map = hashmap_create(16);
 	ob.glob_data_symbol_map = hashmap_create(16);
 

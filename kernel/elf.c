@@ -15,10 +15,6 @@ typedef struct ELF_linker_data
 {
 	ELF_dyn32* dynamic_section;
 	void* base_address;
-	//an array of null-terminated strings
-	//corresponding to needed symbols
-	char** dependencies;
-	size_t num_dependencies;
 
 	void (*init_func)(void);
 	void (**array_init_funcs)(void);
@@ -33,8 +29,10 @@ typedef struct ELF_linker_data
 	ELF_rel32* relocation_addr;
 	size_t relocation_entries;
 
+	hash_map* lib_set;
 	hash_map* symbol_map;
 	hash_map* glob_data_symbol_map;
+	bool userspace;
 } ELF_linker_data;
 
 
@@ -130,7 +128,7 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 	
 	if(f == NULL)
 	{
-		printf("could not open elf file\n");
+		printf("could not open elf file %s\n", path);
 		return 0;
 	}
 	
@@ -176,6 +174,8 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 						((ELF_linker_data*)object->linker_data)->dynamic_section = base_adress + pg_header.virtual_address;
 						((ELF_linker_data*)object->linker_data)->symbol_map = object->symbol_map;
 						((ELF_linker_data*)object->linker_data)->glob_data_symbol_map = object->glob_data_symbol_map;
+						((ELF_linker_data*)object->linker_data)->lib_set = object->lib_set;
+						((ELF_linker_data*)object->linker_data)->userspace = user;
 					break;
 					case ELF_PTYPE_LOAD:
 					{
@@ -216,8 +216,6 @@ int elf_process_dynamic_section(ELF_linker_data* object)
 	{
 		return 0;
 	}
-
-	object->num_dependencies = 0;
 
 	if (object->dynamic_section)
 	{
@@ -266,24 +264,33 @@ int elf_process_dynamic_section(ELF_linker_data* object)
 				object->num_array_init_funcs = entry->d_un.d_val / sizeof(uintptr_t);
 				break;
 			case DT_NEEDED:
-				object->num_dependencies++;
 				break;
-			}
-		}
-		
-		//an array of null-terminated strings
-		object->dependencies = (char**)malloc(sizeof(char**) * object->num_dependencies);
-		size_t dependency_index = 0;
-
-		for(ELF_dyn32* entry = object->dynamic_section; entry->d_tag != DT_NULL; entry++)
-		{
-			if (entry->d_tag == DT_NEEDED)
-			{
-				object->dependencies[dependency_index++] = object->string_table + entry->d_un.d_val;
 			}
 		}
 
 		elf_read_symbols(object);
+		
+		for(ELF_dyn32* entry = object->dynamic_section; entry->d_tag != DT_NULL; entry++)
+		{
+			if (entry->d_tag == DT_NEEDED)
+			{
+				const char* lib_name = object->string_table + entry->d_un.d_val;
+
+				uint32_t val;
+				if(!hashmap_lookup(object->lib_set, lib_name, &val))
+				{
+					dynamic_object lib;
+					lib.lib_set = object->lib_set;
+					lib.symbol_map = object->symbol_map;
+					lib.glob_data_symbol_map = object->glob_data_symbol_map;
+
+					if(load_elf(lib_name, &lib, object->userspace))
+					{
+						hashmap_insert(lib.lib_set, lib_name, 1);
+					}
+				}
+			}
+		}
 
 		if (relocation_addr)
 		{
@@ -361,6 +368,8 @@ void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, s
 			{
 				printf("Unable to locate symbol %d \"%s\"\n", symbol_index, symbol_name);
 				symbol_val = 0;
+
+				while(true);
 			}
 		}
 
