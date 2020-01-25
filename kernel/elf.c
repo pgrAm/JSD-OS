@@ -121,7 +121,7 @@ int elf_read_symbols(ELF_linker_data* object);
 void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
 int elf_process_dynamic_section(ELF_linker_data* object);
 
-int load_elf(const char* path, dynamic_object* object)
+int load_elf(const char* path, dynamic_object* object, bool user)
 {
 	ELF_ident file_identifer;
 	ELF_header32 file_header;
@@ -179,13 +179,16 @@ int load_elf(const char* path, dynamic_object* object)
 					break;
 					case ELF_PTYPE_LOAD:
 					{
-						//size_t num_pages = (pg_header.mem_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
+						size_t num_pages = (pg_header.mem_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 						
 						void* virtual_address = base_adress + pg_header.virtual_address;
 						
-						//clear mem_size bytes at virtual_address to 0
-						//memmanager_virtual_alloc(virtual_address, num_pages, PAGE_USER | PAGE_PRESENT | PAGE_RW);
-						
+						uint32_t flags = 0;
+						if(pg_header.flags & PF_WRITE) { flags |= PAGE_RW; }
+						if(user) { flags |= PAGE_USER; }
+
+						memmanager_set_page_flags(virtual_address, num_pages, flags);
+
 						//copy file_size bytes from offset to virtual_address
 						filesystem_seek_file(f, pg_header.offset);
 						filesystem_read_file(virtual_address, pg_header.file_size, f);

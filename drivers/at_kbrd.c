@@ -1,4 +1,4 @@
-#include <stdio.h>
+//#include <stdio.h>
 #include "../kernel/interrupt.h"
 #include "portio.h"
 #include "kbrd.h"

@@ -227,6 +227,32 @@ void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, uint32_t
 	return virtual_address;
 }
 
+void memmanager_set_page_flags(void* virtual_address, size_t num_pages, uint32_t flags)
+{
+	flags &= ~PAGE_PRESENT;
+
+	for(size_t i = 0; i < num_pages; i++)
+	{
+		uintptr_t v_address = virtual_address + i * PAGE_SIZE;
+
+		size_t pd_index = v_address >> 22;
+		uintptr_t pt_entry = current_page_directory[pd_index];
+
+		if(!(pt_entry & PAGE_PRESENT)) //page table is not present
+		{
+			puts("page table not present, while attempting to set flags");
+			return;
+		}
+
+		size_t pt_index = (v_address >> 12) & PT_INDEX_MASK;
+
+		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
+		page_table[pt_index] = (page_table[pt_index] & (~PAGE_ADDRESS_MASK | PAGE_PRESENT)) | flags;
+
+		__flush_tlb_page(v_address);
+	}
+}
+
 SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, uint32_t flags)
 {
 	if(virtual_address == NULL)

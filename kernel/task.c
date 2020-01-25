@@ -156,7 +156,7 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 	newTask->objects = (dynamic_object**)malloc(sizeof(dynamic_object*));
 	newTask->objects[0] = (dynamic_object*)malloc(sizeof(dynamic_object));
 
-	if(!load_elf(path, newTask->objects[0]))
+	if(!load_elf(path, newTask->objects[0], true))
 	{
 		set_page_directory((uint32_t*)oldcr3);
 		memmanager_destroy_memory_space(newTask->address_space);

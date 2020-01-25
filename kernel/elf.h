@@ -219,8 +219,16 @@ enum ELF_reloc_types
 	R_386_SIZE32 = 38
 };
 
+enum ELF_program_flags
+{
+	PF_EXECUTE = 0x01,
+	PF_WRITE = 0x02,
+	PF_READ = 0x04,
+	PF_MASKPROC = 0xf0000000
+};
+
 #include <dynamic_object.h>
 
-int load_elf(const char* path, dynamic_object* newTask);
+int load_elf(const char* path, dynamic_object* newTask, bool user);
 
 #endif

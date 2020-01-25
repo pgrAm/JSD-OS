@@ -8,7 +8,6 @@
 #include "interrupt.h"
 #include "memorymanager.h"
 #include "multiboot.h"
-#include "console.h"
 #include "task.h"
 
 #include <stdio.h>
@@ -18,9 +17,6 @@
 
 //extern struct multiboot_info* _multiboot;
 extern void _IMAGE_END_;
-
-int width = 80;
-int height = 25;
 
 #include <elf.h>
 
@@ -71,7 +67,7 @@ void kernel_main()
 	hashmap_insert(ob.symbol_map, "handle_keyevent",		(uintptr_t)&handle_keyevent);
 	hashmap_insert(ob.symbol_map, "irq_install_handler",	(uintptr_t)&irq_install_handler);
 	hashmap_insert(ob.symbol_map, "printf",					(uintptr_t)&printf);
-	load_elf("kbrd.drv", &ob);
+	load_elf("kbrd.drv", &ob, false);
 
 	uint32_t func_address;
 	if(hashmap_lookup(ob.symbol_map, "AT_keyboard_init", &func_address))
