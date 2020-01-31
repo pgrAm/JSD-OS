@@ -1,47 +1,85 @@
 ; Ensures that we jump straight into the kernel ’s entry function.
 [bits 32] 		; We’re in protected mode by now , so use 32 - bit instructions.
 [extern kernel_main] 	; Declare that we will be referencing the external symbol 'main ’,
+[extern _BSS_END_]
 global _multiboot
 
 start:
+	jmp header_end
+	
+header_start:
+	align 8
+multiboot2_header:
+    dd 0xe85250d6                ; magic number (multiboot 2)
+    dd 0                         ; architecture 0 (protected mode i386)
+    dd multiboot2_header_end - multiboot2_header ; header length
+    ; checksum
+    dd 0x100000000 - (0xe85250d6 + 0 + (multiboot2_header_end - multiboot2_header))
+
+    ; optional multiboot tags
+	dw 2				;address tag
+	dw 0
+	dd 24
+	dd multiboot2_header
+	dd -1				;load file from start
+	dd 0				;load entire file
+	dd 0				;no bss
+
+    ; required end tag
+    dw 0    ; type
+    dw 0    ; flags
+    dd 8    ; size
+multiboot2_header_end:
+	align 4
+multiboot1_header:
+    dd 0x1BADB002
+	dd 0x00010006			; bit 16 & 2 & 1 set
+	dd -(0x1BADB002 + 0x00010006)
+	dd multiboot1_header	; header_address
+	dd start				; load_address
+	dd 0x00000000			; load_end_address
+	dd _BSS_END_			; bss_end_address
+	dd start				; entry_address
+	dd 1 ; text mode
+	dd 80
+	dd 25
+	dd 0
+multiboot1_header_end:
+header_end:
 	cli
-	push	ebp
-	mov		ebp, esp
-	mov		eax, [ebp + 8]
-	mov 	[_multiboot], eax		
+	mov ebp, 0x90000 ; Update our stack position so it is right at the top of the free space.
+	mov esp, ebp
+
+	; set gdt
+	lgdt [gdt_descriptor]
+	jmp GDT_CODE_SEG : set_regs
+set_regs:
+	mov ax, GDT_DATA_SEG
+	mov ds, ax
+	mov ss, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+	
+	mov dword [_multiboot], ebx
 
 	pushad
 	mov edi, 0x112345 ;odd megabyte address.
 	mov esi, 0x012345 ;even megabyte address.
-	mov [esi], esi    ;making sure that both addresses contain diffrent values.
+	mov [esi], esi    ;making sure that both addresses contain different values.
 	mov [edi], edi    ;(if A20 line is cleared the two pointers would point to the address 0x012345 that would contain 0x112345 (edi)) 
 	cmpsd             ;compare addresses to see if the're equivalent.
 	popad
 	jne A20_on
 	call deal_with_a20
 	A20_on:
-	
-	call loadGDT
-	
-	mov ax, GDT_DATA_SEG
-	mov ds, ax
-	mov ss, ax
-	mov es, ax 
-	mov fs, ax
-	mov gs, ax
-	
+
 	call loadTSS
-	
-runkernel:	
-	mov ebp, 0x90000 ; Update our stack position so it is right at the top of the free space.
-	mov esp, ebp 
-	
-	call kernel_main 	; invoke main () in our C kernel
-	jmp $ 		; Hang forever when we return from the kernel
+
+	call kernel_main	; invoke main () in our C kernel
+	jmp $ 				; Hang forever when we return from the kernel
 
 _multiboot dd 0
-global a20_enable
-;a20_enable: dd 0
 
 deal_with_a20:
     call    a20wait
@@ -75,11 +113,6 @@ a20wait2:
     test    al, 1
     jz      a20wait2
     ret
-
-loadGDT:
-	cli
-	lgdt [gdt_descriptor]
-	ret
 
 loadTSS:
 	mov	ax, GDT_TSS_SEG | 3

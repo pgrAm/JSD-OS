@@ -73,7 +73,7 @@ switchtopm:
 	; cause problems.
 	[bits 32]
 	; Initialise registers and the stack once in PM.
-	init_pm :
+init_pm :
 	mov ax, DATA_SEG ; Now in PM , our old segments are meaningless ,
 	mov ds, ax ; so we point our segment registers to the
 	mov ss, ax ; data selector we defined in our GDT
@@ -81,12 +81,12 @@ switchtopm:
 	mov fs, ax
 	mov gs, ax
 	mov ebp, 0x90000 ; Update our stack position so it is right
-	mov esp, ebp ; at the top of the free space.
+	mov esp, ebp	 ; at the top of the free space.
 
 ; In protected mode now
 BEGIN_PM :
 	mov 	eax, 0x2badb002			;multiboot magic
-	push 	dword boot_info
+	mov 	ebx, boot_info
 	
 	call 	KERNEL_OFFSET 			; Jumping into C and Kernel land
 	
