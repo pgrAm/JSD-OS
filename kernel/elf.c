@@ -368,8 +368,6 @@ void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, s
 			{
 				printf("Unable to locate symbol %d \"%s\"\n", symbol_index, symbol_name);
 				symbol_val = 0;
-
-				while(true);
 			}
 		}
 
