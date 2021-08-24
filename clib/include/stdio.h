@@ -25,6 +25,7 @@ int fputc(int character, FILE* stream);
 int fputs(const char* str, FILE* stream);
 int fprintf(FILE* stream, const char* format, ...);
 int sprintf(char* s, const char * format, ...);
+int snprintf(char* s, size_t n, const char* format, ...);
 char *gets(char *str); //!blatantly unsafe function please do not use: BUFFER OVERFLOW!!!
 char *gets_s(char *str, size_t length); //!safe version of gets, if you provide a valid length it will not overflow
 int vsprintf(char *s, const char *format, va_list arg );

@@ -23,7 +23,7 @@ multiboot2_header:
 	dd multiboot2_header
 	dd -1				;load file from start
 	dd 0				;load entire file
-	dd 0				;no bss
+	dd _BSS_END_		;no bss
 
     ; required end tag
     dw 0    ; type

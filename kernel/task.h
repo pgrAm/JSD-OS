@@ -1,5 +1,8 @@
 #ifndef TASK_H
 #define TASK_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <stddef.h>
 #include <stdint.h>
 
@@ -42,4 +45,7 @@ void switch_to_task(int pid);
 int get_active_process();
 int get_running_process();
 
+#ifdef __cplusplus
+}
+#endif
 #endif

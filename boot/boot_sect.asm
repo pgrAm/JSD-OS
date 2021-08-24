@@ -21,7 +21,7 @@ nop
 %assign _serial_number			0xa0a1a2a3
 
 ; BIOS Parameter Block
-bp_OEM					db "EMS OS  "
+bp_OEM:					db "JSD OS  "
 bp_bytes_per_sector:  	dw _bytes_per_sector
 bp_sectors_per_cluster: db _sectors_per_cluster
 bp_reserved_sectors: 	dw _reserved_sectors
@@ -41,7 +41,7 @@ bp_total_sectors_big:   dd _total_sectors_big
 ;bs_volume_label: 	    db "EMS FLOPPY "
 ;bs_file_system: 	    db "FAT12   "
 
-KERNEL_OFFSET 	equ 0x8000 ; This is the memory address where our kernel goes
+KERNEL_OFFSET  equ 0x8000 ; This is the memory address where our kernel goes
 
 begin:
 
@@ -55,33 +55,46 @@ begin:
 	mov [boot_info + multiboot_info.bootDevice], dl 	; Save the index of the boot drive
 
 	call getmem
-	
+
+	mov bx, KERNEL_OFFSET
+	;mov si, ramdisk_begin
+	;call store_as_long_address
+
+	mov si, kernel_file_name
 	call fat_load
 
+	mov si, ramdisk_begin
+	call store_as_long_address
+
+	mov si, raminit_file_name
+	call fat_load
+
+	mov si, ramdisk_end
+	call store_as_long_address
+	;mov bx, 0xE00
+	;mov word [si], bx
+	;mov bx, 0x01
+	;mov word [si + 0x02], bx
+
 switchtopm:
-	cli ; We must switch of interrupts until we have
-	; set -up the protected mode interrupt vector
-	; otherwise interrupts will run riot.
+	cli
 	lgdt [gdt_descriptor] ; Load our global descriptor table , which defines
-	; the protected mode segments ( e.g. for code and data )
-	mov eax, cr0 ; To make the switch to protected mode , we set
-	or eax, 0x1 ; the first bit of CR0 , a control register
+	mov eax, cr0	; To make the switch to protected mode , we set
+	or	eax, 0x01	; the first bit of CR0 , a control register
 	mov cr0, eax
 	jmp CODE_SEG : init_pm ; Make a far jump ( i.e. to a new segment ) to our 32 - bit
-	; code. This also forces the CPU to flush its cache of
-	; pre - fetched and real - mode decoded instructions , which can
-	; cause problems.
+
 	[bits 32]
-	; Initialise registers and the stack once in PM.
+; Initialise registers and the stack once in PM.
 init_pm :
-	mov ax, DATA_SEG ; Now in PM , our old segments are meaningless ,
-	mov ds, ax ; so we point our segment registers to the
-	mov ss, ax ; data selector we defined in our GDT
+	mov ax, DATA_SEG	; Now in PM , our old segments are meaningless ,
+	mov ds, ax			; so we point our segment registers to the
+	mov ss, ax			; data selector we defined in our GDT
 	mov es, ax
 	mov fs, ax
 	mov gs, ax
-	mov ebp, 0x90000 ; Update our stack position so it is right
-	mov esp, ebp	 ; at the top of the free space.
+	mov ebp, 0x90000	; Update our stack position so it is right
+	mov esp, ebp		; at the top of the free space.
 
 ; In protected mode now
 BEGIN_PM :
@@ -94,8 +107,17 @@ BEGIN_PM :
 %include "memmap.asm"
 %include "gdt.asm"
 %include "multiboot.asm"
-;%include "switchtopm.asm"
 %include "fatload.asm"
+
+store_as_long_address:
+	mov ax, es
+	;mov cx, ax
+	;shl cx, 4
+	;add bx, cx
+	mov word [si], bx
+	shr ax, 0x0c
+	mov word [si + 0x02], ax
+	ret
 
 ; Multiboot header
 boot_info:
@@ -105,24 +127,32 @@ istruc multiboot_info
 	at multiboot_info.memoryHi,				dd 0
 	at multiboot_info.bootDevice,			dd 0
 	at multiboot_info.cmdLine,				dd 0
-	at multiboot_info.mods_count,			dd 0
-	at multiboot_info.mods_addr,			dd 0
-	at multiboot_info.syms0,				dd 0
-	at multiboot_info.syms1,				dd 0
-	at multiboot_info.syms2,				dd 0
-	at multiboot_info.mmap_length,			dd 0
-	at multiboot_info.mmap_addr,			dd 0
-	at multiboot_info.drives_length,		dd 0
-	at multiboot_info.drives_addr,			dd 0
-	at multiboot_info.config_table,			dd 0
-	at multiboot_info.bootloader_name,		dd 0
-	at multiboot_info.apm_table,			dd 0
+	at multiboot_info.mods_count,			dd 1
+	at multiboot_info.mods_addr,			dd modules
+	;at multiboot_info.syms0,				dd 0
+	;at multiboot_info.syms1,				dd 0
+	;at multiboot_info.syms2,				dd 0
+	;at multiboot_info.mmap_length,			dd 0
+	;at multiboot_info.mmap_addr,			dd 0
+	;at multiboot_info.drives_length,		dd 0
+	;at multiboot_info.drives_addr,			dd 0
+	;at multiboot_info.config_table,		dd 0
+	;at multiboot_info.bootloader_name,		dd 0
+	;at multiboot_info.apm_table,			dd 0
 	;at multiboot_info.vbe_control_info,	dd 0
 	;at multiboot_info.vbe_mode_info,		dw 0
 	;at multiboot_info.vbe_interface_seg,	dw 0
 	;at multiboot_info.vbe_interface_off,	dw 0
 	;at multiboot_info.vbe_interface_len,	dw 0
 iend
+
+modules:
+	ramdisk_begin:	dd 0
+	ramdisk_end:	dd 0
+
+kernel_file_name   db "KERNAL  SYS"
+raminit_file_name  db "INIT    RFS"
+
 
 ; Bootsector padding
 times 510 -( $ - $$ ) db 0

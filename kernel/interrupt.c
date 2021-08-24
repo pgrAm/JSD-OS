@@ -189,8 +189,13 @@ void fault_handler(interrupt_info*r)
 			printf("ERR CODE = %X\n", r->err_code);
 		}
 		
+        if(r->cs == 0x08)
+        {
+            puts("The kernel has crashed, we're boned so just restart");
+            __asm__ volatile ("cli;hlt");
+        }
+
         exit_process(-1);
-        for (;;);
     }
 }
 

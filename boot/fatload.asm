@@ -5,102 +5,108 @@
 %assign datasector  	root_location + root_size
 %assign cluster_size	_sectors_per_cluster * _bytes_per_sector
 
-ROOT equ 0x500
 FAT_LOCATION equ 0x500
+ROOT equ FAT_LOCATION + _bytes_per_sector
 DIR_ENTRY_SIZE equ 0x0020
 
-fat_load : 
-	
-    ; read root directory into memory (0x0500)
+; es:bx = load address, si = file name
+; trashes ax, dx, si, cx, di
+fat_load : 	
+	; read root directory into memory (0x0500)
+		push	bx								; save load address
+		
 		mov     cx, root_size    					
 		mov  	ax, root_location            		
 		mov   	bx, ROOT
-		call  	disk_load
-		
-    ; browse root directory for binary image
-		mov		cx, _root_entries             		; load loop counter
-		mov		di, ROOT                          ; locate first root entry
-		
-    .LOOP:
-		push 	cx
-		mov		cx, 0x000B                          ; eleven character name
-		mov		si, file_name                       ; image name to find
-		push	di
-		rep  	cmpsb                               ; test for entry match
-		pop		di
-		pop		cx
-		je		LOAD_FAT
-		add		di, DIR_ENTRY_SIZE                  ; queue next directory entry
-		loop	.LOOP
-FAILURE:
-		jmp $										; did not find kernel image
+		call  	load_disk_ss
 
-		
+		pop		bx								; restore load address
+	; browse root directory for filename
+		mov		ax, _root_entries				; load loop counter
+		mov		di, ROOT                        ; locate first root entry
+
+	.LOOP:
+		push	es
+		push	ds
+		pop		es
+		push	si
+		push	di
+		mov		cx, 0x000B						; eleven character name
+		repe  	cmpsb							; test for entry match
+		pop		di
+		pop		si
+		pop		es
+		je		LOAD_FAT
+		add		di, DIR_ENTRY_SIZE				; queue next directory entry
+		dec		ax
+		jnz		.LOOP
+FAILURE:
+		jmp $									; did not find kernel image
+
 LOAD_FAT:
+		xor ax, ax
+		;mov [fat_sector], ax ;reset the fat sector to 0
+		mov     dx, WORD [di + 0x001A]			; get the first cluster from the directory entry
 		
-	; save starting cluster of boot image
-		mov     dx, WORD [di + 0x001A]
-		mov     WORD [cluster], dx                  ; file's first cluster
-		
-		push	word KERNEL_OFFSET					; push kernel destination address onto the stack
-		
-	LOAD_IMAGE:
-		pop		bx
-		mov     ax, WORD [cluster]                  ; cluster to read
-		
+	LOAD_FILE:
+		mov     ax, dx								; cluster to read
+	push	ax									; save cluster on stack
+
+	; LBA = (cluster - 2) * _sectors_per_cluster
 	; convert cluster to LBA
 		sub     ax, 0x0002                          ; zero base cluster number
 		mov     cx, _sectors_per_cluster   			; convert byte to word
 		mul     cx
 		add     ax, datasector						; base data sector
 		
-		call  	disk_load
-		push 	bx
+		call  	disk_load							; load cluster to es:bx
 		
 	; compute next cluster
-		mov     si, WORD [cluster]                  ; cluster + cluster / 2 
-		mov     ax, si
+	pop     si									; restore cluster from stack
+		mov     ax, si								; cluster + cluster / 2 
 		shr     ax, 0x0001                          ; divide by two
 		add     ax, si
-		call	read_fat							; read two bytes from FAT (0x0500)
+
+	push 	bx									; save load address
+
+	; reads a word from the fat at index ax into dx
+		xor		dx,	dx
+		div		word [bp_bytes_per_sector]
+		add     ax, _reserved_sectors 
+		cmp		ax, [fat_sector]
+	push	dx							; save the offset into the fat sector
+		je		.skip_fat_load	
+
+	; read FAT into memory (0x0500)
+		mov		cx, 1				;1 sector
+		mov		[fat_sector], ax	;save the fat sector
+		mov     bx, FAT_LOCATION	;read the FAT to ss:0x0500
+		call  	load_disk_ss 		;load	
+	.skip_fat_load:
+	pop		bx							; restore the offset into the fat sector
+		mov     dx, WORD [bx + FAT_LOCATION]
+
 		test    si, 0x0001
-		jnz     .ODD_CLUSTER
-		
-	.EVEN_CLUSTER:
-		and     dx, 0x0FFF							; take low twelve bits
-		jmp     .DONE
-		
+		jz     .EVEN_CLUSTER
 	.ODD_CLUSTER:
 		shr     dx, 0x0004                          ; take high twelve bits
-		
+	.EVEN_CLUSTER:
+		and     dx, 0x0FFF							; take low twelve bits
+
 	.DONE:     
-		mov     WORD [cluster], dx                  ; store new cluster
+	pop 	bx										; restore load address
 		cmp     dx, 0x0FF0                          ; test for end of file
-		jb      LOAD_IMAGE
+		jb      LOAD_FILE
 		
 	DONE:
-		pop 	bx
-		ret											; kernel image is loaded at KERNEL_OFFSET
-	
-; reads a word from the fat at index ax into dx
-read_fat:
-	; read FAT into memory (0x0500)
-	xor		dx,	dx
-	div		word [bp_bytes_per_sector]
-	add     ax, _reserved_sectors 
-	cmp		ax, [fat_sector]
-	push	dx
-	je		.skip_load	
-	
-	mov		cx, 1				;1 sector
-	mov		[fat_sector], ax	;save the fat sector
-	mov     bx, FAT_LOCATION	;read the FAT to es:0x0500
-	call  	disk_load 			;load		
-.skip_load:
-	pop		bx
-	mov     dx, WORD [bx + FAT_LOCATION]
+		ret											; file is loaded
+
+load_disk_ss:
+	push	es
+	push	ss
+	pop		es
+	call  	disk_load 			;load	
+	pop		es
 	ret
 	
 fat_sector	dw 0
-cluster     dw 0x0000
-file_name   db "KERNAL  SYS"

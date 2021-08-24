@@ -40,7 +40,7 @@ clock: sync=realtime, time0=utc, rtc_sync=1
 # no cmosimage
 log: -
 logprefix: %t%e%d
-debug: action=ignore
+debug: action=ignore, pc_system=report, biosdev=report, floppy=report
 info: action=report
 error: action=report
 panic: action=ask

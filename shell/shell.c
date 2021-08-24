@@ -9,8 +9,9 @@
 
 char console_user[] = "root";
 char prompt_char = ']';
-#define HISTORY_SIZE 4
-char command_buffers[HISTORY_SIZE][MAX_PATH];
+#define MAX_HISTORY_SIZE 4
+char command_buffers[MAX_HISTORY_SIZE][MAX_PATH];
+size_t history_size = 0;
 size_t command_buffer_index = 0;
 char* command_buffer = command_buffers[0];
 
@@ -102,7 +103,11 @@ int get_command(char* input)
 	
 	if(input == NULL)
 	{
-		command_buffer = command_buffers[command_buffer_index++ % HISTORY_SIZE];
+		if (history_size <= MAX_HISTORY_SIZE) 
+		{
+			history_size = command_buffer_index + 1;
+		}
+		command_buffer = command_buffers[command_buffer_index++ % history_size];
 
 		char *c = command_buffer;
 		char* end = command_buffer + MAX_PATH;
@@ -112,8 +117,8 @@ int get_command(char* input)
 			key_type k = wait_and_getkey();
 			if ((k == VK_UP || k == VK_DOWN) && get_keystate(k))
 			{
-				command_buffer_index = (k == VK_UP) ? command_buffer_index-- : command_buffer_index++;
-				command_buffer_index %= HISTORY_SIZE;
+				command_buffer_index = (k == VK_UP) ? command_buffer_index - 1 : command_buffer_index + 1;
+				command_buffer_index %= history_size;
 
 				video_erase_chars(c - command_buffer);
 
@@ -325,7 +330,7 @@ int _start(void)
 		printf("Could not mount root directory for drive %d %s\n", drive_index, drive_names[drive_index]);
 	}
 	
-	for (size_t i = 0; i < HISTORY_SIZE; i++)
+	for (size_t i = 0; i < MAX_HISTORY_SIZE; i++)
 	{
 		memset(command_buffers[i], '\0', MAX_PATH);
 	}

@@ -40,9 +40,9 @@ char* asctime(const struct tm *t)
 		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 	};
   
-	static char result[26];
-  
-	sprintf(result, "%s %s %02d %02d:%02d:%02d %04d\n", wdays[t->tm_wday], months[t->tm_mon], t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, t->tm_year + 1900);
+	static char result[256];
+
+	snprintf(result, 256, "%s %s %02d %02d:%02d:%02d %04d\n", wdays[t->tm_wday], months[t->tm_mon], t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, t->tm_year + 1900);
   
 	return result;
 }
@@ -101,12 +101,12 @@ struct tm* gmtime(const time_t* timer)
 
 	date_ret.tm_sec = (int)(currtime % 60);
 	
-    currtime /= 60; //currtime now in minutes
-    date_ret.tm_min = (int)(currtime % 60);
+	currtime /= 60; //currtime now in minutes
+	date_ret.tm_min = (int)(currtime % 60);
 	date_ret.tm_sec += (date_ret.tm_sec < 0) ? (date_ret.tm_min--, 60) : 0; //correct for dates before the beginning of time
 
-    currtime /= 60; //currtime now in hours
-    date_ret.tm_hour = (int)(currtime % 24);
+	currtime /= 60; //currtime now in hours
+	date_ret.tm_hour = (int)(currtime % 24);
 	date_ret.tm_min += (date_ret.tm_min < 0) ? (date_ret.tm_hour--, 60) : 0; //correct for dates before the beginning of time
 
 	time_t days = currtime / 24; //currtime now in days

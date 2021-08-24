@@ -1,5 +1,8 @@
 #ifndef LOCKS_H
 #define LOCKS_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -47,5 +50,7 @@ typedef struct
 bool kernel_try_lock_mutex(kernel_mutex* m);
 void kernel_lock_mutex(kernel_mutex* m);
 void kernel_unlock_mutex(kernel_mutex* m);
-
+#ifdef __cplusplus
+}
+#endif
 #endif

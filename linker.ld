@@ -1,25 +1,28 @@
 ENTRY(start)
-phys = 0x008000;
+phys = 0x08000;
 SECTIONS
 {
   .text phys : AT(phys) {
     code = .;
     *(.text)
-    *(.rodata)
 	_TEXT_END_ = .;
   }
-  .data : AT(_TEXT_END_)
-  {
+  .rodata : {
+    rodata = .;
+    *(.rodata)
+	_RODATA_END_ = .;
+  }
+  .data : {
     data = .;
     *(.data)
 	_DATA_END_ = .;
   }
-  .bss : AT(_DATA_END_)
-  {
+  .bss : {
     bss = .;
-    *(.bss)
-    _BSS_END_ = .;
+	*(COMMON)
+    KEEP(*(.bss*))
   }
+  _BSS_END_ = .;
   end = .;
   _IMAGE_END_ = .;
 }

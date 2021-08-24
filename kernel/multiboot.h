@@ -3,7 +3,13 @@
 
 #include <stdint.h>
 
-struct multiboot_info 
+typedef struct
+{
+	uint32_t begin;
+	uint32_t end;
+}  __attribute__((packed)) multiboot_modules;
+
+typedef struct 
 {
 	uint32_t	m_flags;
 	uint32_t	m_memoryLo;
@@ -27,6 +33,6 @@ struct multiboot_info
 	uint16_t	m_vbe_mode;
 	uint16_t	m_vbe_interface_off;
 	uint16_t	m_vbe_interface_len;
-} __attribute__((packed));
+} __attribute__((packed)) multiboot_info;
 
 #endif

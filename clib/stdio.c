@@ -262,13 +262,11 @@ int getchar()
 
 int vsnprintf(char *buffer, size_t n, const char *fmt, va_list args)
 {
-	unsigned state, flags, radix, actual_wd, count, given_wd;
-	unsigned char *where, buf[PR_BUFLEN];
-	long num;
+	unsigned state = 0, flags = 0, radix = 0, actual_wd = 0, count = 0, given_wd = 0;
+	unsigned char* where = NULL;
+	unsigned char buf[PR_BUFLEN];
 
 	char* ptr = buffer;
-	
-	state = flags = count = given_wd = 0;
 
 	for(; *fmt; fmt++) /* begin scanning format specifier list */
 	{
@@ -358,63 +356,65 @@ int vsnprintf(char *buffer, size_t n, const char *fmt, va_list args)
 			case 'o':
 				radix = 8;
 DO_NUM:			/* load the value to be printed. l=long=32 bits: */
-				if(flags & PR_32)
-				{		
-					num = va_arg(args, unsigned long);
-				}
-				else if(flags & PR_16) /* h=short=16 bits (signed or unsigned) */
 				{
-					if(flags & PR_SG)
+					long num = 0;
+					if(flags & PR_32)
 					{
-						num = va_arg(args, int);
+						num = va_arg(args, unsigned long);
 					}
-					else
+					else if(flags & PR_16) /* h=short=16 bits (signed or unsigned) */
 					{
-						num = va_arg(args, unsigned int);
+						if(flags & PR_SG)
+						{
+							num = va_arg(args, int);
+						}
+						else
+						{
+							num = va_arg(args, unsigned int);
+						}
 					}
-				}
-				else /* no h nor l: sizeof(int) bits (signed or unsigned) */
-				{
-					if(flags & PR_SG)
+					else /* no h nor l: sizeof(int) bits (signed or unsigned) */
 					{
-						num = va_arg(args, int);
+						if(flags & PR_SG)
+						{
+							num = va_arg(args, int);
+						}
+						else
+						{
+							num = va_arg(args, unsigned int);
+						}
 					}
-					else
-					{
-						num = va_arg(args, unsigned int);
-					}
-				}
 
-				if(flags & PR_SG) /* take care of sign */
-				{
-					if(num < 0)
+					if(flags & PR_SG) /* take care of sign */
 					{
-						flags |= PR_WS;
-						num = -num;
+						if(num < 0)
+						{
+							flags |= PR_WS;
+							num = -num;
+						}
 					}
-				}
 
-				do /* convert binary to octal/decimal/hex ASCII. The math here is _always_ unsigned */
-				{
-					unsigned long temp;
+					do /* convert binary to octal/decimal/hex ASCII. The math here is _always_ unsigned */
+					{
+						unsigned long temp;
 
-					temp = (unsigned long)num % radix;
-					where--;
-					if(temp < 10)
-					{
-						*where = temp + '0';
-					}
-					else if(flags & PR_CA)
-					{
-						*where = temp - 10 + 'A';
-					}
-					else
-					{
-						*where = temp - 10 + 'a';
-					}
-					num = (unsigned long)num / radix;
+						temp = (unsigned long)num % radix;
+						where--;
+						if(temp < 10)
+						{
+							*where = temp + '0';
+						}
+						else if(flags & PR_CA)
+						{
+							*where = temp - 10 + 'A';
+						}
+						else
+						{
+							*where = temp - 10 + 'a';
+						}
+						num = (unsigned long)num / radix;
+					} while(num != 0);
 				}
-				while(num != 0);
 				goto EMIT;
 			case 'c':
 				flags &= ~PR_LZ; /* disallow pad-left-with-zeroes for %c */
@@ -508,6 +508,18 @@ void perror(const char* str)
 int vsprintf(char *s, const char *format, va_list arg)
 {
 	return vsnprintf(s, 256, format, arg);
+}
+
+int snprintf(char* s, size_t n, const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+
+	int len = vsnprintf(s, n, format, args);
+
+	va_end(args);
+
+	return len;
 }
 
 int sprintf(char* s, const char * format, ...)

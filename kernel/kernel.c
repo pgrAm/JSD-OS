@@ -14,17 +14,28 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <time.h>
-
-//extern struct multiboot_info* _multiboot;
-extern void _IMAGE_END_;
-
 #include <elf.h>
+
+#include "multiboot.h"
+extern multiboot_info* _multiboot;
+
+extern void _IMAGE_END_;
+extern void _BSS_END_;
+extern void _DATA_END_;
 
 void kernel_main()
 {
-	//puts("Kernel Booted\n");
 	initialize_video(80, 25);
-	printf("BSS END %X\n", &_IMAGE_END_);
+	printf("DATA END %X\n", &_DATA_END_);
+	printf("IMG END %X\n", &_IMAGE_END_);
+	printf("BSS END %X\n", &_BSS_END_);
+
+	char* s = (char*)((multiboot_modules*)_multiboot->m_modsAddr)->begin;
+	char* e = (char*)((multiboot_modules*)_multiboot->m_modsAddr)->end;
+
+	printf("MOD BEGIN %X\nMOD END %X\n", s, e);
+
+	//while(true);
 
 	idt_init();
 	isrs_init();
@@ -79,8 +90,6 @@ void kernel_main()
 	{
 		printf("cannot find function\n");
 	}
-
-	//while (true);
 
 	spawn_process("shell.elf", WAIT_FOR_PROCESS);
 	
