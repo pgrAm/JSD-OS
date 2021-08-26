@@ -242,7 +242,10 @@ size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, con
 
 	while(num_clusters--)
 	{
+		//printf("Reading from cluster %d to %X\n", cluster, dest);
+		//printf("lba %d\n", fat12_cluster_to_lba(f, cluster));
 		floppy_read_sectors(f->index, fat12_cluster_to_lba(f, cluster), dest, f->sectors_per_cluster);
+		//printf("value = %X\n", *((uint32_t*)dest));
 
 		dest += f->cluster_size;
 		

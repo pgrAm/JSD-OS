@@ -189,6 +189,7 @@ void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_
 
 	for(uint8_t i = 0; i < 5; i++)
 	{		
+		//printf("seeking to c=%d h=%d s=%d\n", cylinder, head, sector);
 		floppy_seek(driveNum, cylinder, head);
 		
 		isa_dma_begin_transfer(0x02, 0x44, buf, FLOPPY_BYTES_PER_SECTOR * num_sectors);

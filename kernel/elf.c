@@ -144,6 +144,9 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 
 			size_t object_size = s.size;
 			size_t num_pages = (object_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
+
+			//printf("Attempting to load ELF %s at %X\n", path, s.base);
+
 			void* base_adress = memmanager_virtual_alloc(s.base, num_pages, PAGE_USER | PAGE_PRESENT | PAGE_RW);
 
 			object->num_segments = 1;
@@ -176,18 +179,26 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 						((ELF_linker_data*)object->linker_data)->glob_data_symbol_map = object->glob_data_symbol_map;
 						((ELF_linker_data*)object->linker_data)->lib_set = object->lib_set;
 						((ELF_linker_data*)object->linker_data)->userspace = user;
+
+						//printf("found dynamic section at %X\n", ((ELF_linker_data*)object->linker_data)->dynamic_section);
 					break;
 					case ELF_PTYPE_LOAD:
-					{
-						size_t num_pages = (pg_header.mem_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
-						
+					{						
+						void* aligned_address = base_adress + (pg_header.virtual_address & ~(PAGE_SIZE - 1));
 						void* virtual_address = base_adress + pg_header.virtual_address;
 						
+						size_t num_pages = ((virtual_address - aligned_address) + pg_header.mem_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
+
 						uint32_t flags = 0;
 						if(pg_header.flags & PF_WRITE) { flags |= PAGE_RW; }
 						if(user) { flags |= PAGE_USER; }
 
-						memmanager_set_page_flags(virtual_address, num_pages, flags);
+						memmanager_set_page_flags(aligned_address, num_pages, flags);
+
+						//printf("loaded section at %X from %X, size %X\n", 
+						//	   virtual_address, pg_header.offset, pg_header.file_size);
+						//printf("Page %X - %X\n",
+						//	   aligned_address, aligned_address + num_pages * 0x1000);
 
 						//copy file_size bytes from offset to virtual_address
 						filesystem_seek_file(f, pg_header.offset);
@@ -217,6 +228,8 @@ int elf_process_dynamic_section(ELF_linker_data* object)
 		return 0;
 	}
 
+	//printf("Reading dynamic section\n");
+
 	if (object->dynamic_section)
 	{
 		size_t relocation_entries = 0;
@@ -227,6 +240,8 @@ int elf_process_dynamic_section(ELF_linker_data* object)
 
 		for (ELF_dyn32* entry = object->dynamic_section; entry->d_tag != DT_NULL; entry++)
 		{
+			//printf("SECTION TYPE = %X\n", entry->d_tag);
+			//printf("SECTION VAL  = %X\n", entry->d_un.d_ptr);
 			switch (entry->d_tag)
 			{
 			case DT_PLTRELSZ:
@@ -249,6 +264,7 @@ int elf_process_dynamic_section(ELF_linker_data* object)
 				object->string_table = (char*)(object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_SYMTAB:
+				//printf("found symtab at %X\n", entry->d_un.d_ptr);
 				object->symbol_table = (ELF_sym32*)(object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_STRSZ:
@@ -264,6 +280,9 @@ int elf_process_dynamic_section(ELF_linker_data* object)
 				object->num_array_init_funcs = entry->d_un.d_val / sizeof(uintptr_t);
 				break;
 			case DT_NEEDED:
+				break;
+			default:
+				//printf("Unknown section type encountered\n");
 				break;
 			}
 		}
@@ -319,6 +338,8 @@ int elf_read_symbols(ELF_linker_data* object)
 			ELF_sym32* symbol = &object->symbol_table[i];
 
 			const char* symbol_name = object->string_table + symbol->name;
+
+			//printf("symbol name = %s\n", symbol_name);
 
 			uint32_t val;
 			if (!hashmap_lookup(object->symbol_map, symbol_name, &val))

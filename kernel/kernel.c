@@ -79,7 +79,32 @@ void kernel_main()
 	hashmap_insert(ob.symbol_map, "handle_keyevent",		(uintptr_t)&handle_keyevent);
 	hashmap_insert(ob.symbol_map, "irq_install_handler",	(uintptr_t)&irq_install_handler);
 	hashmap_insert(ob.symbol_map, "printf",					(uintptr_t)&printf);
+	
+	/*//SOMETHING IS FUCKED WITH SEEKING
+	file_stream* f = filesystem_open_file(NULL, "kbrd.drv", 0);
+	filesystem_seek_file(f, 0x6f0);
+	uint32_t value;
+	filesystem_read_file(&value, sizeof(uint32_t), f);
+	printf("value = %X\n", value);
+
+	//uint32_t value[0x100];
+	//filesystem_read_file(&value, sizeof(value), f);
+	//filesystem_read_file(&value, sizeof(value), f);
+	//printf("value = %X\n", value[0x2f0/4]);
+	for(;;);*/
+
 	load_elf("kbrd.drv", &ob, false);
+
+	/*for(uint32_t i = 0; i < ob.symbol_map->num_buckets; i++)
+	{
+		hash_node* entry = ob.symbol_map->buckets[i];
+
+		while(entry != NULL)
+		{
+			//printf("key = %s, value = %X\n", entry->key, entry->data);
+			entry = entry->next;
+		}
+	}*/
 
 	uint32_t func_address;
 	if(hashmap_lookup(ob.symbol_map, "AT_keyboard_init", &func_address))

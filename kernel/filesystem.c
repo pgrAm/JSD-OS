@@ -202,18 +202,22 @@ SYSCALL_HANDLER directory_handle* filesystem_open_directory(const directory_hand
 	return filesystem_open_directory_handle(f, flags);
 }
 	
+//finds the fs_index for the next chunk after an offset from the original
 fs_index filesystem_get_next_location_on_disk(const file_stream* f, size_t byte_offset, fs_index chunk_index)
 {
 	return drives[f->file->disk].driver->get_relative_location(chunk_index, byte_offset, &drives[f->file->disk]);
 }	
-	
+
+//finds the fs_index for the first chunk in the file
 fs_index filesystem_resolve_location_on_disk(const file_stream* f)
 {
-	return filesystem_get_next_location_on_disk(f, f->seekpos, f->file->location_on_disk);
+	return filesystem_get_next_location_on_disk(f, f->seekpos & ~(CHUNK_READ_SIZE-1), f->file->location_on_disk);
 }	
 	
 fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 {
+	//printf("filesystem_read_chunk from cluster %d\n", chunk_index);
+
 	if(f->location_on_disk == chunk_index)
 	{
 		//great we already have data in the buffer
@@ -235,6 +239,7 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f)
 	}	
 	
 	fs_index location = filesystem_resolve_location_on_disk(f);
+	//printf("seekpos %X starts at cluster %d\n", f->seekpos, location);
 
 	size_t startchunk = f->seekpos / CHUNK_READ_SIZE;
 	size_t endchunk = (f->seekpos + len) / CHUNK_READ_SIZE;
