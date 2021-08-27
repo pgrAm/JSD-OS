@@ -75,7 +75,7 @@ void list_directory()
 				modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
 		}
 	}
-	printf("\n %5d Files   %5d Bytes\n\n", i, total_bytes);
+	printf("\n %5d Files   %5d Bytes\n\n", i-1, total_bytes);
 }
 
 file_handle* find_file_in_dir(const directory_handle* dir, file_info* f, const char* name)
@@ -172,14 +172,19 @@ int get_command(char* input)
 	{
 		printf("%d\n", time(NULL));
 	}
-	else if(strcmp("fd0:", keyword) == 0)
+	else if(strcmp("rd0:", keyword) == 0)
 	{
 		drive_index = 0;
 		current_directory = get_root_directory(drive_index);
 	}
-	else if(strcmp("fd1:", keyword) == 0)
+	else if(strcmp("fd0:", keyword) == 0)
 	{
 		drive_index = 1;
+		current_directory = get_root_directory(drive_index);
+	}
+	else if(strcmp("fd1:", keyword) == 0)
+	{
+		drive_index = 2;
 		current_directory = get_root_directory(drive_index);
 	}
 	else if(strcmp("cls", keyword) == 0 || strcmp("clear", keyword) == 0)
@@ -282,7 +287,7 @@ int get_command(char* input)
 	return 1;
 }
 
-char* drive_names[] = {"fd0", "fd1"};
+char* drive_names[] = {"rd0", "fd0", "fd1"};
 
 void prompt()
 {

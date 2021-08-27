@@ -10,6 +10,24 @@
 
 #define FAT12_EOF 0xFF8
 
+struct fat12_drive
+{
+	size_t root_size;
+	size_t fats_size;
+	size_t root_location;
+	size_t datasector;
+	size_t cluster_size;
+	size_t sectors_per_cluster;
+	size_t bytes_per_sector;
+	size_t root_entries;
+	size_t reserved_sectors;
+
+	size_t blocks_per_sector;
+
+	size_t cached_fat_sector; //the sector index of the cached fat data
+	uint8_t* fat; //the file allocation table
+};
+
 enum directory_attributes
 {
 	READ_ONLY = 0x01,
@@ -220,10 +238,11 @@ size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const file
 	return cluster;
 }
 
-void fat12_mount_disk(filesystem_drive *d)
+bool fat12_mount_disk(filesystem_drive *d)
 {
-	fat12_drive* f = (fat12_drive*)d->fs_impl_data;
-	
+	fat12_drive* f = malloc(sizeof(fat12_drive));
+	d->fs_impl_data = f;
+
 	fat12_read_bios_block(d);
 	
 	//allocate fat sector
@@ -231,6 +250,8 @@ void fat12_mount_disk(filesystem_drive *d)
 	f->cached_fat_sector = 0;
 	
 	fat12_mount_directory(&d->root, d);
+
+	return true;
 }
 
 size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, const filesystem_drive *d)
