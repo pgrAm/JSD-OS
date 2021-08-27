@@ -8,27 +8,12 @@
 #include <memorymanager.h>
 #include "../drivers/formats/fat12.h"
 #include "../drivers/formats/rdfs.h"
-#include "../drivers/floppy.h"
-#include "../drivers/ramdisk.h"
-
-#define NUM_DRIVES 3
 
 #define CHUNK_READ_SIZE 1024
 
-filesystem_drive drives[NUM_DRIVES];
-
-struct filesystem_driver
-{
-	bool (*mount_disk)(filesystem_drive* d);
-	fs_index (*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_drive* fd);
-	fs_index (*read_chunks)(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd);
-	void (*read_dir)(directory_handle* dest, fs_index location, const filesystem_drive* fd);
-};
-
-struct disk_driver
-{
-	void (*read_blocks)(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
-};
+size_t default_drive = 0;
+size_t num_drives = 0;
+filesystem_drive** drives = NULL;
 
 filesystem_driver fat_driver = {
 	fat12_mount_disk,
@@ -44,41 +29,40 @@ filesystem_driver rdfs_driver = {
 	rdfs_read_dir
 };
 
-disk_driver floppy_driver = {
-	floppy_read_blocks
-};
+filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data, size_t block_size)
+{
+	size_t old_num_drives = num_drives++;
 
-disk_driver ramdisk_driver = {
-	ramdisk_read_blocks
-};
+	filesystem_drive** old_drives = drives;
+
+	drives = (filesystem_drive**)malloc(num_drives * sizeof(filesystem_drive*));
+
+	memcpy(drives, old_drives, old_num_drives * sizeof(filesystem_drive*));
+
+	drives[old_num_drives] = (filesystem_drive*)malloc(sizeof(filesystem_drive));
+	drives[old_num_drives]->fs_impl_data = NULL;
+	drives[old_num_drives]->fs_driver = NULL;
+	drives[old_num_drives]->dsk_impl_data = driver_data;
+	drives[old_num_drives]->dsk_driver = disk_drv;
+	drives[old_num_drives]->mounted = false;
+	drives[old_num_drives]->index = old_num_drives;
+	drives[old_num_drives]->minimum_block_size = block_size;
+
+	free(old_drives);
+
+	return drives[old_num_drives];
+}
+
+void filesystem_set_default_drive(size_t index)
+{
+	default_drive = index;
+}
 
 int filesystem_setup_drives()
 {
-	drives[0].fs_impl_data = NULL;
-	drives[0].fs_driver = &rdfs_driver;
-	drives[0].dsk_impl_data = ramdisk_get_drive(0);
-	drives[0].dsk_driver = &ramdisk_driver;
-	drives[0].mounted = false;
-	drives[0].index = 0;
-	drives[0].minimum_block_size = 1;
+	drives[0]->fs_driver = &rdfs_driver;
 
-	drives[1].fs_impl_data = NULL;
-	drives[1].fs_driver = &fat_driver;
-	drives[1].dsk_impl_data = floppy_get_drive(0);
-	drives[1].dsk_driver = &floppy_driver;
-	drives[1].mounted = false;
-	drives[1].index = 1;
-	drives[1].minimum_block_size = 512;
-
-	drives[2].fs_impl_data = NULL;
-	drives[2].fs_driver = &fat_driver;
-	drives[2].dsk_impl_data = floppy_get_drive(1);
-	drives[2].dsk_driver = &floppy_driver;
-	drives[2].mounted = false;
-	drives[2].index = 2;
-	drives[2].minimum_block_size = 512;
-	
-	return NUM_DRIVES;
+	return num_drives;
 }
 
 SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(file_handle* f, int flags)
@@ -87,19 +71,24 @@ SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(file_handle* 
 
 	directory_handle* d = (directory_handle*)malloc(sizeof(directory_handle));
 
-	drives[f->disk].fs_driver->read_dir(d, f->location_on_disk, &drives[f->disk]);
+	drives[f->disk]->fs_driver->read_dir(d, f->location_on_disk, drives[f->disk]);
 
 	return d;
 }
 
 SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t driveNumber)
 {
-	if(driveNumber < NUM_DRIVES)
+	if(driveNumber < num_drives)
 	{
-		filesystem_drive* d = &drives[driveNumber];
+		filesystem_drive* d = drives[driveNumber];
 		
 		if(!d->mounted)
 		{
+			if(d->fs_driver == NULL)
+			{
+				d->fs_driver = &fat_driver;
+			}
+
 			d->mounted = d->fs_driver->mount_disk(d);
 		}
 		
@@ -134,7 +123,7 @@ SYSCALL_HANDLER file_handle* filesystem_find_file_by_path(const directory_handle
 
 	if (d == NULL)
 	{
-		d = filesystem_get_root_directory(1);
+		d = filesystem_get_root_directory(default_drive);
 	}
 
 	const char* path = strchr(name, '/');
@@ -234,7 +223,7 @@ SYSCALL_HANDLER directory_handle* filesystem_open_directory(const directory_hand
 //finds the fs_index for the next chunk after an offset from the original
 fs_index filesystem_get_next_location_on_disk(const file_stream* f, size_t byte_offset, fs_index chunk_index)
 {
-	return drives[f->file->disk].fs_driver->get_relative_location(chunk_index, byte_offset, &drives[f->file->disk]);
+	return drives[f->file->disk]->fs_driver->get_relative_location(chunk_index, byte_offset, drives[f->file->disk]);
 }	
 
 //finds the fs_index for the first chunk in the file
@@ -255,7 +244,7 @@ fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 	
 	f->location_on_disk = chunk_index;
 	
-	filesystem_drive* d = &drives[f->file->disk];
+	filesystem_drive* d = drives[f->file->disk];
 	
 	return d->fs_driver->read_chunks(f->buffer, chunk_index, CHUNK_READ_SIZE, d);
 }

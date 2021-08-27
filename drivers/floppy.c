@@ -146,6 +146,10 @@ void floppy_configure()
 	floppy_sendbyte(8);
 }
 
+disk_driver floppy_driver = {
+	floppy_read_blocks
+};
+
 void floppy_init()
 {
 	uint8_t floppyTypes = cmos_get_register(0x10);
@@ -164,6 +168,7 @@ void floppy_init()
 	for(int i = 0; i < num_floppy_drives; i++)
 	{
 		floppy_reset(i);
+		filesystem_add_drive(&floppy_driver, floppy_get_drive(i), 512);
 	}
 }
 

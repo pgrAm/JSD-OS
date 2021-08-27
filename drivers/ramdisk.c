@@ -10,6 +10,10 @@ struct ramdisk_drive
 
 ramdisk_drive init_disk = {NULL, 0};
 
+disk_driver ramdisk_driver = {
+	ramdisk_read_blocks
+};
+
 void ramdisk_read_blocks(const filesystem_drive* d, size_t offset, uint8_t* buf, size_t num_bytes)
 {
 	ramdisk_drive* rd = (ramdisk_drive*)d->dsk_impl_data;
@@ -42,4 +46,9 @@ ramdisk_drive* ramdisk_get_drive(size_t index)
 	}
 
 	return &init_disk;
+}
+
+void ramdisk_init()
+{
+	filesystem_add_drive(&ramdisk_driver, ramdisk_get_drive(0), 1);
 }

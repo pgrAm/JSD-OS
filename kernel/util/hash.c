@@ -146,3 +146,14 @@ void hashmap_remove(hash_map* map, const char* key)
 		hashmap_free_node(entry);
 	}
 }
+
+/*for(uint32_t i = 0; i < ob.symbol_map->num_buckets; i++)
+{
+	hash_node* entry = ob.symbol_map->buckets[i];
+
+	while(entry != NULL)
+	{
+		//printf("key = %s, value = %X\n", entry->key, entry->data);
+		entry = entry->next;
+	}
+}*/

@@ -94,8 +94,27 @@ SYSCALL_HANDLER file_stream* filesystem_open_file(const directory_handle* rel, c
 SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int filesystem_close_file(file_stream* f);
 
+//driver interface
+
 void filesystem_read_blocks_from_disk(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
 
 int filesystem_setup_drives();
+
+struct filesystem_driver
+{
+	bool (*mount_disk)(filesystem_drive* d);
+	fs_index(*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_drive* fd);
+	fs_index(*read_chunks)(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd);
+	void (*read_dir)(directory_handle* dest, fs_index location, const filesystem_drive* fd);
+};
+
+struct disk_driver
+{
+	void (*read_blocks)(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
+};
+
+filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data, size_t block_size);
+
+void filesystem_set_default_drive(size_t index);
 
 #endif

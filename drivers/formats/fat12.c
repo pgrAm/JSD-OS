@@ -84,7 +84,7 @@ void fat12_read_bios_block(const filesystem_drive* fd)
 	uint8_t boot_sector[512];
 
 	filesystem_read_blocks_from_disk(fd, 0, boot_sector, 512 / fd->minimum_block_size);
-	
+
 	bpb* bios_block = (bpb*)(boot_sector + 0x00B);
 
 	d->root_size 			= (sizeof(fat_directory_entry) * bios_block->root_entries) / bios_block->bytes_per_sector; //number of sectors in root dir
