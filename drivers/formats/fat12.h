@@ -4,17 +4,10 @@
 #include <stdbool.h>
 #include "../kernel/filesystem.h"
 
-typedef enum
-{
-	TYPE_FLOPPY = 0
-} physicalType;
-
 typedef struct 
 {
 	bool mounted;
-	size_t index; //physical index
-	physicalType type; //physical type
-	
+
 	size_t root_size; 	
 	size_t fats_size;	
 	size_t root_location;
@@ -25,6 +18,8 @@ typedef struct
 	size_t root_entries;
 	size_t reserved_sectors;
 	
+	size_t blocks_per_sector;
+
 	size_t cached_fat_sector; //the sector index of the cached fat data
 	uint8_t* fat; //the file allocation table
 } fat12_drive;

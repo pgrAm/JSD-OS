@@ -1,5 +1,4 @@
-#include "../drivers/floppy.h"
-#include "../drivers/fat12.h"
+#include "../drivers/formats/fat12.h"
 #include "../kernel/filesystem.h"
 
 #include <string.h>
@@ -60,14 +59,16 @@ size_t fat12_cluster_to_lba(const fat12_drive* d, size_t cluster)
 	return (cluster - 2) * d->sectors_per_cluster + d->datasector;
 }
 
-void fat12_read_bios_block(fat12_drive* d)
+void fat12_read_bios_block(const filesystem_drive* fd)
 {
+	fat12_drive* d = (fat12_drive*)fd->fs_impl_data;
+
 	uint8_t boot_sector[512];
-	
-	floppy_read_sectors(d->index, 0, boot_sector, 1);
+
+	filesystem_read_blocks_from_disk(fd, 0, boot_sector, 512 / fd->minimum_block_size);
 	
 	bpb* bios_block = (bpb*)(boot_sector + 0x00B);
-	
+
 	d->root_size 			= (sizeof(fat_directory_entry) * bios_block->root_entries) / bios_block->bytes_per_sector; //number of sectors in root dir
 	d->fats_size 			= bios_block->number_of_FATs * bios_block->sectors_per_FAT;
 	d->root_location 		= d->fats_size + bios_block->reserved_sectors;
@@ -77,6 +78,7 @@ void fat12_read_bios_block(fat12_drive* d)
 	d->bytes_per_sector 	= bios_block->bytes_per_sector;
 	d->root_entries 		= bios_block->root_entries;
 	d->reserved_sectors		= bios_block->reserved_sectors;
+	d->blocks_per_sector	= d->bytes_per_sector / fd->minimum_block_size;
 }
 
 time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
@@ -94,13 +96,15 @@ time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
 	return mktime(&file_time);
 }
 
-void fat12_do_read_dir(directory_handle* dest, fs_index location, size_t locicaldrivenum, const fat12_drive* selected_drive)
+void fat12_do_read_dir(directory_handle* dest, fs_index location, const filesystem_drive* fd)
 {
+	fat12_drive*  selected_drive = (fat12_drive*)fd->fs_impl_data;
+
 	uint8_t* raw_directory = (uint8_t*)malloc(selected_drive->bytes_per_sector);
 
 	dest->name = "";
 	dest->file_list = (file_handle*)malloc(selected_drive->root_entries * sizeof(file_handle));
-	dest->drive = locicaldrivenum;
+	dest->drive = fd->index;
 
 	size_t num_files = 0;
 
@@ -108,7 +112,7 @@ void fat12_do_read_dir(directory_handle* dest, fs_index location, size_t locical
 	{
 		size_t lba = (location == 0) ? selected_drive->root_location : fat12_cluster_to_lba(selected_drive, location);
 
-		floppy_read_sectors(selected_drive->index, lba + sector, raw_directory, 1);
+		filesystem_read_blocks_from_disk(fd, lba + sector, raw_directory, selected_drive->blocks_per_sector);
 
 		for (size_t entry_number = 0; entry_number < (selected_drive->bytes_per_sector / sizeof(fat_directory_entry)); entry_number++)
 		{
@@ -127,7 +131,7 @@ void fat12_do_read_dir(directory_handle* dest, fs_index location, size_t locical
 				dest->file_list[num_files].type = (char*)malloc(4 * sizeof(char));
 				memcpy(dest->file_list[num_files].type, entry->extension, 3);
 
-				//count chars in extenstion
+				//count chars in extension
 				size_t ext_length = 0;
 				for (; ext_length < 3 && entry->extension[ext_length] != ' '; ext_length++);
 				dest->file_list[num_files].type[ext_length] = '\0';
@@ -146,7 +150,7 @@ void fat12_do_read_dir(directory_handle* dest, fs_index location, size_t locical
 				dest->file_list[num_files].time_created = fat12_time_to_time_t(entry->created_date, entry->created_time);
 				dest->file_list[num_files].time_modified = fat12_time_to_time_t(entry->modified_date, entry->modified_time);
 
-				dest->file_list[num_files].disk = locicaldrivenum;
+				dest->file_list[num_files].disk = fd->index;
 				dest->file_list[num_files].location_on_disk = entry->first_cluster;
 
 				uint32_t flags = 0;
@@ -170,17 +174,17 @@ void fat12_do_read_dir(directory_handle* dest, fs_index location, size_t locical
 
 void fat12_read_dir(directory_handle* dest, fs_index location, const filesystem_drive* fd)
 {
-	fat12_do_read_dir(dest, location, fd->index, (fat12_drive*)fd->impl_data);
+	fat12_do_read_dir(dest, location, fd);
 }
 
-void fat12_mount_directory(directory_handle* root, const fat12_drive* selected_drive, size_t logicalDriveNumber)
+void fat12_mount_directory(directory_handle* root, const filesystem_drive* fd)
 {
-	fat12_do_read_dir(root, 0, logicalDriveNumber, selected_drive);
+	fat12_do_read_dir(root, 0, fd);
 }
 
 size_t fat12_get_next_cluster(size_t cluster, const filesystem_drive* fd)
 {
-	fat12_drive* d = (fat12_drive*)fd->impl_data;
+	fat12_drive* d = (fat12_drive*)fd->fs_impl_data;
 	
 	size_t fat_offset = cluster + (cluster / 2);
 	size_t fat_sector = d->reserved_sectors + (fat_offset / d->bytes_per_sector);
@@ -188,7 +192,8 @@ size_t fat12_get_next_cluster(size_t cluster, const filesystem_drive* fd)
 	
 	if(d->cached_fat_sector != fat_sector)
 	{
-		floppy_read_sectors(d->index, fat_sector, d->fat, 1);
+		filesystem_read_blocks_from_disk(fd, fat_sector, d->fat, d->blocks_per_sector);
+
 		d->cached_fat_sector = fat_sector;
 	}
 	
@@ -201,7 +206,7 @@ size_t fat12_get_next_cluster(size_t cluster, const filesystem_drive* fd)
 
 size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd)
 {
-	fat12_drive* f = (fat12_drive*)fd->impl_data;
+	fat12_drive* f = (fat12_drive*)fd->fs_impl_data;
 
 	size_t num_clusters = byte_offset / f->cluster_size;
 
@@ -217,15 +222,15 @@ size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const file
 
 void fat12_mount_disk(filesystem_drive *d)
 {
-	fat12_drive* f = (fat12_drive*)d->impl_data;
+	fat12_drive* f = (fat12_drive*)d->fs_impl_data;
 	
-	fat12_read_bios_block(f);
+	fat12_read_bios_block(d);
 	
 	//allocate fat sector
 	f->fat = (uint8_t*)malloc(f->bytes_per_sector);
 	f->cached_fat_sector = 0;
 	
-	fat12_mount_directory(&d->root, f, d->index);
+	fat12_mount_directory(&d->root, d);
 }
 
 size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, const filesystem_drive *d)
@@ -236,7 +241,7 @@ size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, con
 		return cluster;
 	}
 
-	fat12_drive* f = (fat12_drive*)d->impl_data;
+	fat12_drive* f = (fat12_drive*)d->fs_impl_data;
 	
 	size_t num_clusters = bufferSize / f->cluster_size;
 
@@ -244,7 +249,8 @@ size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, con
 	{
 		//printf("Reading from cluster %d to %X\n", cluster, dest);
 		//printf("lba %d\n", fat12_cluster_to_lba(f, cluster));
-		floppy_read_sectors(f->index, fat12_cluster_to_lba(f, cluster), dest, f->sectors_per_cluster);
+		filesystem_read_blocks_from_disk(d, fat12_cluster_to_lba(f, cluster), dest, f->sectors_per_cluster * f->blocks_per_sector);
+
 		//printf("value = %X\n", *((uint32_t*)dest));
 
 		dest += f->cluster_size;

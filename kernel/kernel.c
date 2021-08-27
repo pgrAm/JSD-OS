@@ -3,7 +3,6 @@
 #include "../drivers/kbrd.h"
 #include "../drivers/rs232.h"
 #include "../drivers/floppy.h"
-#include "../drivers/fat12.h"
 
 #include "interrupt.h"
 #include "memorymanager.h"

@@ -31,6 +31,11 @@
 
 #define FLOPPY_BYTES_PER_SECTOR			512
 
+void floppy_sendbyte(uint8_t byte);
+uint8_t floppy_getbyte();
+void floppy_reset(uint8_t driveNum);
+void floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head);
+
 enum floppy_registers
 {
    DIGITAL_OUTPUT_REGISTER          = 0x3F2,
@@ -81,14 +86,15 @@ void wait_for_irq6(void)
 	operation_complete = false;
 }
 
-typedef struct
+struct floppy_drive
 {
 	uint8_t type;
 	uint8_t sectorsPerTrack;
 	uint8_t headsPerCylinder;
 	uint8_t numTracks;
-	
-}floppy_drive;
+
+	uint8_t drive_index;
+};
 
 floppy_drive floppy_drives[2];
 
@@ -161,10 +167,8 @@ void floppy_init()
 	}
 }
 
-void lba_to_chs(uint8_t driveNum, size_t lba, size_t *cylinder, size_t *head, size_t *sector)
+void lba_to_chs(floppy_drive* d, size_t lba, size_t *cylinder, size_t *head, size_t *sector)
 {
-	floppy_drive* d = &floppy_drives[driveNum];
-	
 	*sector = (lba % d->sectorsPerTrack) + 1;
 	
 	size_t track = lba / d->sectorsPerTrack;
@@ -174,9 +178,8 @@ void lba_to_chs(uint8_t driveNum, size_t lba, size_t *cylinder, size_t *head, si
 	*head = track % d->headsPerCylinder;
 }
 
-void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_sectors)
+void floppy_read_sectors(floppy_drive* d, size_t lba, uint8_t* buf, size_t num_sectors)
 {
-	floppy_drive* d = &floppy_drives[driveNum];
 	if (lba > d->numTracks * d->sectorsPerTrack* d->headsPerCylinder)
 	{
 		printf("lba#%d is out of bounds for floppy read\n", lba);
@@ -185,17 +188,17 @@ void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_
 
 	size_t cylinder, head, sector;
 	
-	lba_to_chs(driveNum, lba, &cylinder, &head, &sector);
+	lba_to_chs(d, lba, &cylinder, &head, &sector);
 
 	for(uint8_t i = 0; i < 5; i++)
 	{		
 		//printf("seeking to c=%d h=%d s=%d\n", cylinder, head, sector);
-		floppy_seek(driveNum, cylinder, head);
+		floppy_seek(d->drive_index, cylinder, head);
 		
 		isa_dma_begin_transfer(0x02, 0x44, buf, FLOPPY_BYTES_PER_SECTOR * num_sectors);
 		
 		floppy_sendbyte(READ_DATA | MFM_BIT | MT_BIT);
-		floppy_sendbyte(head << 2 | driveNum);
+		floppy_sendbyte(head << 2 | d->drive_index);
 		floppy_sendbyte(cylinder);
 		floppy_sendbyte(head);
 		floppy_sendbyte(sector);
@@ -226,12 +229,21 @@ void floppy_read_sectors(uint8_t driveNum, size_t lba, uint8_t* buf, size_t num_
 
 		printf("read failure #%d\n", i);
 		
-		floppy_reset(driveNum);
+		floppy_reset(d->drive_index);
 	}
 	
 	printf("Catastrophic read failure at sector %d\n", lba);
 }
 
+void floppy_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks)
+{
+	floppy_read_sectors((floppy_drive*)d->dsk_impl_data, block_number, buf, num_blocks);
+}
+
+floppy_drive* floppy_get_drive(size_t index)
+{
+	return &floppy_drives[index];
+}
 
 //sendbyte() routine from intel manual
 void floppy_sendbyte(uint8_t byte)

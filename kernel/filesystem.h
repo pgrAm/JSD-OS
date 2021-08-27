@@ -54,13 +54,19 @@ directory_handle;
 struct filesystem_driver;
 typedef struct filesystem_driver filesystem_driver;
 
+struct disk_driver;
+typedef struct disk_driver disk_driver;
+
 typedef struct 
 {
 	bool mounted;
 	directory_handle root;
-	void* impl_data;
-	filesystem_driver* driver;
+	void* fs_impl_data;
+	filesystem_driver* fs_driver;
+	void* dsk_impl_data;
+	disk_driver* dsk_driver;
 	uint32_t index;
+	size_t minimum_block_size;
 }
 filesystem_drive;
 
@@ -87,6 +93,8 @@ SYSCALL_HANDLER file_stream* filesystem_open_file_handle(file_handle* f, int fla
 SYSCALL_HANDLER file_stream* filesystem_open_file(const directory_handle* rel, const char* name, int flags);
 SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int filesystem_close_file(file_stream* f);
+
+void filesystem_read_blocks_from_disk(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
 
 int filesystem_setup_drives();
 
