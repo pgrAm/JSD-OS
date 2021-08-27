@@ -502,6 +502,7 @@ void memmanager_init(void)
 		{
 			__asm__ volatile ("cli;hlt");
 		}
+		return;
 	}
 
 	memmanager_init_page_dir(kernel_page_directory, (uintptr_t)kernel_page_directory);

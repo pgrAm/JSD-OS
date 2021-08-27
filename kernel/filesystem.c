@@ -75,7 +75,7 @@ int filesystem_setup_drives()
 	drives[2].dsk_impl_data = floppy_get_drive(1);
 	drives[2].dsk_driver = &floppy_driver;
 	drives[2].mounted = false;
-	drives[2].index = 1;
+	drives[2].index = 2;
 	drives[2].minimum_block_size = 512;
 	
 	return NUM_DRIVES;

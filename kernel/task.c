@@ -163,6 +163,7 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 	{
 		set_page_directory((uint32_t*)oldcr3);
 		memmanager_destroy_memory_space(newTask->address_space);
+		free(newTask);
 		return;
 	}
 

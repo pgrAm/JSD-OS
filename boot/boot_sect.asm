@@ -71,10 +71,6 @@ begin:
 
 	mov si, ramdisk_end
 	call store_as_long_address
-	;mov bx, 0xE00
-	;mov word [si], bx
-	;mov bx, 0x01
-	;mov word [si + 0x02], bx
 
 switchtopm:
 	cli

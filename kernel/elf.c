@@ -147,7 +147,7 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 
 			//printf("Attempting to load ELF %s at %X\n", path, s.base);
 
-			void* base_adress = memmanager_virtual_alloc(s.base, num_pages, PAGE_USER | PAGE_PRESENT | PAGE_RW);
+			uintptr_t base_adress = (uintptr_t)memmanager_virtual_alloc(s.base, num_pages, PAGE_USER | PAGE_PRESENT | PAGE_RW);
 
 			object->num_segments = 1;
 			object->segments = (segment*)malloc(sizeof(segment) * object->num_segments);
@@ -155,7 +155,7 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 			object->segments[1].num_pages = num_pages;
 			object->linker_data = NULL;
 
-			if (s.base != 0) //if the elf cares where its loaded then don't add the base adress
+			if (s.base != NULL) //if the elf cares where its loaded then don't add the base adress
 			{
 				base_adress = 0;
 			}
@@ -184,8 +184,8 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 					break;
 					case ELF_PTYPE_LOAD:
 					{						
-						void* aligned_address = base_adress + (pg_header.virtual_address & ~(PAGE_SIZE - 1));
-						void* virtual_address = base_adress + pg_header.virtual_address;
+						uintptr_t aligned_address = base_adress + (pg_header.virtual_address & ~(PAGE_SIZE - 1));
+						uintptr_t virtual_address = base_adress + pg_header.virtual_address;
 						
 						size_t num_pages = ((virtual_address - aligned_address) + pg_header.mem_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 
@@ -193,7 +193,7 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 						if(pg_header.flags & PF_WRITE) { flags |= PAGE_RW; }
 						if(user) { flags |= PAGE_USER; }
 
-						memmanager_set_page_flags(aligned_address, num_pages, flags);
+						memmanager_set_page_flags((void*)aligned_address, num_pages, flags);
 
 						//printf("loaded section at %X from %X, size %X\n", 
 						//	   virtual_address, pg_header.offset, pg_header.file_size);
@@ -385,9 +385,15 @@ void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, s
 		if (elf_relocation_uses_symbol(relocation_type))
 		{
 			symbol_name = object->string_table + symbol->name;
-			if (!symbol_name || !hashmap_lookup(object->symbol_map, symbol_name, &symbol_val))
+			
+			if (!symbol_name)
 			{
-				printf("Unable to locate symbol %d \"%s\"\n", symbol_index, symbol_name);
+				printf("Unable to locate symbol %u, NULL symbol\n", symbol_index);
+				symbol_val = 0;
+			}
+			else if (!hashmap_lookup(object->symbol_map, symbol_name, &symbol_val))
+			{
+				printf("Unable to locate symbol %u \"%s\"\n", symbol_index, symbol_name);
 				symbol_val = 0;
 			}
 		}

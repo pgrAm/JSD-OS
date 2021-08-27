@@ -25,16 +25,20 @@ extern void _DATA_END_;
 void kernel_main()
 {
 	initialize_video(80, 25);
-	printf("DATA END %X\n", &_DATA_END_);
-	printf("IMG END %X\n", &_IMAGE_END_);
-	printf("BSS END %X\n", &_BSS_END_);
+	//printf("DATA END %X\n", &_DATA_END_);
+	//printf("IMG END %X\n", &_IMAGE_END_);
+	//printf("BSS END %X\n", &_BSS_END_);
 
-	char* s = (char*)((multiboot_modules*)_multiboot->m_modsAddr)->begin;
-	char* e = (char*)((multiboot_modules*)_multiboot->m_modsAddr)->end;
+	//char* s = (char*)((multiboot_modules*)_multiboot->m_modsAddr)->begin;
+	//char* e = (char*)((multiboot_modules*)_multiboot->m_modsAddr)->end;
 
-	printf("MOD BEGIN %X\nMOD END %X\n", s, e);
+	for(size_t i = 0; i < _multiboot->m_modsCount; i++)
+	{
+		uintptr_t rd_begin = ((multiboot_modules*)_multiboot->m_modsAddr)[i].begin;
+		uintptr_t rd_end = ((multiboot_modules*)_multiboot->m_modsAddr)[i].end;
 
-	//while(true);
+		printf("Found Module %X - %X\n", rd_begin, rd_end);
+	}
 
 	idt_init();
 	isrs_init();
