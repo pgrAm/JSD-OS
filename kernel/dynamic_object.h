@@ -2,7 +2,8 @@
 #define DYNAMIC_OBJECT_H
 
 #include <stddef.h>
-#include <util/hash.h>
+
+#include <kernel/util/hash.h>
 
 typedef struct
 {

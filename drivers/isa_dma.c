@@ -2,9 +2,10 @@
 #include <string.h>
 #include <stdio.h>
 #include "portio.h"
-#include "isa_dma.h" 
 
-#include "../kernel/memorymanager.h" 
+#include <kernel/memorymanager.h>
+
+#include "isa_dma.h" 
 
 // lookup registers for each channel
 uint8_t mask_register[8]	= {0x0A, 0x0A, 0x0A, 0x0A, 0xD4, 0xD4, 0xD4, 0xD4};

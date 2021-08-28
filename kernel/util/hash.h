@@ -29,5 +29,5 @@ void free_hash_map(hash_map* map);
 bool hashmap_lookup(const hash_map* map, const char* key, uint32_t* value);
 void hashmap_insert(hash_map* map, const char* key, const uint32_t value);
 void hashmap_remove(hash_map* map, const char* key);
-
+void hashmap_print(const hash_map* map);
 #endif

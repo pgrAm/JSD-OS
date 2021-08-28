@@ -1,11 +1,13 @@
-#include "video.h"
-#include "portio.h"
-#include "locks.h"
-#include "task.h"
-
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdbool.h>
+
+#include <kernel/memorymanager.h>
+#include <kernel/locks.h>
+#include <kernel/task.h>
+#include <drivers/portio.h>
+
+#include "video.h"
 
 #define REG_SCREEN_CTRL 0x3D4
 #define REG_SCREEN_DATA 0x3D5
@@ -210,7 +212,6 @@ SYSCALL_HANDLER int set_video_mode(int width, int height, int flags)
 	return -1;
 }
 
-#include "../kernel/memorymanager.h"
 uint8_t* get_fb_addr();
 
 SYSCALL_HANDLER uint8_t* map_video_memory(void)

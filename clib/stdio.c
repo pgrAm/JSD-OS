@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <sys/syscalls.h>
+
 #ifndef __KERNEL
 #include <graphics/graphics.h>
+#include <sys/syscalls.h>
+#else
+#include <kernel/sys/syscalls.h>
 #endif
-//#include "../drivers/video.h"
-//#include "../drivers/kbrd.h"
-//#include "../drivers/rs232.h"
 
 #define		PR_LJ	0x01	// left justify */
 #define		PR_CA	0x02	// use A-F instead of a-f for hex */

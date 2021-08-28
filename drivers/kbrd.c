@@ -1,10 +1,12 @@
 #include <stdio.h>
-#include "../kernel/interrupt.h"
-#include "portio.h"
-#include "../kernel/task.h"
-#include "../kernel/syscall.h"
+
+#include <kernel/task.h>
+#include <kernel/syscall.h>
+#include <kernel/locks.h>
+#include <kernel/interrupt.h>
+#include <drivers/portio.h>
+
 #include "kbrd.h"
-#include "locks.h"
 
 #define KEY_BUFFER_SIZE 512
 #define KEY_FAILURE 0xFF

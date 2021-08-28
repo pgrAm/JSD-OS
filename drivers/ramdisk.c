@@ -1,6 +1,11 @@
-#include "ramdisk.h"
-#include <memorymanager.h>
 #include <stdio.h>
+
+#include <kernel/memorymanager.h>
+#include <kernel/multiboot.h>
+
+#include "ramdisk.h"
+
+extern multiboot_info* _multiboot;
 
 struct ramdisk_drive
 {
@@ -23,9 +28,6 @@ void ramdisk_read_blocks(const filesystem_drive* d, size_t offset, uint8_t* buf,
 		memcpy(buf, rd->base + offset, num_bytes);
 	}
 }
-
-#include "multiboot.h"
-extern multiboot_info* _multiboot;
 
 ramdisk_drive* ramdisk_get_drive(size_t index)
 {

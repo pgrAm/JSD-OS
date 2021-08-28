@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include <filesystem.h>
-#include <memorymanager.h>
-#include "../drivers/formats/fat12.h"
-#include "../drivers/formats/rdfs.h"
+#include <kernel/filesystem.h>
+#include <kernel/memorymanager.h>
+#include <drivers/formats/fat12.h>
+#include <drivers/formats/rdfs.h>
 
 #define CHUNK_READ_SIZE 1024
 

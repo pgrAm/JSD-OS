@@ -4,8 +4,7 @@
 #include <time.h>
 #include <stdbool.h>
 
-#include "syscall.h"
-
+#include <kernel/syscall.h>
 #include <api/files.h>
 
 typedef size_t fs_index; 

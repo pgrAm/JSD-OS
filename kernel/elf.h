@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include <kernel/dynamic_object.h>
+
 #define ELF_BIT_WIDTH_64 0x02
 #define ELF_BIT_WIDTH_32 0x01
 #define ELF_LITTLE_ENDIAN 0x01
@@ -226,8 +228,6 @@ enum ELF_program_flags
 	PF_READ = 0x04,
 	PF_MASKPROC = 0xf0000000
 };
-
-#include <dynamic_object.h>
 
 int load_elf(const char* path, dynamic_object* newTask, bool user);
 

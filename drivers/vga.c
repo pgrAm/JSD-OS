@@ -12,7 +12,11 @@ To do:
 *****************************************************************************/
 #include <string.h>
 #include <stdbool.h>
-#include "portio.h"
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <kernel/filesystem.h>
+#include <drivers/portio.h>
 
 #define	VGA_AC_INDEX		0x3C0
 #define	VGA_AC_WRITE		0x3C0
@@ -174,10 +178,6 @@ static void write_font(unsigned char* buf, unsigned font_height)
 	outb(VGA_GC_DATA, gc6);
 }
 
-#include<stdlib.h>
-#include<stdio.h>
-#include "../kernel/filesystem.h"
-#include "kbrd.h"
 #define PSF_MAGIC 0x0436
 
 uint8_t* loadpsf(const char* file)

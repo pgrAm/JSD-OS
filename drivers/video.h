@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "../kernel/syscall.h"
+
+#include <kernel/syscall.h>
 
 void set_color(uint8_t bgr, uint8_t fgr, uint8_t bright);
 

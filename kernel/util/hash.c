@@ -1,10 +1,11 @@
-#include <hash.h>
-
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdio.h>
+
+#include <hash.h>
 
 uint32_t hash_string(const char* name)
 {
@@ -147,13 +148,16 @@ void hashmap_remove(hash_map* map, const char* key)
 	}
 }
 
-/*for(uint32_t i = 0; i < ob.symbol_map->num_buckets; i++)
+void hashmap_print(const hash_map* map)
 {
-	hash_node* entry = ob.symbol_map->buckets[i];
-
-	while(entry != NULL)
+	for(uint32_t i = 0; i < map->num_buckets; i++)
 	{
-		//printf("key = %s, value = %X\n", entry->key, entry->data);
-		entry = entry->next;
+		hash_node* entry = map->buckets[i];
+
+		while(entry != NULL)
+		{
+			printf("key = %s, value = %X\n", entry->key, entry->data);
+			entry = entry->next;
+		}
 	}
-}*/
+}

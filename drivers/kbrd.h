@@ -3,7 +3,8 @@
 #include <stdbool.h>
 #include <api/virtual_keys.h>
 
-#include "../kernel/syscall.h"
+#include <kernel/syscall.h>
+
 void keybuf_push(char val);
 char keybuf_pop();
 

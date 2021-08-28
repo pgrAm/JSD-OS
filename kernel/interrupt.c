@@ -1,11 +1,11 @@
 #include <stdint.h>
 #include <string.h>
 #include <stddef.h>
-#include <task.h>
 
-#include "interrupt.h"
-#include "../drivers/video.h"
-#include "../drivers/portio.h"
+#include <kernel/task.h>
+#include <kernel/interrupt.h>
+#include <drivers/video.h>
+#include <drivers/portio.h>
 
 struct idt_entry
 {

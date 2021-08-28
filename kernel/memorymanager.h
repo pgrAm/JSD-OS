@@ -2,8 +2,9 @@
 #define _MEMORYMANAGER_H
 
 #include <stdbool.h>
-#include <syscall.h>
 #include <string.h>
+
+#include <kernel/syscall.h>
 
 void memmanager_init(void);
 uintptr_t memmanager_get_physical(uintptr_t virtual_address);

@@ -2,7 +2,8 @@
 #define SYSCLOCK_H
 
 #include <time.h>
-#include "../kernel/syscall.h"
+
+#include <kernel/syscall.h>
 
 void sysclock_set_utc_offset(int offset);
 void sysclock_get_date_time(struct tm* result);

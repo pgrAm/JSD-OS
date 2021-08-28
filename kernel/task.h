@@ -6,8 +6,8 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-#include <dynamic_object.h>
-#include <syscall.h>
+#include <kernel/dynamic_object.h>
+#include <kernel/syscall.h>
 
 #define INVALID_PID (~(size_t)0x0)
 typedef struct process process;

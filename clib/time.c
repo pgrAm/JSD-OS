@@ -1,6 +1,11 @@
 #include <time.h>
 #include <stdio.h>
+
+#ifndef __KERNEL
 #include <sys/syscalls.h>
+#else
+#include <kernel/sys/syscalls.h>
+#endif
 
 #define IS_LEAP_YEAR(a) ((a % 4 == 0) && ((a % 100) || (a % 400 == 0)))
 #define DAYS_IN_YEAR(n) (IS_LEAP_YEAR(n) ? 366 : 365)

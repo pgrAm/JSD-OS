@@ -1,9 +1,9 @@
-#include "../kernel/interrupt.h"
-
 #include <stdio.h>
 #include <time.h>
 
-#include "cmos.h"
+#include <kernel/interrupt.h>
+#include <drivers/cmos.h>
+
 #include "sysclock.h"
 
 static volatile clock_t timer_ticks = 0;	//This represents the number of PIT ticks since bootup 

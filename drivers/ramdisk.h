@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 #include <string.h>
-#include "filesystem.h"
+
+#include <kernel/filesystem.h>
 
 struct ramdisk_drive;
 typedef struct ramdisk_drive ramdisk_drive;

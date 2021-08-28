@@ -1,7 +1,8 @@
 //#include <stdio.h>
-#include "../kernel/interrupt.h"
-#include "portio.h"
-#include "kbrd.h"
+
+#include <kernel/interrupt.h>
+#include <drivers/portio.h>
+#include <drivers/kbrd.h>
 
 static const virtual_keycode key_translation_table[] = {
 	/*0x00*/ VK_NONE,		/*0x01*/ VK_ESCAPE,		/*0x02*/ VK_1,				/*0x03*/ VK_2,

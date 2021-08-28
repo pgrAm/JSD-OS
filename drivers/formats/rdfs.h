@@ -2,7 +2,7 @@
 #define RDFS_H
 
 #include <stdbool.h>
-#include "../kernel/filesystem.h"
+#include <kernel/filesystem.h>
 
 bool rdfs_mount_disk(filesystem_drive* d);
 fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_drive* fd);

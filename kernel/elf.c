@@ -2,11 +2,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <filesystem.h>
-#include <memorymanager.h>
-#include <elf.h>
-
-#include <util/hash.h>
+#include <kernel/filesystem.h>
+#include <kernel/memorymanager.h>
+#include <kernel/elf.h>
+#include <kernel/util/hash.h>
 
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -151,7 +150,7 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 
 			object->num_segments = 1;
 			object->segments = (segment*)malloc(sizeof(segment) * object->num_segments);
-			object->segments[1].pointer = base_adress;
+			object->segments[1].pointer = (void*)base_adress;
 			object->segments[1].num_pages = num_pages;
 			object->linker_data = NULL;
 
@@ -173,8 +172,8 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 					case ELF_PTYPE_DYNAMIC:
 						object->linker_data = malloc(sizeof(ELF_linker_data));
 						memset(object->linker_data, 0, sizeof(ELF_linker_data));
-						((ELF_linker_data*)object->linker_data)->base_address = base_adress;
-						((ELF_linker_data*)object->linker_data)->dynamic_section = base_adress + pg_header.virtual_address;
+						((ELF_linker_data*)object->linker_data)->base_address = (void*)base_adress;
+						((ELF_linker_data*)object->linker_data)->dynamic_section = (ELF_dyn32*)(base_adress + pg_header.virtual_address);
 						((ELF_linker_data*)object->linker_data)->symbol_map = object->symbol_map;
 						((ELF_linker_data*)object->linker_data)->glob_data_symbol_map = object->glob_data_symbol_map;
 						((ELF_linker_data*)object->linker_data)->lib_set = object->lib_set;
@@ -202,7 +201,7 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 
 						//copy file_size bytes from offset to virtual_address
 						filesystem_seek_file(f, pg_header.offset);
-						filesystem_read_file(virtual_address, pg_header.file_size, f);
+						filesystem_read_file((void*)virtual_address, pg_header.file_size, f);
 					}
 					break;
 					default:
@@ -210,7 +209,7 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 				}
 			}
 
-			object->entry_point = base_adress + file_header.entry_point;
+			object->entry_point = (void*)(base_adress + file_header.entry_point);
 
 			elf_process_dynamic_section((ELF_linker_data*)object->linker_data);
 		}

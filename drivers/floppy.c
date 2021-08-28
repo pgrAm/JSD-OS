@@ -1,13 +1,14 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
-#include "../kernel/interrupt.h"
-#include "portio.h"
-#include "sysclock.h"
-#include "floppy.h"
-#include "isa_dma.h"
 
-#include "cmos.h"
+#include <kernel/interrupt.h>
+#include <drivers/portio.h>
+#include <drivers/sysclock.h>
+#include <drivers/isa_dma.h>
+#include <drivers/cmos.h>
+
+#include "floppy.h"
 
 #define FLOPPY_360_SECTORS_PER_TRACK	9
 #define FLOPPY_360_HEADS_PER_CYLINDER	2

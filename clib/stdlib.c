@@ -1,9 +1,12 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdlib.h>
+
+#ifndef __KERNEL
 #include <sys/syscalls.h>
-#ifdef __KERNEL
-#include <locks.h>
+#else
+#include <kernel/locks.h>
+#include <kernel/sys/syscalls.h>
 #endif
 
 #define _HAVE_UINTPTR_T

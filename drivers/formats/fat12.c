@@ -1,12 +1,13 @@
-#include "../drivers/formats/fat12.h"
-#include "../kernel/filesystem.h"
-
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
+
+#include <kernel/filesystem.h>
+
+#include "fat12.h"
 
 #define FAT12_EOF 0xFF8
 

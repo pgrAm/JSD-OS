@@ -2,7 +2,7 @@
 #define FAT12_H
 
 #include <stdbool.h>
-#include "../kernel/filesystem.h"
+#include <kernel/filesystem.h>
 
 struct fat12_drive;
 typedef struct fat12_drive fat12_drive;

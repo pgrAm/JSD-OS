@@ -5,14 +5,14 @@
 #include <stddef.h>
 #include <time.h>
 
-#include "interrupt.h"
-#include "syscall.h"
-#include "filesystem.h"
-#include "task.h"
-#include "memorymanager.h"
-#include "../drivers/sysclock.h"
-#include "../drivers/video.h"
-#include "../drivers/kbrd.h"
+#include <kernel/interrupt.h>
+#include <kernel/syscall.h>
+#include <kernel/filesystem.h>
+#include <kernel/task.h>
+#include <kernel/memorymanager.h>
+#include <drivers/sysclock.h>
+#include <drivers/video.h>
+#include <drivers/kbrd.h>
 
 #define print_string print_string_len
 #define open filesystem_open_file
