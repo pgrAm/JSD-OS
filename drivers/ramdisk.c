@@ -25,6 +25,11 @@ void ramdisk_read_blocks(const filesystem_drive* d, size_t offset, uint8_t* buf,
 
 	if(offset < rd->size)
 	{
+		if(offset + num_bytes > rd->size)
+		{
+			printf("read overrun on ramdisk\n");
+		}
+
 		memcpy(buf, rd->base + offset, num_bytes);
 	}
 }

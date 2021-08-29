@@ -74,8 +74,8 @@ getSS:
 ;	ret
 
 
-global memmove
-memmove:
+global memmove2
+memmove2:
 	push edi
 	push esi
 	mov ecx, 	[esp + 20]

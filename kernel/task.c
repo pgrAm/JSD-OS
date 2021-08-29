@@ -59,7 +59,7 @@ void run_next_task()
 
 void setup_first_task()
 {	
-	running_tasks[0].esp0 = *tss_esp0_location;
+	running_tasks[0].esp0 = (uint32_t)tss_esp0_location;
 	running_tasks[0].cr3 = (uint32_t)get_page_directory();
 	running_tasks[0].pid = 0;
 	active_process = 0;

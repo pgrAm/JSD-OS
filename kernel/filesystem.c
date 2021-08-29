@@ -76,7 +76,8 @@ SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(file_handle* 
 	return d;
 }
 
-SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t driveNumber)
+SYSCALL_HANDLER 
+directory_handle* filesystem_get_root_directory(size_t driveNumber)
 {
 	if(driveNumber < num_drives)
 	{
@@ -107,6 +108,7 @@ file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* 
 	{
 		for(size_t i = 0; i < d->num_files; i++)
 		{
+			//printf("%s\n", d->file_list[i].full_name);
 			if(strcasecmp(d->file_list[i].full_name, name) == 0)
 			{			
 				return &d->file_list[i];
@@ -117,7 +119,8 @@ file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* 
 	return NULL;
 }
 
-SYSCALL_HANDLER file_handle* filesystem_find_file_by_path(const directory_handle* d, const char* name)
+SYSCALL_HANDLER 
+file_handle* filesystem_find_file_by_path(const directory_handle* d, const char* name)
 {
 	if(name == NULL) { return NULL; };
 
@@ -162,7 +165,8 @@ SYSCALL_HANDLER file_handle* filesystem_find_file_by_path(const directory_handle
 	}
 }
 
-SYSCALL_HANDLER file_stream* filesystem_open_file_handle(file_handle* f, int flags)
+SYSCALL_HANDLER 
+file_stream* filesystem_open_file_handle(file_handle* f, int flags)
 {	
 	if (f == NULL || f->flags & IS_DIR) { return NULL; }
 
@@ -173,10 +177,16 @@ SYSCALL_HANDLER file_stream* filesystem_open_file_handle(file_handle* f, int fla
 	stream->file = f;
 	stream->buffer = memmanager_virtual_alloc(NULL, 1, PAGE_RW | PAGE_PRESENT);//(uint8_t*)malloc(CHUNK_READ_SIZE);
 
+	//memset(stream->buffer, 0, PAGE_SIZE);
+
+	//printf("file buffer allocated at v=%X, p=%X\n",
+	//	   stream->buffer, memmanager_get_physical((uint32_t)stream->buffer));
+
 	return stream;
 }
 
-SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* src)
+SYSCALL_HANDLER 
+int filesystem_get_file_info(file_info* dst, const file_handle* src)
 {
 	if (src == NULL || dst == NULL) return -1;
 	//we should also check that these adresses are mapped properly
@@ -191,7 +201,8 @@ SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* 
 	return 0;
 }
 
-SYSCALL_HANDLER file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index)
+SYSCALL_HANDLER 
+file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index)
 {
 	if (d != NULL && index < d->num_files)
 	{
@@ -201,35 +212,47 @@ SYSCALL_HANDLER file_handle* filesystem_get_file_in_dir(const directory_handle* 
 	return NULL;
 }
 
-SYSCALL_HANDLER int filesystem_close_directory(directory_handle* d)
+SYSCALL_HANDLER 
+int filesystem_close_directory(directory_handle* d)
 {
 	//free(d->file_list);
 	free(d);
 	return 0;
 }
 
-SYSCALL_HANDLER file_stream* filesystem_open_file(const directory_handle* rel, const char* name, int flags)
+SYSCALL_HANDLER 
+file_stream* filesystem_open_file(const directory_handle* rel, 
+								  const char* name, 
+								  int flags)
 {
 	file_handle* f = filesystem_find_file_by_path(rel, name);
 	return filesystem_open_file_handle(f, flags);
 }
 
-SYSCALL_HANDLER directory_handle* filesystem_open_directory(const directory_handle* rel, const char* name, int flags)
+SYSCALL_HANDLER 
+directory_handle* filesystem_open_directory(const directory_handle* rel,
+											const char* name, 
+											int flags)
 {
 	file_handle* f = filesystem_find_file_by_path(rel, name);
 	return filesystem_open_directory_handle(f, flags);
 }
 	
 //finds the fs_index for the next chunk after an offset from the original
-fs_index filesystem_get_next_location_on_disk(const file_stream* f, size_t byte_offset, fs_index chunk_index)
+fs_index filesystem_get_next_location_on_disk(const file_stream* f, 
+											  size_t byte_offset, fs_index chunk_index)
 {
-	return drives[f->file->disk]->fs_driver->get_relative_location(chunk_index, byte_offset, drives[f->file->disk]);
+	return drives[f->file->disk]->fs_driver->get_relative_location(chunk_index, 
+																   byte_offset, 
+																   drives[f->file->disk]);
 }	
 
 //finds the fs_index for the first chunk in the file
 fs_index filesystem_resolve_location_on_disk(const file_stream* f)
 {
-	return filesystem_get_next_location_on_disk(f, f->seekpos & ~(CHUNK_READ_SIZE-1), f->file->location_on_disk);
+	return filesystem_get_next_location_on_disk(f, 
+												f->seekpos & ~(CHUNK_READ_SIZE-1), 
+												f->file->location_on_disk);
 }	
 	
 fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
@@ -314,15 +337,24 @@ void filesystem_seek_file(file_stream* f, size_t pos)
 	f->seekpos = pos;
 }
 
-SYSCALL_HANDLER int filesystem_close_file(file_stream* f)
+SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
 {
-	memmanager_free_pages(f->buffer, 1);
+	uintptr_t p = memmanager_get_physical((uint32_t)stream->buffer);
+
+	if(memmanager_free_pages(stream->buffer, 1) == 0)
+	{
+		//printf("file buffer freed at v=%X, p=%X\n",
+		//	   stream->buffer, p);
+	}
 	//free(f->buffer);
-	free(f);
+	free(stream);
 	return 0;
 }
 
-void filesystem_read_blocks_from_disk(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes)
+void filesystem_read_blocks_from_disk(const filesystem_drive* d, 
+									  size_t block_number, 
+									  uint8_t* buf, 
+									  size_t num_bytes)
 {
 	d->dsk_driver->read_blocks(d, block_number, buf, num_bytes);
 }

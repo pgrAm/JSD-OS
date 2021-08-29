@@ -41,13 +41,14 @@ multiboot1_header:
 	dd _BSS_END_			; bss_end_address
 	dd start				; entry_address
 	dd 1 ; text mode
+	dd 1 ; text mode
 	dd 80
 	dd 25
 	dd 0
 multiboot1_header_end:
 header_end:
 	cli
-	mov ebp, 0x90000 ; Update our stack position so it is right at the top of the free space.
+	mov ebp, 0x00090000 ; Update our stack position so it is right at the top of the free space.
 	mov esp, ebp
 
 	; set gdt

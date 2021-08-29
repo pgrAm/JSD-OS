@@ -166,3 +166,28 @@ char* strcpy(char* destination, const char* source)
 	memcpy(destination, source, strlen(source) + 1);
 	return destination;
 }
+
+void* memmove(void* dest, const void* src, size_t num)
+{
+	uint8_t* dst_ptr = dest;
+	const uint8_t* src_ptr = src;
+
+	if(src_ptr < dst_ptr && dst_ptr < src_ptr + num)
+	{
+		src_ptr += num;
+		dst_ptr += num;
+		while(num--)
+		{
+			*--dst_ptr = *--src_ptr;
+		}
+	}
+	else
+	{
+		while(num--)
+		{
+			*dst_ptr++ = *src_ptr++;
+		}
+	}
+
+	return dest;
+}

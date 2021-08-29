@@ -32,6 +32,7 @@ void load_driver(const char* filename, const char* func_name,
 				 const func_info* functions, size_t num_functions)
 {
 	dynamic_object ob;
+	memset(&ob, 0, sizeof(dynamic_object));
 	ob.lib_set = hashmap_create(16);
 	ob.symbol_map = hashmap_create(16);
 	ob.glob_data_symbol_map = hashmap_create(16);
@@ -46,6 +47,11 @@ void load_driver(const char* filename, const char* func_name,
 	//hashmap_print(ob.symbol_map);
 
 	load_elf(filename, &ob, false);
+
+	/*for(size_t i = 0; i < num_functions; i++)
+	{
+		printf("key = %s, value = %X\n", functions[i].name, (uint32_t)functions[i].address);
+	}*/
 
 	uint32_t func_address;
 	if(hashmap_lookup(ob.symbol_map, func_name, &func_address))
@@ -82,11 +88,76 @@ void load_kbrd_driver()
 	load_driver("kbrd.drv", "AT_keyboard_init", list, sizeof(list) / sizeof(func_info));
 }
 
+extern void memmanager_reserve_physical_memory(uintptr_t address, size_t size);
+extern void memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, uint32_t flags);
+extern void memmanager_print_all_mappings_to_physical_DEBUG(uintptr_t physical);
+
+void list_directory(directory_handle* current_directory)
+{
+	if(current_directory == NULL)
+	{
+		printf("Invalid Directory\n");
+		return;
+	}
+
+	printf("\n Name     Type  Size   Created     Modified\n\n");
+
+	size_t total_bytes = 0;
+	size_t i = 0;
+	file_handle* f_handle = NULL;
+
+	while((f_handle = filesystem_get_file_in_dir(current_directory, i++)))
+	{
+		file_info f;
+		filesystem_get_file_info(&f, f_handle);
+
+		struct tm created = *localtime(&f.time_created);
+		struct tm modified = *localtime(&f.time_modified);
+
+		total_bytes += f.size;
+
+		if(f.flags & IS_DIR)
+		{
+			printf(" %-8s (DIR)     -  %02d-%02d-%4d  %02d-%02d-%4d\n",
+				   f.name,
+				   created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
+				   modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
+		}
+		else
+		{
+			putchar(' ');
+
+			int i = 1;
+			char c = f.name[0];
+			while(c != '\0' && c != '.')
+			{
+				putchar(c);
+				c = f.name[i++];
+			}
+
+			int num_spaces = i;
+			while(num_spaces++ < 10)
+			{
+				putchar(' ');
+			}
+
+			printf(" %-3s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n",
+				   f.name + i,
+				   f.size,
+				   created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
+				   modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
+		}
+	}
+	printf("\n %5d Files   %5d Bytes\n\n", i - 1, total_bytes);
+}
+
 void kernel_main()
 {
 	initialize_video(80, 25);
 
 	clear_screen();
+
+	printf("Found Kernel %X - %X\n", 0x8000, &_BSS_END_);
 
 	for(size_t i = 0; i < _multiboot->m_modsCount; i++)
 	{
@@ -102,21 +173,40 @@ void kernel_main()
 
 	memmanager_init();
 
+	//while(true);
+
 	sysclock_init();
-
-	ramdisk_init();
-
-	filesystem_setup_drives();
 
 	setup_syscalls();
 
 	setup_first_task(); //we are now running as a kernel level task
 
+	ramdisk_init();
+
+	filesystem_setup_drives();
+
+	//memmanager_map_page(0x30000, 0, PAGE_PRESENT);
+	//memmanager_reserve_physical_memory(0x30000, 0x60000);
+	//memmanager_reserve_physical_memory(0x90000, 0x1000);
 	keyboard_init();
+
+	load_kbrd_driver();
+
+	//memmanager_reserve_physical_memory(0x30000, 0x1000);
+
+	//memmanager_print_all_mappings_to_physical_DEBUG(0x30000);
+	//memmanager_virtual_alloc(NULL, 1, PAGE_RW | PAGE_PRESENT);
 
 	load_floppy_driver();
 
+
 	filesystem_set_default_drive(1);
+
+	//load_kbrd_driver();
+
+	//while(true);
+
+	filesystem_get_root_directory(1);
 
 	clear_screen();
 
@@ -125,7 +215,7 @@ void kernel_main()
 
 	printf("%u KB free / %u KB Memory\n\n", free_mem / 1024, total_mem / 1024);
 
-	int drive_index = 0;
+	int drive_index = 1;
 
 	directory_handle* current_directory = filesystem_get_root_directory(drive_index);
 
@@ -133,8 +223,6 @@ void kernel_main()
 	{
 		printf("Could not mount root directory for drive %d\n", drive_index);
 	}
-
-	load_kbrd_driver();
 
 	spawn_process("shell.elf", WAIT_FOR_PROCESS);
 	

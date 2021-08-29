@@ -93,16 +93,6 @@ int sysclock_get_weekday(int month, int day, int year) //returns the day of the 
 
 void sysclock_get_date_time(struct tm* result)
 {
-	uint8_t century = 0;
-    uint8_t last_second;
-    uint8_t last_minute;
-    uint8_t last_hour;
-    uint8_t last_day;
-    uint8_t last_month;
-    uint8_t last_year;
-    uint8_t last_century;
-    //uint8_t registerB;
-
 	while(cmos_get_update_flag());
 	
 	result->tm_sec = cmos_get_register(0x00);
@@ -111,11 +101,20 @@ void sysclock_get_date_time(struct tm* result)
     result->tm_mday = cmos_get_register(0x07);
     result->tm_mon = cmos_get_register(0x08);
 	result->tm_year = cmos_get_register(0x09);
-	
-	if (century_register != 0)
+
+	uint8_t century = 0;
+	if(century_register != 0)
 	{
 		century = cmos_get_register(century_register);
 	}
+
+	uint8_t last_second;
+	uint8_t last_minute;
+	uint8_t last_hour;
+	uint8_t last_day;
+	uint8_t last_month;
+	uint8_t last_year;
+	uint8_t last_century;
 
 	do 
 	{

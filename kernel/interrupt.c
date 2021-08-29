@@ -182,7 +182,7 @@ void fault_handler(interrupt_info*r)
 			
 			printf("violation\n");
 			
-			printf("At Adress %X", getcr2reg());
+			printf("At Adress %X\n", getcr2reg());
 		}
 		else if(r->int_no == 13)
 		{
@@ -191,7 +191,7 @@ void fault_handler(interrupt_info*r)
 		
         if(r->cs == 0x08)
         {
-            puts("The kernel has crashed, we're boned so just restart");
+            puts("The kernel has crashed, we're boned so just restart\n");
             __asm__ volatile ("cli;hlt");
         }
 

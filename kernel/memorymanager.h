@@ -24,10 +24,6 @@ extern void enable_paging(void);
 extern void disable_paging(void);
 extern void* get_page_directory(void);
 
-#include "filesystem.h"
-
-int load_exe(file_handle* file_name);
-
 enum page_flags
 {
     PAGE_PRESENT = 0x01,
