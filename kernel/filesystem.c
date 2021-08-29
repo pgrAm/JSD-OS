@@ -175,12 +175,7 @@ file_stream* filesystem_open_file_handle(file_handle* f, int flags)
 	stream->location_on_disk = 0;
 	stream->seekpos = 0;
 	stream->file = f;
-	stream->buffer = memmanager_virtual_alloc(NULL, 1, PAGE_RW | PAGE_PRESENT);//(uint8_t*)malloc(CHUNK_READ_SIZE);
-
-	//memset(stream->buffer, 0, PAGE_SIZE);
-
-	//printf("file buffer allocated at v=%X, p=%X\n",
-	//	   stream->buffer, memmanager_get_physical((uint32_t)stream->buffer));
+	stream->buffer = filesystem_allocate_buffer(drives[f->disk], CHUNK_READ_SIZE);
 
 	return stream;
 }
@@ -339,9 +334,9 @@ void filesystem_seek_file(file_stream* f, size_t pos)
 
 SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
 {
-	uintptr_t p = memmanager_get_physical((uint32_t)stream->buffer);
+	//uintptr_t p = memmanager_get_physical((uint32_t)stream->buffer);
 
-	if(memmanager_free_pages(stream->buffer, 1) == 0)
+	if(filesystem_free_buffer(drives[stream->file->disk], stream->buffer, CHUNK_READ_SIZE) == 0)
 	{
 		//printf("file buffer freed at v=%X, p=%X\n",
 		//	   stream->buffer, p);
@@ -357,4 +352,23 @@ void filesystem_read_blocks_from_disk(const filesystem_drive* d,
 									  size_t num_bytes)
 {
 	d->dsk_driver->read_blocks(d, block_number, buf, num_bytes);
+}
+
+uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)
+{
+	if(d->dsk_driver->allocate_buffer != NULL)
+	{
+		return d->dsk_driver->allocate_buffer(size);
+	}
+	return malloc(size);
+}
+
+int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size)
+{
+	if(d->dsk_driver->free_buffer != NULL)
+	{
+		return d->dsk_driver->free_buffer(buffer, size);
+	}
+	free(buffer);
+	return 0;
 }

@@ -37,4 +37,6 @@ enum page_flags
 size_t memmanager_num_bytes_free(void);
 size_t memmanager_mem_size(void);
 
+uintptr_t memmanager_allocate_physical_in_range(uintptr_t start, uintptr_t end, size_t size, size_t align);
+
 #endif

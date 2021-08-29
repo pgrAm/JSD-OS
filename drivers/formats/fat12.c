@@ -11,6 +11,8 @@
 
 #define FAT12_EOF 0xFF8
 
+#define DEFAULT_SECTOR_SIZE 512
+
 struct fat12_drive
 {
 	size_t root_size;
@@ -78,13 +80,11 @@ size_t fat12_cluster_to_lba(const fat12_drive* d, size_t cluster)
 	return (cluster - 2) * d->sectors_per_cluster + d->datasector;
 }
 
-void fat12_read_bios_block(const filesystem_drive* fd)
+void fat12_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
 {
 	fat12_drive* d = (fat12_drive*)fd->fs_impl_data;
 
-	uint8_t boot_sector[512];
-
-	filesystem_read_blocks_from_disk(fd, 0, boot_sector, 512 / fd->minimum_block_size);
+	filesystem_read_blocks_from_disk(fd, 0, boot_sector, DEFAULT_SECTOR_SIZE / fd->minimum_block_size);
 
 	bpb* bios_block = (bpb*)(boot_sector + 0x00B);
 
@@ -102,16 +102,21 @@ void fat12_read_bios_block(const filesystem_drive* fd)
 
 time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
 {
-	struct tm file_time;
-	
-	file_time.tm_sec	= (time & 0x001F) << 1;
-	file_time.tm_min	= (time & 0x7E0) >> 5;
-	file_time.tm_hour	= (time & 0xF800) >> 11;
-	
-	file_time.tm_mday	= (date & 0x001F);
-	file_time.tm_mon	= ((date & 0x01E0) >> 5) - 1;
-	file_time.tm_year	= ((date & 0xFE00) >> 9) + 80;
-	
+	struct tm file_time = {
+
+		.tm_sec = (time & 0x001F) << 1,
+		.tm_min = (time & 0x7E0) >> 5,
+		.tm_hour = (time & 0xF800) >> 11,
+
+		.tm_mday = (date & 0x001F),
+		.tm_mon = ((date & 0x01E0) >> 5) - 1,
+		.tm_year = ((date & 0xFE00) >> 9) + 80,
+
+		.tm_wday = 0,
+		.tm_yday = 0,
+		.tm_isdst = 0
+	};
+
 	return mktime(&file_time);
 }
 
@@ -119,7 +124,7 @@ void fat12_do_read_dir(directory_handle* dest, fs_index location, const filesyst
 {
 	fat12_drive*  selected_drive = (fat12_drive*)fd->fs_impl_data;
 
-	uint8_t* raw_directory = (uint8_t*)malloc(selected_drive->bytes_per_sector);
+	uint8_t* raw_directory = filesystem_allocate_buffer(fd, selected_drive->bytes_per_sector);
 
 	dest->name = "";
 	dest->file_list = (file_handle*)malloc(selected_drive->root_entries * sizeof(file_handle));
@@ -188,7 +193,7 @@ void fat12_do_read_dir(directory_handle* dest, fs_index location, const filesyst
 
 	dest->num_files = num_files;
 
-	free(raw_directory);
+	filesystem_free_buffer(fd, raw_directory, selected_drive->bytes_per_sector);
 }
 
 void fat12_read_dir(directory_handle* dest, fs_index location, const filesystem_drive* fd)
@@ -239,15 +244,26 @@ size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const file
 	return cluster;
 }
 
-bool fat12_mount_disk(filesystem_drive *d)
+bool fat12_mount_disk(filesystem_drive* d)
 {
 	fat12_drive* f = malloc(sizeof(fat12_drive));
 	d->fs_impl_data = f;
 
-	fat12_read_bios_block(d);
-	
+	uint8_t* boot_sector = filesystem_allocate_buffer(d, DEFAULT_SECTOR_SIZE);
+
+	fat12_read_bios_block(d, boot_sector);
+
 	//allocate fat sector
-	f->fat = (uint8_t*)malloc(f->bytes_per_sector);
+	if(f->bytes_per_sector > DEFAULT_SECTOR_SIZE)
+	{
+		filesystem_free_buffer(d, boot_sector, DEFAULT_SECTOR_SIZE);
+		f->fat = filesystem_allocate_buffer(d, f->bytes_per_sector);
+	}
+	else
+	{
+		f->fat = boot_sector;
+	}
+
 	f->cached_fat_sector = 0;
 	
 	fat12_mount_directory(&d->root, d);

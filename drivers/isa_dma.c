@@ -17,36 +17,61 @@ uint8_t page_port[8]	= {0x87, 0x83, 0x81, 0x82, 0x8F, 0x8B, 0x89, 0x8A};
 uint8_t adress_port[8]	= {0x00, 0x02, 0x04, 0x06, 0xC0, 0xC4, 0xC8, 0xCC};
 uint8_t count_port[8]	= {0x01, 0x03, 0x05, 0x07, 0xC2, 0xC6, 0xCA, 0xCE};
 
-void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, uint8_t* buf, size_t length)
+uint8_t* isa_dma_allocate_buffer(size_t size)
+{
+	size_t size_in_pages = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
+
+	for(uintptr_t address = 0; address < 0xFFFFFF; address += 0x10000)
+	{
+		uintptr_t physical = memmanager_allocate_physical_in_range(address, 
+																   address + 0x10000, 
+																   size_in_pages,
+																   PAGE_SIZE);
+		if(physical != (uintptr_t)NULL)
+		{
+			return memmanager_map_to_new_pages(physical, 
+											   size_in_pages, PAGE_PRESENT | PAGE_RW);
+		}
+	}
+
+	return NULL;
+}
+
+int isa_dma_free_buffer(uint8_t* buffer, size_t size)
+{
+	return memmanager_free_pages(buffer, (size + (PAGE_SIZE - 1)) / PAGE_SIZE);
+}
+
+void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, uint8_t* buf, size_t size)
 {
 	//dma don't know wtf virtual adresses are, it needs the real deal (physical address)
 	uint32_t physbuf = memmanager_get_physical((uint32_t)buf);
 	
 	size_t start = (uint32_t)buf & ~(PAGE_SIZE - 1);
-	size_t end = (uint32_t)(buf + length) & ~(PAGE_SIZE - 1);
+	size_t end = (uint32_t)(buf + size) & ~(PAGE_SIZE - 1);
 	for (size_t i = start; i < end; i += PAGE_SIZE)
 	{
 		if (memmanager_get_physical(i) - memmanager_get_physical(i + PAGE_SIZE) > PAGE_SIZE)
 		{
-			puts("Buffer must be physically contiguous");
+			printf("Buffer must be physically contiguous\n");
 		}
 	}
 
-	if((physbuf >> 16) != ((physbuf + length) >> 16))
+	if((physbuf >> 16) != ((physbuf + size) >> 16))
 	{
-		puts("DMA Cannot cross 64k boundary\n");
+		printf("DMA Cannot cross 64k boundary\n");
 	}
 	
 	if(physbuf > 0xFFFFFF)
 	{
-		puts("Cannot use ISA dma above 16MB\n");
+		printf("Cannot use ISA dma above 16MB\n");
 	}
 	
 	//printf("dma begin to physical address %X\n", (uint32_t)buf);
 	
 	size_t offset = physbuf & 0xFFFF;
 	
-	length--;
+	size--;
 	
 	outb(mask_register[channel],	0x04 | channel);
     outb(clear_register[channel],	0x00);
@@ -54,7 +79,7 @@ void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, uint8_t* buf, size_t 
     outb(adress_port[channel],		offset & 0x00FF);
     outb(adress_port[channel],		(offset & 0xFF00) >> 8);
     outb(page_port[channel],		physbuf >> 16);
-    outb(count_port[channel],		length & 0x00FF);
-    outb(count_port[channel],		(length & 0xFF00) >> 8);
+    outb(count_port[channel],		size & 0x00FF);
+    outb(count_port[channel],		(size & 0xFF00) >> 8);
     outb(mask_register[channel],	channel);
 }

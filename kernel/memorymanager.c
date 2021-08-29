@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "memorymanager.h"
+#include <kernel/memorymanager.h>
 
 static inline void __flush_tlb()
 {
@@ -29,6 +29,12 @@ typedef struct
 
 #define PT_INDEX_MASK (PAGE_TABLE_SIZE - 1)
 #define PAGE_ADDRESS_MASK (PAGE_SIZE - 1)
+
+//align must be a power of 2
+inline uintptr_t align_addr(addr, align) 
+{
+	return (addr + (align - 1)) & ~(align - 1);
+}
 
 #define ALIGN_TO_PAGE(addr) (((addr) + PAGE_ADDRESS_MASK) & ~(PAGE_ADDRESS_MASK))
 #define MAXIMUM_ADDRESS 0xFFFFFFFF
@@ -163,6 +169,36 @@ void memmanager_reserve_physical_memory(uintptr_t address, size_t size)
 			return;
 	}
 }
+
+uintptr_t memmanager_allocate_physical_in_range(uintptr_t start, uintptr_t end, size_t size, size_t align)
+{
+	for(size_t i = 0; i < num_memory_blocks; i++)
+	{
+		uintptr_t aligned_addr = align_addr(memory_map[i].offset, align);
+
+		if(aligned_addr < start)
+		{
+			if(memory_map[i].offset + memory_map[i].length < start)
+			{
+				continue;
+			}
+			aligned_addr = align_addr(start, align);
+		}
+
+		if(aligned_addr + size > end)
+			return 0;
+
+		if(memmanager_claim_physical_from_block(aligned_addr, size, &i))
+		{
+			return aligned_addr;
+		}
+	}
+
+	printf("Could not allocate enough physical memory\n");
+
+	return 0;
+}
+
 
 uintptr_t memmanager_allocate_physical_page()
 {
@@ -535,7 +571,7 @@ void memmanager_init(void)
 	memmanager_add_memory_block(0, block0_start, block0_size);
 	memmanager_add_memory_block(1, 0x00100000, _multiboot->m_memoryHi * 1024);
 
-	size_t stack_loc = tss_esp0_location;// tss_esp0_location;
+	uintptr_t stack_loc = (uintptr_t)tss_esp0_location;// tss_esp0_location;
 	size_t stack_size = 4 * PAGE_SIZE;
 
 	//printf("STACK %X - %X\n", stack_loc - stack_size, stack_loc);

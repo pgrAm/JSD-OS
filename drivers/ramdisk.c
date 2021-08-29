@@ -16,7 +16,9 @@ struct ramdisk_drive
 ramdisk_drive init_disk = {NULL, 0};
 
 disk_driver ramdisk_driver = {
-	ramdisk_read_blocks
+	ramdisk_read_blocks,
+	NULL,
+	NULL
 };
 
 void ramdisk_read_blocks(const filesystem_drive* d, size_t offset, uint8_t* buf, size_t num_bytes)

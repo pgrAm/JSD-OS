@@ -71,7 +71,11 @@ void load_floppy_driver()
 		{"printf", &printf},
 		{"filesystem_add_drive", &filesystem_add_drive},
 		{"sysclock_sleep", &sysclock_sleep},
-		{"isa_dma_begin_transfer", &isa_dma_begin_transfer}
+		{"memmanager_allocate_physical_in_range", &memmanager_allocate_physical_in_range},
+		{"memmanager_map_to_new_pages", &memmanager_map_to_new_pages},
+		{"memmanager_get_physical", &memmanager_get_physical},
+		{"__regcall3__memmanager_free_pages", &memmanager_free_pages}
+		//{"isa_dma_begin_transfer", &isa_dma_begin_transfer}
 	};
 
 	load_driver("floppy.drv", "floppy_init", list, sizeof(list) / sizeof(func_info));
@@ -86,69 +90,6 @@ void load_kbrd_driver()
 	};
 
 	load_driver("kbrd.drv", "AT_keyboard_init", list, sizeof(list) / sizeof(func_info));
-}
-
-extern void memmanager_reserve_physical_memory(uintptr_t address, size_t size);
-extern void memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, uint32_t flags);
-extern void memmanager_print_all_mappings_to_physical_DEBUG(uintptr_t physical);
-
-void list_directory(directory_handle* current_directory)
-{
-	if(current_directory == NULL)
-	{
-		printf("Invalid Directory\n");
-		return;
-	}
-
-	printf("\n Name     Type  Size   Created     Modified\n\n");
-
-	size_t total_bytes = 0;
-	size_t i = 0;
-	file_handle* f_handle = NULL;
-
-	while((f_handle = filesystem_get_file_in_dir(current_directory, i++)))
-	{
-		file_info f;
-		filesystem_get_file_info(&f, f_handle);
-
-		struct tm created = *localtime(&f.time_created);
-		struct tm modified = *localtime(&f.time_modified);
-
-		total_bytes += f.size;
-
-		if(f.flags & IS_DIR)
-		{
-			printf(" %-8s (DIR)     -  %02d-%02d-%4d  %02d-%02d-%4d\n",
-				   f.name,
-				   created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
-				   modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
-		}
-		else
-		{
-			putchar(' ');
-
-			int i = 1;
-			char c = f.name[0];
-			while(c != '\0' && c != '.')
-			{
-				putchar(c);
-				c = f.name[i++];
-			}
-
-			int num_spaces = i;
-			while(num_spaces++ < 10)
-			{
-				putchar(' ');
-			}
-
-			printf(" %-3s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n",
-				   f.name + i,
-				   f.size,
-				   created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
-				   modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
-		}
-	}
-	printf("\n %5d Files   %5d Bytes\n\n", i - 1, total_bytes);
 }
 
 void kernel_main()

@@ -443,7 +443,7 @@ void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, s
 			*(uintptr_t*)(address) = (uintptr_t)object->base_address + *((size_t*)(address));
 			break;
 		case R_386_COPY:
-			if(symbol_val == NULL)
+			if(symbol_val == (uintptr_t)0)
 			{
 				printf("NULL ptr access\n");
 			}

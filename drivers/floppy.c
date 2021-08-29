@@ -148,8 +148,20 @@ void floppy_configure()
 }
 
 disk_driver floppy_driver = {
-	floppy_read_blocks
+	floppy_read_blocks,
+	floppy_allocate_buffer,
+	floppy_free_buffer
 };
+
+uint8_t* floppy_allocate_buffer(size_t size)
+{
+	return isa_dma_allocate_buffer(size);
+}
+
+int floppy_free_buffer(uint8_t* buffer, size_t size)
+{
+	return isa_dma_free_buffer(buffer, size);
+}
 
 void floppy_init()
 {

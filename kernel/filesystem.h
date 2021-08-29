@@ -96,6 +96,8 @@ SYSCALL_HANDLER int filesystem_close_file(file_stream* f);
 //driver interface
 
 void filesystem_read_blocks_from_disk(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
+uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size);
+int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size);
 
 int filesystem_setup_drives();
 
@@ -110,6 +112,8 @@ struct filesystem_driver
 struct disk_driver
 {
 	void (*read_blocks)(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
+	uint8_t* (*allocate_buffer)(size_t size);
+	int (*free_buffer)(uint8_t* buffer, size_t size);
 };
 
 filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data, size_t block_size);
