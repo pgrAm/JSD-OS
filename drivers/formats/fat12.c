@@ -61,6 +61,8 @@ typedef struct
 
 typedef struct
 {
+	uint8_t		boot_code[3];
+	uint8_t		oem_ID[8];
 	uint16_t	bytes_per_sector;
 	uint8_t		sectors_per_cluster;
 	uint16_t	reserved_sectors;
@@ -75,18 +77,35 @@ typedef struct
 	uint32_t	total_sectors_big;
 } __attribute__((packed)) bpb;
 
+filesystem_driver fat_driver = {
+	fat12_mount_disk,
+	fat12_get_relative_cluster,
+	fat12_read_clusters,
+	fat12_read_dir
+};
+
+void fat_init()
+{
+	filesystem_add_driver(&fat_driver);
+}
+
 size_t fat12_cluster_to_lba(const fat12_drive* d, size_t cluster)
 {
 	return (cluster - 2) * d->sectors_per_cluster + d->datasector;
 }
 
-void fat12_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
+int fat12_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
 {
 	fat12_drive* d = (fat12_drive*)fd->fs_impl_data;
 
 	filesystem_read_blocks_from_disk(fd, 0, boot_sector, DEFAULT_SECTOR_SIZE / fd->minimum_block_size);
 
-	bpb* bios_block = (bpb*)(boot_sector + 0x00B);
+	bpb* bios_block = (bpb*)boot_sector;
+
+	if(bios_block->boot_code[0] != 0xEB || bios_block->boot_code[2] != 0x90)
+	{
+		return UNKNOWN_FILESYSTEM;
+	}
 
 	d->root_size 			= (sizeof(fat_directory_entry) * bios_block->root_entries) / bios_block->bytes_per_sector; //number of sectors in root dir
 	d->fats_size 			= bios_block->number_of_FATs * bios_block->sectors_per_FAT;
@@ -98,6 +117,8 @@ void fat12_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
 	d->root_entries 		= bios_block->root_entries;
 	d->reserved_sectors		= bios_block->reserved_sectors;
 	d->blocks_per_sector	= d->bytes_per_sector / fd->minimum_block_size;
+
+	return MOUNT_SUCCESS;
 }
 
 time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
@@ -244,14 +265,20 @@ size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const file
 	return cluster;
 }
 
-bool fat12_mount_disk(filesystem_drive* d)
+int fat12_mount_disk(filesystem_drive* d)
 {
 	fat12_drive* f = malloc(sizeof(fat12_drive));
 	d->fs_impl_data = f;
 
 	uint8_t* boot_sector = filesystem_allocate_buffer(d, DEFAULT_SECTOR_SIZE);
 
-	fat12_read_bios_block(d, boot_sector);
+	if(fat12_read_bios_block(d, boot_sector) == UNKNOWN_FILESYSTEM)
+	{
+		filesystem_free_buffer(d, boot_sector, DEFAULT_SECTOR_SIZE);
+		free(f);
+		d->fs_impl_data = NULL;
+		return UNKNOWN_FILESYSTEM;
+	}
 
 	//allocate fat sector
 	if(f->bytes_per_sector > DEFAULT_SECTOR_SIZE)
@@ -268,7 +295,7 @@ bool fat12_mount_disk(filesystem_drive* d)
 	
 	fat12_mount_directory(&d->root, d);
 
-	return true;
+	return MOUNT_SUCCESS;
 }
 
 size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, const filesystem_drive *d)

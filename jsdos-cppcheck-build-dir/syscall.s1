@@ -1,0 +1,2 @@
+_empty
+setup_syscalls call:[idt_install_handler] noreturn:[idt_install_handler]

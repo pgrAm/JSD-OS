@@ -1,0 +1,2 @@
+AT_keyboard_handler global:[key_translation_table] call:[handle_keyevent,inb,send_eoi] noreturn:[handle_keyevent]
+AT_keyboard_init call:[irq_install_handler] noreturn:[irq_install_handler]

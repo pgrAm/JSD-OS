@@ -4,11 +4,23 @@
 
 #include "rdfs.h"
 
-bool rdfs_mount_disk(filesystem_drive* fd)
+filesystem_driver rdfs_driver = {
+	rdfs_mount_disk,
+	rdfs_get_relative_location,
+	rdfs_read_chunks,
+	rdfs_read_dir
+};
+
+void rdfs_init()
 {
-	if(fd->minimum_block_size > 1)
+	filesystem_add_driver(&rdfs_driver);
+}
+
+int rdfs_mount_disk(filesystem_drive* fd)
+{
+	if(fd->minimum_block_size > 1 || fd->dsk_driver->allocate_buffer != NULL)
 	{
-		return false;
+		return DRIVE_NOT_SUPPORTED;
 	}
 
 	uint8_t magic[4];
@@ -17,9 +29,9 @@ bool rdfs_mount_disk(filesystem_drive* fd)
 	if(memcmp(magic, "RDSK", 4) == 0)
 	{
 		rdfs_read_dir(&fd->root, sizeof(uint8_t) * 4, fd);
-		return true;
+		return MOUNT_SUCCESS;
 	}
-	return false;
+	return UNKNOWN_FILESYSTEM;
 }
 
 fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_drive* fd)

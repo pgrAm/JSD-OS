@@ -1,0 +1,7 @@
+localtime call:[get_utc_offset,gmtime] noreturn:[gmtime]
+ctime call:[asctime,localtime] noreturn:[asctime]
+asctime call:[snprintf]
+time call:[master_time]
+clock call:[clock_ticks] noreturn:[clock_ticks]
+mktime global:[ordinal_date]
+gmtime global:[date_ret,days_per_month]

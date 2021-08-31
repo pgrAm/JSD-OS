@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="3722972105">
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="_start" lineNumber="7"/>
+    <functioncall functionName="VIDEO_8BPP"/>
+    <functioncall functionName="exit"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="initialize_text_mode"/>
+    <functioncall functionName="map_video_memory"/>
+    <functioncall functionName="memset"/>
+    <functioncall functionName="set_video_mode"/>
+    <functioncall functionName="video_clear"/>
+    <functioncall functionName="void"/>
+    <functioncall functionName="wait_and_getkey"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

@@ -1,0 +1,3 @@
+ramdisk_read_blocks call:[memcpy,printf] noreturn:[memcpy,printf]
+ramdisk_get_drive global:[_multiboot,init_disk] call:[memmanager_map_to_new_pages]
+ramdisk_init global:[ramdisk_driver] call:[filesystem_add_drive,ramdisk_get_drive] noreturn:[filesystem_add_drive]

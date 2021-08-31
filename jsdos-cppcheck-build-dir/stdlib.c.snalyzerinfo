@@ -1,0 +1,5 @@
+atoi call:[isdigit,isspace]
+liballoc_lock global:[alloc_lock] call:[kernel_lock_mutex]
+liballoc_unlock global:[alloc_lock] call:[kernel_unlock_mutex]
+liballoc_alloc call:[alloc_pages] noreturn:[alloc_pages]
+liballoc_free call:[free_pages] noreturn:[free_pages]

@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="1392296885">
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="add_keypress" lineNumber="17"/>
+    <functiondecl functionName="get_keypress" lineNumber="23"/>
+    <functiondecl functionName="wait_and_get_keypress" lineNumber="43"/>
+    <functiondecl functionName="get_keystate" lineNumber="58"/>
+    <functiondecl functionName="handle_keyevent" lineNumber="67"/>
+    <functiondecl functionName="keyboard_init" lineNumber="91"/>
+    <functioncall functionName="NUM_VIRTUAL_KEYS"/>
+    <functioncall functionName="VK_LALT"/>
+    <functioncall functionName="VK_NONE"/>
+    <functioncall functionName="VK_RALT"/>
+    <functioncall functionName="active_process"/>
+    <functioncall functionName="add_keypress"/>
+    <functioncall functionName="bool"/>
+    <functioncall functionName="down"/>
+    <functioncall functionName="false"/>
+    <functioncall functionName="get_active_process"/>
+    <functioncall functionName="get_keypress"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="k"/>
+    <functioncall functionName="key"/>
+    <functioncall functionName="keybuf_back"/>
+    <functioncall functionName="keybuf_front"/>
+    <functioncall functionName="l"/>
+    <functioncall functionName="lock_interrupts"/>
+    <functioncall functionName="memset"/>
+    <functioncall functionName="return"/>
+    <functioncall functionName="run_next_task"/>
+    <functioncall functionName="scancode"/>
+    <functioncall functionName="sizeof"/>
+    <functioncall functionName="switch_to_task"/>
+    <functioncall functionName="task_is_running"/>
+    <functioncall functionName="this_task_is_active"/>
+    <functioncall functionName="unlock_interrupts"/>
+    <functioncall functionName="virtual_keystates"/>
+    <functioncall functionName="void"/>
+    <functioncall functionName="wait_for_interrupt"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

@@ -1,0 +1,179 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="2035201428">
+        <error id="invalidPrintfArgType_sint" severity="portability" msg="%d in format string (no. 1) requires &apos;int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." verbose="%d in format string (no. 1) requires &apos;int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\memorymanager.c" line="143" column="4"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." verbose="%X in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\memorymanager.c" line="143" column="4"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." verbose="%X in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\memorymanager.c" line="162" column="4"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." verbose="%X in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\memorymanager.c" line="162" column="4"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." verbose="%X in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\memorymanager.c" line="287" column="3"/>
+        </error>
+        <error id="invalidPrintfArgType_sint" severity="portability" msg="%d in format string (no. 1) requires &apos;int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." verbose="%d in format string (no. 1) requires &apos;int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\memorymanager.c" line="355" column="4"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." verbose="%X in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\memorymanager.c" line="549" column="7"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." verbose="%X in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\memorymanager.c" line="549" column="7"/>
+        </error>
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:102:6" call-funcname="memmanager_claim_physical_from_block" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="160" col="42" call-argexpr="&i" call-argvaluetype="7" call-argvalue="8"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:102:6" call-funcname="memmanager_claim_physical_from_block" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="191" col="42" call-argexpr="&i" call-argvaluetype="7" call-argvalue="8"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:102:6" call-funcname="memmanager_claim_physical_from_block" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="209" col="42" call-argexpr="&i" call-argvaluetype="7" call-argvalue="8"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:276:6" call-funcname="memmanager_map_page" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="432" col="22" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:276:6" call-funcname="memmanager_map_page" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="432" col="22" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:346:23" call-funcname="memmanager_virtual_alloc" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="480" col="68" call-argexpr="NULL" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:53:6" call-funcname="memmanager_add_memory_block" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="571" col="29" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/>  </FileInfo>
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:102:6" my-argnr="3" my-argname="block_index" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="104" col="41" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:469:6" my-argnr="1" my-argname="page_dir" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="472" col="9" value="0"/>
+  </FileInfo>
+  <FileInfo check="Uninitialized variables">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:102:6" my-argnr="3" my-argname="block_index" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="104" col="41" value="0"/>
+  </FileInfo>
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:102:6" call-funcname="memmanager_claim_physical_from_block" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="160" col="42" call-argexpr="&i" call-argvaluetype="7" call-argvalue="8"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:102:6" call-funcname="memmanager_claim_physical_from_block" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="191" col="42" call-argexpr="&i" call-argvaluetype="7" call-argvalue="8"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:102:6" call-funcname="memmanager_claim_physical_from_block" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="209" col="42" call-argexpr="&i" call-argvaluetype="7" call-argvalue="8"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:276:6" call-funcname="memmanager_map_page" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="432" col="22" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:276:6" call-funcname="memmanager_map_page" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="432" col="22" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:346:23" call-funcname="memmanager_virtual_alloc" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="480" col="68" call-argexpr="NULL" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:53:6" call-funcname="memmanager_add_memory_block" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="571" col="29" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/>  </FileInfo>
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:102:6" my-argnr="3" my-argname="block_index" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="104" col="41" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:469:6" my-argnr="1" my-argname="page_dir" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="472" col="9" value="0"/>
+  </FileInfo>
+  <FileInfo check="Uninitialized variables">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c:102:6" my-argnr="3" my-argname="block_index" file="C:/Users/jaked/source/repos/JSD-OS/kernel/memorymanager.c" line="104" col="41" value="0"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="__flush_tlb" lineNumber="6"/>
+    <functiondecl functionName="__flush_tlb_page" lineNumber="15"/>
+    <functiondecl functionName="align_addr" lineNumber="34"/>
+    <functiondecl functionName="memmanager_add_memory_block" lineNumber="53"/>
+    <functiondecl functionName="memmanager_remove_memory_block" lineNumber="69"/>
+    <functiondecl functionName="memmanager_get_pt_entry" lineNumber="82"/>
+    <functiondecl functionName="memmanager_get_physical" lineNumber="97"/>
+    <functiondecl functionName="memmanager_claim_physical_from_block" lineNumber="102"/>
+    <functiondecl functionName="memmanager_reserve_physical_memory" lineNumber="135"/>
+    <functiondecl functionName="memmanager_allocate_physical_in_range" lineNumber="173"/>
+    <functiondecl functionName="memmanager_allocate_physical_page" lineNumber="203"/>
+    <functiondecl functionName="memmanager_create_new_page_table" lineNumber="220"/>
+    <functiondecl functionName="memmanager_get_unmapped_pages" lineNumber="233"/>
+    <functiondecl functionName="memmanager_map_page" lineNumber="276"/>
+    <functiondecl functionName="memmanager_map_to_new_pages" lineNumber="308"/>
+    <functiondecl functionName="memmanager_set_page_flags" lineNumber="320"/>
+    <functiondecl functionName="memmanager_virtual_alloc" lineNumber="346"/>
+    <functiondecl functionName="memmanager_free_pages" lineNumber="424"/>
+    <functiondecl functionName="memmanager_init_page_dir" lineNumber="469"/>
+    <functiondecl functionName="memmanager_new_memory_space" lineNumber="478"/>
+    <functiondecl functionName="memmanager_enter_memory_space" lineNumber="497"/>
+    <functiondecl functionName="memmanager_destroy_memory_space" lineNumber="502"/>
+    <functiondecl functionName="memmanager_num_bytes_free" lineNumber="515"/>
+    <functiondecl functionName="memmanager_mem_size" lineNumber="527"/>
+    <functiondecl functionName="memmanager_print_all_mappings_to_physical_DEBUG" lineNumber="532"/>
+    <functiondecl functionName="memmanager_init" lineNumber="559"/>
+    <functiondecl functionName="__flush_tlb" lineNumber="6"/>
+    <functiondecl functionName="__flush_tlb_page" lineNumber="15"/>
+    <functiondecl functionName="align_addr" lineNumber="34"/>
+    <functiondecl functionName="memmanager_add_memory_block" lineNumber="53"/>
+    <functiondecl functionName="memmanager_remove_memory_block" lineNumber="69"/>
+    <functiondecl functionName="memmanager_get_pt_entry" lineNumber="82"/>
+    <functiondecl functionName="memmanager_get_physical" lineNumber="97"/>
+    <functiondecl functionName="memmanager_claim_physical_from_block" lineNumber="102"/>
+    <functiondecl functionName="memmanager_reserve_physical_memory" lineNumber="135"/>
+    <functiondecl functionName="memmanager_allocate_physical_in_range" lineNumber="173"/>
+    <functiondecl functionName="memmanager_allocate_physical_page" lineNumber="203"/>
+    <functiondecl functionName="memmanager_create_new_page_table" lineNumber="220"/>
+    <functiondecl functionName="memmanager_get_unmapped_pages" lineNumber="233"/>
+    <functiondecl functionName="memmanager_map_page" lineNumber="276"/>
+    <functiondecl functionName="memmanager_map_to_new_pages" lineNumber="308"/>
+    <functiondecl functionName="memmanager_set_page_flags" lineNumber="320"/>
+    <functiondecl functionName="memmanager_virtual_alloc" lineNumber="346"/>
+    <functiondecl functionName="memmanager_free_pages" lineNumber="424"/>
+    <functiondecl functionName="memmanager_init_page_dir" lineNumber="469"/>
+    <functiondecl functionName="memmanager_new_memory_space" lineNumber="478"/>
+    <functiondecl functionName="memmanager_enter_memory_space" lineNumber="497"/>
+    <functiondecl functionName="memmanager_destroy_memory_space" lineNumber="502"/>
+    <functiondecl functionName="memmanager_num_bytes_free" lineNumber="515"/>
+    <functiondecl functionName="memmanager_mem_size" lineNumber="527"/>
+    <functiondecl functionName="memmanager_print_all_mappings_to_physical_DEBUG" lineNumber="532"/>
+    <functiondecl functionName="memmanager_init" lineNumber="559"/>
+    <functioncall functionName="NULL"/>
+    <functioncall functionName="PAGE_PRESENT"/>
+    <functioncall functionName="PAGE_RW"/>
+    <functioncall functionName="PAGE_SIZE"/>
+    <functioncall functionName="_IMAGE_END_"/>
+    <functioncall functionName="__flush_tlb"/>
+    <functioncall functionName="__flush_tlb_page"/>
+    <functioncall functionName="addr"/>
+    <functioncall functionName="address"/>
+    <functioncall functionName="align"/>
+    <functioncall functionName="align_addr"/>
+    <functioncall functionName="aligned_addr"/>
+    <functioncall functionName="asm"/>
+    <functioncall functionName="available_space"/>
+    <functioncall functionName="begin"/>
+    <functioncall functionName="block0_size"/>
+    <functioncall functionName="block0_start"/>
+    <functioncall functionName="block_index"/>
+    <functioncall functionName="break"/>
+    <functioncall functionName="claimed_space"/>
+    <functioncall functionName="continue"/>
+    <functioncall functionName="enable_paging"/>
+    <functioncall functionName="end"/>
+    <functioncall functionName="first_page_table"/>
+    <functioncall functionName="flags"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="kernel_page_directory"/>
+    <functioncall functionName="length"/>
+    <functioncall functionName="long"/>
+    <functioncall functionName="m_modsAddr"/>
+    <functioncall functionName="m_modsCount"/>
+    <functioncall functionName="memmanager_add_memory_block"/>
+    <functioncall functionName="memmanager_allocate_physical_page"/>
+    <functioncall functionName="memmanager_claim_physical_from_block"/>
+    <functioncall functionName="memmanager_create_new_page_table"/>
+    <functioncall functionName="memmanager_free_pages"/>
+    <functioncall functionName="memmanager_get_physical"/>
+    <functioncall functionName="memmanager_get_pt_entry"/>
+    <functioncall functionName="memmanager_get_unmapped_pages"/>
+    <functioncall functionName="memmanager_init_page_dir"/>
+    <functioncall functionName="memmanager_map_page"/>
+    <functioncall functionName="memmanager_remove_memory_block"/>
+    <functioncall functionName="memmanager_reserve_physical_memory"/>
+    <functioncall functionName="memmanager_virtual_alloc"/>
+    <functioncall functionName="memmove"/>
+    <functioncall functionName="memset"/>
+    <functioncall functionName="memspace"/>
+    <functioncall functionName="n"/>
+    <functioncall functionName="num_pages"/>
+    <functioncall functionName="offset"/>
+    <functioncall functionName="padding"/>
+    <functioncall functionName="page"/>
+    <functioncall functionName="page_dir"/>
+    <functioncall functionName="page_table"/>
+    <functioncall functionName="page_virtual_address"/>
+    <functioncall functionName="pages_found"/>
+    <functioncall functionName="pd_index"/>
+    <functioncall functionName="pdir"/>
+    <functioncall functionName="physical_address"/>
+    <functioncall functionName="printf"/>
+    <functioncall functionName="process_page_dir"/>
+    <functioncall functionName="pt_index"/>
+    <functioncall functionName="puts"/>
+    <functioncall functionName="rd_begin"/>
+    <functioncall functionName="return"/>
+    <functioncall functionName="set_page_directory"/>
+    <functioncall functionName="size"/>
+    <functioncall functionName="sizeof"/>
+    <functioncall functionName="stack_size"/>
+    <functioncall functionName="start"/>
+    <functioncall functionName="true"/>
+    <functioncall functionName="tss_esp0_location"/>
+    <functioncall functionName="uint32_t"/>
+    <functioncall functionName="v"/>
+    <functioncall functionName="v_address"/>
+    <functioncall functionName="virtual_address"/>
+    <functioncall functionName="void"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

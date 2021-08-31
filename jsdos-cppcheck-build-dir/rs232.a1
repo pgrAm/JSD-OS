@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="4116575938">
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/drivers/portio.h:15:20" call-funcname="outb" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/drivers/rs232.c" line="9" col="6" call-argexpr="0x00" call-argvaluetype="0" call-argvalue="0"/>  </FileInfo>
+  <FileInfo check="Uninitialized variables">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/rs232.h:16:6" my-argnr="2" my-argname="c" file="C:/Users/jaked/source/repos/JSD-OS/drivers/rs232.c" line="45" col="8" value="0"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="rs232_init" lineNumber="5"/>
+    <functiondecl functionName="rs232_data_available" lineNumber="21"/>
+    <functiondecl functionName="rs232_read_byte" lineNumber="26"/>
+    <functiondecl functionName="rs232_isclear" lineNumber="32"/>
+    <functiondecl functionName="rs232_send_byte" lineNumber="37"/>
+    <functiondecl functionName="rs232_send_string" lineNumber="43"/>
+    <functiondecl functionName="rs232_send_string_len" lineNumber="48"/>
+    <functioncall functionName="asm"/>
+    <functioncall functionName="b"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="inb"/>
+    <functioncall functionName="outb"/>
+    <functioncall functionName="port"/>
+    <functioncall functionName="rate"/>
+    <functioncall functionName="rs232_data_available"/>
+    <functioncall functionName="rs232_isclear"/>
+    <functioncall functionName="rs232_send_byte"/>
+    <functioncall functionName="uint32_t"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

@@ -1,0 +1,7 @@
+write_regs call:[inb,outb] noreturn:[outb]
+set_plane call:[outb] noreturn:[outb]
+get_fb_addr call:[inb,outb,return]
+write_font call:[get_fb_addr,inb,memcpy,outb,set_plane] noreturn:[outb]
+loadpsf call:[filesystem_close_file,filesystem_open_file,filesystem_read_file,malloc,sizeof] noreturn:[filesystem_read_file]
+set_vga_mode global:[font08,font16] call:[loadpsf,write_font,write_regs] noreturn:[loadpsf,write_font]
+set_vga_mode_by_attributes global:[available_modes] call:[set_vga_mode] noreturn:[set_vga_mode]

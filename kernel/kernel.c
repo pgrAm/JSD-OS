@@ -12,9 +12,9 @@
 #include <drivers/video.h>
 #include <drivers/sysclock.h>
 #include <drivers/kbrd.h>
-#include <drivers/rs232.h>
 #include <drivers/floppy.h>
 #include <drivers/ramdisk.h>
+#include <drivers/formats/rdfs.h>
 #include <drivers/isa_dma.h>
 
 extern multiboot_info* _multiboot;
@@ -62,6 +62,25 @@ void load_driver(const char* filename, const char* func_name,
 	{
 		printf("cannot find function\n");
 	}
+}
+
+void load_fat_driver()
+{
+	func_info list[] = {
+		{"printf", &printf},
+		{"malloc", &malloc},
+		{"free", &free},
+		{"strtok", &strtok},
+		{"strcat", &strcat},
+		{"strcpy", &strcpy},
+		{"mktime", &mktime},
+		{"filesystem_add_driver", &filesystem_add_driver},
+		{"filesystem_allocate_buffer", &filesystem_allocate_buffer},
+		{"filesystem_free_buffer", &filesystem_free_buffer},
+		{"filesystem_read_blocks_from_disk", &filesystem_read_blocks_from_disk}
+	};
+
+	load_driver("fat.drv", "fat_init", list, sizeof(list) / sizeof(func_info));
 }
 
 void load_floppy_driver()
@@ -124,7 +143,7 @@ void kernel_main()
 
 	ramdisk_init();
 
-	filesystem_setup_drives();
+	rdfs_init();
 
 	//memmanager_map_page(0x30000, 0, PAGE_PRESENT);
 	//memmanager_reserve_physical_memory(0x30000, 0x60000);
@@ -139,7 +158,7 @@ void kernel_main()
 	//memmanager_virtual_alloc(NULL, 1, PAGE_RW | PAGE_PRESENT);
 
 	load_floppy_driver();
-
+	load_fat_driver();
 
 	filesystem_set_default_drive(1);
 

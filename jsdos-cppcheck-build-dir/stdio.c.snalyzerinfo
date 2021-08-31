@@ -1,0 +1,20 @@
+fopen
+clearerr
+feof
+ferror
+gets_s
+gets
+fputc global:[stdin]
+putchar call:[print_string]
+getc global:[stdin] call:[wait_and_getkey] noreturn:[wait_and_getkey]
+getchar global:[stdin] call:[getc] noreturn:[getc]
+vsnprintf call:[strlen,va_arg,while] noreturn:[va_arg,while]
+puts call:[print_string,putchar,strlen]
+fputs call:[putchar]
+perror
+vsprintf call:[vsnprintf] noreturn:[vsnprintf]
+snprintf call:[va_end,va_start,vsnprintf]
+sprintf call:[va_end,va_start,vsnprintf]
+fprintf call:[va_end,va_start,vsnprintf]
+printf call:[print_string,va_end,va_start,vsnprintf]
+fclose

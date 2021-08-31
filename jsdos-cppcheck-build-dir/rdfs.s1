@@ -1,0 +1,4 @@
+rdfs_mount_disk call:[filesystem_read_blocks_from_disk,memcmp,rdfs_read_dir,sizeof]
+rdfs_get_relative_location
+rdfs_read_chunks call:[filesystem_read_blocks_from_disk]
+rdfs_read_dir call:[filesystem_read_blocks_from_disk,malloc,memcpy,sizeof,strcat,strcpy,strtok] noreturn:[strcat]

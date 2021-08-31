@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="2013105566">
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:25:12" call-funcname="localtime" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/clib/time.c" line="34" col="17" my-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:32:7" my-argnr="1"/>
+  </FileInfo>
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:25:12" my-argnr="1" my-argname="timer" file="C:/Users/jaked/source/repos/JSD-OS/clib/time.c" line="27" col="24" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:32:7" my-argnr="1" my-argname="timer" file="C:/Users/jaked/source/repos/JSD-OS/clib/time.c" line="34" col="27" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:37:7" my-argnr="1" my-argname="t" file="C:/Users/jaked/source/repos/JSD-OS/clib/time.c" line="50" col="66" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:82:8" my-argnr="1" my-argname="timeptr" file="C:/Users/jaked/source/repos/JSD-OS/clib/time.c" line="84" col="25" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:103:12" my-argnr="1" my-argname="timer" file="C:/Users/jaked/source/repos/JSD-OS/clib/time.c" line="105" col="21" value="0"/>
+  </FileInfo>
+  <FileInfo check="Uninitialized variables">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:25:12" my-argnr="1" my-argname="timer" file="C:/Users/jaked/source/repos/JSD-OS/clib/time.c" line="27" col="24" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:37:7" my-argnr="1" my-argname="t" file="C:/Users/jaked/source/repos/JSD-OS/clib/time.c" line="50" col="66" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:82:8" my-argnr="1" my-argname="timeptr" file="C:/Users/jaked/source/repos/JSD-OS/clib/time.c" line="84" col="25" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/time.c:103:12" my-argnr="1" my-argname="timer" file="C:/Users/jaked/source/repos/JSD-OS/clib/time.c" line="105" col="21" value="0"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="localtime" lineNumber="25"/>
+    <functiondecl functionName="ctime" lineNumber="32"/>
+    <functiondecl functionName="asctime" lineNumber="37"/>
+    <functiondecl functionName="time" lineNumber="55"/>
+    <functiondecl functionName="clock" lineNumber="67"/>
+    <functiondecl functionName="mktime" lineNumber="82"/>
+    <functiondecl functionName="gmtime" lineNumber="103"/>
+    <functioncall functionName="asctime"/>
+    <functioncall functionName="clock_ticks"/>
+    <functioncall functionName="days_since_cycle"/>
+    <functioncall functionName="get_utc_offset"/>
+    <functioncall functionName="gmtime"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="int"/>
+    <functioncall functionName="local_time"/>
+    <functioncall functionName="localtime"/>
+    <functioncall functionName="master_time"/>
+    <functioncall functionName="month"/>
+    <functioncall functionName="result"/>
+    <functioncall functionName="snprintf"/>
+    <functioncall functionName="the_current_time"/>
+    <functioncall functionName="time_t"/>
+    <functioncall functionName="timer"/>
+    <functioncall functionName="tm_hour"/>
+    <functioncall functionName="tm_mday"/>
+    <functioncall functionName="tm_min"/>
+    <functioncall functionName="tm_mon"/>
+    <functioncall functionName="tm_sec"/>
+    <functioncall functionName="tm_wday"/>
+    <functioncall functionName="void"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

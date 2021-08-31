@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="525090394">
+        <error id="invalidPrintfArgType_uint" severity="warning" msg="%X in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;void *&apos;." verbose="%X in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;void *&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/kernel.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\kernel.c" line="101" column="2"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." verbose="%X in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/kernel.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\kernel.c" line="108" column="3"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." verbose="%X in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;uintptr_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/kernel.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\kernel.c" line="108" column="3"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%u in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." verbose="%u in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/kernel.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\kernel.c" line="157" column="2"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%u in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." verbose="%u in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/kernel.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\kernel.c" line="157" column="2"/>
+        </error>
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/kernel.c:31:6" call-funcname="load_driver" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/kernel/kernel.c" line="81" col="13" call-argexpr="list" call-argvaluetype="7" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/kernel.c:31:6" call-funcname="load_driver" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/kernel/kernel.c" line="92" col="13" call-argexpr="list" call-argvaluetype="7" call-argvalue="0"/>  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="load_driver" lineNumber="31"/>
+    <functiondecl functionName="load_floppy_driver" lineNumber="67"/>
+    <functiondecl functionName="load_kbrd_driver" lineNumber="84"/>
+    <functiondecl functionName="kernel_main" lineNumber="95"/>
+    <functioncall functionName="WAIT_FOR_PROCESS"/>
+    <functioncall functionName="_BSS_END_"/>
+    <functioncall functionName="address"/>
+    <functioncall functionName="begin"/>
+    <functioncall functionName="clear_screen"/>
+    <functioncall functionName="drive_index"/>
+    <functioncall functionName="dynamic_object"/>
+    <functioncall functionName="end"/>
+    <functioncall functionName="false"/>
+    <functioncall functionName="filename"/>
+    <functioncall functionName="filesystem_add_drive"/>
+    <functioncall functionName="filesystem_get_root_directory"/>
+    <functioncall functionName="filesystem_set_default_drive"/>
+    <functioncall functionName="filesystem_setup_drives"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="func_address"/>
+    <functioncall functionName="func_name"/>
+    <functioncall functionName="handle_keyevent"/>
+    <functioncall functionName="hashmap_create"/>
+    <functioncall functionName="hashmap_insert"/>
+    <functioncall functionName="hashmap_lookup"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="idt_init"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="initialize_video"/>
+    <functioncall functionName="irq_install_handler"/>
+    <functioncall functionName="irqs_init"/>
+    <functioncall functionName="isrs_init"/>
+    <functioncall functionName="keyboard_init"/>
+    <functioncall functionName="list"/>
+    <functioncall functionName="load_driver"/>
+    <functioncall functionName="load_elf"/>
+    <functioncall functionName="load_floppy_driver"/>
+    <functioncall functionName="load_kbrd_driver"/>
+    <functioncall functionName="m_modsAddr"/>
+    <functioncall functionName="m_modsCount"/>
+    <functioncall functionName="memmanager_allocate_physical_in_range"/>
+    <functioncall functionName="memmanager_free_pages"/>
+    <functioncall functionName="memmanager_get_physical"/>
+    <functioncall functionName="memmanager_init"/>
+    <functioncall functionName="memmanager_map_to_new_pages"/>
+    <functioncall functionName="memmanager_mem_size"/>
+    <functioncall functionName="memmanager_num_bytes_free"/>
+    <functioncall functionName="memset"/>
+    <functioncall functionName="name"/>
+    <functioncall functionName="ob"/>
+    <functioncall functionName="printf"/>
+    <functioncall functionName="ramdisk_init"/>
+    <functioncall functionName="rd_begin"/>
+    <functioncall functionName="rd_end"/>
+    <functioncall functionName="setup_first_task"/>
+    <functioncall functionName="setup_syscalls"/>
+    <functioncall functionName="sizeof"/>
+    <functioncall functionName="spawn_process"/>
+    <functioncall functionName="symbol_map"/>
+    <functioncall functionName="sysclock_init"/>
+    <functioncall functionName="sysclock_sleep"/>
+    <functioncall functionName="uint32_t"/>
+  </FileInfo>
+</analyzerinfo>

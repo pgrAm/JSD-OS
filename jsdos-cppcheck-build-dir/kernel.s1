@@ -1,0 +1,4 @@
+load_driver call:[hashmap_create,hashmap_insert,hashmap_lookup,load_elf,memset,printf,sizeof] noreturn:[hashmap_insert,printf]
+load_floppy_driver call:[load_driver,sizeof] noreturn:[load_driver]
+load_kbrd_driver call:[load_driver,sizeof] noreturn:[load_driver]
+kernel_main global:[_BSS_END_,_multiboot] call:[clear_screen,filesystem_get_root_directory,filesystem_set_default_drive,filesystem_setup_drives,idt_init,initialize_video,irqs_init,isrs_init,keyboard_init,load_floppy_driver,load_kbrd_driver,memmanager_init,memmanager_mem_size,memmanager_num_bytes_free,printf,ramdisk_init,setup_first_task,setup_syscalls,spawn_process,sysclock_init] noreturn:[printf]

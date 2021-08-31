@@ -101,9 +101,22 @@ int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t si
 
 int filesystem_setup_drives();
 
+typedef enum {
+	MOUNT_SUCCESS = 0,
+
+	//means the drive does not contain a filesystem that can be handled by the driver
+	UNKNOWN_FILESYSTEM = 1,	
+
+	//means the drive failed to mount for some reason
+	MOUNT_FAILURE = 2,
+
+	//means the drive cannot be handled by the driver
+	DRIVE_NOT_SUPPORTED = 3
+} mount_status;
+
 struct filesystem_driver
 {
-	bool (*mount_disk)(filesystem_drive* d);
+	int (*mount_disk)(filesystem_drive* d);
 	fs_index(*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_drive* fd);
 	fs_index(*read_chunks)(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd);
 	void (*read_dir)(directory_handle* dest, fs_index location, const filesystem_drive* fd);
@@ -116,6 +129,7 @@ struct disk_driver
 	int (*free_buffer)(uint8_t* buffer, size_t size);
 };
 
+void filesystem_add_driver(filesystem_driver* fs_drv);
 filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data, size_t block_size);
 
 void filesystem_set_default_drive(size_t index);

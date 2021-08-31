@@ -1,0 +1,121 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="1108671024">
+        <error id="asctimeCalled" severity="style" msg="Obsolete function &apos;asctime&apos; called. It is recommended to use &apos;strftime&apos; instead." verbose="Obsolete function &apos;asctime&apos; called. It is recommended to use &apos;strftime&apos; instead." cwe="477" file0="C:/Users/jaked/source/repos/JSD-OS/shell/shell.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\shell\shell.c" line="340" column="27"/>
+        </error>
+        <error id="asctimeCalled" severity="style" msg="Obsolete function &apos;asctime&apos; called. It is recommended to use &apos;strftime&apos; instead." verbose="Obsolete function &apos;asctime&apos; called. It is recommended to use &apos;strftime&apos; instead." cwe="477" file0="C:/Users/jaked/source/repos/JSD-OS/shell/shell.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\shell\shell.c" line="346" column="27"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%u in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." verbose="%u in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/shell/shell.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\shell\shell.c" line="91" column="2"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%u in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." verbose="%u in format string (no. 2) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/shell/shell.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\shell\shell.c" line="91" column="2"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%u in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." verbose="%u in format string (no. 1) requires &apos;unsigned int&apos; but the argument type is &apos;size_t {aka unsigned long long}&apos;." cwe="686" file0="C:/Users/jaked/source/repos/JSD-OS/shell/shell.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\shell\shell.c" line="352" column="3"/>
+        </error>
+        <error id="shadowVariable" severity="style" msg="Local variable &apos;i&apos; shadows outer variable" verbose="Local variable &apos;i&apos; shadows outer variable" cwe="398" file0="C:/Users/jaked/source/repos/JSD-OS/shell/shell.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\shell\shell.c" line="70" column="8" info="Shadow variable"/>
+            <location file="C:\Users\jaked\source\repos\JSD-OS\shell\shell.c" line="43" column="9" info="Shadowed declaration"/>
+            <symbol>i</symbol>
+        </error>
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/shell/shell.c:22:6" call-funcname="select_drive" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/shell/shell.c" line="190" col="15" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/shell/shell.c:113:5" call-funcname="get_command" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/shell/shell.c" line="363" col="14" call-argexpr="NULL" call-argvaluetype="0" call-argvalue="0"/>  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="select_drive" lineNumber="22"/>
+    <functiondecl functionName="list_directory" lineNumber="32"/>
+    <functiondecl functionName="find_file_in_dir" lineNumber="94"/>
+    <functiondecl functionName="clear_console" lineNumber="107"/>
+    <functiondecl functionName="get_command" lineNumber="113"/>
+    <functiondecl functionName="prompt" lineNumber="303"/>
+    <functiondecl functionName="splash_text" lineNumber="314"/>
+    <functiondecl functionName="_start" lineNumber="330"/>
+    <functioncall functionName="MAX_PATH"/>
+    <functioncall functionName="NULL"/>
+    <functioncall functionName="WAIT_FOR_PROCESS"/>
+    <functioncall functionName="arg"/>
+    <functioncall functionName="asctime"/>
+    <functioncall functionName="atoi"/>
+    <functioncall functionName="break"/>
+    <functioncall functionName="c"/>
+    <functioncall functionName="clear_console"/>
+    <functioncall functionName="close"/>
+    <functioncall functionName="close_dir"/>
+    <functioncall functionName="command_buffer"/>
+    <functioncall functionName="command_buffer_index"/>
+    <functioncall functionName="console_user"/>
+    <functioncall functionName="continue"/>
+    <functioncall functionName="current_directory"/>
+    <functioncall functionName="d"/>
+    <functioncall functionName="dataBuf"/>
+    <functioncall functionName="dir"/>
+    <functioncall functionName="drive"/>
+    <functioncall functionName="drive_index"/>
+    <functioncall functionName="drive_names"/>
+    <functioncall functionName="extension"/>
+    <functioncall functionName="f"/>
+    <functioncall functionName="f_handle"/>
+    <functioncall functionName="file"/>
+    <functioncall functionName="find_file_in_dir"/>
+    <functioncall functionName="find_path"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="free"/>
+    <functioncall functionName="fs"/>
+    <functioncall functionName="get_ascii_from_vk"/>
+    <functioncall functionName="get_command"/>
+    <functioncall functionName="get_file_in_dir"/>
+    <functioncall functionName="get_file_info"/>
+    <functioncall functionName="get_keystate"/>
+    <functioncall functionName="get_root_directory"/>
+    <functioncall functionName="gmtime"/>
+    <functioncall functionName="height"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="index"/>
+    <functioncall functionName="initialize_text_mode"/>
+    <functioncall functionName="input"/>
+    <functioncall functionName="k"/>
+    <functioncall functionName="keyword"/>
+    <functioncall functionName="list_directory"/>
+    <functioncall functionName="localtime"/>
+    <functioncall functionName="malloc"/>
+    <functioncall functionName="memset"/>
+    <functioncall functionName="name"/>
+    <functioncall functionName="open"/>
+    <functioncall functionName="open_dir"/>
+    <functioncall functionName="open_file_handle"/>
+    <functioncall functionName="path"/>
+    <functioncall functionName="print_string"/>
+    <functioncall functionName="printf"/>
+    <functioncall functionName="prompt"/>
+    <functioncall functionName="prompt_char"/>
+    <functioncall functionName="putchar"/>
+    <functioncall functionName="read"/>
+    <functioncall functionName="return"/>
+    <functioncall functionName="select_drive"/>
+    <functioncall functionName="size"/>
+    <functioncall functionName="sizeof"/>
+    <functioncall functionName="spawn_process"/>
+    <functioncall functionName="splash_text"/>
+    <functioncall functionName="strcasecmp"/>
+    <functioncall functionName="strchr"/>
+    <functioncall functionName="strcmp"/>
+    <functioncall functionName="strlen"/>
+    <functioncall functionName="strtok"/>
+    <functioncall functionName="sys_time"/>
+    <functioncall functionName="t_time"/>
+    <functioncall functionName="temp"/>
+    <functioncall functionName="time"/>
+    <functioncall functionName="time_created"/>
+    <functioncall functionName="time_modified"/>
+    <functioncall functionName="tm_mday"/>
+    <functioncall functionName="total_bytes"/>
+    <functioncall functionName="video_clear"/>
+    <functioncall functionName="video_erase_chars"/>
+    <functioncall functionName="void"/>
+    <functioncall functionName="wait_and_getkey"/>
+    <functioncall functionName="while"/>
+    <functioncall functionName="width"/>
+  </FileInfo>
+</analyzerinfo>

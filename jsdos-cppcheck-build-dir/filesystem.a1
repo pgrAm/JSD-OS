@@ -1,0 +1,149 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="1814699974">
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&apos;dst&apos; is of type &apos;void *&apos;. When using void pointers in calculations, the behaviour is undefined." verbose="&apos;dst&apos; is of type &apos;void *&apos;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &apos;void *&apos; is a GNU C extension, which defines the &apos;sizeof(void)&apos; to be 1." cwe="467" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\filesystem.c" line="309" column="7"/>
+            <symbol>dst</symbol>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&apos;dst&apos; is of type &apos;void *&apos;. When using void pointers in calculations, the behaviour is undefined." verbose="&apos;dst&apos; is of type &apos;void *&apos;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &apos;void *&apos; is a GNU C extension, which defines the &apos;sizeof(void)&apos; to be 1." cwe="467" file0="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\kernel\filesystem.c" line="316" column="7"/>
+            <symbol>dst</symbol>
+        </error>
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:68:35" call-funcname="filesystem_open_directory_handle" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="155" col="59" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:123:14" call-funcname="filesystem_find_file_by_path" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="223" col="19" my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:219:14" my-argnr="1"/>
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:123:14" call-funcname="filesystem_find_file_by_path" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="223" col="19" my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:219:14" my-argnr="2"/>
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:123:14" call-funcname="filesystem_find_file_by_path" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="232" col="19" my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:228:19" my-argnr="1"/>
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:123:14" call-funcname="filesystem_find_file_by_path" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="232" col="19" my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:228:19" my-argnr="2"/>
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:237:10" call-funcname="filesystem_get_next_location_on_disk" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="248" col="9" my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:246:10" my-argnr="1"/>
+  </FileInfo>
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:211:5" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="213" col="7" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:237:10" my-argnr="1" my-argname="f" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="240" col="16" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:253:10" my-argnr="1" my-argname="f" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="257" col="5" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:330:6" my-argnr="1" my-argname="f" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="332" col="2" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:335:21" my-argnr="1" my-argname="stream" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="339" col="35" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:349:6" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="354" col="2" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:357:10" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="359" col="5" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:366:5" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="368" col="5" value="0"/>
+  </FileInfo>
+  <FileInfo check="Uninitialized variables">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:211:5" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="213" col="7" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:237:10" my-argnr="1" my-argname="f" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="240" col="16" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:253:10" my-argnr="1" my-argname="f" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="257" col="5" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:335:21" my-argnr="1" my-argname="stream" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="339" col="35" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:349:6" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="354" col="2" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:357:10" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="359" col="5" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c:366:5" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/kernel/filesystem.c" line="368" col="5" value="0"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="filesystem_add_drive" lineNumber="32"/>
+    <functiondecl functionName="filesystem_set_default_drive" lineNumber="56"/>
+    <functiondecl functionName="filesystem_setup_drives" lineNumber="61"/>
+    <functiondecl functionName="filesystem_open_directory_handle" lineNumber="68"/>
+    <functiondecl functionName="filesystem_get_root_directory" lineNumber="80"/>
+    <functiondecl functionName="filesystem_find_file_in_dir" lineNumber="105"/>
+    <functiondecl functionName="filesystem_find_file_by_path" lineNumber="123"/>
+    <functiondecl functionName="filesystem_open_file_handle" lineNumber="169"/>
+    <functiondecl functionName="filesystem_get_file_info" lineNumber="184"/>
+    <functiondecl functionName="filesystem_get_file_in_dir" lineNumber="200"/>
+    <functiondecl functionName="filesystem_close_directory" lineNumber="211"/>
+    <functiondecl functionName="filesystem_open_file" lineNumber="219"/>
+    <functiondecl functionName="filesystem_open_directory" lineNumber="228"/>
+    <functiondecl functionName="filesystem_get_next_location_on_disk" lineNumber="237"/>
+    <functiondecl functionName="filesystem_resolve_location_on_disk" lineNumber="246"/>
+    <functiondecl functionName="filesystem_read_chunk" lineNumber="253"/>
+    <functiondecl functionName="filesystem_read_file" lineNumber="270"/>
+    <functiondecl functionName="filesystem_seek_file" lineNumber="330"/>
+    <functiondecl functionName="filesystem_close_file" lineNumber="335"/>
+    <functiondecl functionName="filesystem_read_blocks_from_disk" lineNumber="349"/>
+    <functiondecl functionName="filesystem_allocate_buffer" lineNumber="357"/>
+    <functiondecl functionName="filesystem_free_buffer" lineNumber="366"/>
+    <functioncall functionName="MAX_PATH"/>
+    <functioncall functionName="NULL"/>
+    <functioncall functionName="allocate_buffer"/>
+    <functioncall functionName="block_number"/>
+    <functioncall functionName="block_size"/>
+    <functioncall functionName="buf"/>
+    <functioncall functionName="buf_end_size"/>
+    <functioncall functionName="buf_start"/>
+    <functioncall functionName="buf_start_size"/>
+    <functioncall functionName="buffer"/>
+    <functioncall functionName="byte_offset"/>
+    <functioncall functionName="chunk_index"/>
+    <functioncall functionName="d"/>
+    <functioncall functionName="default_drive"/>
+    <functioncall functionName="dir"/>
+    <functioncall functionName="directory_handle"/>
+    <functioncall functionName="dirname"/>
+    <functioncall functionName="disk"/>
+    <functioncall functionName="disk_drv"/>
+    <functioncall functionName="driveNumber"/>
+    <functioncall functionName="driver_data"/>
+    <functioncall functionName="drives"/>
+    <functioncall functionName="dst"/>
+    <functioncall functionName="f"/>
+    <functioncall functionName="false"/>
+    <functioncall functionName="fat12_get_relative_cluster"/>
+    <functioncall functionName="fat12_mount_disk"/>
+    <functioncall functionName="fat12_read_clusters"/>
+    <functioncall functionName="fat12_read_dir"/>
+    <functioncall functionName="fat_driver"/>
+    <functioncall functionName="fd"/>
+    <functioncall functionName="file_list"/>
+    <functioncall functionName="file_stream"/>
+    <functioncall functionName="filesystem_allocate_buffer"/>
+    <functioncall functionName="filesystem_drive"/>
+    <functioncall functionName="filesystem_find_file_by_path"/>
+    <functioncall functionName="filesystem_find_file_in_dir"/>
+    <functioncall functionName="filesystem_free_buffer"/>
+    <functioncall functionName="filesystem_get_next_location_on_disk"/>
+    <functioncall functionName="filesystem_get_root_directory"/>
+    <functioncall functionName="filesystem_open_directory_handle"/>
+    <functioncall functionName="filesystem_open_file_handle"/>
+    <functioncall functionName="filesystem_read_chunk"/>
+    <functioncall functionName="filesystem_resolve_location_on_disk"/>
+    <functioncall functionName="flags"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="free"/>
+    <functioncall functionName="free_buffer"/>
+    <functioncall functionName="full_name"/>
+    <functioncall functionName="get_relative_location"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="index"/>
+    <functioncall functionName="len"/>
+    <functioncall functionName="location"/>
+    <functioncall functionName="location_on_disk"/>
+    <functioncall functionName="malloc"/>
+    <functioncall functionName="memcpy"/>
+    <functioncall functionName="mount_disk"/>
+    <functioncall functionName="mounted"/>
+    <functioncall functionName="name"/>
+    <functioncall functionName="name_len"/>
+    <functioncall functionName="num_bytes"/>
+    <functioncall functionName="num_files"/>
+    <functioncall functionName="old_drives"/>
+    <functioncall functionName="old_num_drives"/>
+    <functioncall functionName="path"/>
+    <functioncall functionName="pos"/>
+    <functioncall functionName="rdfs_driver"/>
+    <functioncall functionName="rdfs_get_relative_location"/>
+    <functioncall functionName="rdfs_mount_disk"/>
+    <functioncall functionName="rdfs_read_chunks"/>
+    <functioncall functionName="rdfs_read_dir"/>
+    <functioncall functionName="read_blocks"/>
+    <functioncall functionName="read_chunks"/>
+    <functioncall functionName="read_dir"/>
+    <functioncall functionName="rel"/>
+    <functioncall functionName="root"/>
+    <functioncall functionName="seekpos"/>
+    <functioncall functionName="size"/>
+    <functioncall functionName="sizeof"/>
+    <functioncall functionName="strcasecmp"/>
+    <functioncall functionName="strchr"/>
+    <functioncall functionName="strcpy"/>
+    <functioncall functionName="stream"/>
+    <functioncall functionName="time_created"/>
+    <functioncall functionName="time_modified"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

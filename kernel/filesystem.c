@@ -6,28 +6,29 @@
 
 #include <kernel/filesystem.h>
 #include <kernel/memorymanager.h>
-#include <drivers/formats/fat12.h>
-#include <drivers/formats/rdfs.h>
 
 #define CHUNK_READ_SIZE 1024
 
 size_t default_drive = 0;
 size_t num_drives = 0;
 filesystem_drive** drives = NULL;
+size_t fs_num_drivers = 0;
+filesystem_driver** fs_drivers = NULL;
 
-filesystem_driver fat_driver = {
-	fat12_mount_disk,
-	fat12_get_relative_cluster,
-	fat12_read_clusters,
-	fat12_read_dir
-};
+void filesystem_add_driver(filesystem_driver* fs_drv)
+{
+	size_t old_num_drivers = fs_num_drivers++;
 
-filesystem_driver rdfs_driver = {
-	rdfs_mount_disk,
-	rdfs_get_relative_location,
-	rdfs_read_chunks,
-	rdfs_read_dir
-};
+	filesystem_driver** old_drivers = fs_drivers;
+
+	fs_drivers = (filesystem_driver**)malloc(fs_num_drivers * sizeof(filesystem_driver*));
+
+	memcpy(fs_drivers, old_drivers, old_num_drivers * sizeof(filesystem_driver*));
+
+	fs_drivers[old_num_drivers] = fs_drv;
+
+	free(old_drivers);
+}
 
 filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data, size_t block_size)
 {
@@ -60,8 +61,6 @@ void filesystem_set_default_drive(size_t index)
 
 int filesystem_setup_drives()
 {
-	drives[0]->fs_driver = &rdfs_driver;
-
 	return num_drives;
 }
 
@@ -87,10 +86,25 @@ directory_handle* filesystem_get_root_directory(size_t driveNumber)
 		{
 			if(d->fs_driver == NULL)
 			{
-				d->fs_driver = &fat_driver;
-			}
+				for(size_t i = 0; i < fs_num_drivers; i++)
+				{
+					d->fs_driver = fs_drivers[i];
 
-			d->mounted = d->fs_driver->mount_disk(d);
+					int mount_result = d->fs_driver->mount_disk(d);
+
+					if(mount_result != UNKNOWN_FILESYSTEM && mount_result != DRIVE_NOT_SUPPORTED)
+					{
+						d->mounted = (mount_result == MOUNT_SUCCESS);
+						break;
+					}
+					d->fs_driver = NULL;
+					d->fs_impl_data = NULL;
+				}
+			}
+			else
+			{
+				d->mounted = d->fs_driver->mount_disk(d);
+			}
 		}
 		
 		if(d->mounted)
@@ -210,7 +224,7 @@ file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index)
 SYSCALL_HANDLER 
 int filesystem_close_directory(directory_handle* d)
 {
-	//free(d->file_list);
+	free(d->file_list);
 	free(d);
 	return 0;
 }

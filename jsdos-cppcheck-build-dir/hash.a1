@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="1448609597">
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:24:10" call-funcname="hash_string" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="73" col="15" my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:29:6" my-argnr="2"/>
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:24:10" call-funcname="hash_string" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="92" col="15" my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:30:6" my-argnr="2"/>
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:24:10" call-funcname="hash_string" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="123" col="15" my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:31:6" my-argnr="2"/>
+  </FileInfo>
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:24:10" my-argnr="1" my-argname="name" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="13" col="9" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:26:12" my-argnr="1" my-argname="key" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="38" col="39" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:27:6" my-argnr="1" my-argname="node" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="50" col="14" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:28:6" my-argnr="1" my-argname="map" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="56" col="24" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:29:6" my-argnr="1" my-argname="map" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="73" col="34" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:30:6" my-argnr="1" my-argname="map" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="92" col="34" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:31:6" my-argnr="1" my-argname="map" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="123" col="34" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:32:6" my-argnr="1" my-argname="map" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="153" col="26" value="0"/>
+  </FileInfo>
+  <FileInfo check="Uninitialized variables">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:24:10" my-argnr="1" my-argname="name" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="13" col="9" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:26:12" my-argnr="1" my-argname="key" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="38" col="39" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:28:6" my-argnr="1" my-argname="map" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="56" col="24" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:29:6" my-argnr="1" my-argname="map" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="73" col="34" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:30:6" my-argnr="1" my-argname="map" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="92" col="34" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:31:6" my-argnr="1" my-argname="map" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="123" col="34" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.h:32:6" my-argnr="1" my-argname="map" file="C:/Users/jaked/source/repos/JSD-OS/kernel/util/hash.c" line="153" col="26" value="0"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="hash_string" lineNumber="10"/>
+    <functiondecl functionName="hashmap_create" lineNumber="26"/>
+    <functiondecl functionName="hashmap_create_node" lineNumber="35"/>
+    <functiondecl functionName="hashmap_free_node" lineNumber="48"/>
+    <functiondecl functionName="free_hash_map" lineNumber="54"/>
+    <functiondecl functionName="hashmap_lookup" lineNumber="71"/>
+    <functiondecl functionName="hashmap_insert" lineNumber="90"/>
+    <functiondecl functionName="hashmap_remove" lineNumber="121"/>
+    <functiondecl functionName="hashmap_print" lineNumber="151"/>
+    <functioncall functionName="NULL"/>
+    <functioncall functionName="buckets"/>
+    <functioncall functionName="data"/>
+    <functioncall functionName="entry"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="free"/>
+    <functioncall functionName="g"/>
+    <functioncall functionName="hash_node"/>
+    <functioncall functionName="hash_string"/>
+    <functioncall functionName="hashmap_create_node"/>
+    <functioncall functionName="hashmap_free_node"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="key"/>
+    <functioncall functionName="malloc"/>
+    <functioncall functionName="memset"/>
+    <functioncall functionName="new_key"/>
+    <functioncall functionName="next"/>
+    <functioncall functionName="node"/>
+    <functioncall functionName="num_buckets"/>
+    <functioncall functionName="prev"/>
+    <functioncall functionName="printf"/>
+    <functioncall functionName="return"/>
+    <functioncall functionName="sizeof"/>
+    <functioncall functionName="strcmp"/>
+    <functioncall functionName="strcpy"/>
+    <functioncall functionName="strlen"/>
+    <functioncall functionName="value"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

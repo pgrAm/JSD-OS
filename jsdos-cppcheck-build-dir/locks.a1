@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="997280914">
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/locks.h:34:20" my-argnr="1" my-argname="_lock" file="C:/Users/jaked/source/repos/JSD-OS/kernel/locks.h" line="37" col="3" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/kernel/locks.h:52:6" my-argnr="1" my-argname="m" file="C:/Users/jaked/source/repos/JSD-OS/kernel/locks.c" line="23" col="2" value="0"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="kernel_try_lock_mutex" lineNumber="4"/>
+    <functiondecl functionName="kernel_lock_mutex" lineNumber="10"/>
+    <functiondecl functionName="kernel_unlock_mutex" lineNumber="20"/>
+    <functioncall functionName="__sync_bool_compare_and_swap"/>
+    <functioncall functionName="__sync_val_compare_and_swap"/>
+    <functioncall functionName="_lock"/>
+    <functioncall functionName="asm"/>
+    <functioncall functionName="get_active_process"/>
+    <functioncall functionName="get_running_process"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="long"/>
+    <functioncall functionName="ownerPID"/>
+    <functioncall functionName="pid"/>
+    <functioncall functionName="return"/>
+    <functioncall functionName="switch_to_task"/>
+    <functioncall functionName="this_task_is_active"/>
+    <functioncall functionName="true"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

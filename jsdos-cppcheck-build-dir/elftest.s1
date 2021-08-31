@@ -1,0 +1,1 @@
+_start call:[exit,initialize_text_mode,map_video_memory,memset,set_video_mode,video_clear,wait_and_getkey] noreturn:[memset]

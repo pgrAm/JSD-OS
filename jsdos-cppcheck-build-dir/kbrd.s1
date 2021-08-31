@@ -1,0 +1,6 @@
+add_keypress global:[keybuf,keybuf_front]
+get_keypress global:[keybuf,keybuf_back,keybuf_front] call:[lock_interrupts,this_task_is_active,unlock_interrupts]
+wait_and_get_keypress call:[get_keypress,wait_for_interrupt] noreturn:[wait_for_interrupt]
+get_keystate global:[virtual_keystates] call:[this_task_is_active]
+handle_keyevent global:[virtual_keystates] call:[add_keypress,get_active_process,run_next_task,switch_to_task,task_is_running] noreturn:[switch_to_task]
+keyboard_init global:[virtual_keystates] call:[memset,sizeof] noreturn:[memset]

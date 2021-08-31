@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<results version="2">
+    <cppcheck version="2.5"/>
+    <errors>
+        <error id="variableScope" severity="style" msg="The scope of the variable &amp;#039;cursorstore&amp;#039; can be reduced." verbose="The scope of the variable &amp;#039;cursorstore&amp;#039; can be reduced. Warning: Be careful when fixing this message, especially when there are inner loops. Here is an example where cppcheck will write that the scope for &amp;#039;i&amp;#039; can be reduced:&#10;void f(int x)&#10;{&#10;    int i = 0;&#10;    if (x) {&#10;        // it&amp;#039;s safe to move &amp;#039;int i = 0;&amp;#039; here&#10;        for (int n = 0; n &amp;lt; 10; ++n) {&#10;            // it is possible but not safe to move &amp;#039;int i = 0;&amp;#039; here&#10;            do_something(&amp;amp;i);&#10;        }&#10;    }&#10;}&#10;When you see this message it is always safe to reduce the variable scope 1 level." cwe="398" file0="api/graphics/graphics.c" sinceDate="2021-08-29">
+            <location file="api\graphics\graphics.c" line="153"/>
+        </error>
+        <error id="unknownMacro" severity="error" msg="There is an unknown macro here somewhere. Configuration is required. If PREFIX is a macro then please configure it." verbose="There is an unknown macro here somewhere. Configuration is required. If PREFIX is a macro then please configure it." file0="clib/liballoc.c" sinceDate="2021-08-29">
+            <location file="clib\liballoc.c" line="224"/>
+        </error>
+        <error id="invalidPrintfArgType_sint" severity="portability" msg="%d in format string (no. 1) requires &amp;#039;int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%d in format string (no. 1) requires &amp;#039;int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="drivers/floppy.c" sinceDate="2021-08-29">
+            <location file="drivers\floppy.c" line="173"/>
+        </error>
+        <error id="invalidPrintfArgType_sint" severity="portability" msg="%d in format string (no. 1) requires &amp;#039;int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%d in format string (no. 1) requires &amp;#039;int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="drivers/floppy.c" sinceDate="2021-08-29">
+            <location file="drivers\floppy.c" line="203"/>
+        </error>
+        <error id="invalidPrintfArgType_sint" severity="portability" msg="%d in format string (no. 1) requires &amp;#039;int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%d in format string (no. 1) requires &amp;#039;int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="drivers/floppy.c" sinceDate="2021-08-29">
+            <location file="drivers\floppy.c" line="253"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;floppy_init&amp;#039; is never used." verbose="The function &amp;#039;floppy_init&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="drivers\floppy.c" line="166"/>
+        </error>
+        <error id="uninitStructMember" severity="error" msg="Uninitialized struct member: f.bytes_per_sector" verbose="Uninitialized struct member: f.bytes_per_sector" cwe="457" file0="drivers/formats/fat12.c" sinceDate="2021-08-29">
+            <location file="drivers\formats\fat12.c" line="257"/>
+        </error>
+        <error id="nullPointerRedundantCheck" severity="warning" msg="Either the condition &amp;#039;object-&amp;gt;hash_table==NULL&amp;#039; is redundant or there is possible null pointer dereference: object-&amp;gt;hash_table." verbose="Either the condition &amp;#039;object-&amp;gt;hash_table==NULL&amp;#039; is redundant or there is possible null pointer dereference: object-&amp;gt;hash_table." cwe="476" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="269" info="Null pointer dereference"/>
+            <location file="kernel\elf.c" line="265" info="Assuming that condition &amp;#039;object-&amp;gt;hash_table==NULL&amp;#039; is not redundant"/>
+        </error>
+        <error id="shadowVariable" severity="style" msg="Local variable &amp;#039;num_pages&amp;#039; shadows outer variable" verbose="Local variable &amp;#039;num_pages&amp;#039; shadows outer variable" cwe="398" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="189" info="Shadow variable"/>
+            <location file="kernel\elf.c" line="145" info="Shadowed declaration"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="255"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="258"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="264"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="272"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="276"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="282"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="285"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="359"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;object-&amp;gt;base_address&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/elf.c" sinceDate="2021-08-29">
+            <location file="kernel\elf.c" line="422"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;dst&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;dst&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/filesystem.c" sinceDate="2021-08-29">
+            <location file="kernel\filesystem.c" line="309"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;dst&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;dst&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/filesystem.c" sinceDate="2021-08-29">
+            <location file="kernel\filesystem.c" line="316"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="warning" msg="%X in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;void *&amp;#039;." verbose="%X in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;void *&amp;#039;." cwe="686" file0="kernel/kernel.c" sinceDate="2021-08-29">
+            <location file="kernel\kernel.c" line="101"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." verbose="%X in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/kernel.c" sinceDate="2021-08-29">
+            <location file="kernel\kernel.c" line="108"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." verbose="%X in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/kernel.c" sinceDate="2021-08-29">
+            <location file="kernel\kernel.c" line="108"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%u in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%u in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/kernel.c" sinceDate="2021-08-29">
+            <location file="kernel\kernel.c" line="157"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%u in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%u in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/kernel.c" sinceDate="2021-08-29">
+            <location file="kernel\kernel.c" line="157"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;kernel_main&amp;#039; is never used." verbose="The function &amp;#039;kernel_main&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\kernel.c" line="95"/>
+        </error>
+        <error id="invalidPrintfArgType_sint" severity="portability" msg="%d in format string (no. 1) requires &amp;#039;int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%d in format string (no. 1) requires &amp;#039;int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/memorymanager.c" sinceDate="2021-08-29">
+            <location file="kernel\memorymanager.c" line="143"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." verbose="%X in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/memorymanager.c" sinceDate="2021-08-29">
+            <location file="kernel\memorymanager.c" line="143"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%X in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/memorymanager.c" sinceDate="2021-08-29">
+            <location file="kernel\memorymanager.c" line="162"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." verbose="%X in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/memorymanager.c" sinceDate="2021-08-29">
+            <location file="kernel\memorymanager.c" line="162"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." verbose="%X in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/memorymanager.c" sinceDate="2021-08-29">
+            <location file="kernel\memorymanager.c" line="287"/>
+        </error>
+        <error id="invalidPrintfArgType_sint" severity="portability" msg="%d in format string (no. 1) requires &amp;#039;int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%d in format string (no. 1) requires &amp;#039;int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/memorymanager.c" sinceDate="2021-08-29">
+            <location file="kernel\memorymanager.c" line="355"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." verbose="%X in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/memorymanager.c" sinceDate="2021-08-29">
+            <location file="kernel\memorymanager.c" line="549"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%X in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." verbose="%X in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;uintptr_t {aka unsigned long long}&amp;#039;." cwe="686" file0="kernel/memorymanager.c" sinceDate="2021-08-29">
+            <location file="kernel\memorymanager.c" line="549"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;memmanager_print_all_mappings_to_physical_DEBUG&amp;#039; is never used." verbose="The function &amp;#039;memmanager_print_all_mappings_to_physical_DEBUG&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\memorymanager.c" line="532"/>
+        </error>
+        <error id="arithOperationsOnVoidPointer" severity="portability" msg="&amp;#039;t-&amp;gt;user_stack_top&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined." verbose="&amp;#039;t-&amp;gt;user_stack_top&amp;#039; is of type &amp;#039;void *&amp;#039;. When using void pointers in calculations, the behaviour is undefined. Arithmetic operations on &amp;#039;void *&amp;#039; is a GNU C extension, which defines the &amp;#039;sizeof(void)&amp;#039; to be 1." cwe="467" file0="kernel/task.c" sinceDate="2021-08-29">
+            <location file="kernel\task.c" line="73"/>
+        </error>
+        <error id="asctimeCalled" severity="style" msg="Obsolete function &amp;#039;asctime&amp;#039; called. It is recommended to use &amp;#039;strftime&amp;#039; instead." verbose="Obsolete function &amp;#039;asctime&amp;#039; called. It is recommended to use &amp;#039;strftime&amp;#039; instead." cwe="477" file0="shell/shell.c" sinceDate="2021-08-29">
+            <location file="shell\shell.c" line="340"/>
+        </error>
+        <error id="asctimeCalled" severity="style" msg="Obsolete function &amp;#039;asctime&amp;#039; called. It is recommended to use &amp;#039;strftime&amp;#039; instead." verbose="Obsolete function &amp;#039;asctime&amp;#039; called. It is recommended to use &amp;#039;strftime&amp;#039; instead." cwe="477" file0="shell/shell.c" sinceDate="2021-08-29">
+            <location file="shell\shell.c" line="346"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%u in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%u in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="shell/shell.c" sinceDate="2021-08-29">
+            <location file="shell\shell.c" line="91"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%u in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%u in format string (no. 2) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="shell/shell.c" sinceDate="2021-08-29">
+            <location file="shell\shell.c" line="91"/>
+        </error>
+        <error id="invalidPrintfArgType_uint" severity="portability" msg="%u in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." verbose="%u in format string (no. 1) requires &amp;#039;unsigned int&amp;#039; but the argument type is &amp;#039;size_t {aka unsigned long long}&amp;#039;." cwe="686" file0="shell/shell.c" sinceDate="2021-08-29">
+            <location file="shell\shell.c" line="352"/>
+        </error>
+        <error id="shadowVariable" severity="style" msg="Local variable &amp;#039;i&amp;#039; shadows outer variable" verbose="Local variable &amp;#039;i&amp;#039; shadows outer variable" cwe="398" file0="shell/shell.c" sinceDate="2021-08-29">
+            <location file="shell\shell.c" line="70" info="Shadow variable"/>
+            <location file="shell\shell.c" line="43" info="Shadowed declaration"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;_start&amp;#039; is never used." verbose="The function &amp;#039;_start&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="shell\shell.c" line="330"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;AT_keyboard_init&amp;#039; is never used." verbose="The function &amp;#039;AT_keyboard_init&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="drivers\at_kbrd.c" line="98"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;_empty&amp;#039; is never used." verbose="The function &amp;#039;_empty&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\syscall.c" line="16"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;clearerr&amp;#039; is never used." verbose="The function &amp;#039;clearerr&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="167"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;fclose&amp;#039; is never used." verbose="The function &amp;#039;fclose&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="566"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;feof&amp;#039; is never used." verbose="The function &amp;#039;feof&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="173"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;ferror&amp;#039; is never used." verbose="The function &amp;#039;ferror&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="178"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;fopen&amp;#039; is never used." verbose="The function &amp;#039;fopen&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="129"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;fprintf&amp;#039; is never used." verbose="The function &amp;#039;fprintf&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="537"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;fputc&amp;#039; is never used." verbose="The function &amp;#039;fputc&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="217"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;fputs&amp;#039; is never used." verbose="The function &amp;#039;fputs&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="496"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;getchar&amp;#039; is never used." verbose="The function &amp;#039;getchar&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="256"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;gets&amp;#039; is never used." verbose="The function &amp;#039;gets&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="203"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;gets_s&amp;#039; is never used." verbose="The function &amp;#039;gets_s&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="183"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;perror&amp;#039; is never used." verbose="The function &amp;#039;perror&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="503"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;sprintf&amp;#039; is never used." verbose="The function &amp;#039;sprintf&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="525"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;vsprintf&amp;#039; is never used." verbose="The function &amp;#039;vsprintf&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdio.c" line="508"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;clock&amp;#039; is never used." verbose="The function &amp;#039;clock&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\time.c" line="67"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;ctime&amp;#039; is never used." verbose="The function &amp;#039;ctime&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\time.c" line="32"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;delete_chars&amp;#039; is never used." verbose="The function &amp;#039;delete_chars&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="drivers\video.c" line="57"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;get_cursor_offset&amp;#039; is never used." verbose="The function &amp;#039;get_cursor_offset&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="drivers\video.c" line="79"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;print_string_len&amp;#039; is never used." verbose="The function &amp;#039;print_string_len&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="drivers\video.c" line="169"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;fault_handler&amp;#039; is never used." verbose="The function &amp;#039;fault_handler&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\interrupt.c" line="140"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;irq_uninstall_handler&amp;#039; is never used." verbose="The function &amp;#039;irq_uninstall_handler&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\interrupt.c" line="103"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;free_hash_map&amp;#039; is never used." verbose="The function &amp;#039;free_hash_map&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\util\hash.c" line="54"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;hashmap_print&amp;#039; is never used." verbose="The function &amp;#039;hashmap_print&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\util\hash.c" line="151"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;hashmap_remove&amp;#039; is never used." verbose="The function &amp;#039;hashmap_remove&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\util\hash.c" line="121"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;kernel_try_lock_mutex&amp;#039; is never used." verbose="The function &amp;#039;kernel_try_lock_mutex&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\locks.c" line="4"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;liballoc_alloc&amp;#039; is never used." verbose="The function &amp;#039;liballoc_alloc&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdlib.c" line="78"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;liballoc_free&amp;#039; is never used." verbose="The function &amp;#039;liballoc_free&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdlib.c" line="83"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;liballoc_lock&amp;#039; is never used." verbose="The function &amp;#039;liballoc_lock&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdlib.c" line="49"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;liballoc_unlock&amp;#039; is never used." verbose="The function &amp;#039;liballoc_unlock&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="clib\stdlib.c" line="55"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;ringbuf_blocking_read&amp;#039; is never used." verbose="The function &amp;#039;ringbuf_blocking_read&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\ringbuf.c" line="22"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;ringbuf_can_read&amp;#039; is never used." verbose="The function &amp;#039;ringbuf_can_read&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\ringbuf.c" line="17"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;ringbuf_read&amp;#039; is never used." verbose="The function &amp;#039;ringbuf_read&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\ringbuf.c" line="32"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;ringbuf_write&amp;#039; is never used." verbose="The function &amp;#039;ringbuf_write&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="kernel\ringbuf.c" line="10"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;rs232_init&amp;#039; is never used." verbose="The function &amp;#039;rs232_init&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="drivers\rs232.c" line="5"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;rs232_read_byte&amp;#039; is never used." verbose="The function &amp;#039;rs232_read_byte&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="drivers\rs232.c" line="26"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;rs232_send_string&amp;#039; is never used." verbose="The function &amp;#039;rs232_send_string&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="drivers\rs232.c" line="43"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;rs232_send_string_len&amp;#039; is never used." verbose="The function &amp;#039;rs232_send_string_len&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="drivers\rs232.c" line="48"/>
+        </error>
+        <error id="unusedFunction" severity="style" msg="The function &amp;#039;sysclock_set_utc_offset&amp;#039; is never used." verbose="The function &amp;#039;sysclock_set_utc_offset&amp;#039; is never used." cwe="561" sinceDate="2021-08-29">
+            <location file="drivers\sysclock.c" line="35"/>
+        </error>
+    </errors>
+</results>

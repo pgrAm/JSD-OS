@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="1102978493">
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/drivers/portio.h:15:20" call-funcname="outb" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/drivers/isa_dma.c" line="77" col="9" call-argexpr="0x00" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/drivers/portio.h:15:20" call-funcname="outb" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/drivers/isa_dma.c" line="79" col="9" call-argexpr="offset&0x00FF" call-argvaluetype="0" call-argvalue="0" warning="true">
+  <path file="C:\Users\jaked\source\repos\JSD-OS\drivers\isa_dma.c" line="65" col="13" info="Assuming that condition 'physbuf>0xFFFFFF' is not redundant"/>
+  <path file="C:\Users\jaked\source\repos\JSD-OS\drivers\isa_dma.c" line="72" col="26" info="Assignment 'offset=physbuf&0xFFFF', assigned value is 0"/>
+</function-call><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/drivers/portio.h:15:20" call-funcname="outb" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/drivers/isa_dma.c" line="80" col="9" call-argexpr="(offset&0xFF00)>>8" call-argvaluetype="0" call-argvalue="0" warning="true">
+  <path file="C:\Users\jaked\source\repos\JSD-OS\drivers\isa_dma.c" line="65" col="13" info="Assuming that condition 'physbuf>0xFFFFFF' is not redundant"/>
+  <path file="C:\Users\jaked\source\repos\JSD-OS\drivers\isa_dma.c" line="72" col="26" info="Assignment 'offset=physbuf&0xFFFF', assigned value is 0"/>
+</function-call>  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="isa_dma_allocate_buffer" lineNumber="20"/>
+    <functiondecl functionName="isa_dma_free_buffer" lineNumber="40"/>
+    <functiondecl functionName="isa_dma_begin_transfer" lineNumber="45"/>
+    <functioncall functionName="NULL"/>
+    <functioncall functionName="PAGE_RW"/>
+    <functioncall functionName="PAGE_SIZE"/>
+    <functioncall functionName="address"/>
+    <functioncall functionName="asm"/>
+    <functioncall functionName="buf"/>
+    <functioncall functionName="buffer"/>
+    <functioncall functionName="channel"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="long"/>
+    <functioncall functionName="memmanager_allocate_physical_in_range"/>
+    <functioncall functionName="memmanager_free_pages"/>
+    <functioncall functionName="memmanager_get_physical"/>
+    <functioncall functionName="memmanager_map_to_new_pages"/>
+    <functioncall functionName="outb"/>
+    <functioncall functionName="physbuf"/>
+    <functioncall functionName="physical"/>
+    <functioncall functionName="printf"/>
+    <functioncall functionName="size"/>
+    <functioncall functionName="size_in_pages"/>
+    <functioncall functionName="start"/>
+    <functioncall functionName="uint32_t"/>
+  </FileInfo>
+</analyzerinfo>

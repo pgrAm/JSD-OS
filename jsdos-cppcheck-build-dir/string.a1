@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="2252076244">
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:5:13" my-argnr="1" my-argname="str" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="7" col="13" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:57:5" my-argnr="1" my-argname="s1" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="59" col="12" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:67:5" my-argnr="1" my-argname="s1" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="69" col="12" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:158:7" my-argnr="2" my-argname="source" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="160" col="44" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:164:7" my-argnr="1" my-argname="destination" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="166" col="9" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:164:7" my-argnr="2" my-argname="source" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="166" col="22" value="0"/>
+  </FileInfo>
+  <FileInfo check="Uninitialized variables">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:5:13" my-argnr="1" my-argname="str" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="7" col="13" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:57:5" my-argnr="1" my-argname="s1" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="59" col="12" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:67:5" my-argnr="1" my-argname="s1" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="69" col="12" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:149:8" my-argnr="1" my-argname="str" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="153" col="10" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:158:7" my-argnr="2" my-argname="source" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="160" col="44" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/clib/string.c:164:7" my-argnr="2" my-argname="source" file="C:/Users/jaked/source/repos/JSD-OS/clib/string.c" line="166" col="22" value="0"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="strchr" lineNumber="5"/>
+    <functiondecl functionName="strtok" lineNumber="18"/>
+    <functiondecl functionName="strcmp" lineNumber="57"/>
+    <functiondecl functionName="strcasecmp" lineNumber="67"/>
+    <functiondecl functionName="memcmp" lineNumber="89"/>
+    <functiondecl functionName="strlen" lineNumber="149"/>
+    <functiondecl functionName="strcat" lineNumber="158"/>
+    <functiondecl functionName="strcpy" lineNumber="164"/>
+    <functiondecl functionName="memmove" lineNumber="170"/>
+    <functioncall functionName="NULL"/>
+    <functioncall functionName="buffer"/>
+    <functioncall functionName="char"/>
+    <functioncall functionName="character"/>
+    <functioncall functionName="continue"/>
+    <functioncall functionName="delimiters"/>
+    <functioncall functionName="dest"/>
+    <functioncall functionName="destination"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="memcpy"/>
+    <functioncall functionName="num"/>
+    <functioncall functionName="ptr1"/>
+    <functioncall functionName="ptr2"/>
+    <functioncall functionName="s2"/>
+    <functioncall functionName="source"/>
+    <functioncall functionName="src"/>
+    <functioncall functionName="str"/>
+    <functioncall functionName="strlen"/>
+    <functioncall functionName="toupper"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

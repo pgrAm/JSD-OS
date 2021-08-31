@@ -1,0 +1,107 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="1754005211">
+        <error id="uninitStructMember" severity="error" msg="Uninitialized struct member: f.bytes_per_sector" verbose="Uninitialized struct member: f.bytes_per_sector" cwe="457" file0="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\drivers\formats\fat12.c" line="257" column="5"/>
+            <symbol>f.bytes_per_sector</symbol>
+        </error>
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:123:6" call-funcname="fat12_do_read_dir" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="206" col="19" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:123:6" call-funcname="fat12_do_read_dir" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="201" col="2" my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.h:13:6" my-argnr="1"/>
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:123:6" call-funcname="fat12_do_read_dir" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="201" col="2" my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.h:13:6" my-argnr="3"/>
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:123:6" call-funcname="fat12_do_read_dir" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="206" col="2" my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:204:6" my-argnr="1"/>
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:123:6" call-funcname="fat12_do_read_dir" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="206" col="2" my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:204:6" my-argnr="2"/>
+  </FileInfo>
+  <FileInfo check="Null pointer">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:78:8" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="80" col="25" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:83:6" my-argnr="1" my-argname="fd" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="85" col="33" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:123:6" my-argnr="1" my-argname="dest" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="129" col="2" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:123:6" my-argnr="3" my-argname="fd" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="125" col="47" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:209:8" my-argnr="2" my-argname="fd" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="211" col="33" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.h:12:8" my-argnr="3" my-argname="fd" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="233" col="33" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.h:10:6" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="250" col="2" value="0"/>
+  </FileInfo>
+  <FileInfo check="Uninitialized variables">
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:78:8" my-argnr="1" my-argname="d" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="80" col="25" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:83:6" my-argnr="1" my-argname="fd" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="85" col="33" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:123:6" my-argnr="3" my-argname="fd" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="125" col="47" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c:209:8" my-argnr="2" my-argname="fd" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="211" col="33" value="0"/>
+    <unsafe-usage my-id="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.h:12:8" my-argnr="3" my-argname="fd" file="C:/Users/jaked/source/repos/JSD-OS/drivers/formats/fat12.c" line="233" col="33" value="0"/>
+  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="fat12_cluster_to_lba" lineNumber="78"/>
+    <functiondecl functionName="fat12_read_bios_block" lineNumber="83"/>
+    <functiondecl functionName="fat12_time_to_time_t" lineNumber="103"/>
+    <functiondecl functionName="fat12_do_read_dir" lineNumber="123"/>
+    <functiondecl functionName="fat12_read_dir" lineNumber="199"/>
+    <functiondecl functionName="fat12_mount_directory" lineNumber="204"/>
+    <functiondecl functionName="fat12_get_next_cluster" lineNumber="209"/>
+    <functiondecl functionName="fat12_get_relative_cluster" lineNumber="231"/>
+    <functiondecl functionName="fat12_mount_disk" lineNumber="247"/>
+    <functiondecl functionName="fat12_read_clusters" lineNumber="274"/>
+    <functioncall functionName="VOLUME_ID"/>
+    <functioncall functionName="blocks_per_sector"/>
+    <functioncall functionName="boot_sector"/>
+    <functioncall functionName="break"/>
+    <functioncall functionName="bytes_per_sector"/>
+    <functioncall functionName="char"/>
+    <functioncall functionName="cluster"/>
+    <functioncall functionName="cluster_size"/>
+    <functioncall functionName="created_date"/>
+    <functioncall functionName="created_time"/>
+    <functioncall functionName="d"/>
+    <functioncall functionName="datasector"/>
+    <functioncall functionName="dest"/>
+    <functioncall functionName="ent_offset"/>
+    <functioncall functionName="ext_length"/>
+    <functioncall functionName="extension"/>
+    <functioncall functionName="f"/>
+    <functioncall functionName="fat"/>
+    <functioncall functionName="fat12_cluster_to_lba"/>
+    <functioncall functionName="fat12_do_read_dir"/>
+    <functioncall functionName="fat12_drive"/>
+    <functioncall functionName="fat12_get_next_cluster"/>
+    <functioncall functionName="fat12_mount_directory"/>
+    <functioncall functionName="fat12_read_bios_block"/>
+    <functioncall functionName="fat12_time_to_time_t"/>
+    <functioncall functionName="fat_sector"/>
+    <functioncall functionName="fd"/>
+    <functioncall functionName="file_handle"/>
+    <functioncall functionName="file_size"/>
+    <functioncall functionName="file_time"/>
+    <functioncall functionName="filesystem_allocate_buffer"/>
+    <functioncall functionName="filesystem_free_buffer"/>
+    <functioncall functionName="filesystem_read_blocks_from_disk"/>
+    <functioncall functionName="first_cluster"/>
+    <functioncall functionName="flags"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="fs_impl_data"/>
+    <functioncall functionName="full_name"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="index"/>
+    <functioncall functionName="location"/>
+    <functioncall functionName="malloc"/>
+    <functioncall functionName="memcpy"/>
+    <functioncall functionName="minimum_block_size"/>
+    <functioncall functionName="mktime"/>
+    <functioncall functionName="modified_date"/>
+    <functioncall functionName="modified_time"/>
+    <functioncall functionName="name"/>
+    <functioncall functionName="num_files"/>
+    <functioncall functionName="raw_directory"/>
+    <functioncall functionName="reserved_sectors"/>
+    <functioncall functionName="return"/>
+    <functioncall functionName="root"/>
+    <functioncall functionName="root_entries"/>
+    <functioncall functionName="root_location"/>
+    <functioncall functionName="root_size"/>
+    <functioncall functionName="sector"/>
+    <functioncall functionName="sectors_per_FAT"/>
+    <functioncall functionName="sectors_per_cluster"/>
+    <functioncall functionName="selected_drive"/>
+    <functioncall functionName="sizeof"/>
+    <functioncall functionName="strcat"/>
+    <functioncall functionName="strcpy"/>
+    <functioncall functionName="strtok"/>
+    <functioncall functionName="type"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>

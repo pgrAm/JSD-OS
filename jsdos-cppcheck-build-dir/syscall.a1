@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="3905076079">
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="_empty" lineNumber="16"/>
+    <functiondecl functionName="setup_syscalls" lineNumber="53"/>
+    <functioncall functionName="IDT_SEGMENT_KERNEL"/>
+    <functioncall functionName="IDT_SOFTWARE_INTERRUPT"/>
+    <functioncall functionName="exit_process"/>
+    <functioncall functionName="filesystem_close_directory"/>
+    <functioncall functionName="filesystem_close_file"/>
+    <functioncall functionName="filesystem_find_file_by_path"/>
+    <functioncall functionName="filesystem_get_file_in_dir"/>
+    <functioncall functionName="filesystem_get_file_info"/>
+    <functioncall functionName="filesystem_get_root_directory"/>
+    <functioncall functionName="filesystem_open_directory"/>
+    <functioncall functionName="filesystem_open_directory_handle"/>
+    <functioncall functionName="filesystem_open_file"/>
+    <functioncall functionName="filesystem_open_file_handle"/>
+    <functioncall functionName="filesystem_read_file"/>
+    <functioncall functionName="get_keypress"/>
+    <functioncall functionName="get_keystate"/>
+    <functioncall functionName="handle_syscall"/>
+    <functioncall functionName="idt_install_handler"/>
+    <functioncall functionName="map_video_memory"/>
+    <functioncall functionName="memmanager_free_pages"/>
+    <functioncall functionName="memmanager_virtual_alloc"/>
+    <functioncall functionName="set_cursor_offset"/>
+    <functioncall functionName="set_video_mode"/>
+    <functioncall functionName="sizeof"/>
+    <functioncall functionName="spawn_process"/>
+    <functioncall functionName="syscall_table"/>
+    <functioncall functionName="sysclock_get_master_time"/>
+    <functioncall functionName="sysclock_get_ticks"/>
+    <functioncall functionName="sysclock_get_utc_offset"/>
+    <functioncall functionName="wait_and_get_keypress"/>
+  </FileInfo>
+</analyzerinfo>

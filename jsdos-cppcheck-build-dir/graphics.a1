@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<analyzerinfo checksum="23026567">
+        <error id="variableScope" severity="style" msg="The scope of the variable &apos;cursorstore&apos; can be reduced." verbose="The scope of the variable &apos;cursorstore&apos; can be reduced. Warning: Be careful when fixing this message, especially when there are inner loops. Here is an example where cppcheck will write that the scope for &apos;i&apos; can be reduced:\012void f(int x)\012{\012    int i = 0;\012    if (x) {\012        // it&apos;s safe to move &apos;int i = 0;&apos; here\012        for (int n = 0; n &lt; 10; ++n) {\012            // it is possible but not safe to move &apos;int i = 0;&apos; here\012            do_something(&amp;i);\012        }\012    }\012}\012When you see this message it is always safe to reduce the variable scope 1 level." cwe="398" file0="C:/Users/jaked/source/repos/JSD-OS/api/graphics/graphics.c">
+            <location file="C:\Users\jaked\source\repos\JSD-OS\api\graphics\graphics.c" line="153" column="18"/>
+            <symbol>cursorstore</symbol>
+        </error>
+  <FileInfo check="ctu">
+<function-call call-id="C:/Users/jaked/source/repos/JSD-OS/api/graphics/graphics.c:47:6" call-funcname="set_cursor_offset" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/api/graphics/graphics.c" line="80" col="20" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/api/graphics/graphics.c:47:6" call-funcname="set_cursor_offset" call-argnr="1" file="C:/Users/jaked/source/repos/JSD-OS/api/graphics/graphics.c" line="129" col="19" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/api/graphics/graphics.c:115:6" call-funcname="set_cursor_position" call-argnr="2" file="C:/Users/jaked/source/repos/JSD-OS/api/graphics/graphics.c" line="145" col="21" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/><function-call call-id="C:/Users/jaked/source/repos/JSD-OS/api/graphics/graphics.c:37:6" call-funcname="set_color" call-argnr="3" file="C:/Users/jaked/source/repos/JSD-OS/api/graphics/graphics.c" line="200" col="16" call-argexpr="0" call-argvaluetype="0" call-argvalue="0"/>  </FileInfo>
+  <FileInfo check="CheckUnusedFunctions">
+    <functiondecl functionName="get_current_draw_pointer" lineNumber="18"/>
+    <functiondecl functionName="set_color" lineNumber="37"/>
+    <functiondecl functionName="set_cursor_offset" lineNumber="47"/>
+    <functiondecl functionName="video_erase_chars" lineNumber="58"/>
+    <functiondecl functionName="initialize_text_mode" lineNumber="71"/>
+    <functiondecl functionName="set_cursor_visibility" lineNumber="100"/>
+    <functiondecl functionName="set_cursor_position" lineNumber="115"/>
+    <functiondecl functionName="video_clear" lineNumber="121"/>
+    <functiondecl functionName="clear_row" lineNumber="132"/>
+    <functiondecl functionName="scroll_up" lineNumber="142"/>
+    <functiondecl functionName="handle_escape_sequence" lineNumber="151"/>
+    <functiondecl functionName="handle_char" lineNumber="230"/>
+    <functiondecl functionName="print_string" lineNumber="258"/>
+    <functioncall functionName="NULL"/>
+    <functioncall functionName="NUMCOLS"/>
+    <functioncall functionName="VIDEOMEM"/>
+    <functioncall functionName="VIDEO_TEXT_MODE"/>
+    <functioncall functionName="argnum"/>
+    <functioncall functionName="bgr"/>
+    <functioncall functionName="bgr_color"/>
+    <functioncall functionName="break"/>
+    <functioncall functionName="bright"/>
+    <functioncall functionName="clear_row"/>
+    <functioncall functionName="clearval"/>
+    <functioncall functionName="col"/>
+    <functioncall functionName="color"/>
+    <functioncall functionName="currentchar"/>
+    <functioncall functionName="cursorpos"/>
+    <functioncall functionName="cursorstore"/>
+    <functioncall functionName="default"/>
+    <functioncall functionName="fgr"/>
+    <functioncall functionName="fgr_color"/>
+    <functioncall functionName="for"/>
+    <functioncall functionName="get_current_draw_pointer"/>
+    <functioncall functionName="handle_char"/>
+    <functioncall functionName="handle_escape_sequence"/>
+    <functioncall functionName="i"/>
+    <functioncall functionName="if"/>
+    <functioncall functionName="is_bright"/>
+    <functioncall functionName="isdigit"/>
+    <functioncall functionName="length"/>
+    <functioncall functionName="map_video_memory"/>
+    <functioncall functionName="memcpy"/>
+    <functioncall functionName="num"/>
+    <functioncall functionName="offset"/>
+    <functioncall functionName="output_position"/>
+    <functioncall functionName="return"/>
+    <functioncall functionName="row"/>
+    <functioncall functionName="scroll_up"/>
+    <functioncall functionName="sequence"/>
+    <functioncall functionName="set_color"/>
+    <functioncall functionName="set_cursor_offset"/>
+    <functioncall functionName="set_cursor_position"/>
+    <functioncall functionName="set_cursor_visibility"/>
+    <functioncall functionName="set_video_cursor"/>
+    <functioncall functionName="set_video_mode"/>
+    <functioncall functionName="source"/>
+    <functioncall functionName="str"/>
+    <functioncall functionName="switch"/>
+    <functioncall functionName="true"/>
+    <functioncall functionName="uint16_t"/>
+    <functioncall functionName="uint32_t"/>
+    <functioncall functionName="video_clear"/>
+    <functioncall functionName="vmem"/>
+    <functioncall functionName="while"/>
+  </FileInfo>
+</analyzerinfo>
