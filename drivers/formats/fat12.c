@@ -154,7 +154,6 @@ time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
 bool fat12_read_dir_entry(file_handle* dest, const fat_directory_entry* entry, size_t disk_num)
 {
 	if(entry->name[0] == 0) {
-		printf("end of dir\n");
 		return false;
 	} //end of directory
 
@@ -182,8 +181,6 @@ bool fat12_read_dir_entry(file_handle* dest, const fat_directory_entry* entry, s
 		}
 
 		dest->full_name = full_name;
-
-		printf("%s\n", full_name);
 
 		dest->size = entry->file_size;
 
@@ -232,7 +229,6 @@ void fat12_read_root_dir(directory_handle* dest, const filesystem_drive* fd)
 		if(!fat12_read_dir_entry(&dest->file_list[num_files], 
 								 &root_directory[entry_number], fd->index)) 
 		{
-			printf("end of dir\n");
 			break;
 		} //end of directory
 
