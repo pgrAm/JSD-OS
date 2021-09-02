@@ -64,13 +64,13 @@ int filesystem_setup_drives()
 	return num_drives;
 }
 
-SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(file_handle* f, int flags)
+SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_handle* f, int flags)
 {
 	if (f == NULL || !(f->flags & IS_DIR)) { return NULL; }
 
 	directory_handle* d = (directory_handle*)malloc(sizeof(directory_handle));
 
-	drives[f->disk]->fs_driver->read_dir(d, f->location_on_disk, drives[f->disk]);
+	drives[f->disk]->fs_driver->read_dir(d, f, drives[f->disk]);
 
 	return d;
 }
@@ -179,19 +179,24 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 	}
 }
 
-SYSCALL_HANDLER 
-file_stream* filesystem_open_file_handle(file_handle* f, int flags)
-{	
-	if (f == NULL || f->flags & IS_DIR) { return NULL; }
-
+file_stream* filesystem_create_stream(const file_handle* f)
+{
 	file_stream* stream = (file_stream*)malloc(sizeof(file_stream));
-	
+
 	stream->location_on_disk = 0;
 	stream->seekpos = 0;
 	stream->file = f;
 	stream->buffer = filesystem_allocate_buffer(drives[f->disk], CHUNK_READ_SIZE);
 
 	return stream;
+}
+
+SYSCALL_HANDLER 
+file_stream* filesystem_open_file_handle(file_handle* f, int flags)
+{	
+	if (f == NULL || f->flags & IS_DIR) { return NULL; }
+
+	return filesystem_create_stream(f);
 }
 
 SYSCALL_HANDLER 
@@ -360,12 +365,12 @@ SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
 	return 0;
 }
 
-void filesystem_read_blocks_from_disk(const filesystem_drive* d, 
+void filesystem_read_blocks_from_disk(const filesystem_drive* d,
 									  size_t block_number, 
 									  uint8_t* buf, 
-									  size_t num_bytes)
+									  size_t num_blocks)
 {
-	d->dsk_driver->read_blocks(d, block_number, buf, num_bytes);
+	d->dsk_driver->read_blocks(d, block_number, buf, num_blocks);
 }
 
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)

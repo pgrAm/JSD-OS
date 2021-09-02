@@ -32,7 +32,7 @@ file_handle;
 //an instance of an open file
 typedef struct 
 {
-	file_handle* file;
+	const file_handle* file;
 	uint8_t* buffer;
 	size_t seekpos;
 	fs_index location_on_disk;
@@ -84,7 +84,7 @@ SYSCALL_HANDLER file_handle* filesystem_find_file_by_path(const directory_handle
 
 SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
-SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(file_handle* f, int flags);
+SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_handle* f, int flags);
 SYSCALL_HANDLER directory_handle* filesystem_open_directory(const directory_handle* rel, const char* name, int flags);
 SYSCALL_HANDLER int filesystem_close_directory(directory_handle* dir);
 
@@ -95,7 +95,9 @@ SYSCALL_HANDLER int filesystem_close_file(file_stream* f);
 
 //driver interface
 
-void filesystem_read_blocks_from_disk(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
+file_stream* filesystem_create_stream(const file_handle* f);
+
+void filesystem_read_blocks_from_disk(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks);
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size);
 int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size);
 
@@ -119,7 +121,7 @@ struct filesystem_driver
 	int (*mount_disk)(filesystem_drive* d);
 	fs_index(*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_drive* fd);
 	fs_index(*read_chunks)(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd);
-	void (*read_dir)(directory_handle* dest, fs_index location, const filesystem_drive* fd);
+	void (*read_dir)(directory_handle* dest, const file_handle* dir, const filesystem_drive* fd);
 };
 
 struct disk_driver

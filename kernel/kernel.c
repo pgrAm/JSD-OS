@@ -77,7 +77,10 @@ void load_fat_driver()
 		{"filesystem_add_driver", &filesystem_add_driver},
 		{"filesystem_allocate_buffer", &filesystem_allocate_buffer},
 		{"filesystem_free_buffer", &filesystem_free_buffer},
-		{"filesystem_read_blocks_from_disk", &filesystem_read_blocks_from_disk}
+		{"filesystem_read_blocks_from_disk", &filesystem_read_blocks_from_disk},
+		{"filesystem_create_stream", &filesystem_create_stream},
+		{"__regcall3__filesystem_read_file", &filesystem_read_file},
+		{"__regcall3__filesystem_close_file", &filesystem_close_file}
 	};
 
 	load_driver("fat.drv", "fat_init", list, sizeof(list) / sizeof(func_info));

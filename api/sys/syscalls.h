@@ -194,7 +194,7 @@ static inline file_handle* find_path(const directory_handle* rel, const char* na
 	return (file_handle*)do_syscall_2(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name);
 }
 
-static inline directory_handle* open_dir_handle(file_handle* f, int flags)
+static inline directory_handle* open_dir_handle(const file_handle* f, int flags)
 {
 	return (directory_handle*)do_syscall_2(SYSCALL_OPEN_DIR_HANDLE, (uint32_t)f, (uint32_t)flags);
 }

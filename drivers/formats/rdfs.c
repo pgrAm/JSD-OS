@@ -28,7 +28,13 @@ int rdfs_mount_disk(filesystem_drive* fd)
 
 	if(memcmp(magic, "RDSK", 4) == 0)
 	{
-		rdfs_read_dir(&fd->root, sizeof(uint8_t) * 4, fd);
+		file_handle dir = {
+			NULL, NULL, NULL,
+			IS_DIR, fd->index, sizeof(uint8_t) * 4,
+			0, 0, 0
+		};
+
+		rdfs_read_dir(&fd->root, &dir, fd);
 		return MOUNT_SUCCESS;
 	}
 	return UNKNOWN_FILESYSTEM;
@@ -56,8 +62,10 @@ typedef struct
 	time_t		created;
 } __attribute__((packed)) rdfs_dir_entry;
 
-void rdfs_read_dir(directory_handle* dest, fs_index location, const filesystem_drive* fd)
+void rdfs_read_dir(directory_handle* dest, const file_handle* f, const filesystem_drive* fd)
 {
+	fs_index location = f->location_on_disk;
+
 	uint32_t num_files;
 	filesystem_read_blocks_from_disk(fd, location, (uint8_t*)&num_files, sizeof(uint32_t));
 
@@ -66,7 +74,6 @@ void rdfs_read_dir(directory_handle* dest, fs_index location, const filesystem_d
 	dest->drive = fd->index;
 
 	fs_index disk_location = location + sizeof(uint32_t);
-
 	for(size_t i = 0; i < num_files; i++)
 	{
 		rdfs_dir_entry entry;
