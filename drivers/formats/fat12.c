@@ -13,6 +13,11 @@
 
 #define DEFAULT_SECTOR_SIZE 512
 
+static int fat12_mount_disk(filesystem_drive* d);
+static size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes, const filesystem_drive* d);
+static size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd);
+static void fat12_read_dir(directory_handle* dest, const file_handle* location, const filesystem_drive* fd);
+
 struct fat12_drive
 {
 	size_t root_size;
@@ -30,6 +35,8 @@ struct fat12_drive
 	size_t cached_fat_sector; //the sector index of the cached fat data
 	uint8_t* fat; //the file allocation table
 };
+
+typedef struct fat12_drive fat12_drive;
 
 enum directory_attributes
 {
@@ -89,17 +96,12 @@ void fat_init()
 	filesystem_add_driver(&fat_driver);
 }
 
-size_t fat12_lba_to_cluster(const fat12_drive* d, size_t lba)
-{
-	return (lba - d->datasector) / d->sectors_per_cluster + 2;
-}
-
-size_t fat12_cluster_to_lba(const fat12_drive* d, size_t cluster)
+static inline size_t fat12_cluster_to_lba(const fat12_drive* d, size_t cluster)
 {
 	return (cluster - 2) * d->sectors_per_cluster + d->datasector;
 }
 
-int fat12_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
+static int fat12_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
 {
 	fat12_drive* d = (fat12_drive*)fd->fs_impl_data;
 
@@ -131,7 +133,7 @@ int fat12_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
 	return MOUNT_SUCCESS;
 }
 
-time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
+static time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
 {
 	struct tm file_time = {
 
@@ -151,59 +153,63 @@ time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
 	return mktime(&file_time);
 }
 
-bool fat12_read_dir_entry(file_handle* dest, const fat_directory_entry* entry, size_t disk_num)
+static size_t str_terminate(char* str, size_t max_len)
+{
+	size_t ext_length = 0;
+	while(ext_length < max_len && str[ext_length] != ' ')
+	{
+		ext_length++;
+	}
+	str[ext_length] = '\0';
+
+	return ext_length;
+}
+
+static bool fat12_read_dir_entry(file_handle* dest, const fat_directory_entry* entry, size_t disk_num)
 {
 	if(entry->name[0] == 0) {
 		return false;
 	} //end of directory
 
-	//if(!(entry->attributes & LFN))
+	char* full_name = (char*)malloc(13 * sizeof(char));
+
+	dest->name = (char*)malloc(9 * sizeof(char));
+	memcpy(dest->name, entry->name, 8);
+	str_terminate(dest->name, 8);
+
+	dest->type = (char*)malloc(4 * sizeof(char));
+	memcpy(dest->type, entry->extension, 3);
+	size_t ext_length = str_terminate(dest->type, 3);
+
+	strcpy(full_name, strtok(dest->name, " "));
+	if(ext_length > 0)
 	{
-		char* full_name = (char*)malloc(13 * sizeof(char));
-
-		dest->name = (char*)malloc(9 * sizeof(char));
-		memcpy(dest->name, entry->name, 8);
-		dest->name[8] = '\0';
-
-		dest->type = (char*)malloc(4 * sizeof(char));
-		memcpy(dest->type, entry->extension, 3);
-
-		//count chars in extension
-		size_t ext_length = 0;
-		for(; ext_length < 3 && entry->extension[ext_length] != ' '; ext_length++);
-		dest->type[ext_length] = '\0';
-
-		strcpy(full_name, strtok(dest->name, " "));
-		if(ext_length > 0)
-		{
-			strcat(full_name, ".");
-			strcat(full_name, strtok(dest->type, " "));
-		}
-
-		dest->full_name = full_name;
-
-		dest->size = entry->file_size;
-
-		dest->time_created = fat12_time_to_time_t(entry->created_date, entry->created_time);
-		dest->time_modified = fat12_time_to_time_t(entry->modified_date, entry->modified_time);
-
-		dest->disk = disk_num;
-		dest->location_on_disk = entry->first_cluster;
-
-		uint32_t flags = 0;
-
-		if(entry->attributes & DIRECTORY)
-		{
-			flags |= IS_DIR;
-		}
-
-		dest->flags = flags;
+		strcat(full_name, ".");
+		strcat(full_name, strtok(dest->type, " "));
 	}
+
+	dest->full_name = full_name;
+	dest->size = entry->file_size;
+
+	dest->time_created = fat12_time_to_time_t(entry->created_date, entry->created_time);
+	dest->time_modified = fat12_time_to_time_t(entry->modified_date, entry->modified_time);
+
+	dest->disk = disk_num;
+	dest->location_on_disk = entry->first_cluster;
+
+	uint32_t flags = 0;
+
+	if(entry->attributes & DIRECTORY)
+	{
+		flags |= IS_DIR;
+	}
+
+	dest->flags = flags;
 
 	return true;
 }
 
-void fat12_read_root_dir(directory_handle* dest, const filesystem_drive* fd)
+static void fat12_read_root_dir(directory_handle* dest, const filesystem_drive* fd)
 {
 	fat12_drive* d = (fat12_drive*)fd->fs_impl_data;
 
@@ -223,11 +229,15 @@ void fat12_read_root_dir(directory_handle* dest, const filesystem_drive* fd)
 									 d->root_size * d->blocks_per_sector);
 
 	size_t num_files = 0;
-	for(size_t entry_number = 0; entry_number < max_num_files; entry_number++)
+	for(size_t i = 0; i < max_num_files; i++)
 	{
+		if(root_directory[i].attributes & LFN)
+		{
+			continue;
+		}
 
 		if(!fat12_read_dir_entry(&dest->file_list[num_files], 
-								 &root_directory[entry_number], fd->index)) 
+								 &root_directory[i], fd->index)) 
 		{
 			break;
 		} //end of directory
@@ -240,25 +250,40 @@ void fat12_read_root_dir(directory_handle* dest, const filesystem_drive* fd)
 	filesystem_free_buffer(fd, (uint8_t*)root_directory, buffer_size);
 }
 
-void fat12_read_dir(directory_handle* dest, const file_handle* dir, const filesystem_drive* fd)
+/*char* strdup(const char* str1)
+{
+	size_t len = strlen(str1);
+	char* result = (char*)malloc(len);
+	memcpy(result, str1, len + 1);
+	return result;
+}*/
+
+static void fat12_read_dir(directory_handle* dest, const file_handle* dir, const filesystem_drive* fd)
 {
 	file_stream* dir_stream = filesystem_create_stream(dir);
 
-	size_t max_num_files = dir->size / sizeof(fat_directory_entry);
+	size_t max_num_files = 100;// dir->size / sizeof(fat_directory_entry);
 
-	dest->name = "";
+	//printf("\ndir %u\n", dir->size);
+
+	dest->name = "";// strdup(dir->full_name);
 	dest->file_list = (file_handle*)malloc(max_num_files * sizeof(file_handle));
 	dest->drive = fd->index;
 
 	size_t num_files = 0;
 
-	for (size_t entry_number = 0; entry_number < max_num_files; entry_number++)
+	for(size_t i = 0; i < max_num_files; i++)
 	{
 		fat_directory_entry entry;
 		if(filesystem_read_file(&entry, sizeof(fat_directory_entry), dir_stream) 
 		   != sizeof(fat_directory_entry))
 		{
 			break;
+		}
+
+		if(entry.attributes & LFN) 
+		{
+			continue;
 		}
 
 		if (!fat12_read_dir_entry(&dest->file_list[num_files], &entry, fd->index))
@@ -274,7 +299,7 @@ void fat12_read_dir(directory_handle* dest, const file_handle* dir, const filesy
 	filesystem_close_file(dir_stream);
 }
 
-size_t fat12_get_next_cluster(size_t cluster, const filesystem_drive* fd)
+static size_t fat12_get_next_cluster(size_t cluster, const filesystem_drive* fd)
 {
 	fat12_drive* d = (fat12_drive*)fd->fs_impl_data;
 	
@@ -296,7 +321,7 @@ size_t fat12_get_next_cluster(size_t cluster, const filesystem_drive* fd)
 	return table_value;
 }
 
-size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd)
+static size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd)
 {
 	fat12_drive* f = (fat12_drive*)fd->fs_impl_data;
 
@@ -312,7 +337,7 @@ size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const file
 	return cluster;
 }
 
-int fat12_mount_disk(filesystem_drive* d)
+static int fat12_mount_disk(filesystem_drive* d)
 {
 	fat12_drive* f = malloc(sizeof(fat12_drive));
 	d->fs_impl_data = f;
@@ -346,7 +371,7 @@ int fat12_mount_disk(filesystem_drive* d)
 	return MOUNT_SUCCESS;
 }
 
-size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, const filesystem_drive *d)
+static size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, const filesystem_drive *d)
 {
 	if (cluster >= FAT12_EOF)
 	{

@@ -9,6 +9,7 @@
 #include <kernel/multiboot.h>
 #include <kernel/task.h>
 #include <kernel/elf.h>
+#include <kernel/locks.h>
 #include <drivers/video.h>
 #include <drivers/sysclock.h>
 #include <drivers/kbrd.h>
@@ -96,7 +97,9 @@ void load_floppy_driver()
 		{"memmanager_allocate_physical_in_range", &memmanager_allocate_physical_in_range},
 		{"memmanager_map_to_new_pages", &memmanager_map_to_new_pages},
 		{"memmanager_get_physical", &memmanager_get_physical},
-		{"__regcall3__memmanager_free_pages", &memmanager_free_pages}
+		{"__regcall3__memmanager_free_pages", &memmanager_free_pages},
+		{"kernel_lock_mutex", &kernel_lock_mutex},
+		{"kernel_unlock_mutex", &kernel_unlock_mutex}
 		//{"isa_dma_begin_transfer", &isa_dma_begin_transfer}
 	};
 

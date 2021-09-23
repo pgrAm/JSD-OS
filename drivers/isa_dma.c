@@ -67,7 +67,7 @@ void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, uint8_t* buf, size_t 
 	//dma don't know wtf virtual adresses are, it needs the real deal (physical address)
 	uint32_t physbuf = memmanager_get_physical((uint32_t)buf);
 
-	if(!check_continuity(buf, size))
+	if(!check_continuity((uintptr_t)buf, size))
 	{
 		printf("Buffer must be physically contiguous\n");
 	}

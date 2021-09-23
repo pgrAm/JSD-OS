@@ -14,7 +14,7 @@ volatile size_t keybuf_front = 0;
 size_t keybuf_back = 0;
 key_type keybuf[KEY_BUFFER_SIZE];
 
-void add_keypress(key_type k)
+static void add_keypress(key_type k)
 {
 	keybuf[keybuf_front] = k;
 	keybuf_front = (keybuf_front + 1) % KEY_BUFFER_SIZE;
@@ -53,7 +53,7 @@ SYSCALL_HANDLER key_type wait_and_get_keypress()
 	return k;
 }
 
-bool virtual_keystates[NUM_VIRTUAL_KEYS];
+static bool virtual_keystates[NUM_VIRTUAL_KEYS];
 
 SYSCALL_HANDLER int get_keystate(key_type key)
 {

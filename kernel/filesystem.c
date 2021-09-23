@@ -288,20 +288,23 @@ fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 
 SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f)
 {
-	if(f == NULL)
+	if(f == NULL || f->file == NULL)
 	{
 		return 0;
 	}
 
-	if(f->seekpos >= f->file->size)
+	if(!(f->file->flags & IS_DIR))
 	{
-		return -1; // EOF
-	}
+		if(f->seekpos >= f->file->size)
+		{
+			return -1; // EOF
+		}
 
-	if(f->seekpos + len >= f->file->size)
-	{
-		//only read what is available
-		len = f->file->size - f->seekpos;
+		if(f->seekpos + len >= f->file->size)
+		{
+			//only read what is available
+			len = f->file->size - f->seekpos;
+		}
 	}
 	
 	fs_index location = filesystem_resolve_location_on_disk(f);

@@ -7,21 +7,24 @@
 
 extern multiboot_info* _multiboot;
 
-struct ramdisk_drive
+typedef struct ramdisk_drive
 {
 	uint8_t* base;
 	size_t size;
-};
+} ramdisk_drive;
 
-ramdisk_drive init_disk = {NULL, 0};
+static ramdisk_drive init_disk = {NULL, 0};
 
-disk_driver ramdisk_driver = {
+static void ramdisk_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
+static ramdisk_drive* ramdisk_get_drive(size_t index);
+
+static disk_driver ramdisk_driver = {
 	ramdisk_read_blocks,
 	NULL,
 	NULL
 };
 
-void ramdisk_read_blocks(const filesystem_drive* d, size_t offset, uint8_t* buf, size_t num_bytes)
+static void ramdisk_read_blocks(const filesystem_drive* d, size_t offset, uint8_t* buf, size_t num_bytes)
 {
 	ramdisk_drive* rd = (ramdisk_drive*)d->dsk_impl_data;
 
@@ -36,7 +39,7 @@ void ramdisk_read_blocks(const filesystem_drive* d, size_t offset, uint8_t* buf,
 	}
 }
 
-ramdisk_drive* ramdisk_get_drive(size_t index)
+static ramdisk_drive* ramdisk_get_drive(size_t index)
 {
 	if(init_disk.base == NULL)
 	{

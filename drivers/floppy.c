@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include <kernel/interrupt.h>
+#include <kernel/locks.h>
 #include <drivers/portio.h>
 #include <drivers/sysclock.h>
 #include <drivers/isa_dma.h>
@@ -32,10 +33,10 @@
 
 #define FLOPPY_BYTES_PER_SECTOR			512
 
-void floppy_sendbyte(uint8_t byte);
-uint8_t floppy_getbyte();
-void floppy_reset(uint8_t driveNum);
-void floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head);
+static void floppy_sendbyte(uint8_t byte);
+static uint8_t floppy_getbyte();
+static void floppy_reset(uint8_t driveNum);
+static void floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head);
 
 enum floppy_registers
 {
@@ -72,22 +73,32 @@ enum floppy_commands
 #define MFM_BIT 0x40
 #define MT_BIT 0x80
 
-bool motor_is_ready[2] = {false, false};
-volatile bool operation_complete = false;
+static bool motor_is_ready[2] = {false, false};
+static volatile bool operation_complete = false;
 
-INTERRUPT_HANDLER void floppy_irq_handler(interrupt_frame* r)
+static void floppy_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
+static uint8_t* floppy_allocate_buffer(size_t size);
+static int floppy_free_buffer(uint8_t* buffer, size_t size);
+
+static disk_driver floppy_driver = {
+	floppy_read_blocks,
+	floppy_allocate_buffer,
+	floppy_free_buffer
+};
+
+static INTERRUPT_HANDLER void floppy_irq_handler(interrupt_frame* r)
 {
 	operation_complete = true;
 	send_eoi(6 + 32);
 }
 
-void wait_for_irq6(void)
+static void wait_for_irq6(void)
 {
 	while(!operation_complete); // wait for irq6 to signal operation complete
 	operation_complete = false;
 }
 
-struct floppy_drive
+typedef struct 
 {
 	uint8_t type;
 	uint8_t sectorsPerTrack;
@@ -95,16 +106,17 @@ struct floppy_drive
 	uint8_t numTracks;
 
 	uint8_t drive_index;
-};
+	kernel_mutex mutex;
+} floppy_drive;
 
-floppy_drive floppy_drives[2];
+static floppy_drive floppy_drives[2];
+static size_t num_floppy_drives = 0;
 
-size_t num_floppy_drives = 0;
-
-void floppy_set_drive_params(uint8_t type, floppy_drive* f)
+static void floppy_set_drive_params(uint8_t type, floppy_drive* f)
 {
 	f->type = type;
-	
+	f->mutex.ownerPID = -1;
+
 	switch(type)
 	{
 		case 1:
@@ -139,7 +151,7 @@ void floppy_set_drive_params(uint8_t type, floppy_drive* f)
 	num_floppy_drives++;
 }
 
-void floppy_configure()
+static void floppy_configure()
 {
 	floppy_sendbyte(CONFIGURE);
 	floppy_sendbyte(0);
@@ -147,18 +159,12 @@ void floppy_configure()
 	floppy_sendbyte(8);
 }
 
-disk_driver floppy_driver = {
-	floppy_read_blocks,
-	floppy_allocate_buffer,
-	floppy_free_buffer
-};
-
-uint8_t* floppy_allocate_buffer(size_t size)
+static uint8_t* floppy_allocate_buffer(size_t size)
 {
 	return isa_dma_allocate_buffer(size);
 }
 
-int floppy_free_buffer(uint8_t* buffer, size_t size)
+static int floppy_free_buffer(uint8_t* buffer, size_t size)
 {
 	return isa_dma_free_buffer(buffer, size);
 }
@@ -181,11 +187,12 @@ void floppy_init()
 	for(int i = 0; i < num_floppy_drives; i++)
 	{
 		floppy_reset(i);
-		filesystem_add_drive(&floppy_driver, floppy_get_drive(i), 512);
+		floppy_drives[i].drive_index = i;
+		filesystem_add_drive(&floppy_driver, &floppy_drives[i], 512);
 	}
 }
 
-void lba_to_chs(floppy_drive* d, size_t lba, size_t *cylinder, size_t *head, size_t *sector)
+static void lba_to_chs(floppy_drive* d, size_t lba, size_t *cylinder, size_t *head, size_t *sector)
 {
 	*sector = (lba % d->sectorsPerTrack) + 1;
 	
@@ -196,7 +203,7 @@ void lba_to_chs(floppy_drive* d, size_t lba, size_t *cylinder, size_t *head, siz
 	*head = track % d->headsPerCylinder;
 }
 
-void floppy_read_sectors(floppy_drive* d, size_t lba, uint8_t* buf, size_t num_sectors)
+static void floppy_read_sectors(floppy_drive* d, size_t lba, uint8_t* buf, size_t num_sectors)
 {
 	if (lba > d->numTracks * d->sectorsPerTrack* d->headsPerCylinder)
 	{
@@ -253,18 +260,17 @@ void floppy_read_sectors(floppy_drive* d, size_t lba, uint8_t* buf, size_t num_s
 	printf("Catastrophic read failure at sector %d\n", lba);
 }
 
-void floppy_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks)
+static void floppy_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks)
 {
-	floppy_read_sectors((floppy_drive*)d->dsk_impl_data, block_number, buf, num_blocks);
-}
+	floppy_drive* disk = (floppy_drive*)d->dsk_impl_data;
 
-floppy_drive* floppy_get_drive(size_t index)
-{
-	return &floppy_drives[index];
+	kernel_lock_mutex(&disk->mutex);
+	floppy_read_sectors(disk, block_number, buf, num_blocks);
+	kernel_unlock_mutex(&disk->mutex);
 }
 
 //sendbyte() routine from intel manual
-void floppy_sendbyte(uint8_t byte)
+static void floppy_sendbyte(uint8_t byte)
 {
 	for(uint8_t tmo = 0; tmo < 128; tmo++) 
 	{
@@ -279,7 +285,7 @@ void floppy_sendbyte(uint8_t byte)
 }
 
 //getbyte() routine from intel manual
-uint8_t floppy_getbyte()
+static uint8_t floppy_getbyte()
 {
 	for(uint8_t tmo = 0; tmo < 128; tmo++) 
 	{
@@ -294,7 +300,7 @@ uint8_t floppy_getbyte()
 	return -1; //read timeout 
 }
 
-void floppy_motor_on(uint8_t driveNum)
+static void floppy_motor_on(uint8_t driveNum)
 {
 	if(!motor_is_ready[driveNum]) 
 	{
@@ -304,7 +310,7 @@ void floppy_motor_on(uint8_t driveNum)
 	}
 }
 
-void floppy_motor_off(uint8_t driveNum)
+static void floppy_motor_off(uint8_t driveNum)
 {
 	if(motor_is_ready[driveNum]) 
 	{
@@ -314,7 +320,7 @@ void floppy_motor_off(uint8_t driveNum)
 	}
 }
 
-int floppy_calibrate(uint8_t driveNum) 
+static int floppy_calibrate(uint8_t driveNum)
 {
     floppy_motor_on(driveNum);
 
@@ -348,8 +354,7 @@ int floppy_calibrate(uint8_t driveNum)
     return -1;
 }
 
-
-void floppy_reset(uint8_t driveNum)
+static void floppy_reset(uint8_t driveNum)
 {
 	outb(DIGITAL_OUTPUT_REGISTER, 0x00);
 	outb(DIGITAL_OUTPUT_REGISTER, 0x0C);
@@ -371,7 +376,7 @@ void floppy_reset(uint8_t driveNum)
 	floppy_calibrate(driveNum);
 }
 
-void floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head)
+static void floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head)
 {
 	for(int i = 0; i < 3; i++)
 	{

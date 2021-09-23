@@ -4,7 +4,12 @@
 
 #include "rdfs.h"
 
-filesystem_driver rdfs_driver = {
+static int rdfs_mount_disk(filesystem_drive* d);
+static fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_drive* fd);
+static fs_index rdfs_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd);
+static void rdfs_read_dir(directory_handle* dest, const file_handle* f, const filesystem_drive* fd);
+
+static filesystem_driver rdfs_driver = {
 	rdfs_mount_disk,
 	rdfs_get_relative_location,
 	rdfs_read_chunks,
@@ -16,7 +21,7 @@ void rdfs_init()
 	filesystem_add_driver(&rdfs_driver);
 }
 
-int rdfs_mount_disk(filesystem_drive* fd)
+static int rdfs_mount_disk(filesystem_drive* fd)
 {
 	if(fd->minimum_block_size > 1 || fd->dsk_driver->allocate_buffer != NULL)
 	{
@@ -24,7 +29,7 @@ int rdfs_mount_disk(filesystem_drive* fd)
 	}
 
 	uint8_t magic[4];
-	filesystem_read_blocks_from_disk(fd, 0, magic, sizeof(uint8_t)*4);
+	filesystem_read_blocks_from_disk(fd, 0, &magic[0], sizeof(magic));
 
 	if(memcmp(magic, "RDSK", 4) == 0)
 	{
@@ -40,12 +45,12 @@ int rdfs_mount_disk(filesystem_drive* fd)
 	return UNKNOWN_FILESYSTEM;
 }
 
-fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_drive* fd)
+static fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_drive* fd)
 {
 	return location + byte_offset;
 }
 
-fs_index rdfs_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd)
+static fs_index rdfs_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd)
 {
 	filesystem_read_blocks_from_disk(fd, location, dest, num_bytes);
 	return location + num_bytes;
@@ -62,7 +67,7 @@ typedef struct
 	time_t		created;
 } __attribute__((packed)) rdfs_dir_entry;
 
-void rdfs_read_dir(directory_handle* dest, const file_handle* f, const filesystem_drive* fd)
+static void rdfs_read_dir(directory_handle* dest, const file_handle* f, const filesystem_drive* fd)
 {
 	fs_index location = f->location_on_disk;
 
