@@ -95,7 +95,7 @@ static INTERRUPT_HANDLER void AT_keyboard_handler(interrupt_frame* r)
 	handle_keyevent(key_translation_table[lookup], pressed);
 }
 
-void AT_keyboard_init()
+void AT_kbrd_init()
 {
 	irq_install_handler(1, AT_keyboard_handler);
 }

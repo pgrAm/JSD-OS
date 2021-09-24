@@ -1,3 +1,4 @@
+#include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -29,7 +30,7 @@ typedef struct {
 	void* address;
 } func_info;
 
-void load_driver(const char* filename, const char* func_name, 
+void load_driver(const char* filename, const char* func_name,
 				 const func_info* functions, size_t num_functions)
 {
 	dynamic_object ob;
@@ -41,7 +42,7 @@ void load_driver(const char* filename, const char* func_name,
 	for(size_t i = 0; i < num_functions; i++)
 	{
 		//printf("key = %s, value = %X\n", functions[i].name, (uint32_t)functions[i].address);
-		hashmap_insert(ob.symbol_map, 
+		hashmap_insert(ob.symbol_map,
 					   functions[i].name, (uint32_t)functions[i].address);
 	}
 
@@ -65,9 +66,9 @@ void load_driver(const char* filename, const char* func_name,
 	}
 }
 
-void load_fat_driver()
+void load_drivers()
 {
-	func_info list[] = {
+	const func_info func_list[] = {
 		{"printf", &printf},
 		{"malloc", &malloc},
 		{"free", &free},
@@ -75,46 +76,78 @@ void load_fat_driver()
 		{"strcat", &strcat},
 		{"strcpy", &strcpy},
 		{"mktime", &mktime},
+		{"filesystem_add_drive", &filesystem_add_drive},
 		{"filesystem_add_driver", &filesystem_add_driver},
 		{"filesystem_allocate_buffer", &filesystem_allocate_buffer},
 		{"filesystem_free_buffer", &filesystem_free_buffer},
 		{"filesystem_read_blocks_from_disk", &filesystem_read_blocks_from_disk},
 		{"filesystem_create_stream", &filesystem_create_stream},
 		{"__regcall3__filesystem_read_file", &filesystem_read_file},
-		{"__regcall3__filesystem_close_file", &filesystem_close_file}
-	};
-
-	load_driver("fat.drv", "fat_init", list, sizeof(list) / sizeof(func_info));
-}
-
-void load_floppy_driver()
-{
-	func_info list[] = {
-		{"irq_install_handler", &irq_install_handler},
-		{"printf", &printf},
-		{"filesystem_add_drive", &filesystem_add_drive},
+		{"__regcall3__filesystem_close_file", &filesystem_close_file},
+		{"irq_install_handler",& irq_install_handler},
 		{"sysclock_sleep", &sysclock_sleep},
 		{"memmanager_allocate_physical_in_range", &memmanager_allocate_physical_in_range},
 		{"memmanager_map_to_new_pages", &memmanager_map_to_new_pages},
 		{"memmanager_get_physical", &memmanager_get_physical},
 		{"__regcall3__memmanager_free_pages", &memmanager_free_pages},
 		{"kernel_lock_mutex", &kernel_lock_mutex},
-		{"kernel_unlock_mutex", &kernel_unlock_mutex}
-		//{"isa_dma_begin_transfer", &isa_dma_begin_transfer}
-	};
-
-	load_driver("floppy.drv", "floppy_init", list, sizeof(list) / sizeof(func_info));
-}
-
-void load_kbrd_driver()
-{
-	func_info list[] = {
-		{"irq_install_handler", &irq_install_handler},
-		{"printf", &printf},
+		{"kernel_unlock_mutex", &kernel_unlock_mutex},
 		{"handle_keyevent", &handle_keyevent}
 	};
 
-	load_driver("kbrd.drv", "AT_keyboard_init", list, sizeof(list) / sizeof(func_info));
+	file_stream* f = filesystem_open_file(NULL, "init.sys", 0);
+
+	if(!f)
+	{
+		printf("Cannot find init.sys!\n");
+		while(true);
+	}
+
+	char buffer[80];
+	size_t index = 0;
+	bool eof = false;
+	while(!eof)
+	{
+		char c;
+		if(filesystem_read_file(&c, sizeof(char), f) == -1)
+		{
+			eof = true;
+			c = '\n';
+		}
+
+		if(c == '\n' || index == 80)
+		{
+			buffer[index] = '\0';
+
+			char* token = strtok(buffer, " ");
+
+			if(strcmp(token, "load_driver") == 0)
+			{
+				char* filename = strtok(NULL, " ");
+				size_t len = strlen(filename);
+
+				char* init_func = malloc(len + 9);
+				memcpy(init_func, filename, len + 1);
+
+				char* dot_pos = strchr(init_func, '.');
+				if(dot_pos != NULL)
+				{
+					memcpy(dot_pos, "_init", 5 + 1);
+				}
+
+				printf("loading driver %s, calling %s\n", filename, init_func);
+
+				load_driver(filename, init_func, func_list, sizeof(func_list) / sizeof(func_info));
+				free(init_func);
+			}
+
+			index = 0;
+		}
+		else if(c != '\r')
+		{
+			buffer[index++] = c;
+		}
+	}
 }
 
 void kernel_main()
@@ -156,15 +189,7 @@ void kernel_main()
 	//memmanager_reserve_physical_memory(0x90000, 0x1000);
 	keyboard_init();
 
-	load_kbrd_driver();
-
-	//memmanager_reserve_physical_memory(0x30000, 0x1000);
-
-	//memmanager_print_all_mappings_to_physical_DEBUG(0x30000);
-	//memmanager_virtual_alloc(NULL, 1, PAGE_RW | PAGE_PRESENT);
-
-	load_floppy_driver();
-	load_fat_driver();
+	load_drivers();
 
 	filesystem_set_default_drive(1);
 
@@ -191,6 +216,6 @@ void kernel_main()
 	}
 
 	spawn_process("shell.elf", WAIT_FOR_PROCESS);
-	
+
 	for(;;);
 }

@@ -10,15 +10,29 @@
 #include "fat12.h"
 
 #define FAT12_EOF 0xFF8
+#define FAT16_EOF 0xFFF8
+#define FAT32_EOF 0x0FFFFFF8
+#define exFAT_EOF 0xFFFFFFF8
 
 #define DEFAULT_SECTOR_SIZE 512
 
-static int fat12_mount_disk(filesystem_drive* d);
-static size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes, const filesystem_drive* d);
-static size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd);
-static void fat12_read_dir(directory_handle* dest, const file_handle* location, const filesystem_drive* fd);
+static int fat_mount_disk(filesystem_drive* d);
+static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes, const filesystem_drive* d);
+static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd);
+static void fat_read_dir(directory_handle* dest, const file_handle* location, const filesystem_drive* fd);
 
-struct fat12_drive
+enum fat_type
+{
+	FAT_UNKNOWN = 0,
+	FAT_12,
+	FAT_16,
+	FAT_32,
+	exFAT
+};
+
+typedef enum fat_type fat_type;
+
+struct fat_drive
 {
 	size_t root_size;
 	size_t fats_size;
@@ -34,9 +48,13 @@ struct fat12_drive
 
 	size_t cached_fat_sector; //the sector index of the cached fat data
 	uint8_t* fat; //the file allocation table
+
+	size_t eof_value;
+
+	fat_type type;
 };
 
-typedef struct fat12_drive fat12_drive;
+typedef struct fat_drive fat_drive;
 
 enum directory_attributes
 {
@@ -84,11 +102,40 @@ typedef struct
 	uint32_t	total_sectors_big;
 } __attribute__((packed)) bpb;
 
+typedef struct
+{
+	uint32_t	table_size_32;
+	uint16_t	extended_flags;
+	uint16_t	fat_version;
+	uint32_t	root_cluster;
+	uint16_t	fat_info;
+	uint16_t	backup_BS_sector;
+	uint8_t 	reserved_0[12];
+	uint8_t		drive_number;
+	uint8_t 	reserved_1;
+	uint8_t		boot_signature;
+	uint32_t 	volume_id;
+	uint8_t		volume_label[11];
+	uint8_t		fat_type_label[8];
+
+}__attribute__((packed)) fat32_ext_bpb;
+
+typedef struct
+{
+	uint8_t		bios_drive_num;
+	uint8_t		reserved1;
+	uint8_t		boot_signature;
+	uint32_t	volume_id;
+	uint8_t		volume_label[11];
+	uint8_t		fat_type_label[8];
+
+}__attribute__((packed)) fat16_ext_bpb;
+
 filesystem_driver fat_driver = {
-	fat12_mount_disk,
-	fat12_get_relative_cluster,
-	fat12_read_clusters,
-	fat12_read_dir
+	fat_mount_disk,
+	fat_get_relative_cluster,
+	fat_read_clusters,
+	fat_read_dir
 };
 
 void fat_init()
@@ -96,14 +143,14 @@ void fat_init()
 	filesystem_add_driver(&fat_driver);
 }
 
-static inline size_t fat12_cluster_to_lba(const fat12_drive* d, size_t cluster)
+static inline size_t fat_cluster_to_lba(const fat_drive* d, size_t cluster)
 {
 	return (cluster - 2) * d->sectors_per_cluster + d->datasector;
 }
 
-static int fat12_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
+static int fat_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
 {
-	fat12_drive* d = (fat12_drive*)fd->fs_impl_data;
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
 	filesystem_read_blocks_from_disk(fd, 0, boot_sector, DEFAULT_SECTOR_SIZE / fd->minimum_block_size);
 
@@ -125,6 +172,39 @@ static int fat12_read_bios_block(const filesystem_drive* fd, uint8_t* boot_secto
 	d->reserved_sectors		= bios_block->reserved_sectors;
 	d->blocks_per_sector	= d->bytes_per_sector / fd->minimum_block_size;
 
+	size_t total_sectors = (bios_block->total_sectors == 0) ?
+		bios_block->total_sectors_big : bios_block->total_sectors;
+
+	size_t data_sectors = total_sectors - d->datasector;
+	size_t total_clusters = data_sectors / bios_block->sectors_per_cluster;
+
+	if(d->bytes_per_sector == 0)
+	{
+		d->type = exFAT;
+		d->eof_value = exFAT_EOF;
+	}
+	else if(total_clusters < 0xFF5)
+	{
+		d->type = FAT_12;
+		d->eof_value = FAT12_EOF;
+	}
+	else if(total_clusters < 0xFFF5)
+	{
+		d->type = FAT_16;
+		d->eof_value = FAT16_EOF;
+	}
+	else
+	{
+		d->type = FAT_32;
+		d->eof_value = FAT32_EOF;
+	}
+
+	if(d->type == exFAT || d->type == FAT_32)
+	{
+		fat32_ext_bpb* ext_bpb = (fat32_ext_bpb*)(boot_sector + sizeof(bpb));
+		d->root_location = ext_bpb->root_cluster;
+	}
+
 	if(d->bytes_per_sector < fd->minimum_block_size)
 	{
 		return DRIVE_NOT_SUPPORTED;
@@ -133,7 +213,7 @@ static int fat12_read_bios_block(const filesystem_drive* fd, uint8_t* boot_secto
 	return MOUNT_SUCCESS;
 }
 
-static time_t fat12_time_to_time_t(uint16_t date, uint16_t time)
+static time_t fat_time_to_time_t(uint16_t date, uint16_t time)
 {
 	struct tm file_time = {
 
@@ -165,7 +245,7 @@ static size_t str_terminate(char* str, size_t max_len)
 	return ext_length;
 }
 
-static bool fat12_read_dir_entry(file_handle* dest, const fat_directory_entry* entry, size_t disk_num)
+static bool fat_read_dir_entry(file_handle* dest, const fat_directory_entry* entry, size_t disk_num)
 {
 	if(entry->name[0] == 0) {
 		return false;
@@ -191,8 +271,8 @@ static bool fat12_read_dir_entry(file_handle* dest, const fat_directory_entry* e
 	dest->full_name = full_name;
 	dest->size = entry->file_size;
 
-	dest->time_created = fat12_time_to_time_t(entry->created_date, entry->created_time);
-	dest->time_modified = fat12_time_to_time_t(entry->modified_date, entry->modified_time);
+	dest->time_created = fat_time_to_time_t(entry->created_date, entry->created_time);
+	dest->time_modified = fat_time_to_time_t(entry->modified_date, entry->modified_time);
 
 	dest->disk = disk_num;
 	dest->location_on_disk = entry->first_cluster;
@@ -209,9 +289,16 @@ static bool fat12_read_dir_entry(file_handle* dest, const fat_directory_entry* e
 	return true;
 }
 
-static void fat12_read_root_dir(directory_handle* dest, const filesystem_drive* fd)
+static void fat_read_root_dir(directory_handle* dest, const filesystem_drive* fd)
 {
-	fat12_drive* d = (fat12_drive*)fd->fs_impl_data;
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+
+	if(d->type == exFAT || d->type == FAT_32)
+	{
+		file_handle f = {"", "", "", IS_DIR, fd->index, d->root_location, 0, 0, 0};
+		fat_read_dir(dest, &f, fd);
+		return;
+	}
 
 	size_t max_num_files = d->root_entries;
 
@@ -236,7 +323,7 @@ static void fat12_read_root_dir(directory_handle* dest, const filesystem_drive* 
 			continue;
 		}
 
-		if(!fat12_read_dir_entry(&dest->file_list[num_files], 
+		if(!fat_read_dir_entry(&dest->file_list[num_files], 
 								 &root_directory[i], fd->index)) 
 		{
 			break;
@@ -258,7 +345,7 @@ static void fat12_read_root_dir(directory_handle* dest, const filesystem_drive* 
 	return result;
 }*/
 
-static void fat12_read_dir(directory_handle* dest, const file_handle* dir, const filesystem_drive* fd)
+static void fat_read_dir(directory_handle* dest, const file_handle* dir, const filesystem_drive* fd)
 {
 	file_stream* dir_stream = filesystem_create_stream(dir);
 
@@ -286,7 +373,7 @@ static void fat12_read_dir(directory_handle* dest, const file_handle* dir, const
 			continue;
 		}
 
-		if (!fat12_read_dir_entry(&dest->file_list[num_files], &entry, fd->index))
+		if (!fat_read_dir_entry(&dest->file_list[num_files], &entry, fd->index))
 		{
 			break; 
 		}
@@ -299,52 +386,107 @@ static void fat12_read_dir(directory_handle* dest, const file_handle* dir, const
 	filesystem_close_file(dir_stream);
 }
 
-static size_t fat12_get_next_cluster(size_t cluster, const filesystem_drive* fd)
+static void read_from_fat(size_t fat_sector, const filesystem_drive* fd)
 {
-	fat12_drive* d = (fat12_drive*)fd->fs_impl_data;
-	
-	size_t fat_offset = cluster + (cluster / 2);
-	size_t fat_sector = d->reserved_sectors + (fat_offset / d->bytes_per_sector);
-	size_t ent_offset = fat_offset % d->bytes_per_sector;
-	
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+
 	if(d->cached_fat_sector != fat_sector)
 	{
 		filesystem_read_blocks_from_disk(fd, fat_sector, d->fat, d->blocks_per_sector);
 
 		d->cached_fat_sector = fat_sector;
 	}
-	
+}
+
+static size_t fat_get_next_cluster_32(size_t cluster, const filesystem_drive* fd)
+{
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+
+	size_t fat_offset = cluster * 2;
+	size_t fat_sector = d->reserved_sectors + (fat_offset / d->bytes_per_sector);
+	size_t ent_offset = fat_offset % d->bytes_per_sector;
+
+	read_from_fat(fat_sector, fd);
+
+	uint32_t table_value = *(uint32_t*)&d->fat[ent_offset];
+
+	if(d->type == exFAT)
+		return table_value;
+
+	return table_value & 0x0FFFFFFF;
+}
+
+static size_t fat_get_next_cluster_16(size_t cluster, const filesystem_drive* fd)
+{
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+
+	size_t fat_offset = cluster * 2;
+	size_t fat_sector = d->reserved_sectors + (fat_offset / d->bytes_per_sector);
+	size_t ent_offset = fat_offset % d->bytes_per_sector;
+
+	read_from_fat(fat_sector, fd);
+
+	return *(uint16_t*)&d->fat[ent_offset];
+}
+
+static size_t fat_get_next_cluster_12(size_t cluster, const filesystem_drive* fd)
+{
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+
+	size_t fat_offset = cluster + (cluster / 2);
+	size_t fat_sector = d->reserved_sectors + (fat_offset / d->bytes_per_sector);
+	size_t ent_offset = fat_offset % d->bytes_per_sector;
+
+	read_from_fat(fat_sector, fd);
+
 	uint16_t table_value = *(uint16_t*)&d->fat[ent_offset];
 
 	table_value = (cluster & 0x0001) ? table_value >> 4 : table_value & 0x0FFF;
-	
+
 	return table_value;
 }
 
-static size_t fat12_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd)
+static size_t fat_get_next_cluster(size_t cluster, const filesystem_drive* fd)
 {
-	fat12_drive* f = (fat12_drive*)fd->fs_impl_data;
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+
+	switch(d->type)
+	{
+	case FAT_12:
+		return fat_get_next_cluster_12(cluster, fd);
+	case FAT_16:
+		return fat_get_next_cluster_16(cluster, fd);
+	case exFAT:
+	case FAT_32:
+		return fat_get_next_cluster_32(cluster, fd);
+	}
+	return d->eof_value;
+}
+
+static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd)
+{
+	fat_drive* f = (fat_drive*)fd->fs_impl_data;
 
 	size_t num_clusters = byte_offset / f->cluster_size;
 
 	while (num_clusters--)
 	{
-		cluster = fat12_get_next_cluster(cluster, fd);
+		cluster = fat_get_next_cluster(cluster, fd);
 
-		if (cluster >= FAT12_EOF) { break; }
+		if (cluster >= f->eof_value) { break; }
 	}
 
 	return cluster;
 }
 
-static int fat12_mount_disk(filesystem_drive* d)
+static int fat_mount_disk(filesystem_drive* d)
 {
-	fat12_drive* f = malloc(sizeof(fat12_drive));
+	fat_drive* f = malloc(sizeof(fat_drive));
 	d->fs_impl_data = f;
 
 	uint8_t* boot_sector = filesystem_allocate_buffer(d, DEFAULT_SECTOR_SIZE);
 
-	int err = fat12_read_bios_block(d, boot_sector);
+	int err = fat_read_bios_block(d, boot_sector);
 	if(err != MOUNT_SUCCESS)
 	{
 		filesystem_free_buffer(d, boot_sector, DEFAULT_SECTOR_SIZE);
@@ -366,36 +508,36 @@ static int fat12_mount_disk(filesystem_drive* d)
 
 	f->cached_fat_sector = 0;
 	
-	fat12_read_root_dir(&d->root, d);
+	fat_read_root_dir(&d->root, d);
 
 	return MOUNT_SUCCESS;
 }
 
-static size_t fat12_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, const filesystem_drive *d)
+static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, const filesystem_drive *d)
 {
-	if (cluster >= FAT12_EOF)
+	fat_drive* f = (fat_drive*)d->fs_impl_data;
+
+	if (cluster >= f->eof_value)
 	{
 		//puts("read attempted, but eof reached");
 		return cluster;
 	}
 
-	fat12_drive* f = (fat12_drive*)d->fs_impl_data;
-	
 	size_t num_clusters = bufferSize / f->cluster_size;
 
 	while(num_clusters--)
 	{
 		//printf("Reading from cluster %d to %X\n", cluster, dest);
-		//printf("lba %d\n", fat12_cluster_to_lba(f, cluster));
-		filesystem_read_blocks_from_disk(d, fat12_cluster_to_lba(f, cluster), dest, f->sectors_per_cluster * f->blocks_per_sector);
+		//printf("lba %d\n", fat_cluster_to_lba(f, cluster));
+		filesystem_read_blocks_from_disk(d, fat_cluster_to_lba(f, cluster), dest, f->sectors_per_cluster * f->blocks_per_sector);
 
 		//printf("value = %X\n", *((uint32_t*)dest));
 
 		dest += f->cluster_size;
 		
-		cluster = fat12_get_next_cluster(cluster, d);
+		cluster = fat_get_next_cluster(cluster, d);
 		
-		if(cluster >= FAT12_EOF)
+		if(cluster >= f->eof_value)
 		{
 			//puts("eof reached");
 			break;
