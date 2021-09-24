@@ -38,6 +38,7 @@ struct process
 SYSCALL_HANDLER void spawn_process(const char* path, int flags);
 SYSCALL_HANDLER void exit_process(int val);
 void run_next_task();
+void run_background_tasks();
 void setup_first_task();
 int task_is_running(int pid);
 int this_task_is_active();

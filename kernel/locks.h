@@ -50,6 +50,17 @@ typedef struct
 bool kernel_try_lock_mutex(kernel_mutex* m);
 void kernel_lock_mutex(kernel_mutex* m);
 void kernel_unlock_mutex(kernel_mutex* m);
+
+typedef struct
+{
+	volatile int available;
+	volatile int waitingPID;
+} kernel_cv;
+
+void kernel_signal_cv(kernel_cv* m);
+void kernel_wait_cv(kernel_cv* m);
+bool kernel_try_wait_cv(kernel_cv* m);
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "task.h"
-#include "memorymanager.h"
-#include "filesystem.h"
-#include "elf.h"
-#include "locks.h"
+#include <kernel/task.h>
+#include <kernel/memorymanager.h>
+#include <kernel/filesystem.h>
+#include <kernel/elf.h>
+#include <kernel/locks.h>
 
 extern void run_user_code(void* address, void* stack);
 extern void switch_task(TCB *t);
@@ -54,6 +54,17 @@ void run_next_task()
 	//unlock tasks
 	unlock_interrupts(l);
 	
+	switch_to_task(next);
+}
+
+void run_background_tasks()
+{
+	int_lock l = lock_interrupts();
+	//lock tasks
+	int next = (get_running_process() + 1) % num_processes;
+	//unlock tasks
+	unlock_interrupts(l);
+
 	switch_to_task(next);
 }
 
@@ -206,7 +217,7 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 
 void switch_to_task(int pid)
 {
-	if (running_tasks[pid].pid != INVALID_PID)
+	if (running_tasks[pid].pid != INVALID_PID && !task_is_running(pid))
 	{
 		switch_task(&running_tasks[pid]);
 	}
