@@ -1,3 +1,4 @@
+extern "C" {
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -6,23 +7,28 @@
 #include <sys/syscalls.h>
 #include <graphics/graphics.h>
 #include <keyboard.h>
+}
 
-char console_user[] = "root";
+#include <string>
+#include <vector>
+
+void splash_text(int w);
+
+std::string console_user = "root";
 char prompt_char = ']';
 #define MAX_HISTORY_SIZE 4
-char command_buffers[MAX_HISTORY_SIZE][MAX_PATH];
+std::string command_buffers[MAX_HISTORY_SIZE];
 size_t history_size = 0;
 size_t command_buffer_index = 0;
-char* command_buffer = command_buffers[0];
 
-directory_handle* current_directory = NULL;
+directory_handle* current_directory = nullptr;
 
 size_t drive_index = 0;
 size_t test_index = 0;
 
 void select_drive(size_t index)
 {
-	if(current_directory != NULL)
+	if(current_directory != nullptr)
 	{
 		close_dir(current_directory);
 	}
@@ -32,7 +38,7 @@ void select_drive(size_t index)
 
 void list_directory()
 {
-	if(current_directory == NULL)
+	if(current_directory == nullptr)
 	{
 		printf("Invalid Directory\n");
 		return;
@@ -42,7 +48,7 @@ void list_directory()
 
 	size_t total_bytes = 0;
 	size_t i = 0;
-	file_handle* f_handle = NULL;
+	file_handle* f_handle = nullptr;
 
 	while((f_handle = get_file_in_dir(current_directory, i++)))
 	{
@@ -66,24 +72,12 @@ void list_directory()
 		}
 		else
 		{
-			putchar(' ');
+			std::string name = f.name;
+			auto dot = name.find_first_of('.');
 
-			int i = 1;
-			char c = f.name[0];
-			while(c != '\0' && c != '.')
-			{
-				putchar(c);
-				c = f.name[i++];
-			}
-
-			int num_spaces = i;
-			while(num_spaces++ < 10)
-			{
-				putchar(' ');
-			}
-
-			printf(" %-3s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n",
-				   f.name + i,
+			printf(" %-10s %-3s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n",
+				   name.substr(0, dot).c_str(),
+				   name.substr(dot + 1).c_str(),
 				   f.size,
 				   created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
 				   modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
@@ -95,14 +89,14 @@ void list_directory()
 file_handle* find_file_in_dir(const directory_handle* dir, file_info* f, const char* name)
 {
 	file_handle* f_handle = find_path(dir, name);
-	if(f_handle != NULL)
+	if(f_handle != nullptr)
 	{
 		if(get_file_info(f, f_handle) == 0 && !(f->flags & IS_DIR))
 		{
 			return f_handle;
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 void clear_console()
@@ -113,110 +107,116 @@ void clear_console()
 
 int get_command(char* input)
 {
-	char* keyword = NULL;
+	std::string current_line;
 
-	if(input == NULL)
+	if(input == nullptr)
 	{
 		if(history_size >= MAX_HISTORY_SIZE)
 		{
 			history_size = command_buffer_index + 1;
 		}
-		command_buffer = command_buffers[command_buffer_index++ % history_size];
+		std::string command_buffer = command_buffers[command_buffer_index++ % history_size];
 
-		char* c = command_buffer;
-		char* end = command_buffer + MAX_PATH;
-
-		while(c < end)
+		while(true)
 		{
 			key_type k = wait_and_getkey();
 			if((k == VK_UP || k == VK_DOWN) && get_keystate(k))
 			{
+				command_buffers[command_buffer_index] = command_buffer;
+
 				command_buffer_index = (k == VK_UP) ? command_buffer_index - 1 : command_buffer_index + 1;
 				command_buffer_index %= history_size;
 
-				video_erase_chars(c - command_buffer);
-
+				video_erase_chars(command_buffer.size());
 				command_buffer = command_buffers[command_buffer_index];
 
-				printf("%s", command_buffer);
-				c = command_buffer + strlen(command_buffer);
-				end = command_buffer + MAX_PATH;
+				printf("%s", command_buffer.c_str());
 			}
 			else
 			{
-				char temp = get_ascii_from_vk(k);
+				char in_char = get_ascii_from_vk(k);
 
-				if(temp == '\b')
+				if(in_char == '\b')
 				{
-					if(c > command_buffer)
+					if(!command_buffer.empty())
 					{
-						*c-- = '\0';
+						command_buffer.pop_back();
 						video_erase_chars(1);
 					}
 				}
-				else if(temp != '\0')
+				else if(in_char == '\n')
 				{
-					putchar(temp);
-					*c = temp;
-					c++;
-				}
-
-				if(temp == '\n')
-				{
+					putchar(in_char);
 					break;
+				}
+				else if(in_char != '\0')
+				{
+					putchar(in_char);
+					command_buffer += in_char;
 				}
 			}
 		}
 
-		*c = '\0';
-
-		keyword = strtok(command_buffer, " \n");
+		current_line = command_buffer;
 	}
 	else
 	{
-		keyword = strtok(input, " \n");
+		current_line = strtok(input, "\n");
 	}
 
-	if(keyword == NULL)
+	std::vector<std::string> keywords;
+
+	auto pos = current_line.find_first_of(' ');
+	keywords.push_back(current_line.substr(0, pos));
+	while(pos++ != std::string::npos)
+	{
+		auto n = current_line.find_first_of(' ', pos);
+		keywords.push_back(current_line.substr(pos, n));
+		pos = n;
+	}
+
+	if(keywords.empty())
 	{
 		return 0;
 	}
 
-	if(strcmp("time", keyword) == 0)
+	const auto& keyword = keywords[0];
+
+	if("time" == keyword)
 	{
-		printf("%d\n", time(NULL));
+		printf("%d\n", time(nullptr));
 	}
-	else if(strcmp("rd0:", keyword) == 0)
+	else if("rd0:" == keyword)
 	{
 		select_drive(0);
 	}
-	else if(strcmp("fd0:", keyword) == 0)
+	else if("fd0:" == keyword)
 	{
 		select_drive(1);
 	}
-	else if(strcmp("fd1:", keyword) == 0)
+	else if("fd1:" == keyword)
 	{
 		select_drive(2);
 	}
-	else if(strcmp("cls", keyword) == 0 || strcmp("clear", keyword) == 0)
+	else if("cls" == keyword || "clear" == keyword)
 	{
 		clear_console();
 	}
-	else if(strcmp("echo", keyword) == 0)
+	else if("echo" == keyword)
 	{
-		printf("%s\n", strtok(NULL, "\"\'\n"));
+		printf("%s\n", keywords[1].c_str());
 	}
-	else if(strcmp("dir", keyword) == 0 || strcmp("ls", keyword) == 0)
+	else if("dir" == keyword || "ls" == keyword)
 	{
 		list_directory();
 	}
-	else if(strcmp("cd", keyword) == 0)
+	else if("cd" == keyword)
 	{
-		char* path = strtok(NULL, "\"\'\n");
-		if(path != NULL)
+		if(keywords.size() > 1)
 		{
+			const char* path = keywords[1].c_str();
 			directory_handle* d = open_dir(current_directory, path, 0);
-			if(d != NULL)
+			if(d != nullptr)
 			{
 				current_directory = d;
 				return 1;
@@ -225,19 +225,19 @@ int get_command(char* input)
 			printf("Could not find path %s\n", path);
 		}
 	}
-	else if(strcmp("mode", keyword) == 0)
+	else if("mode" == keyword)
 	{
-		int width = atoi(strtok(NULL, "\"\'\n "));
-		int height = atoi(strtok(NULL, "\"\'\n "));
+		int width = atoi(keywords[1].c_str());
+		int height = atoi(keywords[2].c_str());
 
 		if(initialize_text_mode(width, height) == 0)
 		{
 			clear_console();
 		}
 	}
-	else if(strcmp("cat", keyword) == 0 || strcmp("type", keyword) == 0)
+	else if("cat" == keyword || "type" == keyword)
 	{
-		const char* arg = strtok(NULL, "\"\'\n");
+		const char* arg = keywords[1].c_str();
 		file_info file;
 		file_handle* f_handle = find_file_in_dir(current_directory, &file, arg);
 		if(f_handle)
@@ -246,12 +246,12 @@ int get_command(char* input)
 			if(fs)
 			{
 				//printf("malloc'ing %d bytes\n", file.size);
-				char* dataBuf = (char*)malloc(file.size);
+				char* dataBuf = new char[file.size];
 				read(dataBuf, file.size, fs);
 
 				print_string(dataBuf, file.size);
 
-				free(dataBuf);
+				delete[] dataBuf;
 				close(fs);
 				putchar('\n');
 
@@ -264,7 +264,7 @@ int get_command(char* input)
 	else
 	{
 		file_info file;
-		if(find_file_in_dir(current_directory, &file, keyword))
+		if(find_file_in_dir(current_directory, &file, keyword.c_str()))
 		{
 			const char* extension = strchr(file.name, '.') + 1;
 
@@ -276,16 +276,16 @@ int get_command(char* input)
 
 			if(strcasecmp("bat", extension) == 0)
 			{
-				file_stream* f = open(current_directory, keyword, 0);
+				file_stream* f = open(current_directory, keyword.c_str(), 0);
 				if(f)
 				{
-					uint8_t* dataBuf = (uint8_t*)malloc(file.size);
+					uint8_t* dataBuf = new uint8_t[file.size];
 
 					read(dataBuf, file.size, f);
 					close(f);
 
 					get_command((char*)dataBuf);
-					free(dataBuf);
+					delete[] dataBuf;
 
 					return 0;
 				}
@@ -309,7 +309,7 @@ void prompt()
 		drive = drive_names[drive_index];
 	}
 
-	printf("\x1b[32;22m%s\x1b[37m@%s%c", console_user, drive, prompt_char);
+	printf("\x1b[32;22m%s\x1b[37m@%s%c", console_user.c_str(), drive, prompt_char);
 }
 
 void splash_text(int w)
@@ -328,7 +328,7 @@ void splash_text(int w)
 }
 
 
-int _start(void)
+int main(int argc, char** argv)
 {
 	int width = 90;
 	int height = 30;
@@ -336,7 +336,7 @@ int _start(void)
 	initialize_text_mode(width, height);
 	splash_text(width);
 
-	time_t t_time = time(NULL);
+	time_t t_time = time(nullptr);
 
 	printf("UTC Time: %s\n", asctime(gmtime(&t_time)));
 
@@ -346,20 +346,20 @@ int _start(void)
 
 	current_directory = get_root_directory(drive_index);
 
-	if(current_directory == NULL)
+	if(current_directory == nullptr)
 	{
 		printf("Could not mount root directory for drive %u %s\n", drive_index, drive_names[drive_index]);
 	}
 
 	for(size_t i = 0; i < MAX_HISTORY_SIZE; i++)
 	{
-		memset(command_buffers[i], '\0', MAX_PATH);
+		command_buffers[i] = "";
 	}
 
 	for(;;)
 	{
 		prompt();
-		get_command(NULL);
+		get_command(nullptr);
 	}
 
 	return 0;
