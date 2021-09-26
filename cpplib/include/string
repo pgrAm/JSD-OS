@@ -5,6 +5,8 @@ extern "C" {
 #include <string.h>
 }
 
+#include <algorithm>
+
 namespace std {
 	class string;
 };
@@ -16,10 +18,10 @@ public:
 
 	static const size_t npos = -1;
 
-	string() : 
+	string() :
 		m_begin(new char[1]),
 		m_end(m_begin),
-		m_capacity(0)
+		m_capacity(1)
 	{
 		*m_end = '\0';
 	}
@@ -28,12 +30,11 @@ public:
 	{
 	}
 
-	string(const char* s, size_t len)
+	string(const char* s, size_t len) : 
+		m_begin(new char[len + 1]),
+		m_end(m_begin + len),
+		m_capacity(len + 1)
 	{
-		m_capacity = len + 1;
-		m_begin = new char[m_capacity];
-		m_end = m_begin + len;
-
 		memcpy(m_begin, s, len);
 		*m_end = '\0';
 	}
@@ -116,23 +117,20 @@ public:
 		return m_begin;
 	}
 
-	string(const string& str)
+	string(const string& str) : string(str.data(), str.size())
 	{
-		m_capacity = str.size() + 1;
-		m_begin = new char[m_capacity];
-		m_end = m_begin + str.size();
-		memcpy(m_begin, str.data(), str.size() + 1);
 	}
 
-	string(string&& str) noexcept
+	void swap(string& s) noexcept
 	{
-		m_capacity = str.m_capacity;
-		m_begin = str.m_begin;
-		m_end = str.m_end;
+		std::swap(m_capacity, s.m_capacity);
+		std::swap(m_begin, s.m_begin);
+		std::swap(m_end, s.m_end);
+	}
 
-		str.m_capacity = 0;
-		str.m_begin = nullptr;
-		str.m_end = nullptr;
+	string(string&& str) noexcept : string()
+	{
+		swap(str);
 	}
 
 	string& operator=(const string& str)
@@ -149,16 +147,7 @@ public:
 
 	string& operator=(string&& str) noexcept
 	{
-		delete[] m_begin;
-
-		m_capacity = str.m_capacity;
-		m_begin = str.m_begin;
-		m_end = str.m_end;
-		
-		str.m_capacity = 0;
-		str.m_begin = nullptr;
-		str.m_end = nullptr;
-
+		swap(str);
 		return *this;
 	}
 
@@ -178,8 +167,8 @@ public:
 		{
 			reserve((size() + count) * 2);
 		}
-		memcpy(m_begin, str, count);
-		*m_end += count;
+		memcpy(m_end, str, count);
+		m_end += count;
 		*m_end = '\0';
 		return *this;
 	}
@@ -269,13 +258,18 @@ public:
 		return *(m_end - 1);
 	}
 
+	void clear()
+	{
+		m_end = m_begin;
+	}
+
 private:
 	char* m_begin;
 	char* m_end;
 	size_t m_capacity;
 };
 
-bool operator==(const std::string& lhs,
+inline bool operator==(const std::string& lhs,
 				const std::string& rhs)
 {
 	if(lhs.size() != rhs.size())
@@ -283,4 +277,10 @@ bool operator==(const std::string& lhs,
 	return lhs.compare(rhs) == 0;
 }
 
+std::string operator+(const std::string& lhs, const char* rhs)
+{
+	auto new_str = lhs;
+	return new_str.append(rhs);
+}
 #endif
+

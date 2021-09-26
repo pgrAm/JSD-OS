@@ -12,10 +12,10 @@ typedef size_t fs_index;
 //information about a file on disk
 typedef struct 
 {
-	char* name;
-	char* type;
+	const char* name;
+	const char* type;
 	
-	char* full_name;
+	const char* full_name;
 	
 	uint32_t flags;
 

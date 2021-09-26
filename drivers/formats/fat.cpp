@@ -1,3 +1,4 @@
+extern "C" {
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -7,7 +8,10 @@
 
 #include <kernel/filesystem.h>
 
-#include "fat12.h"
+#include "fat.h"
+}
+
+#include <string>
 
 #define FAT12_EOF 0xFF8
 #define FAT16_EOF 0xFFF8
@@ -138,7 +142,7 @@ filesystem_driver fat_driver = {
 	fat_read_dir
 };
 
-void fat_init()
+extern "C" void fat_init()
 {
 	filesystem_add_driver(&fat_driver);
 }
@@ -251,24 +255,24 @@ static bool fat_read_dir_entry(file_handle* dest, const fat_directory_entry* ent
 		return false;
 	} //end of directory
 
-	char* full_name = (char*)malloc(13 * sizeof(char));
+	auto name = (char*)malloc(9 * sizeof(char));
+	memcpy(name, entry->name, 8);
+	str_terminate(name, 8);
+	dest->name = name;
 
-	dest->name = (char*)malloc(9 * sizeof(char));
-	memcpy(dest->name, entry->name, 8);
-	str_terminate(dest->name, 8);
+	auto type = (char*)malloc(4 * sizeof(char));
+	memcpy(type, entry->extension, 3);
+	str_terminate(type, 3);
+	dest->type = type;
 
-	dest->type = (char*)malloc(4 * sizeof(char));
-	memcpy(dest->type, entry->extension, 3);
-	size_t ext_length = str_terminate(dest->type, 3);
+	std::string full_name{dest->name};
+	full_name += '.';
+	full_name += type;
 
-	strcpy(full_name, strtok(dest->name, " "));
-	if(ext_length > 0)
-	{
-		strcat(full_name, ".");
-		strcat(full_name, strtok(dest->type, " "));
-	}
+	auto fname = (char*)malloc(full_name.size() * sizeof(char));
+	memcpy(fname, full_name.c_str(), full_name.size() + 1);
+	dest->full_name = fname;
 
-	dest->full_name = full_name;
 	dest->size = entry->file_size;
 
 	dest->time_created = fat_time_to_time_t(entry->created_date, entry->created_time);
@@ -306,7 +310,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_drive* fd
 	dest->file_list = (file_handle*)malloc(max_num_files * sizeof(file_handle));
 	dest->drive = fd->index;
 
-	size_t buffer_size = d->root_entries * sizeof(fat_directory_entry);
+	size_t buffer_size = d->root_size * d->bytes_per_sector;
 
 	fat_directory_entry* root_directory = 
 		(fat_directory_entry*)filesystem_allocate_buffer(fd, buffer_size);
@@ -481,7 +485,7 @@ static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const
 
 static int fat_mount_disk(filesystem_drive* d)
 {
-	fat_drive* f = malloc(sizeof(fat_drive));
+	fat_drive* f = new fat_drive{};
 	d->fs_impl_data = f;
 
 	uint8_t* boot_sector = filesystem_allocate_buffer(d, DEFAULT_SECTOR_SIZE);
@@ -490,8 +494,8 @@ static int fat_mount_disk(filesystem_drive* d)
 	if(err != MOUNT_SUCCESS)
 	{
 		filesystem_free_buffer(d, boot_sector, DEFAULT_SECTOR_SIZE);
-		free(f);
-		d->fs_impl_data = NULL;
+		delete f;
+		d->fs_impl_data = nullptr;
 		return err;
 	}
 
@@ -546,4 +550,3 @@ static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize
 	
 	return cluster;
 }
-

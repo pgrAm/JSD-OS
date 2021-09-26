@@ -85,25 +85,28 @@ static void rdfs_read_dir(directory_handle* dest, const file_handle* f, const fi
 		filesystem_read_blocks_from_disk(fd, disk_location, (uint8_t*)&entry, sizeof(rdfs_dir_entry));
 		disk_location += sizeof(rdfs_dir_entry);
 
-		char* full_name = (char*)malloc(13 * sizeof(char));
+		char* name = (char*)malloc(9 * sizeof(char));
+		memcpy(name, entry.name, 8);
+		name[8] = '\0';
+		dest->file_list[i].name = name;
 
-		dest->file_list[i].name = (char*)malloc(9 * sizeof(char));
-		memcpy(dest->file_list[i].name, entry.name, 8);
-		dest->file_list[i].name[8] = '\0';
-
-		dest->file_list[i].type = (char*)malloc(4 * sizeof(char));
-		memcpy(dest->file_list[i].type, entry.extension, 3);
+		char* type = (char*)malloc(4 * sizeof(char));
+		memcpy(type, entry.extension, 3);
 
 		//count chars in extension
 		size_t ext_length = 0;
 		for(; ext_length < 3 && entry.extension[ext_length] != ' '; ext_length++);
-		dest->file_list[i].type[ext_length] = '\0';
+		type[ext_length] = '\0';
 
-		strcpy(full_name, strtok(dest->file_list[i].name, " "));
+		dest->file_list[i].type = type;
+
+		char* full_name = (char*)malloc(13 * sizeof(char));
+
+		strcpy(full_name, strtok(name, " "));
 		if(ext_length > 0)
 		{
 			strcat(full_name, ".");
-			strcat(full_name, strtok(dest->file_list[i].type, " "));
+			strcat(full_name, strtok(type, " "));
 		}
 
 		dest->file_list[i].full_name = full_name;

@@ -43,10 +43,10 @@ uint8_t* isa_dma_allocate_buffer(size_t size)
 
 	for(uintptr_t address = 0; address < 0xFFFFFF; address += 0x10000)
 	{
-		uintptr_t physical = memmanager_allocate_physical_in_range(address,
-																   address + 0x10000,
-																   size_in_pages,
-															   PAGE_SIZE);
+		uintptr_t physical = memmanager_allocate_physical_in_range(	address,
+																	address + 0x10000,
+																	size_in_pages * PAGE_SIZE,
+																	PAGE_SIZE);
 		if(physical != (uintptr_t)NULL)
 		{
 			return memmanager_map_to_new_pages(physical,
@@ -75,6 +75,7 @@ void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, uint8_t* buf, size_t 
 	if((physbuf >> 16) != ((physbuf + size) >> 16))
 	{
 		printf("DMA Cannot cross 64k boundary\n");
+		printf("%X - %X\n", physbuf, physbuf + size);
 	}
 
 	if(physbuf > 0xFFFFFF)

@@ -30,8 +30,7 @@ public:
 		m_begin = new T[m_capacity];
 		m_end = m_begin + len;
 
-		memcpy(m_begin, s, len);
-		*m_end = '\0';
+		std::copy(s, s + len, begin());
 	}
 
 	~vector()
@@ -112,12 +111,12 @@ public:
 		m_begin = new T[m_capacity];
 		m_end = m_begin + v.size();
 
-		std::copy(v.cbegin(), v.cend(), v.begin());
+		std::copy(v.cbegin(), v.cend(), begin());
 	}
 
-	vector(vector&& v) noexcept
+	vector(vector&& v) noexcept : vector()
 	{
-		swap(v, *this);
+		swap(v);
 	}
 
 	vector& operator=(const vector& v)
@@ -128,12 +127,13 @@ public:
 		m_begin = new T[m_capacity];
 		m_end = m_begin + v.size();
 		
-		std::copy(v.cbegin(), v.cend(), v.begin());
+		std::copy(v.cbegin(), v.cend(), begin());
 	}
 
 	vector& operator=(vector&& v) noexcept
 	{
-		swap(v, *this);
+		swap(v);
+		return *this;
 	}
 
 	void swap(vector& v) noexcept
@@ -170,6 +170,11 @@ public:
 	T& back()
 	{
 		return *(m_end - 1);
+	}
+
+	void clear()
+	{
+		m_end = m_begin;
 	}
 
 private:

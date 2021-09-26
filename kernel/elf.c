@@ -450,7 +450,7 @@ void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, s
 			memcpy(address, (void*)symbol_val, symbol->size);
 			break;
 		default:
-			printf("Unsupported relocation type: %d", relocation_type);
+			printf("Unsupported relocation type: %d\n", relocation_type);
 		}
 	}
 }

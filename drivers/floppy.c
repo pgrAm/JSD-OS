@@ -74,7 +74,7 @@ enum floppy_commands
 #define MT_BIT 0x80
 
 static bool motor_is_ready[2] = {false, false};
-static volatile bool operation_complete = false;
+static kernel_cv irq6_condition = {0, -1};
 
 static void floppy_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
 static uint8_t* floppy_allocate_buffer(size_t size);
@@ -88,14 +88,13 @@ static disk_driver floppy_driver = {
 
 static INTERRUPT_HANDLER void floppy_irq_handler(interrupt_frame* r)
 {
-	operation_complete = true;
 	send_eoi(6 + 32);
+	kernel_signal_cv(&irq6_condition);
 }
 
 static void wait_for_irq6(void)
 {
-	while(!operation_complete); // wait for irq6 to signal operation complete
-	operation_complete = false;
+	kernel_wait_cv(&irq6_condition);
 }
 
 typedef struct 

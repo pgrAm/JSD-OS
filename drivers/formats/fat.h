@@ -1,5 +1,5 @@
-#ifndef FAT12_H
-#define FAT12_H
+#ifndef FAT_H
+#define FAT_H
 
 #include <stdbool.h>
 #include <kernel/filesystem.h>
