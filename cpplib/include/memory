@@ -1,0 +1,8 @@
+#ifndef STD_MEMORY_H
+#define STD_MEMORY_H
+
+namespace std {
+	class unique_ptr;
+};
+
+#endif

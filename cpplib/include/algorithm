@@ -1,0 +1,38 @@
+#ifndef STD_ALGORITHM_H
+#define STD_ALGORITHM_H
+
+#include <utility>
+namespace std {
+	template<class InputIt, class OutputIt>
+	OutputIt copy(InputIt first, InputIt last,
+				  OutputIt d_first)
+	{
+		while(first != last) {
+			*d_first++ = *first++;
+		}
+		return d_first;
+	}
+
+	template<class InputIt, class OutputIt, class UnaryPredicate>
+	OutputIt copy_if(InputIt first, InputIt last,
+					 OutputIt d_first, UnaryPredicate pred)
+	{
+		while(first != last) {
+			if(pred(*first))
+				*d_first++ = *first;
+			first++;
+		}
+		return d_first;
+	}
+
+	template<class InputIt, class OutputIt>
+	OutputIt move(InputIt first, InputIt last, OutputIt d_first)
+	{
+		while(first != last) {
+			*d_first++ = std::move(*first++);
+		}
+		return d_first;
+	}
+}
+
+#endif

@@ -1,0 +1,180 @@
+#ifndef STD_VECTOR_H
+#define STD_VECTOR_H
+
+extern "C" {
+#include <string.h>
+}
+
+#include <algorithm>
+
+namespace std {
+	template<class T> class vector;
+};
+
+template<class T>
+class std::vector {
+public:
+	using iterator = T*;
+	using const_iterator = const T*;
+
+	vector() :
+		m_begin(nullptr),
+		m_end(m_begin),
+		m_capacity(0)
+	{
+	}
+
+	vector(const T* s, size_t len)
+	{
+		m_capacity = len;
+		m_begin = new T[m_capacity];
+		m_end = m_begin + len;
+
+		memcpy(m_begin, s, len);
+		*m_end = '\0';
+	}
+
+	~vector()
+	{
+		delete[] m_begin;
+	}
+
+	iterator begin()
+	{
+		return m_begin;
+	}
+
+	iterator end()
+	{
+		return m_end;
+	}
+
+	const_iterator cbegin() const noexcept
+	{
+		return m_begin;
+	}
+
+	const_iterator cend() const noexcept
+	{
+		return m_end;
+	}
+
+	size_t size() const
+	{
+		return cend() - cbegin();
+	}
+
+	size_t length() const
+	{
+		return size();
+	}
+
+	size_t capacity() const
+	{
+		return m_capacity;
+	}
+
+	T& operator[](size_t n)
+	{
+		return m_begin[n];
+	}
+
+	const T& operator[](size_t n) const
+	{
+		return m_begin[n];
+	}
+
+	void reserve(size_t n = 0)
+	{
+		if(n > capacity())
+		{
+			auto sz = size();	
+			T* new_ptr = new T[n];
+
+			std::move(cbegin(), cend(), new_ptr);
+
+			delete[] m_begin;
+
+			m_capacity = n;
+			m_begin = new_ptr;
+			m_end = m_begin + sz;
+		}
+	}
+
+	T* data() const
+	{
+		return m_begin;
+	}
+
+	vector(const vector& v)
+	{
+		m_capacity = v.size();
+		m_begin = new T[m_capacity];
+		m_end = m_begin + v.size();
+
+		std::copy(v.cbegin(), v.cend(), v.begin());
+	}
+
+	vector(vector&& v) noexcept
+	{
+		swap(v, *this);
+	}
+
+	vector& operator=(const vector& v)
+	{
+		delete[] m_begin;
+
+		m_capacity = v.size();
+		m_begin = new T[m_capacity];
+		m_end = m_begin + v.size();
+		
+		std::copy(v.cbegin(), v.cend(), v.begin());
+	}
+
+	vector& operator=(vector&& v) noexcept
+	{
+		swap(v, *this);
+	}
+
+	void swap(vector& v) noexcept
+	{
+		std::swap(m_capacity, v.m_capacity);
+		std::swap(m_begin, v.m_begin);
+		std::swap(m_end, v.m_end);
+	}
+
+	void push_back(T c)
+	{
+		if(size() + 1 > capacity())
+		{
+			reserve((m_capacity + 1) * 2);
+		}
+		*m_end++ = c;
+	}
+
+	bool empty()
+	{
+		return size() == 0;
+	}
+
+	void pop_back()
+	{
+		--m_end;
+	}
+
+	const T& back() const
+	{
+		return *(m_end - 1);
+	}
+
+	T& back()
+	{
+		return *(m_end - 1);
+	}
+
+private:
+	T* m_begin;
+	T* m_end;
+	size_t m_capacity;
+};
+#endif

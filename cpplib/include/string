@@ -1,0 +1,286 @@
+#ifndef STD_STRING_H
+#define STD_STRING_H
+
+extern "C" {
+#include <string.h>
+}
+
+namespace std {
+	class string;
+};
+
+class std::string {
+public:
+	using iterator = char*;
+	using const_iterator = const char*;
+
+	static const size_t npos = -1;
+
+	string() : 
+		m_begin(new char[1]),
+		m_end(m_begin),
+		m_capacity(0)
+	{
+		*m_end = '\0';
+	}
+
+	string(const char* s) : string(s, strlen(s))
+	{
+	}
+
+	string(const char* s, size_t len)
+	{
+		m_capacity = len + 1;
+		m_begin = new char[m_capacity];
+		m_end = m_begin + len;
+
+		memcpy(m_begin, s, len);
+		*m_end = '\0';
+	}
+
+	~string()
+	{
+		delete[] m_begin;
+	}
+
+	iterator begin()
+	{
+		return m_begin;
+	}
+
+	iterator end()
+	{
+		return m_end;
+	}
+
+	const_iterator cbegin() const noexcept
+	{
+		return m_begin;
+	}
+
+	const_iterator cend() const noexcept
+	{
+		return m_end;
+	}
+
+	size_t size() const
+	{
+		return cend() - cbegin();
+	}
+
+	size_t length() const
+	{
+		return size();
+	}
+
+	size_t capacity() const
+	{
+		return m_capacity - 1;
+	}
+
+	char& operator[](size_t n)
+	{
+		return m_begin[n];
+	}
+
+	const char& operator[](size_t n) const
+	{
+		return m_begin[n];
+	}
+
+	void reserve(size_t n = 0)
+	{
+		if(n > capacity())
+		{
+			auto sz = size();
+
+			m_capacity = n + 1;
+			char* new_ptr = new char[m_capacity];
+
+			memcpy(new_ptr, m_begin, (sz + 1) * sizeof(char));
+
+			delete[] m_begin;
+
+			m_begin = new_ptr;
+			m_end = m_begin + sz;
+		}
+	}
+
+	const char* data() const
+	{
+		return m_begin;
+	}
+
+	const char* c_str() const
+	{
+		return m_begin;
+	}
+
+	string(const string& str)
+	{
+		m_capacity = str.size() + 1;
+		m_begin = new char[m_capacity];
+		m_end = m_begin + str.size();
+		memcpy(m_begin, str.data(), str.size() + 1);
+	}
+
+	string(string&& str) noexcept
+	{
+		m_capacity = str.m_capacity;
+		m_begin = str.m_begin;
+		m_end = str.m_end;
+
+		str.m_capacity = 0;
+		str.m_begin = nullptr;
+		str.m_end = nullptr;
+	}
+
+	string& operator=(const string& str)
+	{
+		delete[] m_begin;
+
+		m_capacity = str.size() + 1;
+		m_begin = new char[m_capacity];
+		m_end = m_begin + str.size();
+		memcpy(m_begin, str.data(), str.size() + 1);
+
+		return *this;
+	}
+
+	string& operator=(string&& str) noexcept
+	{
+		delete[] m_begin;
+
+		m_capacity = str.m_capacity;
+		m_begin = str.m_begin;
+		m_end = str.m_end;
+		
+		str.m_capacity = 0;
+		str.m_begin = nullptr;
+		str.m_end = nullptr;
+
+		return *this;
+	}
+
+	void push_back(char c)
+	{
+		if(size() + 1 > capacity())
+		{
+			reserve((m_capacity + 1) * 2);
+		}
+		*m_end++ = c;
+		*m_end = '\0';
+	}
+
+	string& append(const char* str, size_t count)
+	{
+		if(size() + count > capacity())
+		{
+			reserve((size() + count) * 2);
+		}
+		memcpy(m_begin, str, count);
+		*m_end += count;
+		*m_end = '\0';
+		return *this;
+	}
+
+	string& append(const char* str)
+	{
+		return append(str, strlen(str));
+	}
+
+	string& append(const string& str)
+	{
+		return append(str.data(), str.size());
+	}
+
+	string& operator+=(const char* str)
+	{
+		return append(str);
+	}
+
+	string& operator+=(const string& str)
+	{
+		return append(str);
+	}
+
+	string& operator+=(char c)
+	{
+		push_back(c);
+		return *this;
+	}
+
+	int compare(const std::string& s) const noexcept
+	{
+		return memcmp(data(), s.data(), size() < s.size() ? size() : s.size());
+	}
+
+	bool empty()
+	{
+		return size() == 0;
+	}
+
+	void pop_back()
+	{
+		*(--m_end) = '\0';
+	}
+
+	string substr(size_t pos = 0, size_t count = npos) const
+	{
+		if(count == npos)
+		{
+			count = cend() - (cbegin() + pos);
+		}
+		return string{cbegin() + pos, count};
+	}
+
+	size_t find_first_of(const string& str, size_t pos = 0) const
+	{
+		for(auto it = cbegin() + pos; it < cend(); it++)
+		{
+			for(auto c = str.cbegin(); c < str.cend(); c++)
+			{
+				if(*c == *it)
+					return it - cbegin();
+			}
+		}
+
+		return npos;
+	}
+
+	size_t find_first_of(char c, size_t pos = 0) const
+	{
+		for(auto it = cbegin() + pos; it < cend(); it++)
+		{
+			if(c == *it)
+				return it - cbegin();
+		}
+
+		return npos;
+	}
+
+	const char& back() const
+	{
+		return *(m_end - 1);
+	}
+
+	char& back()
+	{
+		return *(m_end - 1);
+	}
+
+private:
+	char* m_begin;
+	char* m_end;
+	size_t m_capacity;
+};
+
+bool operator==(const std::string& lhs,
+				const std::string& rhs)
+{
+	if(lhs.size() != rhs.size())
+		return false;
+	return lhs.compare(rhs) == 0;
+}
+
+#endif
