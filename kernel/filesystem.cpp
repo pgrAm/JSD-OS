@@ -1,57 +1,43 @@
-#include <string.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <stdbool.h>
+extern "C" {
+	#include <string.h>
+	#include <stdio.h>
+	#include <stdarg.h>
+	#include <stdlib.h>
+	#include <stdbool.h>
+	
+	#include <kernel/filesystem.h>
+	#include <kernel/memorymanager.h>
+}
 
-#include <kernel/filesystem.h>
-#include <kernel/memorymanager.h>
+#include <vector>
+#include <string>
 
 #define CHUNK_READ_SIZE 1024
 
 size_t default_drive = 0;
-size_t num_drives = 0;
-filesystem_drive** drives = NULL;
-size_t fs_num_drivers = 0;
-filesystem_driver** fs_drivers = NULL;
+std::vector<filesystem_drive*> drives;
+std::vector<filesystem_driver*> fs_drivers;
 
-void filesystem_add_driver(filesystem_driver* fs_drv)
+extern "C" void filesystem_add_driver(filesystem_driver* fs_drv)
 {
-	size_t old_num_drivers = fs_num_drivers++;
-
-	filesystem_driver** old_drivers = fs_drivers;
-
-	fs_drivers = (filesystem_driver**)malloc(fs_num_drivers * sizeof(filesystem_driver*));
-
-	memcpy(fs_drivers, old_drivers, old_num_drivers * sizeof(filesystem_driver*));
-
-	fs_drivers[old_num_drivers] = fs_drv;
-
-	free(old_drivers);
+	fs_drivers.push_back(fs_drv);
 }
 
 filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data, size_t block_size)
 {
-	size_t old_num_drives = num_drives++;
 
-	filesystem_drive** old_drives = drives;
+	auto drive = new filesystem_drive{};
+	drive->fs_impl_data = nullptr;
+	drive->fs_driver = nullptr;
+	drive->dsk_impl_data = driver_data;
+	drive->dsk_driver = disk_drv;
+	drive->mounted = false;
+	drive->index = drives.size();
+	drive->minimum_block_size = block_size;
 
-	drives = (filesystem_drive**)malloc(num_drives * sizeof(filesystem_drive*));
+	drives.push_back(drive);
 
-	memcpy(drives, old_drives, old_num_drives * sizeof(filesystem_drive*));
-
-	drives[old_num_drives] = (filesystem_drive*)malloc(sizeof(filesystem_drive));
-	drives[old_num_drives]->fs_impl_data = NULL;
-	drives[old_num_drives]->fs_driver = NULL;
-	drives[old_num_drives]->dsk_impl_data = driver_data;
-	drives[old_num_drives]->dsk_driver = disk_drv;
-	drives[old_num_drives]->mounted = false;
-	drives[old_num_drives]->index = old_num_drives;
-	drives[old_num_drives]->minimum_block_size = block_size;
-
-	free(old_drives);
-
-	return drives[old_num_drives];
+	return drives.back();
 }
 
 void filesystem_set_default_drive(size_t index)
@@ -61,12 +47,12 @@ void filesystem_set_default_drive(size_t index)
 
 int filesystem_setup_drives()
 {
-	return num_drives;
+	return drives.size();
 }
 
 SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_handle* f, int flags)
 {
-	if (f == NULL || !(f->flags & IS_DIR)) { return NULL; }
+	if (f == nullptr || !(f->flags & IS_DIR)) { return nullptr; }
 
 	directory_handle* d = (directory_handle*)malloc(sizeof(directory_handle));
 
@@ -78,15 +64,15 @@ SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_ha
 SYSCALL_HANDLER 
 directory_handle* filesystem_get_root_directory(size_t driveNumber)
 {
-	if(driveNumber < num_drives)
+	if(driveNumber < drives.size())
 	{
 		filesystem_drive* d = drives[driveNumber];
 		
 		if(!d->mounted)
 		{
-			if(d->fs_driver == NULL)
+			if(d->fs_driver == nullptr)
 			{
-				for(size_t i = 0; i < fs_num_drivers; i++)
+				for(size_t i = 0; i < fs_drivers.size(); i++)
 				{
 					d->fs_driver = fs_drivers[i];
 
@@ -97,8 +83,8 @@ directory_handle* filesystem_get_root_directory(size_t driveNumber)
 						d->mounted = (mount_result == MOUNT_SUCCESS);
 						break;
 					}
-					d->fs_driver = NULL;
-					d->fs_impl_data = NULL;
+					d->fs_driver = nullptr;
+					d->fs_impl_data = nullptr;
 				}
 			}
 			else
@@ -113,12 +99,12 @@ directory_handle* filesystem_get_root_directory(size_t driveNumber)
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* name)
 {
-	if(d != NULL)
+	if(d != nullptr)
 	{
 		for(size_t i = 0; i < d->num_files; i++)
 		{
@@ -130,52 +116,61 @@ file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* 
 		}
 	}
 	
-	return NULL;
+	return nullptr;
 }
 
 SYSCALL_HANDLER 
 file_handle* filesystem_find_file_by_path(const directory_handle* d, const char* name)
 {
-	if(name == NULL) { return NULL; };
+	if(name == nullptr) 
+	{ 
+		return nullptr; 
+	};
 
-	if (d == NULL)
+	if (d == nullptr)
 	{
 		d = filesystem_get_root_directory(default_drive);
 	}
 
-	const char* path = strchr(name, '/');
-	while (path == name) //name begins with a '/'
+	std::string path{name};
+	size_t name_begin = 0;
+	size_t path_begin = path.find('/');
+	while (path_begin == name_begin) //name begins with a '/'
 	{
-		name++;
-		path = strchr(name, '/');
+		name_begin++;
+		path_begin = path.find('/', name_begin);
 	}
 
-	if (path != NULL)
+	//if there are still '/'s in the path
+	if (path_begin != std::string::npos)
 	{
-		char dirname[MAX_PATH];
-		size_t name_len = path - name;
-		memcpy(dirname, name, name_len);
-		dirname[name_len] = '\0';
+		auto dirname = path.substr(name_begin, path_begin - name_begin);
 
-		file_handle* fd = filesystem_find_file_in_dir(d, dirname);
+		file_handle* fd = filesystem_find_file_in_dir(d, dirname.c_str());
 
-		if(fd == NULL || !(fd->flags & IS_DIR)) { return NULL; }
+		if(fd == nullptr || !(fd->flags & IS_DIR)) 
+		{ 
+			return nullptr; 
+		}
 
-		if (path[1] == '\0') //nothing follows the last '/'
+		if (path_begin + 1 >= path.size()) //nothing follows the last '/'
 		{
 			return fd; //just return the dir
 		}
 
 		directory_handle* dir = filesystem_open_directory_handle(fd, 0);
 
-		file_handle* f = filesystem_find_file_by_path(dir, path);
+		auto remaining_path = path.substr(path_begin);
+
+		file_handle* f = filesystem_find_file_by_path(dir, remaining_path.c_str());
 
 		//filesystem_close_directory(dir);
 		return f;
 	}
 	else
 	{
-		return filesystem_find_file_in_dir(d, name);
+		auto remaining_path = path.substr(name_begin);
+		return filesystem_find_file_in_dir(d, remaining_path.c_str());
 	}
 }
 
@@ -194,7 +189,7 @@ file_stream* filesystem_create_stream(const file_handle* f)
 SYSCALL_HANDLER 
 file_stream* filesystem_open_file_handle(file_handle* f, int flags)
 {	
-	if (f == NULL || f->flags & IS_DIR) { return NULL; }
+	if (f == nullptr || f->flags & IS_DIR) { return nullptr; }
 
 	return filesystem_create_stream(f);
 }
@@ -202,7 +197,7 @@ file_stream* filesystem_open_file_handle(file_handle* f, int flags)
 SYSCALL_HANDLER 
 int filesystem_get_file_info(file_info* dst, const file_handle* src)
 {
-	if (src == NULL || dst == NULL) return -1;
+	if (src == nullptr || dst == nullptr) return -1;
 	//we should also check that these adresses are mapped properly
 	//maybe do a checksum too?
 
@@ -218,19 +213,19 @@ int filesystem_get_file_info(file_info* dst, const file_handle* src)
 SYSCALL_HANDLER 
 file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index)
 {
-	if (d != NULL && index < d->num_files)
+	if (d != nullptr && index < d->num_files)
 	{
 		return &(d->file_list[index]);
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 SYSCALL_HANDLER 
 int filesystem_close_directory(directory_handle* d)
 {
-	free(d->file_list);
-	free(d);
+	//free(d->file_list);
+	//free(d);
 	return 0;
 }
 
@@ -286,9 +281,9 @@ fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 	return d->fs_driver->read_chunks(f->buffer, chunk_index, CHUNK_READ_SIZE, d);
 }
 
-SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f)
+SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream* f)
 {
-	if(f == NULL || f->file == NULL)
+	if(f == nullptr || f->file == nullptr)
 	{
 		return 0;
 	}
@@ -324,24 +319,26 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f)
 	size_t buf_start_size = ((len - buf_end_size) % CHUNK_READ_SIZE);
 	size_t numChunks = (len - (buf_start_size + buf_end_size)) / CHUNK_READ_SIZE;
 	
+	uint8_t* dst_ptr = (uint8_t*)dst_buf;
+
 	if(buf_start_size != 0)
 	{
 		location = filesystem_read_chunk(f, location);	
-		memcpy(dst, f->buffer + buf_start, buf_start_size);
-		dst += buf_start_size;
+		memcpy(dst_ptr, f->buffer + buf_start, buf_start_size);
+		dst_ptr += buf_start_size;
 	}
 	
 	while(numChunks--)
 	{
 		location = filesystem_read_chunk(f, location);
-		memcpy(dst, f->buffer, CHUNK_READ_SIZE);
-		dst += CHUNK_READ_SIZE;
+		memcpy(dst_ptr, f->buffer, CHUNK_READ_SIZE);
+		dst_ptr += CHUNK_READ_SIZE;
 	}
 	
 	if(buf_end_size != 0)
 	{
 		filesystem_read_chunk(f, location);
-		memcpy(dst, f->buffer, buf_end_size);
+		memcpy(dst_ptr, f->buffer, buf_end_size);
 	}
 	
 	f->seekpos += len;
@@ -382,7 +379,7 @@ uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)
 	{
 		return d->dsk_driver->allocate_buffer(size);
 	}
-	return malloc(size);
+	return (uint8_t*)malloc(size);
 }
 
 int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size)

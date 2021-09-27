@@ -266,8 +266,11 @@ static bool fat_read_dir_entry(file_handle* dest, const fat_directory_entry* ent
 	dest->type = type;
 
 	std::string full_name{dest->name};
-	full_name += '.';
-	full_name += type;
+	if(strlen(type) != 0)
+	{
+		full_name += '.';
+		full_name += type;
+	}
 
 	auto fname = (char*)malloc(full_name.size() * sizeof(char));
 	memcpy(fname, full_name.c_str(), full_name.size() + 1);

@@ -237,7 +237,7 @@ public:
 		return npos;
 	}
 
-	size_t find_first_of(char c, size_t pos = 0) const
+	size_t find(char c, size_t pos = 0) const
 	{
 		for(auto it = cbegin() + pos; it < cend(); it++)
 		{
@@ -246,6 +246,11 @@ public:
 		}
 
 		return npos;
+	}
+
+	size_t find_first_of(char c, size_t pos = 0) const
+	{
+		return find(c, pos);
 	}
 
 	const char& back() const
@@ -277,7 +282,7 @@ inline bool operator==(const std::string& lhs,
 	return lhs.compare(rhs) == 0;
 }
 
-std::string operator+(const std::string& lhs, const char* rhs)
+inline std::string operator+(const std::string& lhs, const char* rhs)
 {
 	auto new_str = lhs;
 	return new_str.append(rhs);
