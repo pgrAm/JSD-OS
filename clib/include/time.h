@@ -1,6 +1,10 @@
 #ifndef TIME_H
 #define TIME_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 #ifndef NULL
@@ -37,4 +41,9 @@ char* asctime(const struct tm *timeptr);
 char* ctime (const time_t * timer);
 
 struct tm* localtime(const time_t* timer);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

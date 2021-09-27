@@ -1,4 +1,3 @@
-extern "C" {
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -6,11 +5,9 @@ extern "C" {
 #include <time.h>
 #include <stdbool.h>
 
-#include <kernel/filesystem.h>
-
 #include "fat.h"
-}
 
+#include <kernel/filesystem.h>
 #include <string>
 
 #define FAT12_EOF 0xFF8
@@ -237,61 +234,46 @@ static time_t fat_time_to_time_t(uint16_t date, uint16_t time)
 	return mktime(&file_time);
 }
 
-static size_t str_terminate(char* str, size_t max_len)
-{
-	size_t ext_length = 0;
-	while(ext_length < max_len && str[ext_length] != ' ')
-	{
-		ext_length++;
-	}
-	str[ext_length] = '\0';
-
-	return ext_length;
-}
-
-static bool fat_read_dir_entry(file_handle* dest, const fat_directory_entry* entry, size_t disk_num)
+static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* entry, size_t disk_num)
 {
 	if(entry->name[0] == 0) {
 		return false;
 	} //end of directory
 
-	auto name = (char*)malloc(9 * sizeof(char));
-	memcpy(name, entry->name, 8);
-	str_terminate(name, 8);
-	dest->name = name;
-
-	auto type = (char*)malloc(4 * sizeof(char));
-	memcpy(type, entry->extension, 3);
-	str_terminate(type, 3);
-	dest->type = type;
-
-	std::string full_name{dest->name};
-	if(strlen(type) != 0)
+	dest.name = std::string{entry->name, 8};
+	if(auto pos = dest.name.find(' '); pos != std::string::npos)
 	{
-		full_name += '.';
-		full_name += type;
+		dest.name.resize(pos);
 	}
 
-	auto fname = (char*)malloc(full_name.size() * sizeof(char));
-	memcpy(fname, full_name.c_str(), full_name.size() + 1);
-	dest->full_name = fname;
+	dest.type = std::string{entry->extension, 3};
+	if(auto pos = dest.type.find(' '); pos != std::string::npos)
+	{
+		dest.type.resize(pos);
+	}
 
-	dest->size = entry->file_size;
+	dest.full_name = dest.name;
+	if(!dest.type.empty())
+	{
+		dest.full_name += '.';
+		dest.full_name += dest.type;
+	}
 
-	dest->time_created = fat_time_to_time_t(entry->created_date, entry->created_time);
-	dest->time_modified = fat_time_to_time_t(entry->modified_date, entry->modified_time);
+	dest.size = entry->file_size;
 
-	dest->disk = disk_num;
-	dest->location_on_disk = entry->first_cluster;
+	dest.time_created = fat_time_to_time_t(entry->created_date, entry->created_time);
+	dest.time_modified = fat_time_to_time_t(entry->modified_date, entry->modified_time);
+
+	dest.disk = disk_num;
+	dest.location_on_disk = entry->first_cluster;
 
 	uint32_t flags = 0;
-
 	if(entry->attributes & DIRECTORY)
 	{
 		flags |= IS_DIR;
 	}
 
-	dest->flags = flags;
+	dest.flags = flags;
 
 	return true;
 }
@@ -302,7 +284,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_drive* fd
 
 	if(d->type == exFAT || d->type == FAT_32)
 	{
-		file_handle f = {"", "", "", IS_DIR, fd->index, d->root_location, 0, 0, 0};
+		file_handle f = {{}, {}, {}, IS_DIR, fd->index, d->root_location, 0, 0, 0};
 		fat_read_dir(dest, &f, fd);
 		return;
 	}
@@ -330,7 +312,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_drive* fd
 			continue;
 		}
 
-		if(!fat_read_dir_entry(&dest->file_list[num_files], 
+		if(!fat_read_dir_entry(dest->file_list[num_files], 
 								 &root_directory[i], fd->index)) 
 		{
 			break;
@@ -343,14 +325,6 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_drive* fd
 
 	filesystem_free_buffer(fd, (uint8_t*)root_directory, buffer_size);
 }
-
-/*char* strdup(const char* str1)
-{
-	size_t len = strlen(str1);
-	char* result = (char*)malloc(len);
-	memcpy(result, str1, len + 1);
-	return result;
-}*/
 
 static void fat_read_dir(directory_handle* dest, const file_handle* dir, const filesystem_drive* fd)
 {
@@ -380,7 +354,7 @@ static void fat_read_dir(directory_handle* dest, const file_handle* dir, const f
 			continue;
 		}
 
-		if (!fat_read_dir_entry(&dest->file_list[num_files], &entry, fd->index))
+		if (!fat_read_dir_entry(dest->file_list[num_files], &entry, fd->index))
 		{
 			break; 
 		}

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <kernel/filesystem.h>
 #include "rdfs.h"
 
 static int rdfs_mount_disk(filesystem_drive* d);
@@ -16,7 +17,7 @@ static filesystem_driver rdfs_driver = {
 	rdfs_read_dir
 };
 
-void rdfs_init()
+extern "C" void rdfs_init(void)
 {
 	filesystem_add_driver(&rdfs_driver);
 }
@@ -34,7 +35,7 @@ static int rdfs_mount_disk(filesystem_drive* fd)
 	if(memcmp(magic, "RDSK", 4) == 0)
 	{
 		file_handle dir = {
-			NULL, NULL, NULL,
+			"", "", "",
 			IS_DIR, fd->index, sizeof(uint8_t) * 4,
 			0, 0, 0
 		};
@@ -85,48 +86,42 @@ static void rdfs_read_dir(directory_handle* dest, const file_handle* f, const fi
 		filesystem_read_blocks_from_disk(fd, disk_location, (uint8_t*)&entry, sizeof(rdfs_dir_entry));
 		disk_location += sizeof(rdfs_dir_entry);
 
-		char* name = (char*)malloc(9 * sizeof(char));
-		memcpy(name, entry.name, 8);
-		name[8] = '\0';
-		dest->file_list[i].name = name;
+		auto& file = dest->file_list[i];
 
-		char* type = (char*)malloc(4 * sizeof(char));
-		memcpy(type, entry.extension, 3);
-
-		//count chars in extension
-		size_t ext_length = 0;
-		for(; ext_length < 3 && entry.extension[ext_length] != ' '; ext_length++);
-		type[ext_length] = '\0';
-
-		dest->file_list[i].type = type;
-
-		char* full_name = (char*)malloc(13 * sizeof(char));
-
-		strcpy(full_name, strtok(name, " "));
-		if(ext_length > 0)
+		file.name = std::string{entry.name, 8};
+		if(auto pos = file.name.find('\0'); pos != std::string::npos)
 		{
-			strcat(full_name, ".");
-			strcat(full_name, strtok(type, " "));
+			file.name.resize(pos);
 		}
 
-		dest->file_list[i].full_name = full_name;
+		file.type = std::string{entry.extension, 3};
+		if(auto pos = file.type.find('\0'); pos != std::string::npos)
+		{
+			file.type.resize(pos);
+		}
 
-		dest->file_list[i].size = entry.size;
+		file.full_name = file.name;
+		if(!file.type.empty())
+		{
+			file.full_name += '.';
+			file.full_name += file.type;
+		}
 
-		dest->file_list[i].time_created = entry.created;
-		dest->file_list[i].time_modified = entry.modified;
+		file.size = entry.size;
 
-		dest->file_list[i].disk = fd->index;
-		dest->file_list[i].location_on_disk = entry.offset;
+		file.time_created = entry.created;
+		file.time_modified = entry.modified;
+
+		file.disk = fd->index;
+		file.location_on_disk = entry.offset;
 
 		uint32_t flags = 0;
-
 		if(entry.attributes & IS_DIR)
 		{
 			flags |= IS_DIR;
 		}
 
-		dest->file_list[i].flags = flags;
+		file.flags = flags;
 	}
 
 	dest->num_files = num_files;

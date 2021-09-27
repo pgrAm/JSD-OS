@@ -1,6 +1,10 @@
 #ifndef LIMITS_H
 #define LIMITS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CHAR_BIT	8 		
 #define SCHAR_MIN	-127 	
 #define SCHAR_MAX	127		
@@ -20,5 +24,9 @@
 #define LLONG_MIN	-9223372036854775807	
 #define LLONG_MAX	9223372036854775807		
 #define ULLONG_MAX	18446744073709551615	
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

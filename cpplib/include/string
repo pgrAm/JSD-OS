@@ -1,10 +1,7 @@
 #ifndef STD_STRING_H
 #define STD_STRING_H
 
-extern "C" {
 #include <string.h>
-}
-
 #include <algorithm>
 
 namespace std {
@@ -140,7 +137,7 @@ public:
 		m_capacity = str.size() + 1;
 		m_begin = new char[m_capacity];
 		m_end = m_begin + str.size();
-		memcpy(m_begin, str.data(), str.size() + 1);
+		memcpy(m_begin, str.data(), m_capacity);
 
 		return *this;
 	}
@@ -157,7 +154,7 @@ public:
 		{
 			reserve((m_capacity + 1) * 2);
 		}
-		*m_end++ = c;
+		*(m_end++) = c;
 		*m_end = '\0';
 	}
 
@@ -190,7 +187,7 @@ public:
 
 	string& operator+=(const string& str)
 	{
-		return append(str);
+		return append(str.data(), str.size());
 	}
 
 	string& operator+=(char c)
@@ -266,6 +263,18 @@ public:
 	void clear()
 	{
 		m_end = m_begin;
+	}
+
+	void resize(size_t n)
+	{
+		reserve(n);
+		if(n > size())
+		{
+			memset(m_end, '\0', n - size());
+		}
+
+		m_end = m_begin + n;
+		*m_end = '\0';
 	}
 
 private:

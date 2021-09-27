@@ -1,6 +1,9 @@
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <kernel/filesystem.h>
 
 extern "C" {
-#include <kernel/filesystem.h>
 #include <kernel/interrupt.h>
 #include <kernel/memorymanager.h>
 
@@ -10,9 +13,6 @@ extern "C" {
 #include <drivers/video.h>
 #include <drivers/sysclock.h>
 #include <drivers/kbrd.h>
-
-#include <stdlib.h>
-#include <stdio.h>
 }
 
 #include <vector>
@@ -106,8 +106,6 @@ extern "C" void load_drivers()
 		{
 			auto space = buffer.find_first_of(' ');
 			auto token = buffer.substr(0, space);
-
-			printf("%s\n", buffer.c_str());
 
 			if(token == "load_driver")
 			{

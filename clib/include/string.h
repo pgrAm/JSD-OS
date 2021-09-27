@@ -1,5 +1,8 @@
 #ifndef STRING_H
 #define STRING_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stddef.h>
 #include <stdint.h>
@@ -21,4 +24,7 @@ char* strcpy(char* destination, const char* source);
 
 #include <string386.inl>
 
+#ifdef __cplusplus
+}
+#endif
 #endif

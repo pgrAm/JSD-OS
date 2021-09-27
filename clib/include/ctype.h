@@ -1,6 +1,10 @@
 #ifndef CTYPE_H
 #define	CTYPE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CT_UP	0x01	// upper case 
 #define CT_LOW	0x02	// lower case 
 #define CT_DIG	0x04	// digit 
@@ -28,5 +32,9 @@ extern char _ctype[];
 #define toascii(c)	((unsigned)(c) & 0x7F)
 #define tolower(c)	(isupper(c) ? c + 'a' - 'A' : c)
 #define toupper(c)	(islower(c) ? c + 'A' - 'a' : c)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

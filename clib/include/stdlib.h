@@ -1,5 +1,8 @@
 #ifndef STDLIB_H
 #define STDLIB_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stddef.h>
 
@@ -10,4 +13,7 @@ extern void* realloc(void* ptr, size_t size);
 extern void* calloc(size_t, size_t);
 extern void free(void* ptr);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -2,8 +2,14 @@
 #define RDFS_H
 
 #include <stdbool.h>
-#include <kernel/filesystem.h>
 
-void rdfs_init();
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+void rdfs_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -1,13 +1,14 @@
+#include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
 extern "C" {
-	#include <string.h>
-	#include <stdio.h>
-	#include <stdarg.h>
-	#include <stdlib.h>
-	#include <stdbool.h>
-	
-	#include <kernel/filesystem.h>
 	#include <kernel/memorymanager.h>
 }
+
+#include <kernel/filesystem.h>
 
 #include <vector>
 #include <string>
@@ -25,7 +26,6 @@ extern "C" void filesystem_add_driver(filesystem_driver* fs_drv)
 
 filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data, size_t block_size)
 {
-
 	auto drive = new filesystem_drive{};
 	drive->fs_impl_data = nullptr;
 	drive->fs_driver = nullptr;
@@ -109,7 +109,7 @@ file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* 
 		for(size_t i = 0; i < d->num_files; i++)
 		{
 			//printf("%s\n", d->file_list[i].full_name);
-			if(strcasecmp(d->file_list[i].full_name, name) == 0)
+			if(strcasecmp(d->file_list[i].full_name.c_str(), name) == 0)
 			{			
 				return &d->file_list[i];
 			}
@@ -201,7 +201,7 @@ int filesystem_get_file_info(file_info* dst, const file_handle* src)
 	//we should also check that these adresses are mapped properly
 	//maybe do a checksum too?
 
-	strcpy(dst->name, src->full_name);
+	memcpy(dst->name, src->full_name.c_str(), src->full_name.size() + 1);
 	dst->size = src->size;
 	dst->flags = src->flags;
 	dst->time_created = src->time_created;

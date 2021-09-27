@@ -1,5 +1,9 @@
 #ifndef STDIO_H
 #define STDIO_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdarg.h>
 #include <string.h>
 
@@ -37,4 +41,8 @@ int getc(FILE* stream);
 int puts(const char* str);
 void perror(const char* str);
 int fflush(FILE* stream);
+
+#ifdef __cplusplus
+}
+#endif
 #endif

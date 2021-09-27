@@ -1,50 +1,38 @@
 #ifndef FILESYSTEM_H
 #define FILESYSTEM_H
 
+struct file_handle;
+
+#ifdef __cplusplus
+extern "C" {
+#else
+typedef struct file_handle file_handle;
+#endif
+
 #include <time.h>
 #include <stdbool.h>
 
 #include <kernel/syscall.h>
 #include <api/files.h>
 
-typedef size_t fs_index; 
-
-//information about a file on disk
-typedef struct 
-{
-	const char* name;
-	const char* type;
-	
-	const char* full_name;
-	
-	uint32_t flags;
-
-	size_t disk;
-	fs_index location_on_disk;
-	
-	size_t size;
-	
-	time_t time_created;
-	time_t time_modified;
-} 
-file_handle;
+typedef size_t fs_index;
 
 //an instance of an open file
-typedef struct 
+typedef struct
 {
 	const file_handle* file;
 	uint8_t* buffer;
 	size_t seekpos;
 	fs_index location_on_disk;
-} 
-file_stream;	
+}
+file_stream;
 
 //information about a directory on disk
-typedef struct 
+typedef struct
 {
 	const char* name;
 	size_t num_files;
-	
+
 	file_handle* file_list;
 	size_t drive;
 }
@@ -56,7 +44,7 @@ typedef struct filesystem_driver filesystem_driver;
 struct disk_driver;
 typedef struct disk_driver disk_driver;
 
-typedef struct 
+typedef struct
 {
 	bool mounted;
 	directory_handle root;
@@ -72,11 +60,6 @@ filesystem_drive;
 SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t drive);
 
 void filesystem_seek_file(file_stream* f, size_t pos);
-
-inline size_t filesystem_get_size(file_stream* f)
-{
-	return f->file->size;
-}
 
 
 SYSCALL_HANDLER file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index);
@@ -107,7 +90,7 @@ typedef enum {
 	MOUNT_SUCCESS = 0,
 
 	//means the drive does not contain a filesystem that can be handled by the driver
-	UNKNOWN_FILESYSTEM = 1,	
+	UNKNOWN_FILESYSTEM = 1,
 
 	//means the drive failed to mount for some reason
 	MOUNT_FAILURE = 2,
@@ -135,5 +118,35 @@ void filesystem_add_driver(filesystem_driver* fs_drv);
 filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data, size_t block_size);
 
 void filesystem_set_default_drive(size_t index);
+
+#ifdef __cplusplus
+}
+
+#include <string>
+
+//information about a file on disk
+struct file_handle
+{
+	std::string name;
+	std::string type;
+	std::string full_name;
+
+	uint32_t flags;
+
+	size_t disk;
+	fs_index location_on_disk;
+
+	size_t size;
+
+	time_t time_created;
+	time_t time_modified;
+};
+
+inline size_t filesystem_get_size(file_stream* f)
+{
+	return f->file->size;
+}
+
+#endif
 
 #endif
