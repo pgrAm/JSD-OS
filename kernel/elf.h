@@ -1,9 +1,12 @@
 #ifndef ELF_H
 #define ELF_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdint.h>
 
-#include <kernel/dynamic_object.h>
+typedef struct dynamic_object dynamic_object;
 
 #define ELF_BIT_WIDTH_64 0x02
 #define ELF_BIT_WIDTH_32 0x01
@@ -231,4 +234,7 @@ enum ELF_program_flags
 
 int load_elf(const char* path, dynamic_object* newTask, bool user);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

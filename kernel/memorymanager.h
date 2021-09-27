@@ -1,5 +1,8 @@
 #ifndef _MEMORYMANAGER_H
 #define _MEMORYMANAGER_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdbool.h>
 #include <string.h>
@@ -39,4 +42,7 @@ size_t memmanager_mem_size(void);
 
 uintptr_t memmanager_allocate_physical_in_range(uintptr_t start, uintptr_t end, size_t size, size_t align);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

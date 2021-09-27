@@ -6,6 +6,7 @@
 #include <kernel/memorymanager.h>
 #include <kernel/elf.h>
 #include <kernel/util/hash.h>
+#include <kernel/dynamic_object.h>
 
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -123,9 +124,9 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 	ELF_ident file_identifer;
 	ELF_header32 file_header;
 
-	file_stream* f = filesystem_open_file(NULL, path, 0);
+	file_stream* f = filesystem_open_file(nullptr, path, 0);
 
-	if(f == NULL)
+	if(f == nullptr)
 	{
 		printf("could not open elf file %s\n", path);
 		return 0;
@@ -148,13 +149,10 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 
 			uintptr_t base_adress = (uintptr_t)memmanager_virtual_alloc(s.base, num_pages, PAGE_USER | PAGE_PRESENT | PAGE_RW);
 
-			object->num_segments = 1;
-			object->segments = (segment*)malloc(sizeof(segment) * object->num_segments);
-			object->segments[1].pointer = (void*)base_adress;
-			object->segments[1].num_pages = num_pages;
-			object->linker_data = NULL;
+			object->segments.push_back({(void*)base_adress, num_pages});
+			object->linker_data = nullptr;
 
-			if(s.base != NULL) //if the elf cares where its loaded then don't add the base adress
+			if(s.base != nullptr) //if the elf cares where its loaded then don't add the base adress
 			{
 				base_adress = 0;
 			}
@@ -170,17 +168,22 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 				switch(pg_header.type)
 				{
 				case ELF_PTYPE_DYNAMIC:
-					object->linker_data = malloc(sizeof(ELF_linker_data));
-					memset(object->linker_data, 0, sizeof(ELF_linker_data));
-					((ELF_linker_data*)object->linker_data)->base_address = (void*)base_adress;
-					((ELF_linker_data*)object->linker_data)->dynamic_section = (ELF_dyn32*)(base_adress + pg_header.virtual_address);
-					((ELF_linker_data*)object->linker_data)->symbol_map = object->symbol_map;
-					((ELF_linker_data*)object->linker_data)->glob_data_symbol_map = object->glob_data_symbol_map;
-					((ELF_linker_data*)object->linker_data)->lib_set = object->lib_set;
-					((ELF_linker_data*)object->linker_data)->userspace = user;
+				{
+					auto linker_data = new ELF_linker_data();
 
+					memset(linker_data, 0, sizeof(ELF_linker_data));
+
+					linker_data->base_address = (void*)base_adress;
+					linker_data->dynamic_section = (ELF_dyn32*)(base_adress + pg_header.virtual_address);
+					linker_data->symbol_map = object->symbol_map;
+					linker_data->glob_data_symbol_map = object->glob_data_symbol_map;
+					linker_data->lib_set = object->lib_set;
+					linker_data->userspace = user;
+
+					object->linker_data = (void*)linker_data;
 					//printf("found dynamic section at %X\n", ((ELF_linker_data*)object->linker_data)->dynamic_section);
 					break;
+				}
 				case ELF_PTYPE_LOAD:
 				{
 					uintptr_t aligned_address = base_adress + (pg_header.virtual_address & ~(PAGE_SIZE - 1));
@@ -224,20 +227,18 @@ extern volatile size_t cursorpos;
 
 int elf_process_dynamic_section(ELF_linker_data* object)
 {
-	if(object == NULL)
+	if(object == nullptr)
 	{
 		return 0;
 	}
 
-	//printf("Reading dynamic section\n");
-
 	if(object->dynamic_section)
 	{
 		size_t relocation_entries = 0;
-		ELF_rel32* relocation_addr = NULL;
+		ELF_rel32* relocation_addr = nullptr;
 
 		size_t plt_relocation_entries = 0;
-		ELF_rel32* plt_relocation_addr = NULL;
+		ELF_rel32* plt_relocation_addr = nullptr;
 
 		//cursorpos = 3442;
 
@@ -252,16 +253,16 @@ int elf_process_dynamic_section(ELF_linker_data* object)
 				plt_relocation_entries = entry->d_un.d_val / sizeof(ELF_rel32);
 				break;
 			case DT_JMPREL:
-				plt_relocation_addr = (ELF_rel32*)(object->base_address + entry->d_un.d_ptr);
+				plt_relocation_addr = (ELF_rel32*)((uintptr_t)object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_REL:
-				relocation_addr = (ELF_rel32*)(object->base_address + entry->d_un.d_ptr);
+				relocation_addr = (ELF_rel32*)((uintptr_t)object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_RELSZ:
 				relocation_entries = entry->d_un.d_val / sizeof(ELF_rel32);
 				break;
 			case DT_HASH:
-				object->hash_table = (uint32_t*)(object->base_address + entry->d_un.d_ptr);
+				object->hash_table = (uint32_t*)((uintptr_t)object->base_address + entry->d_un.d_ptr);
 				if(object->hash_table == NULL)
 				{
 					printf("NULL ptr access\n");
@@ -269,20 +270,20 @@ int elf_process_dynamic_section(ELF_linker_data* object)
 				object->symbol_table_size = object->hash_table[1];
 				break;
 			case DT_STRTAB:
-				object->string_table = (char*)(object->base_address + entry->d_un.d_ptr);
+				object->string_table = (char*)((uintptr_t)object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_SYMTAB:
 				//printf("found symtab at %X\n", entry->d_un.d_ptr);
-				object->symbol_table = (ELF_sym32*)(object->base_address + entry->d_un.d_ptr);
+				object->symbol_table = (ELF_sym32*)((uintptr_t)object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_STRSZ:
 				object->string_table_size = entry->d_un.d_val;
 				break;
 			case DT_INIT:
-				object->init_func = (void (*)(void))(object->base_address + entry->d_un.d_ptr);
+				object->init_func = (void (*)(void))((uintptr_t)object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_INIT_ARRAY:
-				object->array_init_funcs = (void (**)(void))(object->base_address + entry->d_un.d_ptr);
+				object->array_init_funcs = (void (**)(void))((uintptr_t)object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_INIT_ARRAYSZ:
 				object->num_array_init_funcs = entry->d_un.d_val / sizeof(uintptr_t);
@@ -304,17 +305,16 @@ int elf_process_dynamic_section(ELF_linker_data* object)
 				const char* lib_name = object->string_table + entry->d_un.d_val;
 
 				uint32_t val;
-				if(!hashmap_lookup(object->lib_set, lib_name, &val))
+				if(!object->lib_set->lookup(lib_name, &val))
 				{
-					dynamic_object lib;
-					memset(&lib, 0, sizeof(dynamic_object));
+					dynamic_object lib{};
 					lib.lib_set = object->lib_set;
 					lib.symbol_map = object->symbol_map;
 					lib.glob_data_symbol_map = object->glob_data_symbol_map;
 
 					if(load_elf(lib_name, &lib, object->userspace))
 					{
-						hashmap_insert(lib.lib_set, lib_name, 1);
+						lib.lib_set->insert(lib_name, 1);
 					}
 				}
 			}
@@ -351,12 +351,12 @@ int elf_read_symbols(ELF_linker_data* object)
 			//printf("symbol name = %s\n", symbol_name);
 
 			uint32_t val;
-			if(!hashmap_lookup(object->symbol_map, symbol_name, &val))
+			if(!object->symbol_map->lookup(symbol_name, &val))
 			{
 				//if this symbol exists in the image
 				if(symbol->section_index)
 				{
-					hashmap_insert(object->symbol_map, symbol_name, (uintptr_t)(object->base_address + symbol->value));
+					object->symbol_map->insert(symbol_name, (uintptr_t)object->base_address + symbol->value);
 				}
 			}
 		}
@@ -401,7 +401,7 @@ void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, s
 
 		ELF_sym32* symbol = &object->symbol_table[symbol_index];
 		uintptr_t symbol_val = (uintptr_t)object->base_address + symbol->value;
-		const char* symbol_name = NULL;
+		const char* symbol_name = nullptr;
 
 		if(elf_relocation_uses_symbol(relocation_type))
 		{
@@ -412,21 +412,21 @@ void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, s
 				printf("Unable to locate symbol %u, NULL symbol\n", symbol_index);
 				symbol_val = 0;
 			}
-			else if(!hashmap_lookup(object->symbol_map, symbol_name, &symbol_val))
+			else if(!object->symbol_map->lookup(symbol_name, &symbol_val))
 			{
 				printf("Unable to locate symbol %u \"%s\"\n", symbol_index, symbol_name);
 				symbol_val = 0;
 			}
 		}
 
-		void* address = object->base_address + table[entry].offset;
+		uintptr_t address = (uintptr_t)object->base_address + table[entry].offset;
 
 		switch(relocation_type)
 		{
 		case R_386_GLOB_DAT:
 			if(symbol_name)
 			{
-				hashmap_lookup(object->glob_data_symbol_map, symbol_name, &symbol_val);
+				object->glob_data_symbol_map->lookup(symbol_name, &symbol_val);
 			}
 			*(uintptr_t*)(address) = symbol_val;
 			break;
@@ -447,7 +447,7 @@ void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, s
 			{
 				printf("NULL ptr access\n");
 			}
-			memcpy(address, (void*)symbol_val, symbol->size);
+			memcpy((void*)address, (void*)symbol_val, symbol->size);
 			break;
 		default:
 			printf("Unsupported relocation type: %d\n", relocation_type);

@@ -1,9 +1,11 @@
 #ifndef DYNAMIC_OBJECT_H
 #define DYNAMIC_OBJECT_H
+#ifdef __cplusplus
 
 #include <stddef.h>
-
 #include <kernel/util/hash.h>
+
+#include <vector>
 
 typedef struct
 {
@@ -11,17 +13,17 @@ typedef struct
 	size_t num_pages;
 } segment;
 
-typedef struct
+struct dynamic_object
 {
-	void* entry_point;
-	segment* segments;
-	size_t num_segments;
+	void* entry_point = nullptr;
+	std::vector<segment> segments;
 
-	void* linker_data;
+	void* linker_data = nullptr;
 
-	hash_map* lib_set;
-	hash_map* symbol_map;
-	hash_map* glob_data_symbol_map;
-} dynamic_object;
+	hash_map* lib_set = nullptr;
+	hash_map* symbol_map = nullptr;
+	hash_map* glob_data_symbol_map = nullptr;
+};
 
+#endif
 #endif

@@ -1,33 +1,34 @@
 #ifndef HASH_H
 #define HASH_H
+#ifdef __cplusplus
 
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
 
-struct hash_node;
-typedef struct hash_node hash_node;
+#include <string>
+#include <vector>
 
 struct hash_node
 {
-	const char* key;
+	std::string key;
 	uint32_t data;
-	hash_node* next;
+	hash_node* next = nullptr;
 };
 
-typedef struct hash_map
+class hash_map
 {
-	hash_node** buckets;
-	size_t num_buckets;
-} hash_map;
+public:
+	hash_map(size_t num_buckets = 16);
+	~hash_map();
 
-uint32_t hash_string(const char* name);
-hash_map* hashmap_create(size_t num_buckets);
-hash_node* hashmap_create_node(const char* key, uint32_t value);
-void hashmap_free_node(hash_node* node);
-void free_hash_map(hash_map* map);
-bool hashmap_lookup(const hash_map* map, const char* key, uint32_t* value);
-void hashmap_insert(hash_map* map, const char* key, const uint32_t value);
-void hashmap_remove(hash_map* map, const char* key);
-void hashmap_print(const hash_map* map);
+	bool lookup(const std::string& key, uint32_t* value);
+	void insert(const std::string& key, const uint32_t value);
+	void remove(const std::string& key);
+
+private:
+	std::vector<hash_node*> buckets;
+};
+
+#endif
 #endif

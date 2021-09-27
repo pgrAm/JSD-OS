@@ -2,14 +2,40 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+extern "C" {
+#include <kernel/locks.h>
+}
+
 #include <kernel/task.h>
 #include <kernel/memorymanager.h>
-#include <kernel/filesystem.h>
 #include <kernel/elf.h>
-#include <kernel/locks.h>
+#include <kernel/filesystem.h>
+#include <kernel/dynamic_object.h>
 
-extern void run_user_code(void* address, void* stack);
-extern void switch_task(TCB *t);
+#include <vector>
+
+//Thread control block
+typedef struct
+{
+	uint32_t esp;
+	uint32_t esp0;
+	uint32_t cr3;
+	uint32_t pid;
+	process* p_data;
+} __attribute__((packed)) TCB; //tcb man, tcb...
+
+struct process
+{
+	void* kernel_stack_top = nullptr;
+	void* user_stack_top = nullptr;
+	uintptr_t address_space = 0;
+	std::vector<dynamic_object*> objects;
+	int parent_pid = INVALID_PID;
+	TCB tc_block;
+};
+
+extern "C" void run_user_code(void* address, void* stack);
+extern "C" void switch_task(TCB *t);
 
 extern TCB* current_task_TCB;
 extern uint32_t* tss_esp0_location;
@@ -81,7 +107,7 @@ void start_user_process(process* t)
 {
 	memmanager_enter_memory_space(t->address_space);
 	
-	run_user_code(t->objects[0]->entry_point, t->user_stack_top + PAGE_SIZE);
+	run_user_code(t->objects[0]->entry_point, (void*)((uintptr_t)t->user_stack_top + PAGE_SIZE));
 
 	__asm__ volatile ("hlt");
 }
@@ -114,18 +140,17 @@ SYSCALL_HANDLER void exit_process(int val)
 		active_process = next_pid;
 	}
 
-	for (size_t object_index = 0; object_index < current_process->num_objects; object_index++)
+	for (size_t object_index = 0; object_index < current_process->objects.size(); object_index++)
 	{
 		dynamic_object* o = current_process->objects[object_index];
 
-		for (size_t i = 0; i < o->num_segments; i++)
+		for (size_t i = 0; i < o->segments.size(); i++)
 		{
 			memmanager_free_pages(o->segments[i].pointer, o->segments[i].num_pages);
 		}
 
-		free(o);
+		delete o;
 	}
-	free(current_process->objects);
 
 	//we need to clean up before reenabline interupts or else we might never get it done
 	uint32_t memspace = current_process->address_space;
@@ -157,24 +182,24 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 
 	uint32_t oldcr3 = (uint32_t)get_page_directory();
 	
-	process* newTask = (process*)malloc(sizeof(process));
+	process* newTask = new process{};
 	
 	newTask->parent_pid = current_task_TCB->pid;
 	newTask->address_space = memmanager_new_memory_space();
 	memmanager_enter_memory_space(newTask->address_space);
 
-	newTask->num_objects = 1;
-	newTask->objects = (dynamic_object**)malloc(sizeof(dynamic_object*));
-	newTask->objects[0] = (dynamic_object*)malloc(sizeof(dynamic_object));
-	newTask->objects[0]->symbol_map = hashmap_create(16);
-	newTask->objects[0]->glob_data_symbol_map = hashmap_create(16);
-	newTask->objects[0]->lib_set = hashmap_create(16);
+	dynamic_object* d = new dynamic_object();
+	d->symbol_map = new hash_map();
+	d->glob_data_symbol_map = new hash_map();
+	d->lib_set = new hash_map();
+
+	newTask->objects.push_back(d);
 
 	if(!load_elf(path, newTask->objects[0], true))
 	{
 		set_page_directory((uint32_t*)oldcr3);
 		memmanager_destroy_memory_space(newTask->address_space);
-		free(newTask);
+		delete newTask;
 		return;
 	}
 

@@ -2,6 +2,8 @@
 #include <stdio.h>
 
 #include <kernel/filesystem.h>
+#include <kernel/util/hash.h>
+#include <kernel/dynamic_object.h>
 
 extern "C" {
 #include <kernel/interrupt.h>
@@ -26,22 +28,21 @@ struct func_info {
 static void load_driver(std::string filename, std::string func_name,
 				 const std::vector<func_info> &functions)
 {
-	dynamic_object ob;
-	memset(&ob, 0, sizeof(dynamic_object));
-	ob.lib_set = hashmap_create(16);
-	ob.symbol_map = hashmap_create(16);
-	ob.glob_data_symbol_map = hashmap_create(16);
+	dynamic_object ob{};
+	ob.lib_set = new hash_map();
+	ob.symbol_map = new hash_map();
+	ob.glob_data_symbol_map = new hash_map();
 
 	for(size_t i = 0; i < functions.size(); i++)
 	{
-		hashmap_insert(ob.symbol_map,
-					   functions[i].name.c_str(), (uint32_t)functions[i].address);
+		ob.symbol_map->insert(functions[i].name, 
+							  (uint32_t)functions[i].address);
 	}
 
 	load_elf(filename.c_str(), &ob, false);
 
 	uint32_t func_address;
-	if(hashmap_lookup(ob.symbol_map, func_name.c_str(), &func_address))
+	if(ob.symbol_map->lookup(func_name.c_str(), &func_address))
 	{
 		((void (*)())func_address)();
 	}

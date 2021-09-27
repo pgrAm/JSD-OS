@@ -5,33 +5,13 @@ extern "C" {
 #endif
 #include <stddef.h>
 #include <stdint.h>
-
-#include <kernel/dynamic_object.h>
 #include <kernel/syscall.h>
 
 #define INVALID_PID (~(size_t)0x0)
 typedef struct process process;
 
-//Thread control block
-typedef struct
-{
-	uint32_t esp;
-	uint32_t esp0;
-	uint32_t cr3;
-	uint32_t pid;
-	process* p_data;
-} __attribute__((packed)) TCB; //tcb man, tcb...
-
-struct process
-{
-	void* kernel_stack_top;
-	void* user_stack_top;
-	uintptr_t address_space;
-	dynamic_object** objects;
-	size_t num_objects;
-	int parent_pid;
-	TCB tc_block;
-};
+struct dynamic_object;
+typedef struct dynamic_object dynamic_object;
 
 #define WAIT_FOR_PROCESS 0x01
 
