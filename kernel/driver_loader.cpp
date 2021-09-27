@@ -25,19 +25,16 @@ struct func_info {
 	void* address;
 };
 
-static void load_driver(std::string filename, std::string func_name,
-				 const std::vector<func_info> &functions)
+hash_map driver_lib_set{};
+hash_map driver_symbol_map{};
+hash_map driver_glob_data_symbol_map{};
+
+static void load_driver(std::string filename, std::string func_name)
 {
 	dynamic_object ob{};
-	ob.lib_set = new hash_map();
-	ob.symbol_map = new hash_map();
-	ob.glob_data_symbol_map = new hash_map();
-
-	for(size_t i = 0; i < functions.size(); i++)
-	{
-		ob.symbol_map->insert(functions[i].name, 
-							  (uint32_t)functions[i].address);
-	}
+	ob.lib_set = &driver_symbol_map;
+	ob.symbol_map = &driver_symbol_map;
+	ob.glob_data_symbol_map = &driver_glob_data_symbol_map;
 
 	load_elf(filename.c_str(), &ob, false);
 
@@ -82,7 +79,12 @@ static const func_info func_list[] = {
 
 extern "C" void load_drivers()
 {
-	std::vector<func_info> funcs(func_list, sizeof(func_list) / sizeof(func_info));
+	auto num_funcs = sizeof(func_list) / sizeof(func_info);
+	for(size_t i = 0; i < num_funcs; i++)
+	{
+		driver_symbol_map.insert(func_list[i].name,
+							  (uint32_t)func_list[i].address);
+	}
 
 	file_stream* f = filesystem_open_file(nullptr, "init.sys", 0);
 
@@ -117,7 +119,7 @@ extern "C" void load_drivers()
 
 				printf("loading driver %s, calling %s\n", filename.c_str(), init_func.c_str());
 
-				load_driver(filename, init_func, funcs);
+				load_driver(filename, init_func);
 			}
 
 			buffer.clear();

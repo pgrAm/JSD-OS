@@ -291,6 +291,14 @@ inline bool operator==(const std::string& lhs,
 	return lhs.compare(rhs) == 0;
 }
 
+inline bool operator!=(const std::string& lhs,
+					   const std::string& rhs)
+{
+	if(lhs.size() != rhs.size())
+		return true;
+	return lhs.compare(rhs) != 0;
+}
+
 inline std::string operator+(const std::string& lhs, const char* rhs)
 {
 	auto new_str = lhs;

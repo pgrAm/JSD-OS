@@ -45,7 +45,8 @@ const void* syscall_table[] =
 	filesystem_open_directory,
 	filesystem_close_directory,
 	set_cursor_offset,
-	get_keystate
+	get_keystate,
+	memmanager_num_bytes_free
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

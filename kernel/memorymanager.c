@@ -512,7 +512,7 @@ extern multiboot_info* _multiboot;
 
 size_t total_mem_size = 0;
 
-size_t memmanager_num_bytes_free(void)
+SYSCALL_HANDLER size_t memmanager_num_bytes_free(void)
 {
 	size_t sum = 0;
 

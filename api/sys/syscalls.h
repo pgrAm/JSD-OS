@@ -34,7 +34,8 @@ enum syscall_indices
 	SYSCALL_OPEN_DIR = 20,
 	SYSCALL_CLOSE_DIR = 21,
 	SYSCALL_SET_VIDEO_CURSOR = 22,
-	SYSCALL_GET_KEYSTATE = 23
+	SYSCALL_GET_KEYSTATE = 23,
+	SYSCALL_GET_FREE_MEM = 24
 };
 
 struct file_handle;
@@ -113,6 +114,11 @@ static inline void spawn_process(const char* path, int flags)
 static inline time_t master_time()
 {
 	return (time_t)do_syscall_0(SYSCALL_TIME);
+}
+
+static inline size_t get_free_memory()
+{
+	return (size_t)do_syscall_0(SYSCALL_GET_FREE_MEM);
 }
 
 static inline clock_t clock_ticks()

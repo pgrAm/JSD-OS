@@ -33,6 +33,15 @@ public:
 		std::copy(s, s + len, begin());
 	}
 
+	vector(size_t count, const T& value = {})
+	{
+		m_capacity = count;
+		m_begin = new T[m_capacity];
+		m_end = m_begin + count;
+
+		std::fill(begin(), end(), value);
+	}
+
 	~vector()
 	{
 		delete[] m_begin;

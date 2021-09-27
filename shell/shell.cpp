@@ -235,6 +235,10 @@ int get_command(char* input)
 			clear_console();
 		}
 	}
+	else if("mem" == keyword)
+	{
+		printf("%d bytes free\n", get_free_memory());
+	}
 	else if("cat" == keyword || "type" == keyword)
 	{
 		const char* arg = keywords[1].c_str();
