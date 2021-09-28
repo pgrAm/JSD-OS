@@ -36,7 +36,7 @@ typedef struct ELF_linker_data
 } ELF_linker_data;
 
 
-int elf_is_readable(ELF_ident* file_identifer)
+static int elf_is_readable(ELF_ident* file_identifer)
 {
 	static const char elf_magic[4] = {0x7f, 'E', 'L', 'F'};
 
@@ -69,7 +69,7 @@ int elf_is_readable(ELF_ident* file_identifer)
 	return 1;
 }
 
-bool elf_is_compatible(ELF_header32* file_header)
+static bool elf_is_compatible(ELF_header32* file_header)
 {
 	if(file_header->machine_arch != ELF_ARCH_X86)
 	{
@@ -90,7 +90,7 @@ typedef struct span
 	size_t size;
 } span;
 
-span elf_get_size(ELF_header32* file_header, file_stream* f)
+static span elf_get_size(ELF_header32* file_header, file_stream* f)
 {
 	uintptr_t min_address = ~(uintptr_t)0;
 	uintptr_t max_address = 0;
@@ -115,9 +115,9 @@ span elf_get_size(ELF_header32* file_header, file_stream* f)
 	return retval;
 }
 
-int elf_read_symbols(ELF_linker_data* object);
-void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
-int elf_process_dynamic_section(ELF_linker_data* object);
+static int elf_read_symbols(ELF_linker_data* object);
+static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
+static int elf_process_dynamic_section(ELF_linker_data* object);
 
 int load_elf(const char* path, dynamic_object* object, bool user)
 {
@@ -223,9 +223,7 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 	return 1;
 }
 
-extern volatile size_t cursorpos;
-
-int elf_process_dynamic_section(ELF_linker_data* object)
+static int elf_process_dynamic_section(ELF_linker_data* object)
 {
 	if(object == nullptr)
 	{
@@ -338,7 +336,7 @@ int elf_process_dynamic_section(ELF_linker_data* object)
 #define ELF32_R_SYM(i) ((i) >> 8)
 #define ELF32_R_TYPE(i) ((uint8_t)(i))
 
-int elf_read_symbols(ELF_linker_data* object)
+static int elf_read_symbols(ELF_linker_data* object)
 {
 	if(object->symbol_table && object->string_table)
 	{
@@ -380,7 +378,7 @@ static inline bool elf_relocation_uses_symbol(uint8_t type)
 	}
 }
 
-void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries)
+static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries)
 {
 	if(table == NULL)
 	{
