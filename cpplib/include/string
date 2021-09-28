@@ -5,222 +5,337 @@
 #include <algorithm>
 
 namespace std {
-	class string;
+	template<typename C> class basic_string;
+
+	using string = basic_string<char>;
+
+	/*#define assert(expression)      \
+				if(!(expression)) { \
+					printf("%s %s %d\n", #expression, __FILE__, (unsigned)(__LINE__)); while(true);}
+	*/
+
+#define assert(expression)
 };
 
-class std::string {
+template<typename charT>
+class std::basic_string
+{
 public:
-	using iterator = char*;
-	using const_iterator = const char*;
-
+	using value_type = charT;
+	using size_type = size_t;
+	using iterator = value_type*;
+	using const_iterator = const value_type*;
 	static const size_t npos = -1;
 
-	string() :
-		m_begin(new char[1]),
-		m_end(m_begin),
-		m_capacity(1)
+	basic_string() noexcept
 	{
-		*m_end = '\0';
+		m_rep.s.size = 0;
+		m_rep.s.data[0] = '\0';
+		assert(!__is_long());
 	}
 
-	string(const char* s) : string(s, strlen(s))
+	basic_string(const value_type* s) : basic_string(s, strlen(s))
 	{
 	}
 
-	string(const char* s, size_t len) : 
-		m_begin(new char[len + 1]),
-		m_end(m_begin + len),
-		m_capacity(len + 1)
+	basic_string(const value_type* s, size_t len)
 	{
-		memcpy(m_begin, s, len);
-		*m_end = '\0';
+		if(len > __min_cap - 1)
+		{
+			const auto new_cap = len + 1;
+			m_rep.l.size = len;
+			m_rep.l.data = new value_type[new_cap];
+			__set_long_cap(new_cap);
+			memcpy(m_rep.l.data, s, len);
+			m_rep.l.data[len] = '\0';
+			assert(__is_long());
+		}
+		else
+		{
+			m_rep.s.size = len;
+			memcpy(&m_rep.s.data[0], s, len);
+			m_rep.s.data[len] = '\0';
+			assert(!__is_long());
+		}
 	}
 
-	~string()
+	basic_string(const basic_string& str) : basic_string(str.data(), str.size())
 	{
-		delete[] m_begin;
 	}
 
-	iterator begin()
+	~basic_string()
 	{
-		return m_begin;
+		if(__is_long())
+			delete[] m_rep.l.data;
 	}
 
-	iterator end()
+	basic_string(basic_string&& str) noexcept
 	{
-		return m_end;
+		if(str.__is_long())
+		{
+			m_rep.l = str.m_rep.l;
+			str.m_rep.s.size = 0;
+			str.m_rep.s.data[0] = '\0';
+			assert(__is_long());
+			assert(!str.__is_long());
+		}
+		else
+		{
+			m_rep.s = str.m_rep.s;
+			assert(!__is_long());
+		}
+	}
+
+	basic_string& assign(const value_type* s)
+	{
+		const auto new_size = strlen(s);
+		reserve(new_size);
+		__copy_from_null_terminated_string(s, new_size);
+
+		return *this;
+	}
+
+	basic_string& assign(const value_type* s, size_t n)
+	{
+		reserve(n);
+		__copy_from_unterminated_string(s, n);
+
+		return *this;
+	}
+
+	basic_string& assign(const basic_string& str)
+	{
+		const auto new_size = str.size();
+		reserve(new_size);
+
+		__copy_from_null_terminated_string(str.data(), new_size);
+
+		return *this;
+	}
+
+	basic_string& operator=(const value_type* str)
+	{
+		return assign(str);
+	}
+
+	basic_string& operator=(const basic_string& str)
+	{
+		return assign(str);
+	}
+
+	basic_string& operator=(basic_string&& str) noexcept
+	{
+		if(!str.__is_long())
+		{
+			__copy_from_null_terminated_string(str.data(), str.size());
+		}
+		else if(__is_long())
+		{
+			std::swap(m_rep.l, str.m_rep.l);
+		}
+		else if(&str != this)
+		{
+			m_rep.l = str.m_rep.l;
+			str.m_rep.s.size = 0;
+			str.m_rep.s.data[0] = '\0';
+			assert(__is_long());
+		}
+		return *this;
+	}
+
+	iterator begin() noexcept
+	{
+		if(__is_long())
+			return m_rep.l.data;
+		else
+			return &m_rep.s.data[0];
+	}
+
+	iterator end() noexcept
+	{
+		return begin() + size();
 	}
 
 	const_iterator cbegin() const noexcept
 	{
-		return m_begin;
+		if(__is_long())
+			return m_rep.l.data;
+		else
+			return &m_rep.s.data[0];
 	}
 
 	const_iterator cend() const noexcept
 	{
-		return m_end;
+		return cbegin() + size();
 	}
 
-	size_t size() const
+	size_type size() const noexcept
 	{
-		return cend() - cbegin();
+		if(__is_long())
+			return m_rep.l.size;
+		else
+			return m_rep.s.size;
 	}
 
-	size_t length() const
+	size_type length() const noexcept
 	{
 		return size();
 	}
 
-	size_t capacity() const
+	size_type capacity() const noexcept
 	{
-		return m_capacity - 1;
+		if(__is_long())
+			return __get_long_cap() - 1;
+		else
+			return __min_cap - 1;
 	}
 
-	char& operator[](size_t n)
+	value_type& operator[](size_type n)
 	{
-		return m_begin[n];
+		return begin()[n];
 	}
 
-	const char& operator[](size_t n) const
+	const value_type& operator[](size_type n) const
 	{
-		return m_begin[n];
+		return cbegin()[n];
 	}
 
-	void reserve(size_t n = 0)
+	void reserve(size_type n = 0)
 	{
 		if(n > capacity())
 		{
-			auto sz = size();
+			const auto old_size = size();
+			const auto new_cap = n + 1;
+			value_type* new_ptr = new value_type[new_cap];
+			memcpy(new_ptr, cbegin(), (old_size + 1) * sizeof(value_type));
 
-			m_capacity = n + 1;
-			char* new_ptr = new char[m_capacity];
+			if(__is_long())
+			{
+				delete[] m_rep.l.data;
+			}
 
-			memcpy(new_ptr, m_begin, (sz + 1) * sizeof(char));
-
-			delete[] m_begin;
-
-			m_begin = new_ptr;
-			m_end = m_begin + sz;
+			m_rep.l.data = new_ptr;
+			m_rep.l.size = old_size;
+			__set_long_cap(new_cap);
+			assert(__is_long());
 		}
 	}
 
-	const char* data() const
+	const value_type* data() const noexcept
 	{
-		return m_begin;
+		return cbegin();
 	}
 
-	const char* c_str() const
+	const value_type* c_str() const noexcept
 	{
-		return m_begin;
+		return cbegin();
 	}
 
-	string(const string& str) : string(str.data(), str.size())
+
+	void swap(basic_string& s) noexcept
 	{
+		std::swap(m_rep, s.m_rep);
 	}
 
-	void swap(string& s) noexcept
-	{
-		std::swap(m_capacity, s.m_capacity);
-		std::swap(m_begin, s.m_begin);
-		std::swap(m_end, s.m_end);
-	}
-
-	string(string&& str) noexcept : string()
-	{
-		swap(str);
-	}
-
-	string& operator=(const string& str)
-	{
-		delete[] m_begin;
-
-		m_capacity = str.size() + 1;
-		m_begin = new char[m_capacity];
-		m_end = m_begin + str.size();
-		memcpy(m_begin, str.data(), m_capacity);
-
-		return *this;
-	}
-
-	string& operator=(string&& str) noexcept
-	{
-		swap(str);
-		return *this;
-	}
-
-	void push_back(char c)
+	void push_back(value_type c)
 	{
 		if(size() + 1 > capacity())
 		{
-			reserve((m_capacity + 1) * 2);
+			reserve(capacity() * 2);
 		}
-		*(m_end++) = c;
-		*m_end = '\0';
+		if(__is_long())
+		{
+			m_rep.l.data[m_rep.l.size++] = c;
+			m_rep.l.data[m_rep.l.size] = '\0';
+		}
+		else
+		{
+			m_rep.s.data[m_rep.s.size++] = c;
+			m_rep.s.data[m_rep.s.size] = '\0';
+		}
 	}
 
-	string& append(const char* str, size_t count)
+	basic_string& append(const value_type* str, size_type count)
 	{
-		if(size() + count > capacity())
+		const auto new_size = size() + count;
+		if(new_size > capacity())
 		{
-			reserve((size() + count) * 2);
+			reserve(new_size * 2);
 		}
-		memcpy(m_end, str, count);
-		m_end += count;
-		*m_end = '\0';
+		assert(new_size <= capacity());
+		memcpy(end(), str, count * sizeof(value_type));
+		if(__is_long())
+		{
+			m_rep.l.size = new_size;
+			m_rep.l.data[new_size] = '\0';
+		}
+		else
+		{
+			m_rep.s.size = new_size;
+			m_rep.s.data[new_size] = '\0';
+		}
 		return *this;
 	}
 
-	string& append(const char* str)
+	basic_string& append(const value_type* str)
 	{
 		return append(str, strlen(str));
 	}
 
-	string& append(const string& str)
+	basic_string& append(const basic_string& str)
 	{
 		return append(str.data(), str.size());
 	}
 
-	string& operator+=(const char* str)
+	basic_string& operator+=(const value_type* str)
 	{
 		return append(str);
 	}
 
-	string& operator+=(const string& str)
+	basic_string& operator+=(const basic_string& str)
 	{
 		return append(str.data(), str.size());
 	}
 
-	string& operator+=(char c)
+	basic_string& operator+=(value_type c)
 	{
 		push_back(c);
 		return *this;
 	}
 
-	int compare(const std::string& s) const noexcept
+	int compare(const basic_string& s) const noexcept
 	{
 		return memcmp(data(), s.data(), size() < s.size() ? size() : s.size());
 	}
 
-	bool empty()
+	bool empty() noexcept
 	{
 		return size() == 0;
 	}
 
 	void pop_back()
 	{
-		*(--m_end) = '\0';
+		if(__is_long())
+		{
+			--m_rep.l.size;
+		}
+		else
+		{
+			--m_rep.s.size;
+		}
+		*end() = '\0';
 	}
 
-	string substr(size_t pos = 0, size_t count = npos) const
+	basic_string substr(size_t pos = 0, size_t count = npos) const
 	{
 		if(count == npos)
 		{
-			count = cend() - (cbegin() + pos);
+			count = size() - pos;
 		}
-		return string{cbegin() + pos, count};
+		return basic_string{cbegin() + pos, count};
 	}
 
-	size_t find_first_of(const string& str, size_t pos = 0) const
+	size_t find_first_of(const basic_string& str, size_t pos = 0) const
 	{
 		for(auto it = cbegin() + pos; it < cend(); it++)
 		{
@@ -234,7 +349,7 @@ public:
 		return npos;
 	}
 
-	size_t find(char c, size_t pos = 0) const
+	size_t find(value_type c, size_t pos = 0) const
 	{
 		for(auto it = cbegin() + pos; it < cend(); it++)
 		{
@@ -245,24 +360,31 @@ public:
 		return npos;
 	}
 
-	size_t find_first_of(char c, size_t pos = 0) const
+	size_t find_first_of(value_type c, size_t pos = 0) const
 	{
 		return find(c, pos);
 	}
 
-	const char& back() const
+	const value_type& back() const noexcept
 	{
-		return *(m_end - 1);
+		return *(cend() - 1);
 	}
 
-	char& back()
+	value_type& back() noexcept
 	{
-		return *(m_end - 1);
+		return *(end() - 1);
 	}
 
-	void clear()
+	void clear() noexcept
 	{
-		m_end = m_begin;
+		if(__is_long())
+		{
+			m_rep.l.size = 0;
+		}
+		else
+		{
+			m_rep.s.size = 0;
+		}
 	}
 
 	void resize(size_t n)
@@ -270,36 +392,160 @@ public:
 		reserve(n);
 		if(n > size())
 		{
-			memset(m_end, '\0', n - size());
+			memset(end(), '\0', n - size());
 		}
-
-		m_end = m_begin + n;
-		*m_end = '\0';
+		if(__is_long())
+		{
+			m_rep.l.size = n;
+			m_rep.l.data[n] = '\0';
+		}
+		else
+		{
+			m_rep.s.size = n;
+			m_rep.s.data[n] = '\0';
+		}
 	}
 
 private:
-	char* m_begin;
-	char* m_end;
-	size_t m_capacity;
+
+	void __copy_from_null_terminated_string(const value_type* data, size_type new_size) noexcept
+	{
+		assert(capacity() >= new_size);
+		if(__is_long())
+		{
+			m_rep.l.size = new_size;
+			memcpy(m_rep.l.data, data, (new_size + 1) * sizeof(value_type));
+			assert(__is_long());
+		}
+		else
+		{
+			m_rep.s.size = new_size;
+			memcpy(&m_rep.s.data[0], data, (new_size + 1) * sizeof(value_type));
+			assert(!__is_long());
+		}
+	}
+
+	void __copy_from_unterminated_string(const value_type* data, size_type new_size) noexcept
+	{
+		assert(capacity() >= new_size);
+		if(__is_long())
+		{
+			m_rep.l.size = new_size;
+			memcpy(m_rep.l.data, data, new_size * sizeof(value_type));
+			m_rep.l.data[new_size] = '\0';
+			assert(__is_long());
+		}
+		else
+		{
+			m_rep.s.size = new_size;
+			memcpy(&m_rep.s.data[0], data, new_size * sizeof(value_type));
+			m_rep.s.data[new_size] = '\0';
+			assert(!__is_long());
+		}
+	}
+
+	size_type __get_long_cap() const noexcept
+	{
+		return m_rep.l.cap & (size_type)(~__long_mask);
+	}
+
+	void __set_long_cap(size_type s) noexcept
+	{
+		m_rep.l.cap = __long_mask | s;
+	}
+
+	bool __is_long() const noexcept
+	{
+		return bool(m_rep.s.size & __short_mask);
+	}
+
+	struct __long
+	{
+		value_type* data;
+		size_type size;
+		size_type cap;
+	};
+
+	//#ifdef MACHINE_IS_BIG_ENDIAN
+	//	static const size_type __short_mask = 0x01;
+	//	static const size_type __long_mask = 0x1ul;
+	//#else
+	static const size_type __short_mask = 0x80;
+	static const size_type __long_mask = ~(size_type(~0) >> 1);
+	//#endif
+
+	enum {
+		__min_cap = (sizeof(__long) - 1) / sizeof(value_type) > 2 ?
+		(sizeof(__long) - 1) / sizeof(value_type) : 2
+	};
+
+	struct __short
+	{
+		value_type data[__min_cap];
+		unsigned char size;
+	};
+
+	struct __rep
+	{
+		union
+		{
+			__long  l;
+			__short s;
+		};
+	};
+
+	__rep m_rep;
 };
 
-inline bool operator==(const std::string& lhs,
-				const std::string& rhs)
+template <typename C>
+inline bool operator==(const std::basic_string<C>& lhs,
+					   const std::basic_string<C>& rhs)
 {
 	if(lhs.size() != rhs.size())
 		return false;
 	return lhs.compare(rhs) == 0;
 }
 
-inline bool operator!=(const std::string& lhs,
-					   const std::string& rhs)
+template <typename C>
+inline bool operator!=(const std::basic_string<C>& lhs,
+					   const std::basic_string<C>& rhs)
 {
 	if(lhs.size() != rhs.size())
 		return true;
 	return lhs.compare(rhs) != 0;
 }
 
-inline std::string operator+(const std::string& lhs, const char* rhs)
+template <typename C>
+inline bool operator==(const std::basic_string<C>& lhs,
+					   const typename std::basic_string<C>::value_type* rhs)
+{
+	return lhs.compare(rhs) == 0;
+}
+
+template <typename C>
+inline bool operator!=(const std::basic_string<C>& lhs,
+					   const typename std::basic_string<C>::value_type* rhs)
+{
+	return lhs.compare(rhs) != 0;
+}
+
+template <typename C>
+inline bool operator==(const typename std::basic_string<C>::value_type* lhs,
+					   const std::basic_string<C> rhs)
+{
+	return rhs.compare(lhs) == 0;
+}
+
+template <typename C>
+inline bool operator!=(const typename std::basic_string<C>::value_type* lhs,
+					   const std::basic_string<C> rhs)
+{
+	return rhs.compare(lhs) != 0;
+}
+
+template <typename C>
+inline std::basic_string<C> operator+(const std::basic_string<C>& lhs,
+									  const typename std::basic_string<C>::value_type* rhs)
 {
 	auto new_str = lhs;
 	return new_str.append(rhs);
