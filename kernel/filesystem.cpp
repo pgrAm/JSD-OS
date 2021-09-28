@@ -54,7 +54,7 @@ SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_ha
 {
 	if (f == nullptr || !(f->flags & IS_DIR)) { return nullptr; }
 
-	directory_handle* d = (directory_handle*)malloc(sizeof(directory_handle));
+	directory_handle* d = new directory_handle();
 
 	drives[f->disk]->fs_driver->read_dir(d, f, drives[f->disk]);
 
@@ -176,7 +176,7 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 
 file_stream* filesystem_create_stream(const file_handle* f)
 {
-	file_stream* stream = (file_stream*)malloc(sizeof(file_stream));
+	file_stream* stream = new file_stream();
 
 	stream->location_on_disk = 0;
 	stream->seekpos = 0;
@@ -224,8 +224,8 @@ file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index)
 SYSCALL_HANDLER 
 int filesystem_close_directory(directory_handle* d)
 {
-	//free(d->file_list);
-	//free(d);
+	//delete [] d->file_list;
+	//delete d;
 	return 0;
 }
 
@@ -361,7 +361,7 @@ SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
 		//	   stream->buffer, p);
 	}
 	//free(f->buffer);
-	free(stream);
+	delete stream;
 	return 0;
 }
 

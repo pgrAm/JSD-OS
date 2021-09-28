@@ -240,13 +240,13 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* ent
 		return false;
 	} //end of directory
 
-	dest.name = std::string{entry->name, 8};
+	dest.name.assign(entry->name, 8);
 	if(auto pos = dest.name.find(' '); pos != std::string::npos)
 	{
 		dest.name.resize(pos);
 	}
 
-	dest.type = std::string{entry->extension, 3};
+	dest.type.assign(entry->extension, 3);
 	if(auto pos = dest.type.find(' '); pos != std::string::npos)
 	{
 		dest.type.resize(pos);
@@ -292,7 +292,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_drive* fd
 	size_t max_num_files = d->root_entries;
 
 	dest->name = "";
-	dest->file_list = (file_handle*)malloc(max_num_files * sizeof(file_handle));
+	dest->file_list = new file_handle[max_num_files];
 	dest->drive = fd->index;
 
 	size_t buffer_size = d->root_size * d->bytes_per_sector;
@@ -335,7 +335,7 @@ static void fat_read_dir(directory_handle* dest, const file_handle* dir, const f
 	//printf("\ndir %u\n", dir->size);
 
 	dest->name = "";// strdup(dir->full_name);
-	dest->file_list = (file_handle*)malloc(max_num_files * sizeof(file_handle));
+	dest->file_list = new file_handle[max_num_files];
 	dest->drive = fd->index;
 
 	size_t num_files = 0;

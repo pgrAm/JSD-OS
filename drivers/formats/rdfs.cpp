@@ -76,7 +76,7 @@ static void rdfs_read_dir(directory_handle* dest, const file_handle* f, const fi
 	filesystem_read_blocks_from_disk(fd, location, (uint8_t*)&num_files, sizeof(uint32_t));
 
 	dest->name = "";
-	dest->file_list = (file_handle*)malloc(num_files * sizeof(file_handle));
+	dest->file_list = new file_handle[num_files];
 	dest->drive = fd->index;
 
 	fs_index disk_location = location + sizeof(uint32_t);
@@ -88,13 +88,13 @@ static void rdfs_read_dir(directory_handle* dest, const file_handle* f, const fi
 
 		auto& file = dest->file_list[i];
 
-		file.name = std::string{entry.name, 8};
+		file.name.assign(entry.name, 8);
 		if(auto pos = file.name.find('\0'); pos != std::string::npos)
 		{
 			file.name.resize(pos);
 		}
 
-		file.type = std::string{entry.extension, 3};
+		file.type.assign(entry.extension, 3);
 		if(auto pos = file.type.find('\0'); pos != std::string::npos)
 		{
 			file.type.resize(pos);
