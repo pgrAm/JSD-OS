@@ -14,6 +14,8 @@ volatile size_t keybuf_front = 0;
 size_t keybuf_back = 0;
 key_type keybuf[KEY_BUFFER_SIZE];
 
+static kernel_cv key_pressed_cv = {0, -1};
+
 static void add_keypress(key_type k)
 {
 	keybuf[keybuf_front] = k;
@@ -46,8 +48,7 @@ SYSCALL_HANDLER key_type wait_and_get_keypress()
 	
 	while((k = get_keypress()) == VK_NONE)
 	{
-		//yield();
-		wait_for_interrupt();
+		kernel_wait_cv(&key_pressed_cv);
 	}
 	
 	return k;
@@ -81,10 +82,7 @@ void handle_keyevent(uint32_t scancode, bool down)
 		
 		add_keypress(scancode);
 		
-		if(!task_is_running(active_process))
-		{
-			switch_to_task(active_process);
-		}
+		kernel_signal_cv(&key_pressed_cv);
 	}
 }
 
