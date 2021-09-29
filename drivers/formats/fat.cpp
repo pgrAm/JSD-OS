@@ -7,7 +7,7 @@
 
 #include "fat.h"
 
-#include <kernel/filesystem.h>
+#include <kernel/fs_driver.h>
 #include <string>
 
 #define FAT12_EOF 0xFF8

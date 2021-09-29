@@ -9,11 +9,21 @@ extern "C" {
 }
 
 #include <kernel/filesystem.h>
+#include <kernel/fs_driver.h>
 
 #include <vector>
 #include <string>
 
 #define CHUNK_READ_SIZE 1024
+
+//an instance of an open file
+struct file_stream
+{
+	const file_handle* file;
+	uint8_t* buffer;
+	size_t seekpos;
+	fs_index location_on_disk;
+};
 
 size_t default_drive = 0;
 std::vector<filesystem_drive*> drives;
@@ -102,7 +112,7 @@ directory_handle* filesystem_get_root_directory(size_t driveNumber)
 	return nullptr;
 }
 
-file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* name)
+static file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* name)
 {
 	if(d != nullptr)
 	{
@@ -238,6 +248,17 @@ file_stream* filesystem_open_file(const directory_handle* rel,
 	return filesystem_open_file_handle(f, flags);
 }
 
+SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
+{
+	if(filesystem_free_buffer(drives[stream->file->disk], stream->buffer, CHUNK_READ_SIZE) == 0)
+	{
+		//printf("file buffer freed at v=%X, p=%X\n",
+		//	   stream->buffer, p);
+	}
+	delete stream;
+	return 0;
+}
+
 SYSCALL_HANDLER 
 directory_handle* filesystem_open_directory(const directory_handle* rel,
 											const char* name, 
@@ -248,8 +269,8 @@ directory_handle* filesystem_open_directory(const directory_handle* rel,
 }
 	
 //finds the fs_index for the next chunk after an offset from the original
-fs_index filesystem_get_next_location_on_disk(const file_stream* f, 
-											  size_t byte_offset, fs_index chunk_index)
+static fs_index filesystem_get_next_location_on_disk(const file_stream* f,
+													 size_t byte_offset, fs_index chunk_index)
 {
 	return drives[f->file->disk]->fs_driver->get_relative_location(chunk_index, 
 																   byte_offset, 
@@ -257,14 +278,14 @@ fs_index filesystem_get_next_location_on_disk(const file_stream* f,
 }	
 
 //finds the fs_index for the first chunk in the file
-fs_index filesystem_resolve_location_on_disk(const file_stream* f)
+static fs_index filesystem_resolve_location_on_disk(const file_stream* f)
 {
 	return filesystem_get_next_location_on_disk(f, 
 												f->seekpos & ~(CHUNK_READ_SIZE-1), 
 												f->file->location_on_disk);
 }	
 	
-fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
+static fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 {
 	//printf("filesystem_read_chunk from cluster %d\n", chunk_index);
 
@@ -349,20 +370,6 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream*
 void filesystem_seek_file(file_stream* f, size_t pos)
 {
 	f->seekpos = pos;
-}
-
-SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
-{
-	//uintptr_t p = memmanager_get_physical((uint32_t)stream->buffer);
-
-	if(filesystem_free_buffer(drives[stream->file->disk], stream->buffer, CHUNK_READ_SIZE) == 0)
-	{
-		//printf("file buffer freed at v=%X, p=%X\n",
-		//	   stream->buffer, p);
-	}
-	//free(f->buffer);
-	delete stream;
-	return 0;
 }
 
 void filesystem_read_blocks_from_disk(const filesystem_drive* d,

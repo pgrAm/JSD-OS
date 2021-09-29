@@ -2,6 +2,7 @@
 
 #include <kernel/memorymanager.h>
 #include <kernel/multiboot.h>
+#include <kernel/fs_driver.h>
 
 #include "ramdisk.h"
 

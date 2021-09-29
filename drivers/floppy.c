@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <kernel/fs_driver.h>
 #include <kernel/interrupt.h>
 #include <kernel/locks.h>
 #include <drivers/portio.h>
