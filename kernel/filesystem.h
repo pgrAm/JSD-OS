@@ -1,7 +1,6 @@
 #ifndef FILESYSTEM_H
 #define FILESYSTEM_H
 
-typedef size_t fs_index;
 struct file_handle;
 struct file_stream;
 struct directory_handle;

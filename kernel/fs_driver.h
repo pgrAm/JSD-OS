@@ -6,6 +6,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+typedef size_t fs_index;
 
 struct filesystem_driver;
 typedef struct filesystem_driver filesystem_driver;
@@ -33,6 +34,7 @@ typedef struct
 	disk_driver* dsk_driver;
 	uint32_t index;
 	size_t minimum_block_size;
+	size_t chunk_read_size;
 }
 filesystem_drive;
 

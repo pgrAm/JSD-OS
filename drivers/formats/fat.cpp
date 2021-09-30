@@ -5,10 +5,11 @@
 #include <time.h>
 #include <stdbool.h>
 
-#include "fat.h"
+#include <string>
 
 #include <kernel/fs_driver.h>
-#include <string>
+
+#include "fat.h"
 
 #define FAT12_EOF 0xFF8
 #define FAT16_EOF 0xFFF8

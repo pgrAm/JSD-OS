@@ -14,7 +14,7 @@ extern "C" {
 #include <vector>
 #include <string>
 
-#define CHUNK_READ_SIZE 1024
+#define DEFAULT_CHUNK_READ_SIZE 1024
 
 //an instance of an open file
 struct file_stream
@@ -44,6 +44,8 @@ filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data,
 	drive->mounted = false;
 	drive->index = drives.size();
 	drive->minimum_block_size = block_size;
+	drive->chunk_read_size =	block_size > DEFAULT_CHUNK_READ_SIZE ? 
+								block_size : DEFAULT_CHUNK_READ_SIZE;
 
 	drives.push_back(drive);
 
@@ -52,7 +54,10 @@ filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data,
 
 void filesystem_set_default_drive(size_t index)
 {
-	default_drive = index;
+	if(index < drives.size())
+	{
+		default_drive = index;
+	}
 }
 
 int filesystem_setup_drives()
@@ -72,14 +77,16 @@ SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_ha
 }
 
 SYSCALL_HANDLER 
-directory_handle* filesystem_get_root_directory(size_t driveNumber)
+directory_handle* filesystem_get_root_directory(size_t drive_number)
 {
-	if(driveNumber < drives.size())
+	if(drive_number < drives.size())
 	{
-		filesystem_drive* d = drives[driveNumber];
+		filesystem_drive* d = drives[drive_number];
 		
 		if(!d->mounted)
 		{
+			printf("mounting drive #%d\n", drive_number);
+
 			if(d->fs_driver == nullptr)
 			{
 				for(size_t i = 0; i < fs_drivers.size(); i++)
@@ -191,7 +198,7 @@ file_stream* filesystem_create_stream(const file_handle* f)
 	stream->location_on_disk = 0;
 	stream->seekpos = 0;
 	stream->file = f;
-	stream->buffer = filesystem_allocate_buffer(drives[f->disk], CHUNK_READ_SIZE);
+	stream->buffer = filesystem_allocate_buffer(drives[f->disk], drives[f->disk]->chunk_read_size);
 
 	return stream;
 }
@@ -250,7 +257,9 @@ file_stream* filesystem_open_file(const directory_handle* rel,
 
 SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
 {
-	if(filesystem_free_buffer(drives[stream->file->disk], stream->buffer, CHUNK_READ_SIZE) == 0)
+	auto drive = drives[stream->file->disk];
+
+	if(filesystem_free_buffer(drive, stream->buffer, drive->chunk_read_size) == 0)
 	{
 		//printf("file buffer freed at v=%X, p=%X\n",
 		//	   stream->buffer, p);
@@ -280,8 +289,9 @@ static fs_index filesystem_get_next_location_on_disk(const file_stream* f,
 //finds the fs_index for the first chunk in the file
 static fs_index filesystem_resolve_location_on_disk(const file_stream* f)
 {
+	auto drive = drives[f->file->disk];
 	return filesystem_get_next_location_on_disk(f, 
-												f->seekpos & ~(CHUNK_READ_SIZE-1), 
+												f->seekpos & ~(drive->chunk_read_size-1),
 												f->file->location_on_disk);
 }	
 	
@@ -289,17 +299,18 @@ static fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 {
 	//printf("filesystem_read_chunk from cluster %d\n", chunk_index);
 
+	auto drive = drives[f->file->disk];
 	if(f->location_on_disk == chunk_index)
 	{
 		//great we already have data in the buffer
-		return filesystem_get_next_location_on_disk(f, CHUNK_READ_SIZE, chunk_index);
+		return filesystem_get_next_location_on_disk(f, drive->chunk_read_size, chunk_index);
 	}
 	
 	f->location_on_disk = chunk_index;
 	
-	filesystem_drive* d = drives[f->file->disk];
+	auto d = drives[f->file->disk];
 	
-	return d->fs_driver->read_chunks(f->buffer, chunk_index, CHUNK_READ_SIZE, d);
+	return d->fs_driver->read_chunks(f->buffer, chunk_index, d->chunk_read_size, d);
 }
 
 SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream* f)
@@ -322,23 +333,25 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream*
 			len = f->file->size - f->seekpos;
 		}
 	}
+
+	auto drive = drives[f->file->disk];
 	
 	fs_index location = filesystem_resolve_location_on_disk(f);
 	//printf("seekpos %X starts at cluster %d\n", f->seekpos, location);
 
-	size_t startchunk = f->seekpos / CHUNK_READ_SIZE;
-	size_t endchunk = (f->seekpos + len) / CHUNK_READ_SIZE;
+	size_t startchunk = f->seekpos / drive->chunk_read_size;
+	size_t endchunk = (f->seekpos + len) / drive->chunk_read_size;
 
-	size_t buf_start = f->seekpos % CHUNK_READ_SIZE;
-	size_t buf_end_size = (f->seekpos + len) % CHUNK_READ_SIZE;
+	size_t buf_start = f->seekpos % drive->chunk_read_size;
+	size_t buf_end_size = (f->seekpos + len) % drive->chunk_read_size;
 	
 	if(startchunk == endchunk)
 	{
 		buf_end_size = 0; //start and end are in the same chunk
 	}
 	
-	size_t buf_start_size = ((len - buf_end_size) % CHUNK_READ_SIZE);
-	size_t numChunks = (len - (buf_start_size + buf_end_size)) / CHUNK_READ_SIZE;
+	size_t buf_start_size = ((len - buf_end_size) % drive->chunk_read_size);
+	size_t numChunks = (len - (buf_start_size + buf_end_size)) / drive->chunk_read_size;
 	
 	uint8_t* dst_ptr = (uint8_t*)dst_buf;
 
@@ -352,8 +365,8 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream*
 	while(numChunks--)
 	{
 		location = filesystem_read_chunk(f, location);
-		memcpy(dst_ptr, f->buffer, CHUNK_READ_SIZE);
-		dst_ptr += CHUNK_READ_SIZE;
+		memcpy(dst_ptr, f->buffer, drive->chunk_read_size);
+		dst_ptr += drive->chunk_read_size;
 	}
 	
 	if(buf_end_size != 0)
@@ -382,7 +395,7 @@ void filesystem_read_blocks_from_disk(const filesystem_drive* d,
 
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)
 {
-	if(d->dsk_driver->allocate_buffer != NULL)
+	if(d->dsk_driver->allocate_buffer != nullptr)
 	{
 		return d->dsk_driver->allocate_buffer(size);
 	}
@@ -391,7 +404,7 @@ uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)
 
 int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size)
 {
-	if(d->dsk_driver->free_buffer != NULL)
+	if(d->dsk_driver->free_buffer != nullptr)
 	{
 		return d->dsk_driver->free_buffer(buffer, size);
 	}
