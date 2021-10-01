@@ -85,8 +85,6 @@ directory_handle* filesystem_get_root_directory(size_t drive_number)
 		
 		if(!d->mounted)
 		{
-			printf("mounting drive #%d\n", drive_number);
-
 			if(d->fs_driver == nullptr)
 			{
 				for(size_t i = 0; i < fs_drivers.size(); i++)

@@ -57,6 +57,7 @@ static const func_info func_list[] = {
 	{"strlen",	(void*)&strlen},
 	{"mktime",	(void*)&mktime},
 	{"memcmp",	(void*)&memcmp},
+	{"memset",	(void*)&memset},
 	{"strcmp",	(void*)&strcmp},
 	{"filesystem_add_drive",		(void*)&filesystem_add_drive},
 	{"filesystem_add_driver",		(void*)&filesystem_add_driver},
