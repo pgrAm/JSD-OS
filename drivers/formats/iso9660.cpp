@@ -245,46 +245,24 @@ static void iso9660_read_dir(directory_handle* dest, const file_handle* file, co
 {
 	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
-	uint8_t* buffer = new uint8_t[f->sector_size];
-	iso9660_read_chunks(buffer, file->location_on_disk, f->sector_size, fd);
-	iso9660_directory_entry* root_entry = (iso9660_directory_entry*)buffer;
+	size_t num_sectors = (file->size + (f->sector_size - 1)) / f->sector_size;
+	size_t buffer_size = num_sectors * f->sector_size;
 
-	uint8_t* root_data = new uint8_t [root_entry->extent_length.get()];
-	uint8_t* offset = root_data;
-	size_t sector_offset = 0;
-	size_t length_to_read = root_entry->extent_length.get();
-	while(length_to_read) 
-	{
-		iso9660_read_chunks(offset, root_entry->extent_start.get() + sector_offset, 
-							f->sector_size, fd);
+	uint8_t* dir_data = filesystem_allocate_buffer(fd, buffer_size);
 
-		if(length_to_read >= f->sector_size) {
-			offset += f->sector_size;
-			sector_offset += 1;
-			length_to_read -= f->sector_size;
-		}
-		else 
-		{
-			break;
-		}
-	}
+	iso9660_read_chunks(dir_data, file->location_on_disk, buffer_size, fd);
 
-	offset = root_data;
+	uint8_t* dir_ptr = dir_data;
 
 	std::vector<file_handle> files;
-	while((size_t)(offset - root_data) < root_entry->extent_length.get())
+	while((size_t)(dir_ptr - dir_data) < file->size)
 	{
-		//if(dir->flags & flags::HIDDEN)
-		//{
-		//	continue;
-		//}
-
 		file_handle out;
-		if(auto length = iso9660_read_dir_entry(out, offset, fd->index); length == 0)
+		if(auto length = iso9660_read_dir_entry(out, dir_ptr, fd->index); length == 0)
 		{
-			if((size_t)(offset - root_data) < root_entry->extent_length.get())
+			if((size_t)(dir_ptr - dir_data) < file->size)
 			{
-				offset += 1;
+				dir_ptr += 1;
 				continue;
 			}
 			break;
@@ -292,7 +270,7 @@ static void iso9660_read_dir(directory_handle* dest, const file_handle* file, co
 		else
 		{
 			files.push_back(out);
-			offset += length;
+			dir_ptr += length;
 		}	
 	}
 
@@ -300,8 +278,7 @@ static void iso9660_read_dir(directory_handle* dest, const file_handle* file, co
 	memcpy(dest->file_list, files.data(), files.size() * sizeof(file_handle));
 	dest->num_files = files.size();
 
-	delete [] root_data;
-	delete [] buffer;
+	filesystem_free_buffer(fd, dir_data, num_sectors);
 }
 
 static int iso9660_mount_disk(filesystem_drive* fd)
@@ -319,14 +296,10 @@ static int iso9660_mount_disk(filesystem_drive* fd)
 		filesystem_read_blocks_from_disk(fd, sector++ * blocks_per_sector, buffer, blocks_per_sector);
 	} while(buffer[0] != 0x01);
 
-	printf("located primary volume descriptor\n");
-
 	iso9660_volume_descriptor* volume_descriptor = (iso9660_volume_descriptor*)buffer;
 
 	f->sector_size = volume_descriptor->logical_block_size.get();
 	f->blocks_per_sector = f->sector_size / fd->minimum_block_size;
-
-	printf("sector size = %d\n", f->sector_size);
 
 	file_handle root_handle;
 	iso9660_read_dir_entry(root_handle, (uint8_t*)&(volume_descriptor->root), fd->index);
