@@ -289,7 +289,7 @@ static int iso9660_mount_disk(filesystem_drive* fd)
 	size_t blocks_per_sector = (ISO_DEFAULT_SECTOR_SIZE / fd->minimum_block_size);
 
 	//find the primary volume descriptor
-	uint8_t* buffer = new uint8_t[ISO_DEFAULT_SECTOR_SIZE];
+	uint8_t* buffer = filesystem_allocate_buffer(fd, ISO_DEFAULT_SECTOR_SIZE);
 	size_t sector = 0x10;
 	do
 	{
@@ -304,6 +304,8 @@ static int iso9660_mount_disk(filesystem_drive* fd)
 	file_handle root_handle;
 	iso9660_read_dir_entry(root_handle, (uint8_t*)&(volume_descriptor->root), fd->index);
 	iso9660_read_dir(&fd->root, &root_handle, fd);
+
+	filesystem_free_buffer(fd, buffer, ISO_DEFAULT_SECTOR_SIZE);
 
 	//while(true);
 
