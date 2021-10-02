@@ -8,7 +8,8 @@ extern "C" {
 #include <kernel/interrupt.h>
 };
 
-#define ATA_SECTOR_SIZE 0x800
+#define ATA_SECTOR_SIZE 0x200
+#define ATAPI_SECTOR_SIZE 0x800
 
 #define ATA_SR_BSY     0x80    // Busy
 #define ATA_SR_DRDY    0x40    // Drive ready
@@ -302,7 +303,7 @@ ata_error ata_print_error(ata_drive& drive, ata_error err)
 	return err;
 }
 
-ata_error ata_access(ata_access_type access_type, ata_drive& drive, uint32_t lba,
+ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_t lba,
 					 uint8_t numsects, uint8_t* buffer)
 {
 	uint8_t		lba_io[6];
@@ -324,8 +325,9 @@ ata_error ata_access(ata_access_type access_type, ata_drive& drive, uint32_t lba
 		lba_io[1] = (lba & 0x0000FF00) >> 8;
 		lba_io[2] = (lba & 0x00FF0000) >> 16;
 		lba_io[3] = (lba & 0xFF000000) >> 24;
-		lba_io[4] = 0; 
-		lba_io[5] = 0;
+		// if size_t is 32 bit these will be 0
+		lba_io[4] = (lba & 0x00FF00000000) >> 32;
+		lba_io[5] = (lba & 0xFF0000000000) >> 40;
 		head = 0; // Lower 4-bits of HDDEVSEL are not used here.
 	}
 	else if(drive.capabilities & ata_capability::LBA)
@@ -451,7 +453,7 @@ ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sectors, ui
 	uint32_t channel = drive.channel;
 	uint32_t ms_bit = drive.drive;
 	uint32_t bus = channels[channel].base;
-	uint32_t words = ATA_SECTOR_SIZE / sizeof(uint16_t);
+	uint32_t words = ATAPI_SECTOR_SIZE / sizeof(uint16_t);
 
 	// enable IRQs
 	ata_write(channel, ATA_REG_CONTROL, channels[channel].no_interrupt = 0x0);
@@ -533,7 +535,7 @@ ata_error ata_read_sectors(ata_drive& drive, uint8_t num_sectors, uint32_t lba, 
 		{
 			for(size_t i = 0; i < num_sectors; i++)
 			{
-				err = ata_atapi_read(drive, lba + i, 1, buffer + (i * ATA_SECTOR_SIZE));
+				err = ata_atapi_read(drive, lba + i, 1, buffer + (i * ATAPI_SECTOR_SIZE));
 			}
 		}
 		return ata_print_error(drive, err);
@@ -570,12 +572,11 @@ static void ata_read_blocks(const filesystem_drive* fd,
 							uint8_t* buf,
 							size_t num_blocks)
 {
-	ata_drive* d = (ata_drive*)fd->dsk_impl_data;
+	ata_drive* d = (ata_drive*)fd->drv_impl_data;
 	if(auto err = ata_read_sectors(*d, num_blocks, block_number, buf);
 	   err != ata_error::NONE)
 	{
 		printf("error code %d\n", err);
-		while(true);
 	}
 }
 
@@ -585,7 +586,7 @@ static disk_driver ata_driver = {
 	nullptr
 };
 
-bool ata_check_status(uint8_t channel)
+static bool ata_check_status(uint8_t channel)
 {
 	while(1)
 	{
@@ -653,7 +654,7 @@ void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1, uint16_t ba
 			}
 
 			// read ident space of the drive
-			uint8_t ident_buf[ATA_SECTOR_SIZE];
+			uint8_t ident_buf[ATAPI_SECTOR_SIZE];
 			ata_read_buffer(channel, ATA_REG_DATA, ident_buf, 128);
 
 			// read revice params
@@ -683,8 +684,6 @@ void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1, uint16_t ba
 			}
 			drive.model[40] = '\0'; // terminate string.
 
-			filesystem_add_drive(&ata_driver, &drive, ATA_SECTOR_SIZE);
-
 			count++;
 		}
 	}
@@ -700,6 +699,11 @@ void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1, uint16_t ba
 
 			printf("\tFound %s Drive %dGB - %s\n", 
 				   type, size_in_GB, ide_drives[i].model);
+
+			filesystem_add_drive(&ata_driver, &ide_drives[i], 
+								 ide_drives[i].type == ata_drive_type::ATA 
+								 ? ATA_SECTOR_SIZE
+								 : ATAPI_SECTOR_SIZE, ide_drives[i].size);
 		}
 	}
 }

@@ -5,10 +5,10 @@
 #include <kernel/fs_driver.h>
 #include "rdfs.h"
 
-static int rdfs_mount_disk(filesystem_drive* d);
-static fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_drive* fd);
-static fs_index rdfs_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd);
-static void rdfs_read_dir(directory_handle* dest, const file_handle* f, const filesystem_drive* fd);
+static int rdfs_mount_disk(filesystem_virtual_drive* d);
+static fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd);
+static fs_index rdfs_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd);
+static void rdfs_read_dir(directory_handle* dest, const file_handle* f, const filesystem_virtual_drive* fd);
 
 static filesystem_driver rdfs_driver = {
 	rdfs_mount_disk,
@@ -22,9 +22,9 @@ extern "C" void rdfs_init(void)
 	filesystem_add_driver(&rdfs_driver);
 }
 
-static int rdfs_mount_disk(filesystem_drive* fd)
+static int rdfs_mount_disk(filesystem_virtual_drive* fd)
 {
-	if(fd->minimum_block_size > 1 || fd->dsk_driver->allocate_buffer != NULL)
+	if(fd->disk->minimum_block_size > 1 || fd->disk->driver->allocate_buffer != NULL)
 	{
 		return DRIVE_NOT_SUPPORTED;
 	}
@@ -46,12 +46,12 @@ static int rdfs_mount_disk(filesystem_drive* fd)
 	return UNKNOWN_FILESYSTEM;
 }
 
-static fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_drive* fd)
+static fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd)
 {
 	return location + byte_offset;
 }
 
-static fs_index rdfs_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd)
+static fs_index rdfs_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd)
 {
 	filesystem_read_blocks_from_disk(fd, location, dest, num_bytes);
 	return location + num_bytes;
@@ -68,7 +68,7 @@ typedef struct
 	time_t		created;
 } __attribute__((packed)) rdfs_dir_entry;
 
-static void rdfs_read_dir(directory_handle* dest, const file_handle* f, const filesystem_drive* fd)
+static void rdfs_read_dir(directory_handle* dest, const file_handle* f, const filesystem_virtual_drive* fd)
 {
 	fs_index location = f->location_on_disk;
 

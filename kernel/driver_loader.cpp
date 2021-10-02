@@ -59,6 +59,8 @@ static const func_info func_list[] = {
 	{"memcmp",	(void*)&memcmp},
 	{"memset",	(void*)&memset},
 	{"strcmp",	(void*)&strcmp},
+	{"filesystem_add_virtual_drive",	(void*)&filesystem_add_virtual_drive},
+	{"filesystem_add_partitioner",		(void*)&filesystem_add_partitioner},
 	{"filesystem_add_drive",		(void*)&filesystem_add_drive},
 	{"filesystem_add_driver",		(void*)&filesystem_add_driver},
 	{"filesystem_allocate_buffer",	(void*)&filesystem_allocate_buffer},

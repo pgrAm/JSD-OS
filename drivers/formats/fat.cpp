@@ -18,10 +18,10 @@
 
 #define DEFAULT_SECTOR_SIZE 512
 
-static int fat_mount_disk(filesystem_drive* d);
-static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes, const filesystem_drive* d);
-static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd);
-static void fat_read_dir(directory_handle* dest, const file_handle* location, const filesystem_drive* fd);
+static int fat_mount_disk(filesystem_virtual_drive* d);
+static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes, const filesystem_virtual_drive* d);
+static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_virtual_drive* fd);
+static void fat_read_dir(directory_handle* dest, const file_handle* location, const filesystem_virtual_drive* fd);
 
 enum fat_type
 {
@@ -100,7 +100,7 @@ typedef struct
 	uint16_t	sectors_per_FAT;	
 	uint16_t	sectors_per_track;
 	uint16_t	heads_per_cylinder;
-	uint8_t		hidden_sectors;
+	uint32_t	hidden_sectors;
 	uint32_t	total_sectors_big;
 } __attribute__((packed)) bpb;
 
@@ -150,13 +150,11 @@ static inline size_t fat_cluster_to_lba(const fat_drive* d, size_t cluster)
 	return (cluster - 2) * d->sectors_per_cluster + d->datasector;
 }
 
-static int fat_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
+static int fat_read_bios_block(uint8_t* buffer, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
-	filesystem_read_blocks_from_disk(fd, 0, boot_sector, DEFAULT_SECTOR_SIZE / fd->minimum_block_size);
-
-	bpb* bios_block = (bpb*)boot_sector;
+	bpb* bios_block = (bpb*)buffer;
 
 	if(bios_block->boot_code[0] != 0xEB || bios_block->boot_code[2] != 0x90)
 	{
@@ -172,7 +170,7 @@ static int fat_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
 	d->bytes_per_sector 	= bios_block->bytes_per_sector;
 	d->root_entries 		= bios_block->root_entries;
 	d->reserved_sectors		= bios_block->reserved_sectors;
-	d->blocks_per_sector	= d->bytes_per_sector / fd->minimum_block_size;
+	d->blocks_per_sector	= d->bytes_per_sector / fd->disk->minimum_block_size;
 
 	size_t total_sectors = (bios_block->total_sectors == 0) ?
 		bios_block->total_sectors_big : bios_block->total_sectors;
@@ -203,11 +201,11 @@ static int fat_read_bios_block(const filesystem_drive* fd, uint8_t* boot_sector)
 
 	if(d->type == exFAT || d->type == FAT_32)
 	{
-		fat32_ext_bpb* ext_bpb = (fat32_ext_bpb*)(boot_sector + sizeof(bpb));
+		fat32_ext_bpb* ext_bpb = (fat32_ext_bpb*)(buffer + sizeof(bpb));
 		d->root_location = ext_bpb->root_cluster;
 	}
 
-	if(d->bytes_per_sector < fd->minimum_block_size)
+	if(d->bytes_per_sector < fd->disk->minimum_block_size)
 	{
 		return DRIVE_NOT_SUPPORTED;
 	}
@@ -279,7 +277,7 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* ent
 	return true;
 }
 
-static void fat_read_root_dir(directory_handle* dest, const filesystem_drive* fd)
+static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
@@ -299,7 +297,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_drive* fd
 	size_t buffer_size = d->root_size * d->bytes_per_sector;
 
 	fat_directory_entry* root_directory = 
-		(fat_directory_entry*)filesystem_allocate_buffer(fd, buffer_size);
+		(fat_directory_entry*)filesystem_allocate_buffer(fd->disk, buffer_size);
 
 	filesystem_read_blocks_from_disk(fd, d->root_location, 
 									 (uint8_t*)root_directory, 
@@ -324,10 +322,10 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_drive* fd
 
 	dest->num_files = num_files;
 
-	filesystem_free_buffer(fd, (uint8_t*)root_directory, buffer_size);
+	filesystem_free_buffer(fd->disk, (uint8_t*)root_directory, buffer_size);
 }
 
-static void fat_read_dir(directory_handle* dest, const file_handle* dir, const filesystem_drive* fd)
+static void fat_read_dir(directory_handle* dest, const file_handle* dir, const filesystem_virtual_drive* fd)
 {
 	file_stream* dir_stream = filesystem_create_stream(dir);
 
@@ -368,7 +366,7 @@ static void fat_read_dir(directory_handle* dest, const file_handle* dir, const f
 	filesystem_close_file(dir_stream);
 }
 
-static void read_from_fat(size_t fat_sector, const filesystem_drive* fd)
+static void read_from_fat(size_t fat_sector, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
@@ -380,7 +378,7 @@ static void read_from_fat(size_t fat_sector, const filesystem_drive* fd)
 	}
 }
 
-static size_t fat_get_next_cluster_32(size_t cluster, const filesystem_drive* fd)
+static size_t fat_get_next_cluster_32(size_t cluster, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
@@ -398,7 +396,7 @@ static size_t fat_get_next_cluster_32(size_t cluster, const filesystem_drive* fd
 	return table_value & 0x0FFFFFFF;
 }
 
-static size_t fat_get_next_cluster_16(size_t cluster, const filesystem_drive* fd)
+static size_t fat_get_next_cluster_16(size_t cluster, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
@@ -411,7 +409,7 @@ static size_t fat_get_next_cluster_16(size_t cluster, const filesystem_drive* fd
 	return *(uint16_t*)&d->fat[ent_offset];
 }
 
-static size_t fat_get_next_cluster_12(size_t cluster, const filesystem_drive* fd)
+static size_t fat_get_next_cluster_12(size_t cluster, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
@@ -428,7 +426,7 @@ static size_t fat_get_next_cluster_12(size_t cluster, const filesystem_drive* fd
 	return table_value;
 }
 
-static size_t fat_get_next_cluster(size_t cluster, const filesystem_drive* fd)
+static size_t fat_get_next_cluster(size_t cluster, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
@@ -445,7 +443,7 @@ static size_t fat_get_next_cluster(size_t cluster, const filesystem_drive* fd)
 	return d->eof_value;
 }
 
-static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_drive* fd)
+static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_virtual_drive* fd)
 {
 	fat_drive* f = (fat_drive*)fd->fs_impl_data;
 
@@ -461,27 +459,38 @@ static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const
 	return cluster;
 }
 
-static int fat_mount_disk(filesystem_drive* d)
+static int fat_mount_disk(filesystem_virtual_drive* d)
 {
 	fat_drive* f = new fat_drive{};
 	d->fs_impl_data = f;
 
-	uint8_t* boot_sector = filesystem_allocate_buffer(d, DEFAULT_SECTOR_SIZE);
+	size_t num_sectors = (DEFAULT_SECTOR_SIZE + (d->disk->minimum_block_size - 1))
+		/ d->disk->minimum_block_size;
 
-	int err = fat_read_bios_block(d, boot_sector);
+	size_t buffer_size = num_sectors * d->disk->minimum_block_size;
+	uint8_t* boot_sector = filesystem_allocate_buffer(d->disk, buffer_size);
+
+	filesystem_read_blocks_from_disk(d, 0, boot_sector, num_sectors);
+
+	int err = fat_read_bios_block(boot_sector, d);
 	if(err != MOUNT_SUCCESS)
 	{
-		filesystem_free_buffer(d, boot_sector, DEFAULT_SECTOR_SIZE);
+		filesystem_free_buffer(d->disk, boot_sector, buffer_size);
 		delete f;
 		d->fs_impl_data = nullptr;
 		return err;
 	}
 
+	if(d->chunk_read_size < f->cluster_size)
+	{
+		d->chunk_read_size = f->cluster_size;
+	}
+
 	//allocate fat sector
 	if(f->bytes_per_sector > DEFAULT_SECTOR_SIZE)
 	{
-		filesystem_free_buffer(d, boot_sector, DEFAULT_SECTOR_SIZE);
-		f->fat = filesystem_allocate_buffer(d, f->bytes_per_sector);
+		filesystem_free_buffer(d->disk, boot_sector, DEFAULT_SECTOR_SIZE);
+		f->fat = filesystem_allocate_buffer(d->disk, f->bytes_per_sector);
 	}
 	else
 	{
@@ -495,7 +504,7 @@ static int fat_mount_disk(filesystem_drive* d)
 	return MOUNT_SUCCESS;
 }
 
-static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize, const filesystem_drive *d)
+static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t buffer_size, const filesystem_virtual_drive*d)
 {
 	fat_drive* f = (fat_drive*)d->fs_impl_data;
 
@@ -505,8 +514,7 @@ static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t bufferSize
 		return cluster;
 	}
 
-	size_t num_clusters = bufferSize / f->cluster_size;
-
+	size_t num_clusters = buffer_size / f->cluster_size;
 	while(num_clusters--)
 	{
 		//printf("Reading from cluster %d to %X\n", cluster, dest);

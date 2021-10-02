@@ -101,9 +101,10 @@ static void wait_for_irq6(void)
 typedef struct 
 {
 	uint8_t type;
-	uint8_t sectorsPerTrack;
-	uint8_t headsPerCylinder;
-	uint8_t numTracks;
+	uint8_t sectors_per_track;
+	uint8_t heads_per_cylinder;
+	uint8_t num_tracks;
+	size_t num_sectors;
 
 	uint8_t drive_index;
 	kernel_mutex mutex;
@@ -120,34 +121,36 @@ static void floppy_set_drive_params(uint8_t type, floppy_drive* f)
 	switch(type)
 	{
 		case 1:
-			f->sectorsPerTrack = FLOPPY_360_SECTORS_PER_TRACK;
-			f->headsPerCylinder = FLOPPY_360_HEADS_PER_CYLINDER;
-			f->numTracks = FLOPPY_360_NUMBER_OF_TRACKS;
+			f->sectors_per_track = FLOPPY_360_SECTORS_PER_TRACK;
+			f->heads_per_cylinder = FLOPPY_360_HEADS_PER_CYLINDER;
+			f->num_tracks = FLOPPY_360_NUMBER_OF_TRACKS;
 		break;
 		case 2:
-			f->sectorsPerTrack = FLOPPY_1_2_SECTORS_PER_TRACK;
-			f->headsPerCylinder = FLOPPY_1_2_HEADS_PER_CYLINDER;
-			f->numTracks = FLOPPY_1_2_NUMBER_OF_TRACKS;
+			f->sectors_per_track = FLOPPY_1_2_SECTORS_PER_TRACK;
+			f->heads_per_cylinder = FLOPPY_1_2_HEADS_PER_CYLINDER;
+			f->num_tracks = FLOPPY_1_2_NUMBER_OF_TRACKS;
 		break;
 		case 3:
-			f->sectorsPerTrack = FLOPPY_720_SECTORS_PER_TRACK;
-			f->headsPerCylinder = FLOPPY_720_HEADS_PER_CYLINDER;
-			f->numTracks = FLOPPY_720_NUMBER_OF_TRACKS;
+			f->sectors_per_track = FLOPPY_720_SECTORS_PER_TRACK;
+			f->heads_per_cylinder = FLOPPY_720_HEADS_PER_CYLINDER;
+			f->num_tracks = FLOPPY_720_NUMBER_OF_TRACKS;
 		break;
 		case 4:
-			f->sectorsPerTrack = FLOPPY_144_SECTORS_PER_TRACK;
-			f->headsPerCylinder = FLOPPY_144_HEADS_PER_CYLINDER;
-			f->numTracks = FLOPPY_144_NUMBER_OF_TRACKS;
+			f->sectors_per_track = FLOPPY_144_SECTORS_PER_TRACK;
+			f->heads_per_cylinder = FLOPPY_144_HEADS_PER_CYLINDER;
+			f->num_tracks = FLOPPY_144_NUMBER_OF_TRACKS;
 		break;
 		case 5:
-			f->sectorsPerTrack = FLOPPY_288_SECTORS_PER_TRACK;
-			f->headsPerCylinder = FLOPPY_288_HEADS_PER_CYLINDER;
-			f->numTracks = FLOPPY_288_NUMBER_OF_TRACKS;
+			f->sectors_per_track = FLOPPY_288_SECTORS_PER_TRACK;
+			f->heads_per_cylinder = FLOPPY_288_HEADS_PER_CYLINDER;
+			f->num_tracks = FLOPPY_288_NUMBER_OF_TRACKS;
 		break;
 		default:
 		return;
 	}
-	
+
+	f->num_sectors = f->num_tracks * f->sectors_per_track * f->heads_per_cylinder;
+
 	num_floppy_drives++;
 }
 
@@ -188,26 +191,30 @@ void floppy_init()
 	{
 		floppy_reset(i);
 		floppy_drives[i].drive_index = i;
-		filesystem_add_drive(&floppy_driver, &floppy_drives[i], 512);
+
+		filesystem_add_drive(&floppy_driver, &floppy_drives[i], 
+							 FLOPPY_BYTES_PER_SECTOR, 
+							 floppy_drives[i].num_sectors);
 	}
 }
 
 static void lba_to_chs(floppy_drive* d, size_t lba, size_t *cylinder, size_t *head, size_t *sector)
 {
-	*sector = (lba % d->sectorsPerTrack) + 1;
+	*sector = (lba % d->sectors_per_track) + 1;
 	
-	size_t track = lba / d->sectorsPerTrack;
+	size_t track = lba / d->sectors_per_track;
 
-	*cylinder = track / d->headsPerCylinder;
+	*cylinder = track / d->heads_per_cylinder;
 
-	*head = track % d->headsPerCylinder;
+	*head = track % d->heads_per_cylinder;
 }
 
 static void floppy_read_sectors(floppy_drive* d, size_t lba, uint8_t* buf, size_t num_sectors)
 {
-	if (lba > d->numTracks * d->sectorsPerTrack* d->headsPerCylinder)
+	if (lba > d->num_sectors)
 	{
 		printf("lba#%d is out of bounds for floppy read\n", lba);
+		printf("lba max = %d\n", d->num_sectors);
 		while (true);
 	}
 
@@ -262,7 +269,7 @@ static void floppy_read_sectors(floppy_drive* d, size_t lba, uint8_t* buf, size_
 
 static void floppy_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks)
 {
-	floppy_drive* disk = (floppy_drive*)d->dsk_impl_data;
+	floppy_drive* disk = (floppy_drive*)d->drv_impl_data;
 
 	kernel_lock_mutex(&disk->mutex);
 	floppy_read_sectors(disk, block_number, buf, num_blocks);

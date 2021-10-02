@@ -221,7 +221,7 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 
 #define ISO_DEFAULT_SECTOR_SIZE 0x800
 
-static fs_index iso9660_get_relative_location(fs_index location, size_t byte_offset, const filesystem_drive* fd)
+static fs_index iso9660_get_relative_location(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd)
 {
 	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
@@ -230,7 +230,7 @@ static fs_index iso9660_get_relative_location(fs_index location, size_t byte_off
 	return location + num_sectors;
 }
 
-static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_drive* fd)
+static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd)
 {
 	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
@@ -241,14 +241,14 @@ static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t num
 	return location + num_sectors;
 }
 
-static void iso9660_read_dir(directory_handle* dest, const file_handle* file, const filesystem_drive* fd)
+static void iso9660_read_dir(directory_handle* dest, const file_handle* file, const filesystem_virtual_drive* fd)
 {
 	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
 	size_t num_sectors = (file->size + (f->sector_size - 1)) / f->sector_size;
 	size_t buffer_size = num_sectors * f->sector_size;
 
-	uint8_t* dir_data = filesystem_allocate_buffer(fd, buffer_size);
+	uint8_t* const dir_data = filesystem_allocate_buffer(fd->disk, buffer_size);
 
 	iso9660_read_chunks(dir_data, file->location_on_disk, buffer_size, fd);
 
@@ -275,37 +275,44 @@ static void iso9660_read_dir(directory_handle* dest, const file_handle* file, co
 	}
 
 	dest->file_list = new file_handle[files.size()];
-	memcpy(dest->file_list, files.data(), files.size() * sizeof(file_handle));
+	std::copy(files.cbegin(), files.cend(), dest->file_list);
 	dest->num_files = files.size();
 
-	filesystem_free_buffer(fd, dir_data, num_sectors);
+	filesystem_free_buffer(fd->disk, dir_data, buffer_size);
 }
 
-static int iso9660_mount_disk(filesystem_drive* fd)
+static int iso9660_mount_disk(filesystem_virtual_drive* fd)
 {
 	iso9660_drive* f = new iso9660_drive{};
 	fd->fs_impl_data = f;
 
-	size_t blocks_per_sector = (ISO_DEFAULT_SECTOR_SIZE / fd->minimum_block_size);
+	size_t blocks_per_sector = (ISO_DEFAULT_SECTOR_SIZE / fd->disk->minimum_block_size);
 
 	//find the primary volume descriptor
-	uint8_t* buffer = filesystem_allocate_buffer(fd, ISO_DEFAULT_SECTOR_SIZE);
+	uint8_t* buffer = filesystem_allocate_buffer(fd->disk, ISO_DEFAULT_SECTOR_SIZE);
 	size_t sector = 0x10;
 	do
 	{
 		filesystem_read_blocks_from_disk(fd, sector++ * blocks_per_sector, buffer, blocks_per_sector);
+		if(memcmp(&buffer[1], "CD001", 5 * sizeof(char)) != 0)
+		{
+			filesystem_free_buffer(fd->disk, buffer, ISO_DEFAULT_SECTOR_SIZE);
+			return UNKNOWN_FILESYSTEM;
+		}
+		filesystem_free_buffer(fd->disk, buffer, ISO_DEFAULT_SECTOR_SIZE);
+	
 	} while(buffer[0] != 0x01);
 
 	iso9660_volume_descriptor* volume_descriptor = (iso9660_volume_descriptor*)buffer;
 
 	f->sector_size = volume_descriptor->logical_block_size.get();
-	f->blocks_per_sector = f->sector_size / fd->minimum_block_size;
+	f->blocks_per_sector = f->sector_size / fd->disk->minimum_block_size;
 
 	file_handle root_handle;
 	iso9660_read_dir_entry(root_handle, (uint8_t*)&(volume_descriptor->root), fd->index);
 	iso9660_read_dir(&fd->root, &root_handle, fd);
 
-	filesystem_free_buffer(fd, buffer, ISO_DEFAULT_SECTOR_SIZE);
+	filesystem_free_buffer(fd->disk, buffer, ISO_DEFAULT_SECTOR_SIZE);
 
 	//while(true);
 

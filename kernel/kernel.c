@@ -76,13 +76,15 @@ void kernel_main()
 
 	printf("driver loading complete\n");
 
-	filesystem_set_default_drive(1);
+	filesystem_set_default_drive(2);
 
 	//load_kbrd_driver();
 
 	//while(true);
 
 	filesystem_get_root_directory(1);
+
+	//while(true);
 
 	clear_screen();
 
