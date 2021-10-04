@@ -161,6 +161,11 @@ static int fat_read_bios_block(uint8_t* buffer, const filesystem_virtual_drive* 
 		return UNKNOWN_FILESYSTEM;
 	}
 
+	if(bios_block->bytes_per_sector < fd->disk->minimum_block_size)
+	{
+		return DRIVE_NOT_SUPPORTED;
+	}
+
 	d->root_size 			= (sizeof(fat_directory_entry) * bios_block->root_entries) / bios_block->bytes_per_sector; //number of sectors in root dir
 	d->fats_size 			= bios_block->number_of_FATs * bios_block->sectors_per_FAT;
 	d->root_location 		= d->fats_size + bios_block->reserved_sectors;
@@ -203,11 +208,6 @@ static int fat_read_bios_block(uint8_t* buffer, const filesystem_virtual_drive* 
 	{
 		fat32_ext_bpb* ext_bpb = (fat32_ext_bpb*)(buffer + sizeof(bpb));
 		d->root_location = ext_bpb->root_cluster;
-	}
-
-	if(d->bytes_per_sector < fd->disk->minimum_block_size)
-	{
-		return DRIVE_NOT_SUPPORTED;
 	}
 
 	return MOUNT_SUCCESS;

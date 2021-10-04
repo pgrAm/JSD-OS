@@ -76,31 +76,12 @@ void kernel_main()
 
 	printf("driver loading complete\n");
 
-	filesystem_set_default_drive(2);
-
-	//load_kbrd_driver();
-
-	//while(true);
-
-	filesystem_get_root_directory(1);
-
-	//while(true);
-
 	clear_screen();
 
 	size_t free_mem = memmanager_num_bytes_free();
 	size_t total_mem = memmanager_mem_size();
 
 	printf("%u KB free / %u KB Memory\n\n", free_mem / 1024, total_mem / 1024);
-
-	int drive_index = 1;
-
-	directory_handle* current_directory = filesystem_get_root_directory(drive_index);
-
-	if(current_directory == NULL)
-	{
-		printf("Could not mount root directory for drive %d\n", drive_index);
-	}
 
 	spawn_process("shell.elf", WAIT_FOR_PROCESS);
 

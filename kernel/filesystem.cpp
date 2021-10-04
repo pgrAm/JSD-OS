@@ -382,7 +382,7 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream*
 	}
 	
 	size_t buf_start_size = ((len - buf_end_size) % drive->chunk_read_size);
-	size_t numChunks = (len - (buf_start_size + buf_end_size)) / drive->chunk_read_size;
+	size_t num_chunks = (len - (buf_start_size + buf_end_size)) / drive->chunk_read_size;
 	
 	uint8_t* dst_ptr = (uint8_t*)dst_buf;
 
@@ -393,7 +393,7 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream*
 		dst_ptr += buf_start_size;
 	}
 	
-	while(numChunks--)
+	while(num_chunks--)
 	{
 		location = filesystem_read_chunk(f, location);
 		memcpy(dst_ptr, f->buffer, drive->chunk_read_size);

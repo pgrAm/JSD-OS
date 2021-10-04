@@ -78,8 +78,6 @@ void handle_keyevent(uint32_t scancode, bool down)
 
 	if(scancode != VK_NONE)
 	{
-		size_t active_process = get_active_process();
-		
 		add_keypress(scancode);
 		
 		kernel_signal_cv(&key_pressed_cv);

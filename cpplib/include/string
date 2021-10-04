@@ -354,7 +354,7 @@ public:
 		return npos;
 	}
 
-	size_t find(value_type c, size_t pos = 0) const
+	constexpr size_t find(value_type c, size_t pos = 0) const noexcept
 	{
 		for(auto it = cbegin() + pos; it < cend(); it++)
 		{
@@ -365,9 +365,21 @@ public:
 		return npos;
 	}
 
-	size_t find_first_of(value_type c, size_t pos = 0) const
+	constexpr size_t find_first_of(value_type c, size_t pos = 0) const noexcept
 	{
 		return find(c, pos);
+	}
+
+	constexpr size_type find_last_of(value_type c,
+									 size_type pos = npos) const noexcept
+	{
+		for(auto it = cend() - 1; it >= cbegin() + pos; --it)
+		{
+			if(c == *it)
+				return it - cbegin();
+		}
+
+		return npos;
 	}
 
 	const value_type& back() const noexcept
@@ -385,10 +397,12 @@ public:
 		if(__is_long())
 		{
 			m_rep.l.size = 0;
+			m_rep.l.data[0] = '\0';
 		}
 		else
 		{
 			m_rep.s.size = 0;
+			m_rep.s.data[0] = '\0';
 		}
 	}
 

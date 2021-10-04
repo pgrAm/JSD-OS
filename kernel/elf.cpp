@@ -117,18 +117,45 @@ static span elf_get_size(ELF_header32* file_header, file_stream* f)
 
 static int elf_read_symbols(ELF_linker_data* object);
 static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
-static int elf_process_dynamic_section(ELF_linker_data* object);
+static int elf_process_dynamic_section(ELF_linker_data* object, const std::string& dir_path);
+static int load_elf(file_handle* file, dynamic_object* object, bool user, const std::string& dir_path);
 
-int load_elf(const char* path, dynamic_object* object, bool user)
+extern "C" int load_elf(const char* path, dynamic_object* object, bool user)
+{
+	file_handle* f = filesystem_find_file_by_path(nullptr, path);
+	if(f == nullptr)
+	{
+		printf("could not find elf file %s\n", path);
+		return 0;
+	}
+
+	std::string dir_path{path};
+	if(auto slash = dir_path.find_last_of('/'); slash != std::string::npos)
+	{
+		dir_path.resize(slash);
+	}
+	else
+	{
+		dir_path.clear();
+	}
+	
+	//printf("dir path = %s\n", dir_path.c_str());
+
+	return load_elf(f, object, user, dir_path);
+}
+
+static int load_elf(file_handle* file, dynamic_object* object, bool user, const std::string& dir_path)
 {
 	ELF_ident file_identifer;
 	ELF_header32 file_header;
 
-	file_stream* f = filesystem_open_file(nullptr, path, 0);
-
+	file_stream* f = filesystem_open_file_handle(file, 0);
+	file_info info;
+	filesystem_get_file_info(&info, file);
+	
 	if(f == nullptr)
 	{
-		printf("could not open elf file %s\n", path);
+		printf("could not open elf file %s\n", info.name);
 		return 0;
 	}
 
@@ -145,9 +172,8 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 			size_t object_size = s.size;
 			size_t num_pages = (object_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 
-			//printf("Attempting to load ELF %s at %X\n", path, s.base);
-
-			uintptr_t base_adress = (uintptr_t)memmanager_virtual_alloc(s.base, num_pages, PAGE_USER | PAGE_PRESENT | PAGE_RW);
+			uint32_t flags = user ? PAGE_USER | PAGE_PRESENT | PAGE_RW : PAGE_PRESENT | PAGE_RW;
+			uintptr_t base_adress = (uintptr_t)memmanager_virtual_alloc(s.base, num_pages, flags);
 
 			object->segments.push_back({(void*)base_adress, num_pages});
 			object->linker_data = nullptr;
@@ -214,7 +240,7 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 
 			object->entry_point = (void*)(base_adress + file_header.entry_point);
 
-			elf_process_dynamic_section((ELF_linker_data*)object->linker_data);
+			elf_process_dynamic_section((ELF_linker_data*)object->linker_data, dir_path);
 		}
 	}
 
@@ -223,7 +249,7 @@ int load_elf(const char* path, dynamic_object* object, bool user)
 	return 1;
 }
 
-static int elf_process_dynamic_section(ELF_linker_data* object)
+static int elf_process_dynamic_section(ELF_linker_data* object, const std::string& dir_path)
 {
 	if(object == nullptr)
 	{
@@ -310,10 +336,16 @@ static int elf_process_dynamic_section(ELF_linker_data* object)
 					lib.symbol_map = object->symbol_map;
 					lib.glob_data_symbol_map = object->glob_data_symbol_map;
 
-					if(load_elf(lib_name, &lib, object->userspace))
+					auto lib_dir = filesystem_open_directory(nullptr, dir_path.c_str(), 0);
+
+					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name))
 					{
-						lib.lib_set->insert(lib_name, 1);
+						if(load_elf(lib_handle, &lib, object->userspace, dir_path))
+						{
+							lib.lib_set->insert(lib_name, 1);
+						}
 					}
+					filesystem_close_directory(lib_dir);
 				}
 			}
 		}

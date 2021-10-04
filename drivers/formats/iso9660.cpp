@@ -248,19 +248,19 @@ static void iso9660_read_dir(directory_handle* dest, const file_handle* file, co
 	size_t num_sectors = (file->size + (f->sector_size - 1)) / f->sector_size;
 	size_t buffer_size = num_sectors * f->sector_size;
 
-	uint8_t* const dir_data = filesystem_allocate_buffer(fd->disk, buffer_size);
+	filesystem_buffer dir_data{fd->disk, ISO_DEFAULT_SECTOR_SIZE};
 
-	iso9660_read_chunks(dir_data, file->location_on_disk, buffer_size, fd);
+	iso9660_read_chunks(&dir_data[0], file->location_on_disk, buffer_size, fd);
 
-	uint8_t* dir_ptr = dir_data;
+	uint8_t* dir_ptr = &dir_data[0];
 
 	std::vector<file_handle> files;
-	while((size_t)(dir_ptr - dir_data) < file->size)
+	while((size_t)(dir_ptr - &dir_data[0]) < file->size)
 	{
 		file_handle out;
 		if(auto length = iso9660_read_dir_entry(out, dir_ptr, fd->index); length == 0)
 		{
-			if((size_t)(dir_ptr - dir_data) < file->size)
+			if((size_t)(dir_ptr - &dir_data[0]) < file->size)
 			{
 				dir_ptr += 1;
 				continue;
@@ -277,8 +277,6 @@ static void iso9660_read_dir(directory_handle* dest, const file_handle* file, co
 	dest->file_list = new file_handle[files.size()];
 	std::copy(files.cbegin(), files.cend(), dest->file_list);
 	dest->num_files = files.size();
-
-	filesystem_free_buffer(fd->disk, dir_data, buffer_size);
 }
 
 static int iso9660_mount_disk(filesystem_virtual_drive* fd)
@@ -289,32 +287,30 @@ static int iso9660_mount_disk(filesystem_virtual_drive* fd)
 	size_t blocks_per_sector = (ISO_DEFAULT_SECTOR_SIZE / fd->disk->minimum_block_size);
 
 	//find the primary volume descriptor
-	uint8_t* buffer = filesystem_allocate_buffer(fd->disk, ISO_DEFAULT_SECTOR_SIZE);
+	filesystem_buffer buffer{fd->disk, ISO_DEFAULT_SECTOR_SIZE};
 	size_t sector = 0x10;
 	do
 	{
-		filesystem_read_blocks_from_disk(fd, sector++ * blocks_per_sector, buffer, blocks_per_sector);
+		filesystem_read_blocks_from_disk(fd, sector++ * blocks_per_sector, &buffer[0], blocks_per_sector);
 		if(memcmp(&buffer[1], "CD001", 5 * sizeof(char)) != 0)
 		{
-			filesystem_free_buffer(fd->disk, buffer, ISO_DEFAULT_SECTOR_SIZE);
 			return UNKNOWN_FILESYSTEM;
 		}
-		filesystem_free_buffer(fd->disk, buffer, ISO_DEFAULT_SECTOR_SIZE);
-	
 	} while(buffer[0] != 0x01);
 
-	iso9660_volume_descriptor* volume_descriptor = (iso9660_volume_descriptor*)buffer;
+	iso9660_volume_descriptor* volume_descriptor = (iso9660_volume_descriptor*)&buffer[0];
 
 	f->sector_size = volume_descriptor->logical_block_size.get();
 	f->blocks_per_sector = f->sector_size / fd->disk->minimum_block_size;
 
+	if(f->sector_size < fd->disk->minimum_block_size)
+	{
+		return DRIVE_NOT_SUPPORTED;
+	}
+
 	file_handle root_handle;
 	iso9660_read_dir_entry(root_handle, (uint8_t*)&(volume_descriptor->root), fd->index);
 	iso9660_read_dir(&fd->root, &root_handle, fd);
-
-	filesystem_free_buffer(fd->disk, buffer, ISO_DEFAULT_SECTOR_SIZE);
-
-	//while(true);
 
 	return MOUNT_SUCCESS;
 }

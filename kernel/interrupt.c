@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stddef.h>
 
+#include <kernel/memorymanager.h>
 #include <kernel/task.h>
 #include <kernel/interrupt.h>
 #include <drivers/video.h>
@@ -182,7 +183,9 @@ void fault_handler(interrupt_info*r)
 			
 			printf("violation\n");
 			
-			printf("At Adress %X\n", getcr2reg());
+			printf("At address %X\n", getcr2reg());
+            printf("cr3 = %X\n", get_page_directory());
+            //printf("flags= %X\n", memmanager_get_page_flags(getcr2reg()));
 		}
 		else if(r->int_no == 13)
 		{

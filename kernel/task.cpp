@@ -105,7 +105,7 @@ void setup_first_task()
 
 void start_user_process(process* t)
 {
-	memmanager_enter_memory_space(t->address_space);
+	//memmanager_enter_memory_space(t->address_space);
 	
 	run_user_code(t->objects[0]->entry_point, (void*)((uintptr_t)t->user_stack_top + PAGE_SIZE));
 
@@ -154,7 +154,7 @@ SYSCALL_HANDLER void exit_process(int val)
 
 	//we need to clean up before reenabline interupts or else we might never get it done
 	uint32_t memspace = current_process->address_space;
-	free(current_process);
+	delete current_process;
 	memmanager_destroy_memory_space(memspace);
 	unlock_interrupts(l);
 
@@ -182,11 +182,15 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 
 	uint32_t oldcr3 = (uint32_t)get_page_directory();
 	
+	auto parent_pid = current_task_TCB->pid;
+	auto address_space = memmanager_new_memory_space();
+
+	memmanager_enter_memory_space(address_space);
+
 	process* newTask = new process{};
-	
-	newTask->parent_pid = current_task_TCB->pid;
-	newTask->address_space = memmanager_new_memory_space();
-	memmanager_enter_memory_space(newTask->address_space);
+
+	newTask->parent_pid = parent_pid;
+	newTask->address_space = address_space;
 
 	dynamic_object* d = new dynamic_object();
 	d->symbol_map = new hash_map();
@@ -197,9 +201,9 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 
 	if(!load_elf(path, newTask->objects[0], true))
 	{
-		set_page_directory((uint32_t*)oldcr3);
-		memmanager_destroy_memory_space(newTask->address_space);
 		delete newTask;
+		set_page_directory((uint32_t*)oldcr3);
+		memmanager_destroy_memory_space(address_space);
 		return;
 	}
 
@@ -207,7 +211,7 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 	newTask->kernel_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_PRESENT | PAGE_RW);
 	newTask->tc_block.esp0 = (uint32_t)newTask->kernel_stack_top + PAGE_SIZE;
 	newTask->tc_block.esp = newTask->tc_block.esp0 - (RESERVED_STACK_WORDS * sizeof(uint32_t));
-	newTask->tc_block.cr3 = memmanager_get_physical(newTask->address_space);
+	newTask->tc_block.cr3 = (uint32_t)get_page_directory();
 	newTask->tc_block.pid = num_processes++;
 	newTask->tc_block.p_data = newTask;
 
@@ -223,6 +227,8 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 	//lock tasks
 	running_tasks[this_process] = newTask->tc_block;
 	//unlock tasks
+
+	set_page_directory((uint32_t*)oldcr3);
 
 	if(flags & WAIT_FOR_PROCESS)
 	{

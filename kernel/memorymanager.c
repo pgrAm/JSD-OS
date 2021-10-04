@@ -295,7 +295,8 @@ void memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, 
 
 	if(page_table[pt_index] & PAGE_PRESENT && physical_address != 0)
 	{
-		printf("warning page already exists!\n");
+		printf("warning page already exists at %X!\n", virtual_address);
+		//while(true);
 	}
 
 	page_table[pt_index] = (physical_address & ~PAGE_ADDRESS_MASK) | flags;
@@ -315,6 +316,11 @@ void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, uint32_t
 	}
 
 	return virtual_address;
+}
+
+uint32_t memmanager_get_page_flags(void* virtual_address)
+{
+	return memmanager_get_pt_entry(virtual_address) & PAGE_ADDRESS_MASK;
 }
 
 void memmanager_set_page_flags(void* virtual_address, size_t num_pages, uint32_t flags)
@@ -486,7 +492,7 @@ uintptr_t memmanager_new_memory_space()
 
 	memmanager_init_page_dir(process_page_dir, memmanager_get_physical((uint32_t)process_page_dir));
 
-	for(size_t i = 0; i < 2; i++)
+	for(size_t i = 0; i < 32; i++)
 	{
 		process_page_dir[i] = current_page_directory[i] & ~PAGE_USER;
 	}

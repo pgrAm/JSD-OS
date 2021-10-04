@@ -118,13 +118,25 @@ extern "C" void load_drivers()
 			if(token == "load_driver")
 			{
 				auto filename = buffer.substr(space + 1);
+				auto slash = filename.find_last_of('/');
+
+				if(slash == std::string::npos)
+					slash = 0;
+				else
+					slash++;
 
 				auto dot = filename.find_first_of('.');
-				auto init_func = filename.substr(0, dot) + "_init";
+				auto init_func = filename.substr(slash, dot - slash) + "_init";
 
 				printf("loading driver %s, calling %s\n", filename.c_str(), init_func.c_str());
 
 				load_driver(filename, init_func);
+			}
+			else if(token == "set_drive")
+			{
+				auto filename = buffer.substr(space + 1);
+
+				filesystem_set_default_drive(atoi(filename.c_str()));
 			}
 
 			buffer.clear();

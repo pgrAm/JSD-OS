@@ -48,7 +48,6 @@ int mbr_read_partitions(filesystem_drive* d)
 			mbr_partition* p = &master_boot_record->entries[i];
 			if(p->sector_count != 0)
 			{
-				printf("partition 1 at %d\n", p->lba_first_sector);
 				filesystem_add_virtual_drive(d, p->lba_first_sector, p->sector_count);
 			}
 		}

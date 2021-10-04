@@ -101,6 +101,48 @@ struct file_handle
 	time_t time_created;
 	time_t time_modified;
 };
+
+class filesystem_buffer
+{
+public:
+	filesystem_buffer(filesystem_drive* d, size_t s) :
+		m_drive(d),
+		m_buffer(filesystem_allocate_buffer(d, s)),
+		m_size(s)
+	{}
+	
+	~filesystem_buffer()
+	{
+		filesystem_free_buffer(m_drive, m_buffer, m_size);
+	}
+
+	uint8_t& operator[](size_t n)
+	{
+		return m_buffer[n];
+	}
+
+	uint8_t operator[](size_t n) const
+	{
+		return m_buffer[n];
+	}
+
+	uint8_t* data()
+	{
+		return m_buffer;
+	}
+
+	size_t size()
+	{
+		return m_size;
+	}
+
+private:
+	filesystem_drive* m_drive;
+	uint8_t* const m_buffer;
+	size_t m_size;
+};
+
+
 #endif
 
 #endif

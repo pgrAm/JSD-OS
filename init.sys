@@ -1,3 +1,0 @@
-load_driver AT_kbrd.drv
-load_driver floppy.drv
-load_driver fat.drv

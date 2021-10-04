@@ -1,0 +1,7 @@
+load_driver AT_kbrd.drv
+load_driver floppy.drv
+load_driver fat.drv
+set_drive 1
+load_driver mbr.drv
+load_driver ata.drv
+load_driver iso9660.drv

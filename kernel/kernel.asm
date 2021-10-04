@@ -221,7 +221,9 @@ switch_task:
     push ebp
 
     mov edi, [current_task_TCB]		;edi = address of the previous task's "thread control block"
-    mov [edi + TCB.esp], esp		;Save ESP for previous task's kernel stack in the thread's TCB
+   	mov eax, cr3
+	mov [edi + TCB.esp], esp		;Save ESP for previous task's kernel stack in the thread's TCB
+	mov [edi + TCB.cr3], eax
 
     ;Load next task's state
     mov esi, [esp + (5+1)*4]		;esi = address of the next task's "thread control block" (parameter passed on stack)

@@ -179,7 +179,7 @@ void floppy_init()
 	floppy_set_drive_params(floppyTypes & 0x0f, &floppy_drives[1]);
 	floppy_set_drive_params(floppyTypes >> 4, &floppy_drives[0]);
 
-	printf("%d floppy drives detected\n", num_floppy_drives);
+	printf("\t%d floppy drives detected\n", num_floppy_drives);
 	
 	irq_install_handler(6, floppy_irq_handler);
 	
