@@ -27,6 +27,6 @@ void clear_row(uint16_t row);
 
 #define VIDEO_TEXT_MODE 0x01
 #define VIDEO_8BPP 0x02
-SYSCALL_HANDLER int set_video_mode(int width, int height, int flags);
+SYSCALL_HANDLER int set_video_mode(int width, int height, int bpp, int flags);
 SYSCALL_HANDLER uint8_t* map_video_memory(void);
 #endif

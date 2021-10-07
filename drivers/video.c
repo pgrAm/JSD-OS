@@ -194,12 +194,10 @@ void print_string_len(const char* str, size_t length)
 
 extern bool set_vga_mode_by_attributes(int cols, int rows, int bpp, bool text);
 
-SYSCALL_HANDLER int set_video_mode(int width, int height, int flags)
+SYSCALL_HANDLER int set_video_mode(int width, int height, int bpp, int flags)
 {
 	if (this_task_is_active())
 	{
-		int bpp = (flags & VIDEO_8BPP) ? 8 : 0;
-
 		if (set_vga_mode_by_attributes(width, height, bpp, !!(flags & VIDEO_TEXT_MODE)))
 		{
 			if (flags & VIDEO_TEXT_MODE)

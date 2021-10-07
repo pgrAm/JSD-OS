@@ -35,7 +35,8 @@ enum syscall_indices
 	SYSCALL_CLOSE_DIR = 21,
 	SYSCALL_SET_VIDEO_CURSOR = 22,
 	SYSCALL_GET_KEYSTATE = 23,
-	SYSCALL_GET_FREE_MEM = 24
+	SYSCALL_GET_FREE_MEM = 24,
+	SYSCALL_IOPL = 25
 };
 
 struct file_handle;
@@ -44,6 +45,16 @@ struct directory_handle;
 typedef struct directory_handle directory_handle;
 struct file_stream;
 typedef struct file_stream file_stream;
+
+static inline uint32_t do_syscall_4(size_t syscall_index, uint32_t arg0, uint32_t arg1, uint32_t arg2, uint32_t arg3)
+{
+	uint32_t retval;
+	__asm__ volatile("int $0x80"
+					 :"=a"(retval), "+c"(arg1), "+d"(arg2), "+D"(arg3)
+					 : "b"(syscall_index), "a"(arg0)
+					 : "memory");
+	return retval;
+}
 
 static inline uint32_t do_syscall_3(size_t syscall_index, uint32_t arg0, uint32_t arg1, uint32_t arg2)
 {
@@ -84,6 +95,11 @@ static inline uint32_t do_syscall_0(size_t syscall_index)
 						:"b"(syscall_index)
 						:"%ecx", "%edx", "memory");
 	return retval;
+}
+
+static inline void iopl(int a)
+{
+	do_syscall_1(SYSCALL_IOPL, (uint32_t)a);
 }
 
 static inline void exit(int a)
@@ -170,11 +186,10 @@ static inline directory_handle* get_root_directory(size_t drive_index)
 	return (directory_handle*)do_syscall_1(SYSCALL_GET_ROOT_DIR, (uint32_t)drive_index);
 }
 
-#define VIDEO_8BPP 0x02
 #define VIDEO_TEXT_MODE 0x01
-static inline int set_video_mode(int width, int height, int flags)
+static inline int set_video_mode(int width, int height, int bpp, int flags)
 {
-	return (int)do_syscall_3(SYSCALL_SET_VIDEO_MODE, (uint32_t)width, (uint32_t)height, (uint32_t)flags);
+	return (int)do_syscall_4(SYSCALL_SET_VIDEO_MODE, (uint32_t)width, (uint32_t)height, (uint32_t)bpp, (uint32_t)flags);
 }
 
 static inline int set_video_cursor(int offset)

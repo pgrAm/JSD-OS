@@ -156,7 +156,11 @@ void fault_handler(interrupt_info*r)
 		printf("EIP=%X\n", r->eip);
 		printf("ESP=%X\n", r->esp);
 
-		if (r->int_no == 14)
+        if(r->int_no == 13) //GPF
+        {
+            printf("EFLAGS=%X\n", r->eflags);
+        }
+		else if (r->int_no == 14) //page fault
 		{
 			if(r->err_code & 0x04)
 			{

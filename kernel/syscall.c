@@ -18,6 +18,8 @@ SYSCALL_HANDLER int _empty()
 	return 0;
 }
 
+extern SYSCALL_HANDLER int iopl(int val);
+
 extern void handle_syscall();
 
 const void* syscall_table[] =
@@ -46,7 +48,8 @@ const void* syscall_table[] =
 	filesystem_close_directory,
 	set_cursor_offset,
 	get_keystate,
-	memmanager_num_bytes_free
+	memmanager_num_bytes_free,
+	iopl
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

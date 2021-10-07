@@ -70,7 +70,7 @@ void video_erase_chars(size_t num)
 
 int initialize_text_mode(int col, int row)
 {
-	if (set_video_mode(col, row, VIDEO_TEXT_MODE) == 0)
+	if (set_video_mode(col, row, 16, VIDEO_TEXT_MODE) == 0)
 	{
 		NUMROWS = row;
 		NUMCOLS = col;

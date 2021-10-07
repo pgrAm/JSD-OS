@@ -11,7 +11,7 @@ typedef uint32_t int_lock;
 static inline int_lock lock_interrupts()
 {
 	int_lock lock;
-	__asm__ volatile("pushf\n"
+	__asm__ volatile("pushfl\n"
 		"cli\n"
 		"popl %0\n"
 		: "=r"(lock));
@@ -21,7 +21,7 @@ static inline int_lock lock_interrupts()
 static inline void unlock_interrupts(int_lock lock)
 {
 	__asm__ volatile("pushl %0\n"
-		"popf\n"
+		"popfl\n"
 		:
 	: "r" (lock));
 }
