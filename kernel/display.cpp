@@ -35,9 +35,7 @@ public:
 		m_num_cols(cols),
 		m_total_size(rows*cols),
 		m_cursorpos(driver->get_cursor_offset())
-	{
-		m_screen_ptr[(rows * cols) - 2].ch = 'A';
-	}
+	{}
 
 	kernel_terminal(const kernel_terminal&) = delete;
 	~kernel_terminal() {}
