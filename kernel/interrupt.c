@@ -5,7 +5,7 @@
 #include <kernel/memorymanager.h>
 #include <kernel/task.h>
 #include <kernel/interrupt.h>
-#include <drivers/video.h>
+#include <kernel/display.h>
 #include <drivers/portio.h>
 
 struct idt_entry

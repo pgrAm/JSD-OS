@@ -9,15 +9,15 @@
 #define REG_SCREEN_DATA 0x3D5
 
 uint8_t* VIDEOMEM = NULL;
-size_t NUMROWS = 25;
-size_t NUMCOLS = 80;
-size_t SCREEN_SIZE_BYTES = 80 * 25 * 2;
+size_t NUMROWS = 0;
+size_t NUMCOLS = 0;
+size_t SCREEN_SIZE_BYTES = 0;
 
 volatile size_t cursorpos = 0;
 
 inline char* get_current_draw_pointer()
 {
-	char* vmem = (char*)(VIDEOMEM + cursorpos);
+	char* vmem = (char*)(VIDEOMEM + cursorpos * sizeof(uint16_t));
 	return vmem;
 }
 
@@ -46,13 +46,13 @@ void set_color(uint8_t bgr, uint8_t fgr, uint8_t bright)
 
 void set_cursor_offset(size_t offset) 
 { 
-	if (offset > SCREEN_SIZE_BYTES)
+	if (offset > SCREEN_SIZE_BYTES / sizeof(uint16_t))
 	{
 		return;
 	}
 
 	cursorpos = offset;
-	set_video_cursor(offset);
+	set_display_cursor(offset);
 }
 
 void video_erase_chars(size_t num)
@@ -65,24 +65,41 @@ void video_erase_chars(size_t num)
 		*(--vmem) = clearval;
 	}
 	
-	set_cursor_offset((uint32_t)vmem - (uint32_t)VIDEOMEM);
+	set_cursor_offset(cursorpos - num);
 }
 
 int initialize_text_mode(int col, int row)
 {
-	if (set_video_mode(col, row, 16, VIDEO_TEXT_MODE) == 0)
+	display_mode requested = {
+		col, row,
+		0,0,0,0,
+		DISPLAY_TEXT_MODE
+	};
+	display_mode actual;
+
+	int err = set_display_mode(&requested, &actual);
+
+	if (actual.flags & DISPLAY_TEXT_MODE)
 	{
-		NUMROWS = row;
-		NUMCOLS = col;
-		SCREEN_SIZE_BYTES = col * row * 2;
-		VIDEOMEM = map_video_memory();
+		NUMROWS = actual.height;
+		NUMCOLS = actual.width;
+		SCREEN_SIZE_BYTES = NUMROWS * NUMCOLS * sizeof(uint16_t);
+		VIDEOMEM = map_display_memory();
 		set_cursor_visibility(true);
 		set_cursor_offset(0);
-
-		return 0;
 	}
 
-	return -1;
+	return err;
+}
+
+int get_terminal_width()
+{
+	return NUMCOLS;
+}
+
+int get_terminal_height()
+{
+	return NUMROWS;
 }
 
 //uint16_t get_cursor_offset()
@@ -114,8 +131,7 @@ void set_cursor_visibility(bool on)
 
 void set_cursor_position(uint16_t row, uint16_t col)
 {
-	uint16_t offset = (row*NUMCOLS) + col;
-	set_cursor_offset(offset << 1);
+	set_cursor_offset((row * NUMCOLS) + col);
 }
 
 void video_clear()
@@ -227,32 +243,24 @@ int handle_escape_sequence(const char* sequence)
 	return seq - sequence;
 }
 
-int handle_char(const char source, char* dest)
+int handle_char(const char source, char* dest, size_t pos)
 {
-	int offset = 0;
-
 	switch(source)
 	{
 	case '\r':
-		break;
+		return 0;
 	case '\n':
-		offset = (2 * NUMCOLS) - (((uint8_t*)dest - VIDEOMEM) % (2 * NUMCOLS));
-		break;
+		return NUMCOLS - (pos % NUMCOLS);
 	case '\t':
-		offset = 2 * tab_size - (((uint8_t*)dest - VIDEOMEM) % (2 * tab_size));
-		break;
+		return tab_size - (pos % tab_size);
 	case '\b':
 		*dest = '\0';
-		offset = -2;
-		break;
+		return -1;
 	default:
 		*dest++ = source;
 		*dest = color;
-		offset = 2;
-		break;
+		return 1;
 	}
-	
-	return offset;
 }
 
 void print_string(const char* str, size_t length)
@@ -272,15 +280,15 @@ void print_string(const char* str, size_t length)
 		}
 		else
 		{
-			output_position += handle_char(*currentchar, vmem);
+			output_position += handle_char(*currentchar, vmem, output_position);
 		}
 		
 		if(output_position >= SCREEN_SIZE_BYTES)
 		{
 			scroll_up();
-			output_position = (NUMROWS - 1) * 2 * NUMCOLS;
+			output_position = (NUMROWS - 1) * NUMCOLS;
 		}
-		vmem = (char*)(VIDEOMEM + output_position);
+		vmem = (char*)(VIDEOMEM + output_position * sizeof(uint16_t));
 	}
 	
 	set_cursor_offset(output_position);

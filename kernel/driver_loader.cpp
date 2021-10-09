@@ -12,7 +12,7 @@ extern "C" {
 #include <kernel/task.h>
 #include <kernel/elf.h>
 #include <kernel/locks.h>
-#include <drivers/video.h>
+#include <kernel/display.h>
 #include <drivers/sysclock.h>
 #include <drivers/kbrd.h>
 }
@@ -67,6 +67,7 @@ static const func_info func_list[] = {
 	{"filesystem_free_buffer",		(void*)&filesystem_free_buffer},
 	{"filesystem_read_blocks_from_disk", (void*)&filesystem_read_blocks_from_disk},
 	{"filesystem_create_stream", (void*)&filesystem_create_stream},
+	{"__regcall3__filesystem_open_file", (void*)&filesystem_open_file},
 	{"__regcall3__filesystem_read_file", (void*)&filesystem_read_file},
 	{"__regcall3__filesystem_close_file", (void*)&filesystem_close_file},
 	{"irq_install_handler", (void*)&irq_install_handler},
@@ -79,7 +80,9 @@ static const func_info func_list[] = {
 	{"kernel_unlock_mutex", (void*)&kernel_unlock_mutex},
 	{"handle_keyevent", (void*)&handle_keyevent},
 	{"kernel_signal_cv", (void*)&kernel_signal_cv},
-	{"kernel_wait_cv", (void*)&kernel_wait_cv}
+	{"kernel_wait_cv", (void*)&kernel_wait_cv},
+	{"display_add_driver", (void*)&display_add_driver},
+	{"display_mode_satisfied", (void*)&display_mode_satisfied}
 };
 
 extern "C" void load_drivers()

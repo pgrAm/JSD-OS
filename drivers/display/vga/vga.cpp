@@ -16,6 +16,7 @@ To do:
 #include <stdio.h>
 
 #include <kernel/filesystem.h>
+#include <kernel/display.h>
 #include <drivers/portio.h>
 
 #define	VGA_AC_INDEX		0x3C0
@@ -43,6 +44,8 @@ To do:
 				VGA_NUM_GC_REGS + VGA_NUM_AC_REGS)
 
 #include "vga_modes.h"
+
+vga_mode* current_mode = nullptr;
 
 void write_regs(uint8_t* regs)
 {
@@ -106,7 +109,7 @@ static void set_plane(uint8_t p)
 VGA framebuffer is at 0xA0000, 0xB0000, or 0xB8000
 depending on bits in GC 6
 *****************************************************************************/
-uint8_t* get_fb_addr()
+uint8_t* vga_get_framebuffer()
 {
 	unsigned seg;
 
@@ -161,7 +164,7 @@ static void write_font(unsigned char* buf, unsigned font_height)
 
 	for (size_t i = 0; i < 256; i++)
 	{
-		memcpy(get_fb_addr() + i * 32, buf, font_height);
+		memcpy(vga_get_framebuffer() + i * 32, buf, font_height);
 		buf += font_height;
 	}
 
@@ -188,16 +191,16 @@ uint8_t* loadpsf(const char* file)
 		uint8_t charsize;	// Character size
 	} __attribute__((packed)) PSF_font;
 
-	file_stream* f = filesystem_open_file(NULL, file, 0);
+	file_stream* f = filesystem_open_file(nullptr, file, 0);
 
-	if (!f) return NULL;
+	if (!f) return nullptr;
 
 	PSF_font font;
 	filesystem_read_file(&font, sizeof(PSF_font), f);
 
 	size_t size = 256 * font.charsize;
 	
-	uint8_t* buffer = NULL;
+	uint8_t* buffer = nullptr;
 
 	if (font.magic == PSF_MAGIC)
 	{
@@ -210,20 +213,20 @@ uint8_t* loadpsf(const char* file)
 	return buffer;
 }
 
-uint8_t* font16 = NULL;
-uint8_t* font08 = NULL;
+uint8_t* font16 = nullptr;
+uint8_t* font08 = nullptr;
 
-bool set_vga_mode(vga_mode* m)
+bool vga_do_mode_switch(vga_mode* m)
 {
 	write_regs(m->regs);
 
-	if (m->is_text)
+	if (m->mode.flags & DISPLAY_TEXT_MODE)
 	{
-		if (m->char_height == 16 && font16 == NULL)
+		if (m->char_height == 16 && font16 == nullptr)
 		{
 			font16 = loadpsf("font16.psf");
 		}
-		if (m->char_height == 8 && font08 == NULL)
+		if (m->char_height == 8 && font08 == nullptr)
 		{
 			font08 = loadpsf("font08.psf");
 		}
@@ -234,21 +237,84 @@ bool set_vga_mode(vga_mode* m)
 		}
 	}
 
+	current_mode = m;
+
 	return true;
 }
 
-bool set_vga_mode_by_attributes(int cols, int rows, int bpp, bool text)
+static void vga_set_cursor_visibility(bool on)
 {
-	for (int i = 0; i < NUM_GRAPHICS_MODES; i++)
-	{
-		vga_mode* m = &available_modes[i];
+	outb(VGA_CRTC_INDEX, 0x0a);
 
-		if (m->width == cols && m->height == rows && (!!m->is_text == !!text) && 
-			(bpp == 0 || m->bits_per_pixel == bpp))
+	auto reg_val = inb(VGA_CRTC_DATA);
+
+	outb(VGA_CRTC_INDEX, on ? reg_val & ~0x20 : reg_val | 0x20);
+}
+
+static size_t vga_get_cursor_offset()
+{
+	outb(VGA_CRTC_INDEX, 0x0f);
+	uint16_t offset = inb(VGA_CRTC_DATA);
+	outb(VGA_CRTC_INDEX, 0x0e);
+	offset += inb(VGA_CRTC_DATA) << 8;
+	return offset;
+}
+
+static void vga_set_cursor_offset(size_t offset)
+{
+	// cursor LOW port to vga INDEX register
+	outb(VGA_CRTC_INDEX, 0x0f);
+	outb(VGA_CRTC_DATA, (uint8_t)(offset & 0xFF));
+
+	// cursor HIGH port to vga INDEX register
+	outb(VGA_CRTC_INDEX, 0x0E);
+	outb(VGA_CRTC_DATA, (uint8_t)((offset >> 8) & 0xFF));
+}
+
+static bool vga_set_mode(display_mode* requested, display_mode* actual)
+{
+	bool success =	current_mode != nullptr && 
+					display_mode_satisfied(requested, &current_mode->mode);
+	if(!success)
+	{
+		for(int i = 0; i < NUM_GRAPHICS_MODES; i++)
 		{
-			return set_vga_mode(m);
+			vga_mode* m = &available_modes[i];
+
+			if(display_mode_satisfied(requested, &m->mode))
+			{
+				success = vga_do_mode_switch(m);
+			}
 		}
 	}
 
-	return false;
+	if(actual != nullptr && current_mode != nullptr)
+	{
+		*actual = current_mode->mode;
+	}
+	return success;
+}
+
+static display_driver vga_driver =
+{
+	vga_set_mode,
+	vga_get_framebuffer,
+
+	vga_get_cursor_offset,
+	vga_set_cursor_offset,
+	vga_set_cursor_visibility
+};
+
+extern "C" void vga_init(void)
+{
+	display_mode requested = {
+		90, 30,
+		0,
+		0,
+		0,
+		FORMAT_DONT_CARE,
+		DISPLAY_TEXT_MODE
+	};
+	vga_set_mode(&requested, nullptr);
+	display_add_driver(&vga_driver, true);
 }

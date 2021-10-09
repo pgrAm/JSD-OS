@@ -278,27 +278,28 @@ uint8_t g_400x240x256_modex[] =
 
 typedef struct
 {
-	size_t width, height, bits_per_pixel;
 	size_t char_height;
-	bool is_text;
 	uint8_t* regs;
+	display_mode mode;
 } vga_mode;
 
 #define NUM_GRAPHICS_MODES 14
 
+#include <common/display_mode.h>
+
 vga_mode available_modes[NUM_GRAPHICS_MODES] = {
-	{40,  25,  16,	16, true,	g_40x25_text},
-	{40,  50,  16,	8,  true,	g_40x50_text},
-	{80,  25,  16,	16, true,	g_80x25_text},
-	{80,  50,  16,	8,  true,	g_80x50_text},
-	{90,  30,  16,	16, true,	g_90x30_text},
-	{90,  60,  16,	8,  true,	g_90x60_text},
-	{640, 480, 1,	0,  false,	g_640x480x2},
-	{320, 200, 4,	0,  false,	g_320x200x4},
-	{640, 480, 4,	0,  false,	g_640x480x16},
-	{720, 480, 4,	0,  false,	g_720x480x16},
-	{320, 200, 8,	0,  false,	g_320x200x256},
-	{320, 240, 8,	0,  false,	g_320x240x256_modex},
-	{400, 240, 8,	0,  false,	g_400x240x256_modex}
+	{16, g_40x25_text,	{40, 25, 40, 60, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE}},
+	{8,  g_40x50_text,	{40, 50, 40, 60, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE}},
+	{16, g_80x25_text,	{80, 25, 80, 70, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE}},
+	{8,  g_80x50_text,	{80, 50, 80, 70, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE}},
+	{16, g_90x30_text,	{90, 30, 90, 70, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE}},
+	{8,  g_90x60_text,	{90, 60, 90, 70, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE}},
+	{0,  g_640x480x2,	{640, 480, 640, 60, 1, FORMAT_GRAYSCALE, DISPLAY_MONO}},
+	{0,  g_320x200x4,	{320, 200, 320, 60, 4, FORMAT_INDEXED_BIT_PLANE, DISPLAY_INDEXED}},
+	{0,  g_640x480x16,	{640, 480, 640, 60, 4, FORMAT_INDEXED_BIT_PLANE, DISPLAY_INDEXED}},
+	{0,  g_720x480x16,	{720, 480, 720, 70, 4, FORMAT_INDEXED_BIT_PLANE, DISPLAY_INDEXED}},
+	{0,  g_320x200x256,	{320, 200, 320, 70, 8, FORMAT_INDEXED_LINEAR, DISPLAY_INDEXED}},
+	{0,  g_320x240x256_modex, {320, 240, 320, 60, 8, FORMAT_INDEXED_BYTE_PLANE, DISPLAY_INDEXED}},
+	{0,  g_400x240x256_modex, {400, 240, 400, 60, 8, FORMAT_INDEXED_BYTE_PLANE, DISPLAY_INDEXED}}
 };
 #endif

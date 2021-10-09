@@ -10,8 +10,8 @@
 #include <kernel/filesystem.h>
 #include <kernel/task.h>
 #include <kernel/memorymanager.h>
+#include <kernel/display.h>
 #include <drivers/sysclock.h>
-#include <drivers/video.h>
 #include <drivers/kbrd.h>
 
 #define print_string print_string_len
