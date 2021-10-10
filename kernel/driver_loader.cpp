@@ -25,9 +25,9 @@ struct func_info {
 	void* address;
 };
 
-hash_map driver_lib_set{};
-hash_map driver_symbol_map{};
-hash_map driver_glob_data_symbol_map{};
+dynamic_object::sym_map driver_lib_set{};
+dynamic_object::sym_map driver_symbol_map{};
+dynamic_object::sym_map driver_glob_data_symbol_map{};
 
 static void load_driver(std::string filename, std::string func_name)
 {
@@ -51,7 +51,11 @@ static void load_driver(std::string filename, std::string func_name)
 
 static const func_info func_list[] = {
 	{"printf",	(void*)&printf},
+	{"vsnprintf",(void*)&vsnprintf},
+	{"strcat",	(void*)&strcat},
+	{"time",	(void*)&time},
 	{"malloc",	(void*)&malloc},
+	{"calloc",	(void*)&calloc},
 	{"free",	(void*)&free},
 	{"strtok",	(void*)&strtok},
 	{"strlen",	(void*)&strlen},

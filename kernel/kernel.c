@@ -33,6 +33,8 @@ static void handle_init_array(void)
 		(*func)();
 }
 
+extern void memmanager_print_free_map();
+
 void kernel_main()
 {
 	//clear_screen();
@@ -72,6 +74,9 @@ void kernel_main()
 	//memmanager_reserve_physical_memory(0x30000, 0x60000);
 	//memmanager_reserve_physical_memory(0x90000, 0x1000);
 	keyboard_init();
+
+	//memmanager_print_free_map();
+	//while(true);
 
 	load_drivers();
 

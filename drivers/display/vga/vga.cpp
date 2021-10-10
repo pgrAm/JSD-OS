@@ -308,7 +308,7 @@ static display_driver vga_driver =
 extern "C" void vga_init(void)
 {
 	display_mode requested = {
-		90, 30,
+		80, 25,
 		0,
 		0,
 		0,

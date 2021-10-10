@@ -188,7 +188,7 @@ void fault_handler(interrupt_info*r)
 			printf("violation\n");
 			
 			printf("At address %X\n", getcr2reg());
-            printf("cr3 = %X\n", get_page_directory());
+            //printf("cr3 = %X\n", get_page_directory());
             //printf("flags= %X\n", memmanager_get_page_flags(getcr2reg()));
 		}
 		else if(r->int_no == 13)
