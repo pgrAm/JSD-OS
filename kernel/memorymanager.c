@@ -31,7 +31,7 @@ typedef struct
 #define PAGE_ADDRESS_MASK (PAGE_SIZE - 1)
 
 //align must be a power of 2
-inline uintptr_t align_addr(addr, align) 
+inline uintptr_t align_addr(addr, align)
 {
 	return (addr + (align - 1)) & ~(align - 1);
 }
@@ -465,6 +465,31 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 	return NULL;
 }
 
+void memmanager_free_physical(uintptr_t physical_address, size_t size)
+{
+	for(size_t i = 0; i < num_memory_blocks; i++)
+	{
+		if(memory_map[i].offset + memory_map[i].length == physical_address) //we have an adjacent block
+		{
+			//physical_address = memory_map[i].offset;
+			memory_map[i].length += size;
+			break;
+		}
+		else if(memory_map[i].offset == physical_address + size) //we have an adjacent block
+		{
+			memory_map[i].offset = physical_address;
+			memory_map[i].length += size;
+			break;
+		}
+		else if(memory_map[i].offset + memory_map[i].length > physical_address)
+		{
+			//otherwise we need to add a new block
+			memmanager_add_memory_block(i, physical_address, size);
+			break;
+		}
+	}
+}
+
 int memmanager_free_pages(void* page, size_t num_pages)
 {
 	uintptr_t virtual_address = (uintptr_t)page;
@@ -482,29 +507,7 @@ int memmanager_free_pages(void* page, size_t num_pages)
 			return -1; //the page was not allocated
 		}
 
-		physical_address &= ~PAGE_ADDRESS_MASK;
-
-		for(size_t i = 0; i < num_memory_blocks; i++)
-		{
-			if(memory_map[i].offset + memory_map[i].length == physical_address) //we have an adjacent block
-			{
-				//physical_address = memory_map[i].offset;
-				memory_map[i].length += PAGE_SIZE;
-				break;
-			}
-			else if(memory_map[i].offset == physical_address + PAGE_SIZE) //we have an adjacent block
-			{
-				memory_map[i].offset = physical_address;
-				memory_map[i].length += PAGE_SIZE;
-				break;
-			}
-			else if(memory_map[i].offset + memory_map[i].length > physical_address)
-			{
-				//otherwise we need to add a new block
-				memmanager_add_memory_block(i, physical_address, PAGE_SIZE);
-				break;
-			}
-		}
+		memmanager_free_physical(physical_address & ~PAGE_ADDRESS_MASK, PAGE_SIZE);
 	}
 
 	return 0;
@@ -630,9 +633,12 @@ void memmanager_init(void)
 		uintptr_t rd_end = ((multiboot_modules*)_multiboot->m_modsAddr)[i].end;
 
 		memmanager_reserve_physical_memory(rd_begin, rd_end - rd_begin);
-	
+
 		//printf("%X - %X\n", rd_begin, rd_end);
 	}
+
+	//reserve BIOS & VRAM
+	memmanager_reserve_physical_memory(0x80000, 0xFFFFF - 0x80000);
 
 	//while(true);
 
@@ -667,11 +673,14 @@ void memmanager_init(void)
 	enable_paging();
 
 	printf("paging enabled\n");
+}
 
-	/*for(size_t i = 0; i < num_memory_blocks; i++)
+void memmanager_print_free_map()
+{
+	for(size_t i = 0; i < num_memory_blocks; i++)
 	{
-		printf("Available \t%8X - %8X\n", 
-			   memory_map[i].offset, 
+		printf("Available \t%8X - %8X\n",
+			   memory_map[i].offset,
 			   memory_map[i].offset + memory_map[i].length);
-	}*/
+	}
 }

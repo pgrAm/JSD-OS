@@ -29,9 +29,9 @@ typedef struct ELF_linker_data
 	ELF_rel32* relocation_addr;
 	size_t relocation_entries;
 
-	hash_map* lib_set;
-	hash_map* symbol_map;
-	hash_map* glob_data_symbol_map;
+	dynamic_object::sym_map* lib_set;
+	dynamic_object::sym_map* symbol_map;
+	dynamic_object::sym_map* glob_data_symbol_map;
 	bool userspace;
 } ELF_linker_data;
 

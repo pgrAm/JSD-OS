@@ -29,11 +29,11 @@ enum syscall_indices
 	SYSCALL_GET_FILE_IN_DIR = 15,
 	SYSCALL_GET_FILE_INFO = 16,
 	SYSCALL_GET_ROOT_DIR = 17,
-	SYSCALL_SET_VIDEO_MODE = 18,
-	SYSCALL_MAP_VIDEO_MEMORY = 19,
+	SYSCALL_SET_DISPLAY_MODE = 18,
+	SYSCALL_MAP_DISPLAY_MEMORY = 19,
 	SYSCALL_OPEN_DIR = 20,
 	SYSCALL_CLOSE_DIR = 21,
-	SYSCALL_SET_VIDEO_CURSOR = 22,
+	SYSCALL_SET_DISPLAY_CURSOR = 22,
 	SYSCALL_GET_KEYSTATE = 23,
 	SYSCALL_GET_FREE_MEM = 24,
 	SYSCALL_IOPL = 25
@@ -186,20 +186,20 @@ static inline directory_handle* get_root_directory(size_t drive_index)
 	return (directory_handle*)do_syscall_1(SYSCALL_GET_ROOT_DIR, (uint32_t)drive_index);
 }
 
-#define VIDEO_TEXT_MODE 0x01
-static inline int set_video_mode(int width, int height, int bpp, int flags)
+#include <common/display_mode.h>
+static inline int set_display_mode(display_mode* requested, display_mode* actual)
 {
-	return (int)do_syscall_4(SYSCALL_SET_VIDEO_MODE, (uint32_t)width, (uint32_t)height, (uint32_t)bpp, (uint32_t)flags);
+	return (int)do_syscall_2(SYSCALL_SET_DISPLAY_MODE, (uint32_t)requested, (uint32_t)actual);
 }
 
-static inline int set_video_cursor(int offset)
+static inline int set_display_cursor(int offset)
 {
-	return (int)do_syscall_1(SYSCALL_SET_VIDEO_CURSOR, (uint32_t)offset);
+	return (int)do_syscall_1(SYSCALL_SET_DISPLAY_CURSOR, (uint32_t)offset);
 }
 
-static inline uint8_t* map_video_memory()
+static inline uint8_t* map_display_memory()
 {
-	return (uint8_t*)do_syscall_0(SYSCALL_MAP_VIDEO_MEMORY);
+	return (uint8_t*)do_syscall_0(SYSCALL_MAP_DISPLAY_MEMORY);
 }
 static inline directory_handle* open_dir(directory_handle* rel, const char* path, int flags)
 {

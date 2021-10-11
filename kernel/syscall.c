@@ -5,7 +5,7 @@
 #include <kernel/memorymanager.h>
 #include <drivers/sysclock.h>
 #include <drivers/kbrd.h>
-#include <drivers/video.h>
+#include <kernel/display.h>
 
 //A syscall is accomplished by
 //putting the arguments into EAX, ECX, EDX, EDI, ESI
@@ -42,8 +42,8 @@ const void* syscall_table[] =
 	filesystem_get_file_in_dir,
 	filesystem_get_file_info,
 	filesystem_get_root_directory,
-	set_video_mode,
-	map_video_memory,
+	set_display_mode,
+	map_display_memory,
 	filesystem_open_directory,
 	filesystem_close_directory,
 	set_cursor_offset,

@@ -48,7 +48,7 @@ multiboot1_header:
 multiboot1_header_end:
 header_end:
 	cli
-	mov ebp, 0x00090000 ; Update our stack position so it is right at the top of the free space.
+	mov ebp, 0x00080000 ; Update our stack position so it is right at the top of the free space.
 	mov esp, ebp
 
 	; set gdt
@@ -176,7 +176,7 @@ global tss_esp0_location
 tss_begin:
 	dd 	0x00000000
 tss_esp0_location:
-	dd	0x00090000			;kernel stack pointer
+	dd	0x00080000			;kernel stack pointer
 	dd	GDT_DATA_SEG		;kernel stack segment
 	times 23 dd 0x00000000
 tss_end:
