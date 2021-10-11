@@ -11,12 +11,13 @@
 #include <kernel/driver_loader.h>
 #include <kernel/task.h>
 #include <kernel/elf.h>
+#include <kernel/display.h>
 
-#include <drivers/video.h>
 #include <drivers/sysclock.h>
 #include <drivers/ramdisk.h>
 #include <drivers/kbrd.h>
 #include <drivers/formats/rdfs.h>
+#include <drivers/display/basic_text/basic_text.h>
 
 extern multiboot_info* _multiboot;
 
@@ -32,11 +33,22 @@ static void handle_init_array(void)
 		(*func)();
 }
 
+extern void memmanager_print_free_map();
+
 void kernel_main()
 {
-	initialize_video(80, 25);
+	//clear_screen();
 
-	clear_screen();
+	idt_init();
+	isrs_init();
+	irqs_init();
+
+	memmanager_init();
+
+	//call global constructors
+	handle_init_array();
+
+	basic_text_init();
 
 	printf("Found Kernel %X - %X\n", 0x8000, &_BSS_END_);
 
@@ -47,15 +59,6 @@ void kernel_main()
 
 		printf("Found Module %X - %X\n", rd_begin, rd_end);
 	}
-
-	idt_init();
-	isrs_init();
-	irqs_init();
-
-	memmanager_init();
-
-	//call global constructors
-	handle_init_array();
 
 	sysclock_init();
 
@@ -71,6 +74,9 @@ void kernel_main()
 	//memmanager_reserve_physical_memory(0x30000, 0x60000);
 	//memmanager_reserve_physical_memory(0x90000, 0x1000);
 	keyboard_init();
+
+	//memmanager_print_free_map();
+	//while(true);
 
 	load_drivers();
 

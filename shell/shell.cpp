@@ -65,7 +65,7 @@ void list_directory()
 
 		if(f.flags & IS_DIR)
 		{
-			printf(" %-8s (DIR)     -  %02d-%02d-%4d  %02d-%02d-%4d\n",
+			printf(" %-9s (DIR)     -  %02d-%02d-%4d  %02d-%02d-%4d\n",
 				   f.name,
 				   created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
 				   modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
@@ -198,6 +198,10 @@ int get_command(char* input)
 	{
 		select_drive(2);
 	}
+	else if("drive:" == keyword)
+	{
+		select_drive(atoi(keywords[1].c_str()));
+	}
 	else if("cls" == keyword || "clear" == keyword)
 	{
 		clear_console();
@@ -233,6 +237,10 @@ int get_command(char* input)
 		if(initialize_text_mode(width, height) == 0)
 		{
 			clear_console();
+		}
+		else
+		{
+			printf("Unable to set mode\n");
 		}
 	}
 	else if("mem" == keyword)
@@ -334,11 +342,8 @@ void splash_text(int w)
 
 int main(int argc, char** argv)
 {
-	int width = 90;
-	int height = 30;
-
-	initialize_text_mode(width, height);
-	splash_text(width);
+	initialize_text_mode(0, 0);
+	splash_text(get_terminal_width());
 
 	time_t t_time = time(nullptr);
 

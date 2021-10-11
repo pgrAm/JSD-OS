@@ -193,9 +193,9 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 	newTask->address_space = address_space;
 
 	dynamic_object* d = new dynamic_object();
-	d->symbol_map = new hash_map();
-	d->glob_data_symbol_map = new hash_map();
-	d->lib_set = new hash_map();
+	d->symbol_map = new dynamic_object::sym_map();
+	d->glob_data_symbol_map = new dynamic_object::sym_map();
+	d->lib_set = new dynamic_object::sym_map();
 
 	newTask->objects.push_back(d);
 
