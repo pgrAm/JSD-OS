@@ -12,6 +12,9 @@ extern "C" {
 void memmanager_init(void);
 uintptr_t memmanager_get_physical(uintptr_t virtual_address);
 
+void* memmanager_reserve_pages(void* virtual_address, size_t n, uint32_t flags);
+void memmanager_unreserve_pages(void* virtual_address, size_t n);
+
 SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages);
 SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, uint32_t flags);
 

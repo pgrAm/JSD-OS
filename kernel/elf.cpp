@@ -172,10 +172,13 @@ static int load_elf(file_handle* file, dynamic_object* object, bool user, const 
 			size_t object_size = s.size;
 			size_t num_pages = (object_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 
-			uint32_t flags = user ? PAGE_USER | PAGE_PRESENT | PAGE_RW : PAGE_PRESENT | PAGE_RW;
-			uintptr_t base_adress = (uintptr_t)memmanager_virtual_alloc(s.base, num_pages, flags);
-
+			uint32_t default_flags = user ? PAGE_USER | PAGE_PRESENT | PAGE_RW : PAGE_PRESENT | PAGE_RW;
+#ifdef ELF_ALLOCATE_INDIVIDIUAL_SEGMENTS
+			uintptr_t base_adress = (uintptr_t)memmanager_reserve_pages(s.base, num_pages, default_flags);
+#else
+			uintptr_t base_adress = (uintptr_t)memmanager_virtual_alloc(s.base, num_pages, default_flags);
 			object->segments.push_back({(void*)base_adress, num_pages});
+#endif
 			object->linker_data = nullptr;
 
 			if(s.base != nullptr) //if the elf cares where its loaded then don't add the base adress
@@ -221,6 +224,10 @@ static int load_elf(file_handle* file, dynamic_object* object, bool user, const 
 					if(pg_header.flags & PF_WRITE) { flags |= PAGE_RW; }
 					if(user) { flags |= PAGE_USER; }
 
+#ifdef ELF_ALLOCATE_INDIVIDIUAL_SEGMENTS
+					memmanager_virtual_alloc((void*)aligned_address, num_pages, default_flags);
+					object->segments.push_back({(void*)aligned_address, num_pages});
+#endif
 					memmanager_set_page_flags((void*)aligned_address, num_pages, flags);
 
 					//printf("loaded section at %X from %X, size %X\n",
@@ -237,6 +244,9 @@ static int load_elf(file_handle* file, dynamic_object* object, bool user, const 
 					break;
 				}
 			}
+#ifdef ELF_ALLOCATE_INDIVIDIUAL_SEGMENTS
+			memmanager_unreserve_pages((void*)base_adress, num_pages);
+#endif
 
 			object->entry_point = (void*)(base_adress + file_header.entry_point);
 

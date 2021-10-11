@@ -320,7 +320,7 @@ void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, uint32_t
 
 uint32_t memmanager_get_page_flags(void* virtual_address)
 {
-	return memmanager_get_pt_entry(virtual_address) & PAGE_ADDRESS_MASK;
+	return memmanager_get_pt_entry((uintptr_t)virtual_address) & PAGE_ADDRESS_MASK;
 }
 
 void memmanager_set_page_flags(void* virtual_address, size_t num_pages, uint32_t flags)
@@ -346,6 +346,44 @@ void memmanager_set_page_flags(void* virtual_address, size_t num_pages, uint32_t
 		page_table[pt_index] = (page_table[pt_index] & (~PAGE_ADDRESS_MASK | PAGE_PRESENT)) | flags;
 
 		__flush_tlb_page(v_address);
+	}
+}
+
+//reserve virtual adresses without allocating physical memory
+void* memmanager_reserve_pages(void* virtual_address, size_t n, uint32_t flags)
+{
+	if(virtual_address == NULL)
+	{
+		virtual_address = memmanager_get_unmapped_pages(n, flags);
+
+		//if its still null then there were not enough contiguous unmapped pages
+		if(virtual_address == NULL)
+		{
+			printf("failure to get %d unmapped pages", n);
+			return NULL;
+		}
+	}
+
+	uintptr_t addr = (uintptr_t)virtual_address;
+	for(size_t i = 0; i < n; ++i)
+	{
+		memmanager_map_page(addr, 0, PAGE_PRESENT);
+		addr += PAGE_SIZE;
+	}
+	return virtual_address;
+}
+
+//reserve virtual adresses without allocating physical memory
+void memmanager_unreserve_pages(void* virtual_address, size_t n)
+{
+	uintptr_t addr = (uintptr_t)virtual_address;
+	for(size_t i = 0; i < n; ++i)
+	{
+		if(memmanager_get_physical(addr) == 0)
+		{
+			memmanager_map_page(addr, 0, 0);
+		}
+		addr += PAGE_SIZE;
 	}
 }
 
