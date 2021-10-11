@@ -5,3 +5,4 @@ set_drive 2
 load_driver drivers/mbr.drv
 load_driver drivers/floppy.drv
 load_driver drivers/fat.drv
+load_driver drivers/vesa.drv
