@@ -1,9 +1,0 @@
-hash_string
-hashmap_create call:[malloc,memset,sizeof]
-hashmap_create_node call:[malloc,sizeof,strcpy,strlen]
-hashmap_free_node call:[free] noreturn:[free]
-free_hash_map call:[hashmap_free_node] noreturn:[hashmap_free_node]
-hashmap_lookup call:[hash_string,strcmp]
-hashmap_insert call:[hash_string,hashmap_create_node,strcmp]
-hashmap_remove call:[hash_string,hashmap_free_node,strcmp] noreturn:[hashmap_free_node]
-hashmap_print call:[printf]

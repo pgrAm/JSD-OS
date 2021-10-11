@@ -1,6 +1,0 @@
-ringbuf_write
-ringbuf_can_read
-ringbuf_blocking_read
-ringbuf_read
-ringbuf_create call:[malloc] noreturn:[malloc]
-ringbuf_free call:[free] noreturn:[free]

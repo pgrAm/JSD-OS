@@ -1,8 +1,0 @@
-select_drive global:[current_directory,drive_index] call:[close_dir,get_root_directory] noreturn:[close_dir,get_root_directory]
-list_directory global:[current_directory] call:[get_file_in_dir,get_file_info,localtime,printf,putchar] noreturn:[printf,putchar]
-find_file_in_dir call:[find_path,get_file_info]
-clear_console call:[printf,video_clear] noreturn:[video_clear]
-get_command global:[command_buffer,command_buffer_index,command_buffers,current_directory,history_size] call:[atoi,clear_console,close,close_dir,find_file_in_dir,free,get_ascii_from_vk,get_command,get_keystate,initialize_text_mode,list_directory,malloc,open,open_dir,open_file_handle,print_string,printf,putchar,read,select_drive,spawn_process,strcasecmp,strchr,strcmp,strlen,strtok,time,video_erase_chars,wait_and_getkey] noreturn:[clear_console,list_directory,printf,select_drive,strtok,video_erase_chars]
-prompt global:[console_user,drive_index,drive_names,prompt_char] call:[printf,sizeof] noreturn:[printf]
-splash_text call:[printf,putchar] noreturn:[printf,putchar]
-_start global:[command_buffers,current_directory,drive_index,drive_names] call:[asctime,get_command,get_root_directory,gmtime,initialize_text_mode,localtime,memset,printf,prompt,splash_text,time] noreturn:[get_command,memset,printf]

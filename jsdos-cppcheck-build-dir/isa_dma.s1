@@ -1,5 +1,0 @@
-inb call:[asm]
-outb call:[asm] noreturn:[asm]
-isa_dma_allocate_buffer call:[memmanager_allocate_physical_in_range,memmanager_map_to_new_pages] noreturn:[memmanager_map_to_new_pages]
-isa_dma_free_buffer call:[memmanager_free_pages] noreturn:[memmanager_free_pages]
-isa_dma_begin_transfer global:[adress_port,clear_register,count_port,mask_register,mode_register,page_port] call:[memmanager_get_physical,outb,printf] noreturn:[outb,printf]

@@ -1,8 +1,0 @@
-elf_is_readable call:[memcmp,printf] noreturn:[printf]
-elf_is_compatible call:[printf]
-elf_get_size call:[filesystem_read_file,filesystem_seek_file,sizeof]
-load_elf call:[elf_get_size,elf_is_compatible,elf_is_readable,elf_process_dynamic_section,filesystem_close_file,filesystem_open_file,filesystem_read_file,filesystem_seek_file,malloc,memmanager_set_page_flags,memmanager_virtual_alloc,memset,printf,sizeof] noreturn:[elf_process_dynamic_section,filesystem_read_file]
-elf_process_dynamic_section call:[elf_process_relocation_section,elf_read_symbols,hashmap_insert,hashmap_lookup,load_elf,memset,printf,sizeof,void] noreturn:[elf_process_relocation_section,hashmap_insert,printf]
-elf_read_symbols call:[hashmap_insert,hashmap_lookup] noreturn:[hashmap_insert]
-elf_relocation_uses_symbol
-elf_process_relocation_section call:[elf_relocation_uses_symbol,hashmap_lookup,memcpy,printf] noreturn:[hashmap_lookup,printf]

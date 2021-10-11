@@ -1,9 +1,0 @@
-strchr
-strtok
-strcmp
-strcasecmp call:[toupper]
-memcmp
-strlen
-strcat call:[memcpy,strlen]
-strcpy call:[memcpy,strlen]
-memmove
