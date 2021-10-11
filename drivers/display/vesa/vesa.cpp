@@ -14,8 +14,8 @@ uintptr_t virtual_stack_end = 0x00080000;
 uintptr_t virtual_stack_begin = virtual_stack_end - 1024;
 uint8_t* virtual_stack = nullptr;
 
-static hash_map<uintptr_t, void*>* page_mappings;
-static hash_map<uintptr_t, void*>* mapping_cache;
+static std::vector<uintptr_t>* pages_mapped;
+static hash_map<uintptr_t, uintptr_t>* mapping_cache;
 
 struct __attribute__((packed)) far_ptr
 {
@@ -28,7 +28,7 @@ struct __attribute__((packed)) far_ptr
 	}
 };
 
-void* translate_virtual_far_ptr(far_ptr t)
+static void* translate_virtual_far_ptr(far_ptr t)
 {
 	uint32_t addr = (uint32_t)t.access();
 
@@ -63,9 +63,9 @@ static void* map_address(uint32_t addr, bool write = false)
 	uintptr_t page_addr = addr & ~(PAGE_SIZE - 1);
 	uintptr_t page_offset = addr - page_addr;
 
-	if(void* vaddr; mapping_cache->lookup(page_addr, &vaddr))
+	if(uintptr_t vaddr; mapping_cache->lookup(page_addr, &vaddr))
 	{
-		void* ret = (void*)((uint32_t)vaddr + page_offset);
+		void* ret = (void*)(vaddr + page_offset);
 		return ret;
 	}
 	if(memmanager_get_physical(page_addr) == page_addr)
@@ -74,11 +74,11 @@ static void* map_address(uint32_t addr, bool write = false)
 		{
 			printf("trying to access %X\n", page_addr);
 		}*/
-		mapping_cache->insert(page_addr, (void*)page_addr);
+		mapping_cache->insert(page_addr, page_addr);
 		return (void*)addr;
 	}
 
-	void* vaddr = nullptr;
+	uintptr_t vaddr = (uintptr_t)nullptr;
 	if(mapping_cache && !mapping_cache->lookup(page_addr, &vaddr))
 	{
 		printf("trying to access %X\n", page_addr);
@@ -86,11 +86,11 @@ static void* map_address(uint32_t addr, bool write = false)
 		memmanager_allocate_physical_in_range(page_addr, page_addr + PAGE_SIZE, 
 											  PAGE_SIZE, PAGE_SIZE);
 
-		vaddr = memmanager_map_to_new_pages(page_addr, 1, PAGE_PRESENT | PAGE_RW);
-		page_mappings->insert(page_addr, vaddr);
+		vaddr = (uintptr_t)memmanager_map_to_new_pages(page_addr, 1, PAGE_PRESENT | PAGE_RW);
+		pages_mapped->push_back(vaddr);
 		mapping_cache->insert(page_addr, vaddr);
 	}
-	return (void*)((uint32_t)vaddr + page_offset);
+	return (void*)(vaddr + page_offset);
 }
 
 template<typename T> static uint32_t mem_read(uint32_t addr)
@@ -184,8 +184,8 @@ extern "C" unsigned memio_handler(x86emu_t * emu, u32 addr, u32 * val, unsigned 
 
 static uint16_t int10h(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint16_t es, uint16_t di)
 {
-	page_mappings = new hash_map<uintptr_t, void*>();
-	mapping_cache = new hash_map<uintptr_t, void*>();
+	pages_mapped = new std::vector<uintptr_t>();
+	mapping_cache = new hash_map<uintptr_t, uintptr_t>();
 	x86emu_t* emu = x86emu_new(X86EMU_PERM_RWX, X86EMU_PERM_RWX);
 	x86emu_set_memio_handler(emu, &memio_handler);
 
@@ -204,7 +204,11 @@ static uint16_t int10h(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint1
 	x86emu_run(emu, X86EMU_RUN_LOOP);
 	x86emu_done(emu);
 
-	delete page_mappings;
+	for(auto page : *pages_mapped)
+	{
+		memmanager_free_pages((void*)page, 1);
+	}
+	delete pages_mapped;
 	delete mapping_cache;
 
 	return emu->x86.R_AX;
@@ -281,7 +285,7 @@ struct vesa_mode
 int current_mode_index = -1;
 std::vector<vesa_mode>* available_modes;
 
-bool vesa_populate_modes()
+static bool vesa_populate_modes()
 {
 	uintptr_t block_location = low_page_begin + 0x200;
 
@@ -392,7 +396,7 @@ static bool vesa_set_mode(display_mode* requested, display_mode* actual)
 	return success;
 }
 
-uint8_t* vesa_get_framebuffer()
+static uint8_t* vesa_get_framebuffer()
 {
 	if(current_mode_index != -1)
 	{
