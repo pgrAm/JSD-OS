@@ -11,7 +11,7 @@
 uint8_t* VIDEOMEM = NULL;
 size_t NUMROWS = 0;
 size_t NUMCOLS = 0;
-size_t SCREEN_SIZE_BYTES = 0;
+size_t SCREEN_SIZE = 0;
 
 volatile size_t cursorpos = 0;
 
@@ -46,7 +46,7 @@ void set_color(uint8_t bgr, uint8_t fgr, uint8_t bright)
 
 void set_cursor_offset(size_t offset) 
 { 
-	if (offset > SCREEN_SIZE_BYTES / sizeof(uint16_t))
+	if (offset > SCREEN_SIZE)
 	{
 		return;
 	}
@@ -83,7 +83,7 @@ int initialize_text_mode(int col, int row)
 	{
 		NUMROWS = actual.height;
 		NUMCOLS = actual.width;
-		SCREEN_SIZE_BYTES = NUMROWS * NUMCOLS * sizeof(uint16_t);
+		SCREEN_SIZE = NUMROWS * NUMCOLS;
 		VIDEOMEM = map_display_memory();
 		set_cursor_visibility(true);
 		set_cursor_offset(0);
@@ -283,7 +283,7 @@ void print_string(const char* str, size_t length)
 			output_position += handle_char(*currentchar, vmem, output_position);
 		}
 		
-		if(output_position >= SCREEN_SIZE_BYTES)
+		if(output_position >= SCREEN_SIZE)
 		{
 			scroll_up();
 			output_position = (NUMROWS - 1) * NUMCOLS;
