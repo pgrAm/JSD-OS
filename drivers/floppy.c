@@ -83,8 +83,8 @@ static int floppy_free_buffer(uint8_t* buffer, size_t size);
 
 static disk_driver floppy_driver = {
 	floppy_read_blocks,
-	floppy_allocate_buffer,
-	floppy_free_buffer
+	isa_dma_allocate_buffer,
+	isa_dma_free_buffer
 };
 
 static INTERRUPT_HANDLER void floppy_irq_handler(interrupt_frame* r)
@@ -235,7 +235,7 @@ static void floppy_read_sectors(floppy_drive* d, size_t lba, uint8_t* buf, size_
 		floppy_sendbyte(head);
 		floppy_sendbyte(sector);
 		floppy_sendbyte(2);  		// sector size = 128*2^size
-		floppy_sendbyte(18); 		// number of sectors
+		floppy_sendbyte(d->sectors_per_track); 		// number of sectors
 		floppy_sendbyte(0x1b);      // 27 default gap3 value
 		floppy_sendbyte(0xff);      // default value for data length
 		

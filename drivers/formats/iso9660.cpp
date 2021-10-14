@@ -200,13 +200,13 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 		}
 	}
 
-	dest.size = entry->extent_length.get();
+	dest.data.size = entry->extent_length.get();
 
 	dest.time_created = iso9660_time_to_time_t(entry->record_date);
 	dest.time_modified = dest.time_created;
 
-	dest.disk = disk_num;
-	dest.location_on_disk = entry->extent_start.get();
+	dest.data.disk = disk_num;
+	dest.data.location_on_disk = entry->extent_start.get();
 
 	uint32_t flags = 0;
 	if(entry->flags & flags::DIRECTORY)
@@ -214,7 +214,7 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 		flags |= IS_DIR;
 	}
 
-	dest.flags = flags;
+	dest.data.flags = flags;
 
 	return entry->length;
 }
@@ -241,7 +241,7 @@ static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t num
 	return location + num_sectors;
 }
 
-static void iso9660_read_dir(directory_handle* dest, const file_handle* file, const filesystem_virtual_drive* fd)
+static void iso9660_read_dir(directory_handle* dest, const file_data_block* file, const filesystem_virtual_drive* fd)
 {
 	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
@@ -310,7 +310,7 @@ static int iso9660_mount_disk(filesystem_virtual_drive* fd)
 
 	file_handle root_handle;
 	iso9660_read_dir_entry(root_handle, (uint8_t*)&(volume_descriptor->root), fd->index);
-	iso9660_read_dir(&fd->root, &root_handle, fd);
+	iso9660_read_dir(&fd->root, &root_handle.data, fd);
 
 	return MOUNT_SUCCESS;
 }

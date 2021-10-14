@@ -490,7 +490,7 @@ void memmanager_free_physical(uintptr_t physical_address, size_t size)
 	}
 }
 
-int memmanager_free_pages(void* page, size_t num_pages)
+SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages)
 {
 	uintptr_t virtual_address = (uintptr_t)page;
 

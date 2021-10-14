@@ -14,6 +14,15 @@ typedef struct filesystem_driver filesystem_driver;
 struct disk_driver;
 typedef struct disk_driver disk_driver;
 
+typedef struct
+{
+	uint32_t flags;
+	size_t disk;
+	fs_index location_on_disk;
+	size_t size;
+}
+file_data_block;
+
 //information about a directory on disk
 struct directory_handle
 {
@@ -27,7 +36,7 @@ struct directory_handle
 typedef struct
 {
 	void* drv_impl_data;
-	disk_driver* driver;
+	const disk_driver* driver;
 	size_t index;
 	size_t minimum_block_size;
 	size_t num_blocks;
@@ -41,15 +50,13 @@ typedef struct
 	bool mounted;
 	directory_handle root;
 	void* fs_impl_data;
-	filesystem_driver* fs_driver;
+	const filesystem_driver* fs_driver;
 	size_t index;
 	fs_index first_block;
 	size_t num_blocks;
 	size_t chunk_read_size;
 }
 filesystem_virtual_drive;
-
-file_stream* filesystem_create_stream(const file_handle* f);
 
 void filesystem_read_blocks_from_disk(const filesystem_virtual_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks);
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size);
@@ -62,7 +69,7 @@ struct filesystem_driver
 	int (*mount_disk)(filesystem_virtual_drive* d);
 	fs_index(*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd);
 	fs_index(*read_chunks)(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd);
-	void (*read_dir)(directory_handle* dest, const file_handle* dir, const filesystem_virtual_drive* fd);
+	void (*read_dir)(directory_handle* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
 };
 
 struct disk_driver
@@ -74,10 +81,12 @@ struct disk_driver
 
 typedef int (*partition_func)(filesystem_drive*);
 
-void filesystem_add_driver(filesystem_driver* fs_drv);
-filesystem_drive* filesystem_add_drive(disk_driver* disk_drv, void* driver_data, size_t block_size, size_t num_blocks);
+void filesystem_add_driver(const filesystem_driver* fs_drv);
+filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver_data, size_t block_size, size_t num_blocks);
 void filesystem_add_virtual_drive(filesystem_drive* disk, fs_index begin, size_t size);
 void filesystem_add_partitioner(partition_func p);
+
+file_stream* filesystem_create_stream(const file_data_block* f);
 
 #ifdef __cplusplus
 }
@@ -91,25 +100,23 @@ struct file_handle
 	std::string type;
 	std::string full_name;
 
-	uint32_t flags;
-
-	size_t disk;
-	fs_index location_on_disk;
-
-	size_t size;
+	file_data_block data;
 
 	time_t time_created;
 	time_t time_modified;
 };
 
+#include<stdio.h>
+
 class filesystem_buffer
 {
 public:
-	filesystem_buffer(filesystem_drive* d, size_t s) :
+	filesystem_buffer(const filesystem_drive* d, size_t s) :
 		m_drive(d),
 		m_buffer(filesystem_allocate_buffer(d, s)),
 		m_size(s)
-	{}
+	{
+	}
 	
 	~filesystem_buffer()
 	{
@@ -131,13 +138,13 @@ public:
 		return m_buffer;
 	}
 
-	size_t size()
+	size_t size() const
 	{
 		return m_size;
 	}
 
 private:
-	filesystem_drive* m_drive;
+	const filesystem_drive* m_drive;
 	uint8_t* const m_buffer;
 	size_t m_size;
 };

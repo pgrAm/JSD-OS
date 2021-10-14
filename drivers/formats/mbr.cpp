@@ -26,11 +26,11 @@ int mbr_read_partitions(filesystem_drive* d)
 	size_t num_sectors = (MBR_SIZE + (d->minimum_block_size - 1)) / d->minimum_block_size;
 	size_t buffer_size = num_sectors * d->minimum_block_size;
 
-	uint8_t* buffer = filesystem_allocate_buffer(d, buffer_size);
+	filesystem_buffer buffer{d, buffer_size};
 
-	d->driver->read_blocks(d, 0, buffer, num_sectors);
+	d->driver->read_blocks(d, 0, buffer.data(), num_sectors);
 
-	mbr* master_boot_record = (mbr*)buffer;
+	mbr* master_boot_record = (mbr*)buffer.data();
 
 	int return_val = -1;
 
@@ -52,8 +52,6 @@ int mbr_read_partitions(filesystem_drive* d)
 			}
 		}
 	}
-
-	filesystem_free_buffer(d, buffer, buffer_size);
 
 	return return_val;
 }

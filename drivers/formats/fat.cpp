@@ -21,7 +21,7 @@
 static int fat_mount_disk(filesystem_virtual_drive* d);
 static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes, const filesystem_virtual_drive* d);
 static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_virtual_drive* fd);
-static void fat_read_dir(directory_handle* dest, const file_handle* location, const filesystem_virtual_drive* fd);
+static void fat_read_dir(directory_handle* dest, const file_data_block* location, const filesystem_virtual_drive* fd);
 
 enum fat_type
 {
@@ -150,10 +150,8 @@ static inline size_t fat_cluster_to_lba(const fat_drive* d, size_t cluster)
 	return (cluster - 2) * d->sectors_per_cluster + d->datasector;
 }
 
-static int fat_read_bios_block(uint8_t* buffer, const filesystem_virtual_drive* fd)
+static int fat_read_bios_block(const uint8_t* buffer, fat_drive* d, size_t minimum_block_size)
 {
-	fat_drive* d = (fat_drive*)fd->fs_impl_data;
-
 	bpb* bios_block = (bpb*)buffer;
 
 	if(bios_block->boot_code[0] != 0xEB || bios_block->boot_code[2] != 0x90)
@@ -161,7 +159,7 @@ static int fat_read_bios_block(uint8_t* buffer, const filesystem_virtual_drive* 
 		return UNKNOWN_FILESYSTEM;
 	}
 
-	if(bios_block->bytes_per_sector < fd->disk->minimum_block_size)
+	if(bios_block->bytes_per_sector < minimum_block_size)
 	{
 		return DRIVE_NOT_SUPPORTED;
 	}
@@ -175,7 +173,7 @@ static int fat_read_bios_block(uint8_t* buffer, const filesystem_virtual_drive* 
 	d->bytes_per_sector 	= bios_block->bytes_per_sector;
 	d->root_entries 		= bios_block->root_entries;
 	d->reserved_sectors		= bios_block->reserved_sectors;
-	d->blocks_per_sector	= d->bytes_per_sector / fd->disk->minimum_block_size;
+	d->blocks_per_sector	= d->bytes_per_sector / minimum_block_size;
 
 	size_t total_sectors = (bios_block->total_sectors == 0) ?
 		bios_block->total_sectors_big : bios_block->total_sectors;
@@ -258,13 +256,13 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* ent
 		dest.full_name += dest.type;
 	}
 
-	dest.size = entry->file_size;
+	dest.data.size = entry->file_size;
 
 	dest.time_created = fat_time_to_time_t(entry->created_date, entry->created_time);
 	dest.time_modified = fat_time_to_time_t(entry->modified_date, entry->modified_time);
 
-	dest.disk = disk_num;
-	dest.location_on_disk = entry->first_cluster;
+	dest.data.disk = disk_num;
+	dest.data.location_on_disk = entry->first_cluster;
 
 	uint32_t flags = 0;
 	if(entry->attributes & DIRECTORY)
@@ -272,7 +270,7 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* ent
 		flags |= IS_DIR;
 	}
 
-	dest.flags = flags;
+	dest.data.flags = flags;
 
 	return true;
 }
@@ -283,7 +281,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 
 	if(d->type == exFAT || d->type == FAT_32)
 	{
-		file_handle f = {{}, {}, {}, IS_DIR, fd->index, d->root_location, 0, 0, 0};
+		file_data_block f = {IS_DIR, fd->index, d->root_location, 0};
 		fat_read_dir(dest, &f, fd);
 		return;
 	}
@@ -296,12 +294,18 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 
 	size_t buffer_size = d->root_size * d->bytes_per_sector;
 
-	fat_directory_entry* root_directory = 
-		(fat_directory_entry*)filesystem_allocate_buffer(fd->disk, buffer_size);
+	filesystem_buffer dir_buf{fd->disk, buffer_size};
 
-	filesystem_read_blocks_from_disk(fd, d->root_location, 
-									 (uint8_t*)root_directory, 
-									 d->root_size * d->blocks_per_sector);
+	//printf("%X\n", memmanager_get_physical((uintptr_t)dir_buf.data()));
+	//printf("%d\n", buffer_size);
+	//printf("%d\n", d->root_size);
+	//printf("%d\n", d->root_size * d->blocks_per_sector);
+
+	filesystem_read_blocks_from_disk(fd, d->root_location,
+									 dir_buf.data(),
+									 d->root_size* d->blocks_per_sector);
+
+	fat_directory_entry* root_directory = (fat_directory_entry*)dir_buf.data();
 
 	size_t num_files = 0;
 	for(size_t i = 0; i < max_num_files; i++)
@@ -311,8 +315,8 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 			continue;
 		}
 
-		if(!fat_read_dir_entry(dest->file_list[num_files], 
-								 &root_directory[i], fd->index)) 
+		if(!fat_read_dir_entry(dest->file_list[num_files],
+							   &root_directory[i], fd->index))
 		{
 			break;
 		} //end of directory
@@ -321,11 +325,9 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 	}
 
 	dest->num_files = num_files;
-
-	filesystem_free_buffer(fd->disk, (uint8_t*)root_directory, buffer_size);
 }
 
-static void fat_read_dir(directory_handle* dest, const file_handle* dir, const filesystem_virtual_drive* fd)
+static void fat_read_dir(directory_handle* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
 {
 	file_stream* dir_stream = filesystem_create_stream(dir);
 
@@ -461,25 +463,26 @@ static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const
 
 static int fat_mount_disk(filesystem_virtual_drive* d)
 {
-	fat_drive* f = new fat_drive{};
-	d->fs_impl_data = f;
-
 	size_t num_sectors = (DEFAULT_SECTOR_SIZE + (d->disk->minimum_block_size - 1))
 		/ d->disk->minimum_block_size;
 
 	size_t buffer_size = num_sectors * d->disk->minimum_block_size;
+
 	uint8_t* boot_sector = filesystem_allocate_buffer(d->disk, buffer_size);
 
 	filesystem_read_blocks_from_disk(d, 0, boot_sector, num_sectors);
 
-	int err = fat_read_bios_block(boot_sector, d);
+	fat_drive* f = new fat_drive{};
+
+	int err = fat_read_bios_block(boot_sector, f, d->disk->minimum_block_size);
 	if(err != MOUNT_SUCCESS)
 	{
 		filesystem_free_buffer(d->disk, boot_sector, buffer_size);
 		delete f;
-		d->fs_impl_data = nullptr;
 		return err;
 	}
+
+	d->fs_impl_data = f;
 
 	if(d->chunk_read_size < f->cluster_size)
 	{
@@ -487,9 +490,9 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 	}
 
 	//allocate fat sector
-	if(f->bytes_per_sector > DEFAULT_SECTOR_SIZE)
+	if(f->bytes_per_sector > buffer_size)
 	{
-		filesystem_free_buffer(d->disk, boot_sector, DEFAULT_SECTOR_SIZE);
+		filesystem_free_buffer(d->disk, boot_sector, buffer_size);
 		f->fat = filesystem_allocate_buffer(d->disk, f->bytes_per_sector);
 	}
 	else
