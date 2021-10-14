@@ -3,6 +3,7 @@
 #include <kernel/filesystem.h>
 #include <kernel/task.h>
 #include <kernel/memorymanager.h>
+#include <kernel/physical_manager.h>
 #include <drivers/sysclock.h>
 #include <drivers/kbrd.h>
 #include <kernel/display.h>
@@ -48,7 +49,7 @@ const void* syscall_table[] =
 	filesystem_close_directory,
 	set_cursor_offset,
 	get_keystate,
-	memmanager_num_bytes_free,
+	physical_num_bytes_free,
 	iopl
 };
 

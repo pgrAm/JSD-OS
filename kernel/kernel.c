@@ -7,6 +7,7 @@
 #include <kernel/filesystem.h>
 #include <kernel/interrupt.h>
 #include <kernel/memorymanager.h>
+#include <kernel/physical_manager.h>
 #include <kernel/multiboot.h>
 #include <kernel/driver_loader.h>
 #include <kernel/task.h>
@@ -43,6 +44,7 @@ void kernel_main()
 	isrs_init();
 	irqs_init();
 
+	physical_memory_init();
 	memmanager_init();
 
 	//call global constructors
@@ -84,8 +86,8 @@ void kernel_main()
 
 	clear_screen();
 
-	size_t free_mem = memmanager_num_bytes_free();
-	size_t total_mem = memmanager_mem_size();
+	size_t free_mem = physical_num_bytes_free();
+	size_t total_mem = physical_mem_size();
 
 	printf("%u KB free / %u KB Memory\n\n", free_mem / 1024, total_mem / 1024);
 

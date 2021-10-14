@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include <kernel/memorymanager.h>
+#include <kernel/physical_manager.h>
 
 static inline void __flush_tlb()
 {
@@ -21,20 +22,8 @@ static inline void __flush_tlb_page(uintptr_t addr)
 #endif
 }
 
-typedef struct
-{
-	uintptr_t offset;
-	size_t length;
-} memory_block;
-
 #define PT_INDEX_MASK (PAGE_TABLE_SIZE - 1)
 #define PAGE_ADDRESS_MASK (PAGE_SIZE - 1)
-
-//align must be a power of 2
-inline uintptr_t align_addr(addr, align)
-{
-	return (addr + (align - 1)) & ~(align - 1);
-}
 
 #define ALIGN_TO_PAGE(addr) (((addr) + PAGE_ADDRESS_MASK) & ~(PAGE_ADDRESS_MASK))
 #define MAXIMUM_ADDRESS 0xFFFFFFFF
@@ -44,39 +33,9 @@ uintptr_t* const current_page_directory = (uintptr_t*)((uintptr_t)MAXIMUM_ADDRES
 
 #define GET_PAGE_TABLE_ADDRESS(pd_index) ((uintptr_t*)(last_pde_address + (PAGE_TABLE_SIZE * pd_index)))
 
-extern void _IMAGE_END_;
-
-#define MAX_NUM_MEMORY_BLOCKS 128
-size_t num_memory_blocks = 0;
-memory_block memory_map[MAX_NUM_MEMORY_BLOCKS] = {};
-
-void memmanager_add_memory_block(size_t block_index, size_t address, size_t length)
+inline uintptr_t memmanager_allocate_physical_page()
 {
-	if(block_index >= MAX_NUM_MEMORY_BLOCKS)
-	{
-		puts("error maximum memory blocks reached");
-		return;
-	}
-	if(block_index < num_memory_blocks)
-	{
-		memmove(&memory_map[block_index + 1], &memory_map[block_index], sizeof(memory_block) * (num_memory_blocks - block_index));
-	}
-	memory_map[block_index].offset = address;
-	memory_map[block_index].length = length;
-	num_memory_blocks++;
-}
-
-void memmanager_remove_memory_block(size_t block_index)
-{
-	if(block_index >= MAX_NUM_MEMORY_BLOCKS)
-	{
-		return;
-	}
-	if(block_index < (num_memory_blocks - 1))
-	{
-		memmove(&memory_map[block_index], &memory_map[block_index + 1], sizeof(memory_block) * ((num_memory_blocks - 1) - block_index));
-	}
-	num_memory_blocks--;
+	return physical_memory_allocate(PAGE_SIZE, PAGE_SIZE);
 }
 
 uintptr_t memmanager_get_pt_entry(uintptr_t virtual_address)
@@ -97,124 +56,6 @@ uintptr_t memmanager_get_pt_entry(uintptr_t virtual_address)
 uintptr_t memmanager_get_physical(uintptr_t virtual_address)
 {
 	return (memmanager_get_pt_entry(virtual_address) & ~PAGE_ADDRESS_MASK) + (virtual_address & PAGE_ADDRESS_MASK);
-}
-
-bool memmanager_claim_physical_from_block(uintptr_t address, size_t size, size_t* block_index)
-{
-	size_t padding = address - memory_map[*block_index].offset;
-
-	if(memory_map[*block_index].length >= size + padding)
-	{
-		//printf("%X padding\n", padding);
-
-		if(padding > 0)
-		{
-			//add a new block to the list
-			memmanager_add_memory_block(*block_index, memory_map[*block_index].offset, padding);
-			(*block_index)++;
-		}
-
-		//printf("%X bytes at %X\n", memory_map[*block_index].length, memory_map[*block_index].offset);
-
-		memory_map[*block_index].offset += size + padding;
-		memory_map[*block_index].length -= size + padding;
-
-		if(memory_map[*block_index].length == 0)
-		{
-			//remove the memory block from the list
-			memmanager_remove_memory_block(*block_index);
-			(*block_index)--;
-		}
-
-		return true;
-	}
-
-	return false;
-}
-
-void memmanager_reserve_physical_memory(uintptr_t address, size_t size)
-{
-	//printf("%X bytes reserved at %X\n", size, address);
-
-	for(size_t i = 0; i < num_memory_blocks; i++)
-	{
-		if(memory_map[i].offset > address + size)
-		{
-			printf("<= %d bytes already reserved at %X\n", size, address);
-			return;
-		}
-
-		if(memory_map[i].offset > address)
-		{
-			size -= memory_map[i].offset - address;
-			address = memory_map[i].offset;
-		}
-
-		size_t claimed_space = size;
-		size_t available_space = memory_map[i].length - (address - memory_map[i].offset);
-		if(available_space < claimed_space)
-		{
-			claimed_space = available_space;
-		}
-
-		if(memmanager_claim_physical_from_block(address, claimed_space, &i))
-		{
-			printf("%X bytes reserved at %X\n", claimed_space, address);
-
-			address += claimed_space;
-			size -= claimed_space;
-		}
-
-		if(size == 0)
-			return;
-	}
-}
-
-uintptr_t memmanager_allocate_physical_in_range(uintptr_t start, uintptr_t end, size_t size, size_t align)
-{
-	for(size_t i = 0; i < num_memory_blocks; i++)
-	{
-		uintptr_t aligned_addr = align_addr(memory_map[i].offset, align);
-
-		if(aligned_addr < start)
-		{
-			if(memory_map[i].offset + memory_map[i].length < start)
-			{
-				continue;
-			}
-			aligned_addr = align_addr(start, align);
-		}
-
-		if(aligned_addr + size > end)
-			return 0;
-
-		if(memmanager_claim_physical_from_block(aligned_addr, size, &i))
-		{
-			return aligned_addr;
-		}
-	}
-
-	printf("Could not allocate enough physical memory\n");
-
-	return 0;
-}
-
-
-uintptr_t memmanager_allocate_physical_page()
-{
-	for(size_t i = 0; i < num_memory_blocks; i++)
-	{
-		uintptr_t aligned_addr = ALIGN_TO_PAGE(memory_map[i].offset);
-
-		if(memmanager_claim_physical_from_block(aligned_addr, PAGE_SIZE, &i))
-		{
-			return aligned_addr;
-		}
-	}
-
-	printf("could not allocate enough pages\n");
-
-	return 0;
 }
 
 void memmanager_create_new_page_table(size_t pd_index)
@@ -406,88 +247,28 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 
 	//printf("Attempting to allocate %d pages\n", num_pages);	
 
+	size_t block = 0;
+
 	while(num_pages)
 	{
-		for(int i = 0; i < num_memory_blocks; i++)
+		uintptr_t physical_address = physical_memory_allocate_from(PAGE_SIZE, PAGE_SIZE, &block);
+
+		memmanager_map_page(page_virtual_address, physical_address, flags);
+
+		page_virtual_address += PAGE_SIZE;
+
+		if(--num_pages == 0)
 		{
-			while(memory_map[i].length >= PAGE_SIZE) //contigous memory large enough
-			{
-				if(memory_map[i].offset % PAGE_SIZE != 0) //make sure memory is aligned to a page
-				{
-					uintptr_t aligned_addr = ALIGN_TO_PAGE(memory_map[i].offset);
-					size_t padding = aligned_addr - memory_map[i].offset;
+			memset(virtual_address, 0, n * PAGE_SIZE);
 
-					if(memory_map[i].length < PAGE_SIZE + padding)
-					{
-						break;
-					}
-
-					if(padding > 0)
-					{
-						//add a new block to the list
-						memmanager_add_memory_block(i, memory_map[i].offset, padding);
-						i++;
-					}
-
-					memory_map[i].offset = aligned_addr;
-					memory_map[i].length -= padding;
-				}
-
-				uintptr_t physical_address = memory_map[i].offset;
-
-				memory_map[i].offset += PAGE_SIZE;
-				memory_map[i].length -= PAGE_SIZE;
-
-				if(memory_map[i].length == 0)
-				{
-					//remove this block from the list
-					memmanager_remove_memory_block(i);
-					i--;
-				}
-
-				memmanager_map_page(page_virtual_address, physical_address, flags);
-
-				page_virtual_address += PAGE_SIZE;
-
-				if(--num_pages == 0)
-				{
-					memset(virtual_address, 0, n * PAGE_SIZE);
-
-					//printf("Successfully allocated %d pages at %X\n", n, virtual_address);		
-					return virtual_address;
-				}
-			}
+			//printf("Successfully allocated %d pages at %X\n", n, virtual_address);		
+			return virtual_address;
 		}
 	}
 
 	printf("could not allocate enough pages");
 
 	return NULL;
-}
-
-void memmanager_free_physical(uintptr_t physical_address, size_t size)
-{
-	for(size_t i = 0; i < num_memory_blocks; i++)
-	{
-		if(memory_map[i].offset + memory_map[i].length == physical_address) //we have an adjacent block
-		{
-			//physical_address = memory_map[i].offset;
-			memory_map[i].length += size;
-			break;
-		}
-		else if(memory_map[i].offset == physical_address + size) //we have an adjacent block
-		{
-			memory_map[i].offset = physical_address;
-			memory_map[i].length += size;
-			break;
-		}
-		else if(memory_map[i].offset + memory_map[i].length > physical_address)
-		{
-			//otherwise we need to add a new block
-			memmanager_add_memory_block(i, physical_address, size);
-			break;
-		}
-	}
 }
 
 SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages)
@@ -507,7 +288,7 @@ SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages)
 			return -1; //the page was not allocated
 		}
 
-		memmanager_free_physical(physical_address & ~PAGE_ADDRESS_MASK, PAGE_SIZE);
+		physical_memory_free(physical_address & ~PAGE_ADDRESS_MASK, PAGE_SIZE);
 	}
 
 	return 0;
@@ -554,28 +335,6 @@ bool memmanager_destroy_memory_space(uintptr_t pdir)
 	return true;
 }
 
-#include "multiboot.h"
-extern multiboot_info* _multiboot;
-
-size_t total_mem_size = 0;
-
-SYSCALL_HANDLER size_t memmanager_num_bytes_free(void)
-{
-	size_t sum = 0;
-
-	for(size_t i = 0; i < num_memory_blocks; i++)
-	{
-		sum += memory_map[i].length;
-	}
-
-	return sum;
-}
-
-size_t memmanager_mem_size(void)
-{
-	return total_mem_size;
-}
-
 void memmanager_print_all_mappings_to_physical_DEBUG(uintptr_t physical)
 {
 	for(size_t pd_index = 0; pd_index < PAGE_TABLE_SIZE; pd_index++)
@@ -601,44 +360,13 @@ void memmanager_print_all_mappings_to_physical_DEBUG(uintptr_t physical)
 	}
 }
 
-extern uint32_t* tss_esp0_location;
 
 void memmanager_init(void)
 {
 	//printf("Lo: %d\n", _multiboot->m_memoryLo);
 	//printf("Hi: %d\n", _multiboot->m_memoryHi);
 
-	total_mem_size = _multiboot->m_memoryLo * 1024 + _multiboot->m_memoryHi * 1024;
-
-	//printf("Image: %X\n", &_IMAGE_END_);
-
-	uintptr_t block0_start = (uintptr_t)&_IMAGE_END_;
-	size_t block0_size = (_multiboot->m_memoryLo * 1024) - block0_start;
-
-	memmanager_add_memory_block(0, block0_start, block0_size);
-	memmanager_add_memory_block(1, 0x00100000, _multiboot->m_memoryHi * 1024);
-
-	uintptr_t stack_loc = (uintptr_t)tss_esp0_location;// tss_esp0_location;
-	size_t stack_size = 4 * PAGE_SIZE;
-
-	//printf("STACK %X - %X\n", stack_loc - stack_size, stack_loc);
-
-	//reserve 4k for the stack
-	memmanager_reserve_physical_memory(stack_loc - stack_size, stack_size);
-
-	//reserve modules
-	for(size_t i = 0; i < _multiboot->m_modsCount; i++)
-	{
-		uintptr_t rd_begin = ((multiboot_modules*)_multiboot->m_modsAddr)[i].begin;
-		uintptr_t rd_end = ((multiboot_modules*)_multiboot->m_modsAddr)[i].end;
-
-		memmanager_reserve_physical_memory(rd_begin, rd_end - rd_begin);
-
-		//printf("%X - %X\n", rd_begin, rd_end);
-	}
-
-	//reserve BIOS & VRAM
-	memmanager_reserve_physical_memory(0x80000, 0xFFFFF - 0x80000);
+	
 
 	//while(true);
 
@@ -673,14 +401,4 @@ void memmanager_init(void)
 	enable_paging();
 
 	printf("paging enabled\n");
-}
-
-void memmanager_print_free_map()
-{
-	for(size_t i = 0; i < num_memory_blocks; i++)
-	{
-		printf("Available \t%8X - %8X\n",
-			   memory_map[i].offset,
-			   memory_map[i].offset + memory_map[i].length);
-	}
 }

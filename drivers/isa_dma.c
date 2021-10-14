@@ -4,6 +4,7 @@
 #include "portio.h"
 
 #include <kernel/memorymanager.h>
+#include <kernel/physical_manager.h>
 
 #include "isa_dma.h" 
 
@@ -43,10 +44,10 @@ uint8_t* isa_dma_allocate_buffer(size_t size)
 
 	for(uintptr_t address = 0; address < 0xFFFFFF; address += 0x10000)
 	{
-		uintptr_t physical = memmanager_allocate_physical_in_range(	address,
-																	address + 0x10000,
-																	size_in_pages * PAGE_SIZE,
-																	PAGE_SIZE);
+		uintptr_t physical = physical_memory_allocate_in_range(	address,
+																address + 0x10000,
+																size_in_pages * PAGE_SIZE,
+																PAGE_SIZE);
 		if(physical != (uintptr_t)NULL)
 		{
 			return memmanager_map_to_new_pages(physical,

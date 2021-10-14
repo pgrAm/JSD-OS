@@ -8,7 +8,7 @@
 extern "C" {
 #include <kernel/interrupt.h>
 #include <kernel/memorymanager.h>
-
+#include <kernel/physical_manager.h>
 #include <kernel/task.h>
 #include <kernel/elf.h>
 #include <kernel/locks.h>
@@ -76,7 +76,7 @@ static const func_info func_list[] = {
 	{"__regcall3__filesystem_close_file", (void*)&filesystem_close_file},
 	{"irq_install_handler", (void*)&irq_install_handler},
 	{"sysclock_sleep", (void*)&sysclock_sleep},
-	{"memmanager_allocate_physical_in_range", (void*)&memmanager_allocate_physical_in_range},
+	{"physical_memory_allocate_in_range", (void*)&physical_memory_allocate_in_range},
 	{"memmanager_map_to_new_pages", (void*)&memmanager_map_to_new_pages},
 	{"memmanager_get_physical", (void*)&memmanager_get_physical},
 	{"__regcall3__memmanager_free_pages", (void*)&memmanager_free_pages},

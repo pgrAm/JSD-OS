@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <drivers/portio.h>
 #include <kernel/memorymanager.h>
+#include <kernel/physical_manager.h>
 #include <kernel/display.h>
 #include <kernel/util/hash.h>
 
@@ -83,8 +84,8 @@ static void* map_address(uint32_t addr, bool write = false)
 	{
 		printf("trying to access %X\n", page_addr);
 
-		memmanager_allocate_physical_in_range(page_addr, page_addr + PAGE_SIZE, 
-											  PAGE_SIZE, PAGE_SIZE);
+		physical_memory_allocate_in_range(	page_addr, page_addr + PAGE_SIZE,
+											PAGE_SIZE, PAGE_SIZE);
 
 		vaddr = (uintptr_t)memmanager_map_to_new_pages(page_addr, 1, PAGE_PRESENT | PAGE_RW);
 		pages_mapped->push_back(vaddr);
