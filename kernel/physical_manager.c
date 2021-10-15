@@ -197,7 +197,7 @@ uintptr_t physical_memory_allocate_from(size_t size, size_t align, size_t* block
 		}
 	}
 
-	return NULL;
+	return 0;
 }
 
 uintptr_t physical_memory_allocate_in_range(uintptr_t start, uintptr_t end, size_t size, size_t align)

@@ -44,7 +44,7 @@ void set_color(uint8_t bgr, uint8_t fgr, uint8_t bright)
 	clearval = ((uint16_t)color) << 8 | 0;
 }
 
-void set_cursor_offset(size_t offset) 
+static void set_cursor_offset(size_t offset) 
 { 
 	if (offset > SCREEN_SIZE)
 	{
@@ -155,7 +155,7 @@ void clear_row(uint16_t row)
 	}
 }
 
-void scroll_up()
+static void scroll_up()
 {
 	memcpy((void*)VIDEOMEM, (void*)(VIDEOMEM + 2*NUMCOLS), 2*NUMCOLS*NUMROWS);
 	set_cursor_position(NUMROWS - 1, 0);
@@ -164,7 +164,7 @@ void scroll_up()
 
 static const int tab_size = 5;
 
-int handle_escape_sequence(const char* sequence)
+static int handle_escape_sequence(const char* sequence)
 {
 	static uint16_t cursorstore = 0;
 
@@ -243,7 +243,7 @@ int handle_escape_sequence(const char* sequence)
 	return seq - sequence;
 }
 
-int handle_char(const char source, char* dest, size_t pos)
+static int handle_char(const char source, char* dest, size_t pos)
 {
 	switch(source)
 	{

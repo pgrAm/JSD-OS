@@ -231,7 +231,7 @@ static time_t fat_time_to_time_t(uint16_t date, uint16_t time)
 	return mktime(&file_time);
 }
 
-static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* entry, size_t disk_num)
+static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* entry, size_t disk_id)
 {
 	if(entry->name[0] == 0) {
 		return false;
@@ -256,13 +256,8 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* ent
 		dest.full_name += dest.type;
 	}
 
-	dest.data.size = entry->file_size;
-
 	dest.time_created = fat_time_to_time_t(entry->created_date, entry->created_time);
 	dest.time_modified = fat_time_to_time_t(entry->modified_date, entry->modified_time);
-
-	dest.data.disk = disk_num;
-	dest.data.location_on_disk = entry->first_cluster;
 
 	uint32_t flags = 0;
 	if(entry->attributes & DIRECTORY)
@@ -270,7 +265,12 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* ent
 		flags |= IS_DIR;
 	}
 
-	dest.data.flags = flags;
+	dest.data = {
+		.location_on_disk = entry->first_cluster,
+		.disk_id = disk_id,
+		.size = entry->file_size,
+		.flags = flags
+	};
 
 	return true;
 }
@@ -281,7 +281,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 
 	if(d->type == exFAT || d->type == FAT_32)
 	{
-		file_data_block f = {IS_DIR, fd->index, d->root_location, 0};
+		file_data_block f = { d->root_location, fd->id, 0, IS_DIR };
 		fat_read_dir(dest, &f, fd);
 		return;
 	}
@@ -290,7 +290,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 
 	dest->name = "";
 	dest->file_list = new file_handle[max_num_files];
-	dest->drive = fd->index;
+	dest->disk_id = fd->id;
 
 	size_t buffer_size = d->root_size * d->bytes_per_sector;
 
@@ -316,7 +316,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 		}
 
 		if(!fat_read_dir_entry(dest->file_list[num_files],
-							   &root_directory[i], fd->index))
+							   &root_directory[i], fd->id))
 		{
 			break;
 		} //end of directory
@@ -337,7 +337,7 @@ static void fat_read_dir(directory_handle* dest, const file_data_block* dir, con
 
 	dest->name = "";// strdup(dir->full_name);
 	dest->file_list = new file_handle[max_num_files];
-	dest->drive = fd->index;
+	dest->disk_id = fd->id;
 
 	size_t num_files = 0;
 
@@ -355,7 +355,7 @@ static void fat_read_dir(directory_handle* dest, const file_data_block* dir, con
 			continue;
 		}
 
-		if (!fat_read_dir_entry(dest->file_list[num_files], &entry, fd->index))
+		if (!fat_read_dir_entry(dest->file_list[num_files], &entry, fd->id))
 		{
 			break; 
 		}

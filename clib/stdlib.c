@@ -70,9 +70,9 @@ int liballoc_unlock()
 #endif
 
 #ifdef __KERNEL
-	#define MALLOC_FLAGS (PAGE_PRESENT | PAGE_RW)
+	#define MALLOC_FLAGS (PAGE_RW)
 #else
-	#define MALLOC_FLAGS (PAGE_USER | PAGE_PRESENT | PAGE_RW)
+	#define MALLOC_FLAGS (PAGE_USER | PAGE_RW)
 #endif
 	
 void* liballoc_alloc(size_t n)

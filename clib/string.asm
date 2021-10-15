@@ -33,11 +33,6 @@ memcpy:
 	pop edi
 	ret
 
-global getSS
-getSS:
-	mov ax, ss
-	ret
-
 ;void* memmove(void* dest, const void* src, size_t num) 
 ;global memmove
 ;memmove:
@@ -74,7 +69,7 @@ getSS:
 ;	ret
 
 
-global memmove2
+;global memmove2
 memmove2:
 	push edi
 	push esi

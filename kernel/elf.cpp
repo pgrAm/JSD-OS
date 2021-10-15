@@ -150,7 +150,6 @@ static int load_elf(file_handle* file, dynamic_object* object, bool user, const 
 	ELF_header32 file_header;
 
 	file_stream* f = filesystem_open_file_handle(file, 0);
-
 	file_info info;
 	filesystem_get_file_info(&info, file);
 

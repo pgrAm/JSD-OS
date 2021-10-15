@@ -219,7 +219,7 @@ static void* memmanager_alloc_page(page_flags_t flags)
 
 	memmanager_map_page(virtual_address, physical_address, flags | PAGE_PRESENT);
 
-	return virtual_address;
+	return (void*)virtual_address;
 }
 
 SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, page_flags_t flags)

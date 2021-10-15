@@ -527,7 +527,7 @@ int sprintf(char* s, const char * format, ...)
 	va_list args;
 	va_start(args, format);
 	
-	int len = vsnprintf(s, 256, format, args);
+	int len = vsnprintf(s, 128, format, args);
 	
 	va_end(args);
 	
@@ -536,11 +536,11 @@ int sprintf(char* s, const char * format, ...)
 
 int fprintf(FILE * stream, const char * format, ...)
 {
-	char buffer[256];
+	char buffer[128];
 	va_list args;
 	va_start(args, format);
 	
-	int len = vsnprintf(buffer, 256, format, args);
+	int len = vsnprintf(buffer, 128, format, args);
 	//stream->print_len_func(stream, buffer, len);
 	
 	va_end(args);
@@ -550,11 +550,11 @@ int fprintf(FILE * stream, const char * format, ...)
 
 int printf(const char* format, ...)
 {
-	char buffer[256];
+	char buffer[128];
 	va_list args;
 	va_start(args, format);
 	
-	int len = vsnprintf(buffer, 256, format, args);
+	int len = vsnprintf(buffer, 128, format, args);
 	//stdout->print_len_func(stdout, buffer, len);
 	print_string(buffer, len);
 	

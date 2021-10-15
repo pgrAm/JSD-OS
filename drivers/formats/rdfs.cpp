@@ -34,7 +34,7 @@ static int rdfs_mount_disk(filesystem_virtual_drive* fd)
 
 	if(memcmp(magic, "RDSK", 4) == 0)
 	{
-		file_data_block dir = { IS_DIR, fd->index, sizeof(uint8_t) * 4, 0 };
+		file_data_block dir = {sizeof(magic), fd->id, 0, IS_DIR};
 		rdfs_read_dir(&fd->root, &dir, fd);
 		return MOUNT_SUCCESS;
 	}
@@ -72,7 +72,7 @@ static void rdfs_read_dir(directory_handle* dest, const file_data_block* f, cons
 
 	dest->name = "";
 	dest->file_list = new file_handle[num_files];
-	dest->drive = fd->index;
+	dest->disk_id = fd->id;
 
 	fs_index disk_location = location + sizeof(uint32_t);
 	for(size_t i = 0; i < num_files; i++)
@@ -102,13 +102,8 @@ static void rdfs_read_dir(directory_handle* dest, const file_data_block* f, cons
 			file.full_name += file.type;
 		}
 
-		file.data.size = entry.size;
-
 		file.time_created = entry.created;
 		file.time_modified = entry.modified;
-
-		file.data.disk = fd->index;
-		file.data.location_on_disk = entry.offset;
 
 		uint32_t flags = 0;
 		if(entry.attributes & IS_DIR)
@@ -116,7 +111,12 @@ static void rdfs_read_dir(directory_handle* dest, const file_data_block* f, cons
 			flags |= IS_DIR;
 		}
 
-		file.data.flags = flags;
+		file.data = {
+			.location_on_disk = entry.offset,
+			.disk_id = fd->id,
+			.size = entry.size,
+			.flags = flags
+		};
 	}
 
 	dest->num_files = num_files;

@@ -45,9 +45,9 @@ char* asctime(const struct tm *t)
 		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 	};
   
-	static char result[256];
+	static char result[128];
 
-	snprintf(result, 256, "%s %s %02d %02d:%02d:%02d %04d\n", wdays[t->tm_wday], months[t->tm_mon], t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, t->tm_year + 1900);
+	snprintf(result, 128, "%s %s %02d %02d:%02d:%02d %04d\n", wdays[t->tm_wday], months[t->tm_mon], t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, t->tm_year + 1900);
   
 	return result;
 }
@@ -69,12 +69,12 @@ clock_t clock(void)
 	return clock_ticks();
 }
 
-const int8_t days_per_month[2][12] = {
+static const int8_t days_per_month[2][12] = {
 	{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
 	{31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
 };
 
-const uint16_t ordinal_date[2][12] = {
+static const uint16_t ordinal_date[2][12] = {
 	{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334},
 	{0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335}
 };

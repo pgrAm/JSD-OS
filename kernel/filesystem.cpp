@@ -20,9 +20,9 @@ extern "C" {
 struct file_stream
 {
 	file_data_block file;
-	uint8_t* buffer;
 	size_t seekpos;
 	fs_index location_on_disk;
+	uint8_t* buffer;
 };
 
 size_t default_drive = 0;
@@ -38,16 +38,17 @@ extern "C" void filesystem_add_partitioner(partition_func p)
 
 extern "C" void filesystem_add_virtual_drive(filesystem_drive* disk, fs_index begin, size_t size)
 {
-	auto drive = new filesystem_virtual_drive{};
-	drive->fs_impl_data = nullptr;
-	drive->fs_driver = nullptr;
-	drive->mounted = false;
-	drive->disk = disk;
-	drive->first_block = begin;
-	drive->num_blocks = size;
-	drive->index = virtual_drives.size();
-	drive->chunk_read_size = disk->minimum_block_size > DEFAULT_CHUNK_READ_SIZE ?
-							 disk->minimum_block_size : DEFAULT_CHUNK_READ_SIZE;
+	auto drive = new filesystem_virtual_drive{
+		.disk = disk,
+		.fs_impl_data = nullptr,
+		.fs_driver = nullptr,
+		.id = virtual_drives.size(),
+		.first_block = begin,
+		.num_blocks = size,
+		.chunk_read_size =	disk->minimum_block_size > DEFAULT_CHUNK_READ_SIZE ?
+							disk->minimum_block_size : DEFAULT_CHUNK_READ_SIZE,
+		.mounted = false
+	};
 
 	virtual_drives.push_back(drive);
 }
@@ -71,12 +72,14 @@ void filesystem_read_drive_partitions(filesystem_drive* drive)
 
 filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver_data, size_t block_size, size_t num_blocks)
 {
-	auto drive = new filesystem_drive{};
-	drive->drv_impl_data = driver_data;
-	drive->driver = disk_drv;
-	drive->index = drives.size();
-	drive->minimum_block_size = block_size;
-	drive->num_blocks = num_blocks;
+	auto drive = new filesystem_drive
+	{
+		.drv_impl_data = driver_data,
+		.driver = disk_drv,
+		.index = drives.size(),
+		.minimum_block_size = block_size,
+		.num_blocks = num_blocks
+	};
 
 	drives.push_back(drive);
 
@@ -97,11 +100,16 @@ SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_ha
 {
 	if (f == nullptr || !(f->data.flags & IS_DIR)) { return nullptr; }
 
-	directory_handle* d = new directory_handle();
+	directory_handle* d = new directory_handle{
+		.name = nullptr,
+		.file_list = nullptr,
+		.num_files = 0,
+		.disk_id = f->data.disk_id
+	};
 
-	d->file_list = nullptr;
+	auto drive = virtual_drives[f->data.disk_id];
 
-	virtual_drives[f->data.disk]->fs_driver->read_dir(d, &f->data, virtual_drives[f->data.disk]);
+	drive->fs_driver->read_dir(d, &f->data, drive);
 
 	return d;
 }
@@ -225,21 +233,18 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 
 file_stream* filesystem_create_stream(const file_data_block* f)
 {
-	if(f->disk >= virtual_drives.size())
+	if(f->disk_id >= virtual_drives.size())
 	{
 		return nullptr;
 	}
 
-	file_stream* stream = new file_stream();
+	auto drive = virtual_drives[f->disk_id];
 
-	stream->location_on_disk = 0;
-	stream->seekpos = 0;
-	stream->file = *f;
-
-	stream->buffer = filesystem_allocate_buffer(virtual_drives[f->disk]->disk,
-												virtual_drives[f->disk]->chunk_read_size);
-
-	return stream;
+	return new file_stream
+	{
+		*f, 0, 0,
+		filesystem_allocate_buffer(drive->disk, drive->chunk_read_size)
+	};
 }
 
 SYSCALL_HANDLER 
@@ -304,7 +309,7 @@ SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
 		return -1;
 	}
 
-	auto drive = virtual_drives[stream->file.disk];
+	auto drive = virtual_drives[stream->file.disk_id];
 
 	if(filesystem_free_buffer(drive->disk, stream->buffer, drive->chunk_read_size) == 0)
 	{
@@ -326,18 +331,19 @@ directory_handle* filesystem_open_directory(const directory_handle* rel,
 	
 //finds the fs_index for the next chunk after an offset from the original
 static fs_index filesystem_get_next_location_on_disk(const file_stream* f,
-													 size_t byte_offset, fs_index chunk_index)
+													 size_t byte_offset, 
+													 fs_index chunk_index)
 {
-	auto driver = virtual_drives[f->file.disk]->fs_driver;
+	auto drive = virtual_drives[f->file.disk_id];
+	auto driver = drive->fs_driver;
 
-	return driver->get_relative_location(chunk_index, byte_offset, 
-										 virtual_drives[f->file.disk]);
+	return driver->get_relative_location(chunk_index, byte_offset, drive);
 }	
 
 //finds the fs_index for the first chunk in the file
 static fs_index filesystem_resolve_location_on_disk(const file_stream* f)
 {
-	auto drive = virtual_drives[f->file.disk];
+	auto drive = virtual_drives[f->file.disk_id];
 	return filesystem_get_next_location_on_disk(f, 
 												f->seekpos & ~(drive->chunk_read_size-1),
 												f->file.location_on_disk);
@@ -347,7 +353,7 @@ static fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 {
 	//printf("filesystem_read_chunk from cluster %d\n", chunk_index);
 
-	auto drive = virtual_drives[f->file.disk];
+	auto drive = virtual_drives[f->file.disk_id];
 	if(f->location_on_disk == chunk_index)
 	{
 		//great we already have data in the buffer
@@ -381,7 +387,7 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream*
 		}
 	}
 
-	auto drive = virtual_drives[f->file.disk];
+	auto drive = virtual_drives[f->file.disk_id];
 	
 	fs_index location = filesystem_resolve_location_on_disk(f);
 	//printf("seekpos %X starts at cluster %d\n", f->seekpos, location);

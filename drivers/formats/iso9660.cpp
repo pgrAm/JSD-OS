@@ -164,7 +164,7 @@ static time_t iso9660_time_to_time_t(const iso9660_dir_time& t)
 	return mktime(&file_time);
 }
 
-static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr, size_t disk_num)
+static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr, size_t disk_id)
 {
 	auto* entry = (const iso9660_directory_entry*)entry_ptr;
 
@@ -200,13 +200,8 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 		}
 	}
 
-	dest.data.size = entry->extent_length.get();
-
 	dest.time_created = iso9660_time_to_time_t(entry->record_date);
 	dest.time_modified = dest.time_created;
-
-	dest.data.disk = disk_num;
-	dest.data.location_on_disk = entry->extent_start.get();
 
 	uint32_t flags = 0;
 	if(entry->flags & flags::DIRECTORY)
@@ -214,7 +209,12 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 		flags |= IS_DIR;
 	}
 
-	dest.data.flags = flags;
+	dest.data = {
+		.location_on_disk = entry->extent_start.get(),
+		.disk_id = disk_id,
+		.size = entry->extent_length.get(),
+		.flags = flags
+	};
 
 	return entry->length;
 }
@@ -258,7 +258,7 @@ static void iso9660_read_dir(directory_handle* dest, const file_data_block* file
 	while((size_t)(dir_ptr - &dir_data[0]) < file->size)
 	{
 		file_handle out;
-		if(auto length = iso9660_read_dir_entry(out, dir_ptr, fd->index); length == 0)
+		if(auto length = iso9660_read_dir_entry(out, dir_ptr, fd->id); length == 0)
 		{
 			if((size_t)(dir_ptr - &dir_data[0]) < file->size)
 			{
@@ -309,7 +309,7 @@ static int iso9660_mount_disk(filesystem_virtual_drive* fd)
 	}
 
 	file_handle root_handle;
-	iso9660_read_dir_entry(root_handle, (uint8_t*)&(volume_descriptor->root), fd->index);
+	iso9660_read_dir_entry(root_handle, (uint8_t*)&(volume_descriptor->root), fd->id);
 	iso9660_read_dir(&fd->root, &root_handle.data, fd);
 
 	return MOUNT_SUCCESS;

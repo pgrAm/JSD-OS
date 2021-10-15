@@ -16,10 +16,10 @@ typedef struct disk_driver disk_driver;
 
 typedef struct
 {
-	uint32_t flags;
-	size_t disk;
 	fs_index location_on_disk;
+	size_t disk_id;
 	size_t size;
+	uint32_t flags;
 }
 file_data_block;
 
@@ -27,10 +27,9 @@ file_data_block;
 struct directory_handle
 {
 	const char* name;
-	size_t num_files;
-
 	file_handle* file_list;
-	size_t drive;
+	size_t num_files;
+	size_t disk_id;
 };
 
 typedef struct
@@ -47,14 +46,15 @@ filesystem_drive;
 typedef struct
 {
 	filesystem_drive* disk;
-	bool mounted;
-	directory_handle root;
 	void* fs_impl_data;
 	const filesystem_driver* fs_driver;
-	size_t index;
+	size_t id;
 	fs_index first_block;
 	size_t num_blocks;
 	size_t chunk_read_size;
+
+	directory_handle root;
+	bool mounted;
 }
 filesystem_virtual_drive;
 
