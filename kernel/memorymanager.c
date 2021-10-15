@@ -3,6 +3,7 @@
 
 #include <kernel/memorymanager.h>
 #include <kernel/physical_manager.h>
+#include <kernel/kassert.h>
 
 static inline void __flush_tlb()
 {
@@ -23,13 +24,13 @@ static inline void __flush_tlb_page(uintptr_t addr)
 }
 
 #define PT_INDEX_MASK (PAGE_TABLE_SIZE - 1)
-#define PAGE_ADDRESS_MASK (PAGE_SIZE - 1)
+#define PAGE_FLAGS_MASK (PAGE_SIZE - 1)
+#define PAGE_ADDRESS_MASK (~PAGE_FLAGS_MASK)
 
-#define ALIGN_TO_PAGE(addr) (((addr) + PAGE_ADDRESS_MASK) & ~(PAGE_ADDRESS_MASK))
 #define MAXIMUM_ADDRESS 0xFFFFFFFF
 
 uintptr_t* const last_pde_address = (uintptr_t*)((uintptr_t)(PAGE_TABLE_SIZE - 1) * (uintptr_t)PAGE_TABLE_SIZE * (uintptr_t)PAGE_SIZE);
-uintptr_t* const current_page_directory = (uintptr_t*)((uintptr_t)MAXIMUM_ADDRESS - (uintptr_t)PAGE_ADDRESS_MASK);
+uintptr_t* const current_page_directory = (uintptr_t*)((uintptr_t)MAXIMUM_ADDRESS - (uintptr_t)~PAGE_ADDRESS_MASK);
 
 #define GET_PAGE_TABLE_ADDRESS(pd_index) ((uintptr_t*)(last_pde_address + (PAGE_TABLE_SIZE * pd_index)))
 
@@ -38,7 +39,7 @@ inline uintptr_t memmanager_allocate_physical_page()
 	return physical_memory_allocate(PAGE_SIZE, PAGE_SIZE);
 }
 
-uintptr_t memmanager_get_pt_entry(uintptr_t virtual_address)
+static uintptr_t memmanager_get_pt_entry(uintptr_t virtual_address)
 {
 	uintptr_t pd_index = virtual_address >> 22;
 	uintptr_t pd_entry = current_page_directory[pd_index];
@@ -55,10 +56,11 @@ uintptr_t memmanager_get_pt_entry(uintptr_t virtual_address)
 
 uintptr_t memmanager_get_physical(uintptr_t virtual_address)
 {
-	return (memmanager_get_pt_entry(virtual_address) & ~PAGE_ADDRESS_MASK) + (virtual_address & PAGE_ADDRESS_MASK);
+	return (memmanager_get_pt_entry(virtual_address) & PAGE_ADDRESS_MASK) +
+		(virtual_address & ~PAGE_ADDRESS_MASK);
 }
 
-void memmanager_create_new_page_table(size_t pd_index)
+static void memmanager_create_new_page_table(size_t pd_index)
 {
 	current_page_directory[pd_index] = memmanager_allocate_physical_page() | PAGE_USER | PAGE_PRESENT | PAGE_RW;
 
@@ -66,12 +68,12 @@ void memmanager_create_new_page_table(size_t pd_index)
 
 	//printf("added new page table, %X\n", current_page_directory[pd_index]);
 
-	uint32_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
+	uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
 	memset(page_table, 0, PAGE_SIZE);
 }
 
-void* memmanager_get_unmapped_pages(const size_t num_pages, uint32_t flags)
+static void* memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t flags)
 {
 	for(size_t pd_index = 0; pd_index < PAGE_TABLE_SIZE; pd_index++)
 	{
@@ -79,7 +81,7 @@ void* memmanager_get_unmapped_pages(const size_t num_pages, uint32_t flags)
 		{
 			memmanager_create_new_page_table(pd_index);
 
-			if(num_pages < PAGE_TABLE_SIZE)
+			if(num_pages <= PAGE_TABLE_SIZE)
 			{
 				return (void*)(pd_index << 22);
 			}
@@ -91,20 +93,18 @@ void* memmanager_get_unmapped_pages(const size_t num_pages, uint32_t flags)
 			continue;
 		}
 
-		uint32_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
+		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
 		size_t pages_found = 0;
 		size_t pt_index = 0;
 
 		while(pt_index < PAGE_TABLE_SIZE)
 		{
-			pages_found = (page_table[pt_index++] & PAGE_PRESENT) ? 0 : pages_found + 1;
+			pages_found = (page_table[pt_index++] & PAGE_ALLOCATED) ? 0 : pages_found + 1;
 
 			if(pages_found == num_pages)
 			{
-				void* virtual_address = (void*)((pd_index << 22) + ((pt_index - pages_found) << 12));
-
-				return virtual_address;
+				return (void*)((pd_index << 22) + ((pt_index - num_pages) << 12));
 			}
 		}
 	}
@@ -114,16 +114,36 @@ void* memmanager_get_unmapped_pages(const size_t num_pages, uint32_t flags)
 	return NULL;
 }
 
-void memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, uint32_t flags)
+void memmanager_unmap_page(uintptr_t virtual_address)
 {
 	size_t pd_index = virtual_address >> 22;
-	uintptr_t pt_entry = current_page_directory[pd_index];
+	uintptr_t pd_entry = current_page_directory[pd_index];
 
-	if(!(pt_entry & PAGE_PRESENT)) //page table is not present
+	if(pd_entry & PAGE_PRESENT)
+	{
+		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
+
+		page_table[(virtual_address >> 12) & PT_INDEX_MASK] = 0;
+
+		__flush_tlb_page(virtual_address);
+	}
+	else
+	{
+		printf("warning pdir not exists for %X!\n", virtual_address);
+		while(true);
+	}
+}
+
+void memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, page_flags_t flags)
+{
+	size_t pd_index = virtual_address >> 22;
+	uintptr_t pd_entry = current_page_directory[pd_index];
+
+	if(!(pd_entry & PAGE_PRESENT)) //page table is not present
 	{
 		memmanager_create_new_page_table(pd_index);
 	}
-	else if((flags & PAGE_USER) && !(pt_entry & PAGE_USER))
+	else if((flags & PAGE_USER) && !(pd_entry & PAGE_USER))
 	{
 		printf("Page at %X does not match requested flags\n", virtual_address);
 		while(true);
@@ -134,20 +154,20 @@ void memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, 
 
 	size_t pt_index = (virtual_address >> 12) & PT_INDEX_MASK;
 
-	if(page_table[pt_index] & PAGE_PRESENT && physical_address != 0)
+	if(!(page_table[pt_index] & PAGE_MAP_ON_ACCESS) && page_table[pt_index] & PAGE_ALLOCATED)
 	{
 		printf("warning page already exists at %X!\n", virtual_address);
-		//while(true);
+		while(true);
 	}
 
-	page_table[pt_index] = (physical_address & ~PAGE_ADDRESS_MASK) | flags;
+	page_table[pt_index] = (physical_address & PAGE_ADDRESS_MASK) | flags;
 
 	__flush_tlb_page(virtual_address);
 
 	//printf("%X mapped to physical address %X\n", virtual_address, physical_address);	
 }
 
-void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, uint32_t flags)
+void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, page_flags_t flags)
 {
 	void* virtual_address = memmanager_get_unmapped_pages(n, flags);
 
@@ -159,14 +179,16 @@ void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, uint32_t
 	return virtual_address;
 }
 
-uint32_t memmanager_get_page_flags(void* virtual_address)
+uintptr_t memmanager_get_page_flags(uintptr_t virtual_address)
 {
-	return memmanager_get_pt_entry((uintptr_t)virtual_address) & PAGE_ADDRESS_MASK;
+	return memmanager_get_pt_entry(virtual_address) & PAGE_FLAGS_MASK;
 }
 
-void memmanager_set_page_flags(void* virtual_address, size_t num_pages, uint32_t flags)
+void memmanager_set_page_flags(void* virtual_address, size_t num_pages, page_flags_t flags)
 {
-	flags &= ~PAGE_PRESENT;
+	uintptr_t preserved = PAGE_PRESENT | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
+
+	//flags &= ~preserved;
 
 	for(size_t i = 0; i < num_pages; i++)
 	{
@@ -184,52 +206,30 @@ void memmanager_set_page_flags(void* virtual_address, size_t num_pages, uint32_t
 		size_t pt_index = (v_address >> 12) & PT_INDEX_MASK;
 
 		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
-		page_table[pt_index] = (page_table[pt_index] & (~PAGE_ADDRESS_MASK | PAGE_PRESENT)) | flags;
+		page_table[pt_index] = (page_table[pt_index] & (PAGE_ADDRESS_MASK | preserved)) | flags;
 
 		__flush_tlb_page(v_address);
 	}
 }
 
-//reserve virtual adresses without allocating physical memory
-void* memmanager_reserve_pages(void* virtual_address, size_t n, uint32_t flags)
+static void* memmanager_alloc_page(page_flags_t flags)
 {
-	if(virtual_address == NULL)
-	{
-		virtual_address = memmanager_get_unmapped_pages(n, flags);
+	uintptr_t virtual_address = memmanager_get_unmapped_pages(1, flags);
+	uintptr_t physical_address = memmanager_allocate_physical_page();
 
-		//if its still null then there were not enough contiguous unmapped pages
-		if(virtual_address == NULL)
-		{
-			printf("failure to get %d unmapped pages", n);
-			return NULL;
-		}
-	}
+	memmanager_map_page(virtual_address, physical_address, flags | PAGE_PRESENT);
 
-	uintptr_t addr = (uintptr_t)virtual_address;
-	for(size_t i = 0; i < n; ++i)
-	{
-		memmanager_map_page(addr, 0, PAGE_PRESENT);
-		addr += PAGE_SIZE;
-	}
 	return virtual_address;
 }
 
-//reserve virtual adresses without allocating physical memory
-void memmanager_unreserve_pages(void* virtual_address, size_t n)
+SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, page_flags_t flags)
 {
-	uintptr_t addr = (uintptr_t)virtual_address;
-	for(size_t i = 0; i < n; ++i)
-	{
-		if(memmanager_get_physical(addr) == 0)
-		{
-			memmanager_map_page(addr, 0, 0);
-		}
-		addr += PAGE_SIZE;
-	}
-}
+	//printf("\tAllocating %d pages\n", n);
 
-SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, uint32_t flags)
-{
+	uintptr_t illegal = PAGE_PRESENT | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
+
+	flags &= (PAGE_FLAGS_MASK & ~illegal);
+
 	if(virtual_address == NULL)
 	{
 		virtual_address = memmanager_get_unmapped_pages(n, flags);
@@ -240,55 +240,78 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 			printf("failure to get %d unmapped pages", n);
 			return NULL;
 		}
+	}	
+	else if((uintptr_t)virtual_address & PAGE_FLAGS_MASK)
+	{
+		printf("unaligned address %X", virtual_address);
+		return NULL;
 	}
 
-	size_t num_pages = n;
 	uintptr_t page_virtual_address = (uintptr_t)virtual_address;
 
-	//printf("Attempting to allocate %d pages\n", num_pages);	
-
-	size_t block = 0;
-
-	while(num_pages)
+	/*
+	//if(!(flags & PAGE_RW))
 	{
-		uintptr_t physical_address = physical_memory_allocate_from(PAGE_SIZE, PAGE_SIZE, &block);
+		size_t block = 0;
 
-		memmanager_map_page(page_virtual_address, physical_address, flags);
+		size_t num_pages = n;
+		while(num_pages)
+		{
+			uintptr_t physical_address = physical_memory_allocate_from(PAGE_SIZE, PAGE_SIZE, &block);
+
+			memmanager_map_page(page_virtual_address, physical_address, flags | PAGE_PRESENT);
+
+			page_virtual_address += PAGE_SIZE;
+
+			if(--num_pages == 0)
+			{
+				memset(virtual_address, 0, n * PAGE_SIZE);
+
+				//printf("Successfully allocated %d pages at %X\n", n, virtual_address);		
+				return virtual_address;
+			}
+		}
+
+		return NULL;
+	}*/
+
+	page_flags_t pf = flags | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
+	for(size_t i = 0; i < n; i++)
+	{
+		memmanager_map_page(page_virtual_address, 0, pf);
+
+		k_assert(memmanager_get_page_flags(page_virtual_address) & PAGE_RESERVED);
+		k_assert(!(memmanager_get_page_flags(page_virtual_address) & PAGE_PRESENT));
 
 		page_virtual_address += PAGE_SIZE;
-
-		if(--num_pages == 0)
-		{
-			memset(virtual_address, 0, n * PAGE_SIZE);
-
-			//printf("Successfully allocated %d pages at %X\n", n, virtual_address);		
-			return virtual_address;
-		}
 	}
-
-	printf("could not allocate enough pages");
-
-	return NULL;
+	
+	return virtual_address;
 }
 
 SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages)
 {
+	//printf("\tFreeing %d pages\n", num_pages);
+
 	uintptr_t virtual_address = (uintptr_t)page;
 
 	while(num_pages--)
 	{
 		uintptr_t physical_address = memmanager_get_pt_entry(virtual_address);
 
-		memmanager_map_page(virtual_address, 0, 0); //unmap the page
+		memmanager_unmap_page(virtual_address); //unmap the page
 
 		virtual_address += PAGE_SIZE; //next page
 
-		if(!(physical_address & PAGE_PRESENT))
+		if(!(physical_address & PAGE_ALLOCATED))
 		{
 			return -1; //the page was not allocated
 		}
 
-		physical_memory_free(physical_address & ~PAGE_ADDRESS_MASK, PAGE_SIZE);
+		if(physical_address & PAGE_PRESENT)
+		{
+			physical_memory_free(physical_address & PAGE_ADDRESS_MASK, PAGE_SIZE);
+		}
 	}
 
 	return 0;
@@ -305,14 +328,14 @@ void memmanager_init_page_dir(__attribute__((nonnull)) uintptr_t* page_dir, uint
 
 uintptr_t memmanager_new_memory_space()
 {
-	uintptr_t* process_page_dir = (uintptr_t*)memmanager_virtual_alloc(NULL, 1, PAGE_PRESENT | PAGE_RW);
+	uintptr_t* process_page_dir = (uintptr_t*)memmanager_alloc_page(PAGE_RW);
 
 	if(process_page_dir == NULL)
 	{
 		return (uintptr_t)NULL; //not enough free physical memory 
 	}
 
-	memmanager_init_page_dir(process_page_dir, memmanager_get_physical((uint32_t)process_page_dir));
+	memmanager_init_page_dir(process_page_dir, memmanager_get_physical((uintptr_t)process_page_dir));
 
 	for(size_t i = 0; i < 32; i++)
 	{
@@ -335,20 +358,85 @@ bool memmanager_destroy_memory_space(uintptr_t pdir)
 	return true;
 }
 
+inline size_t get_page_dir_index(uintptr_t virtual_address)
+{
+	return virtual_address >> 22;
+}
+
+inline size_t get_page_tbl_index(uintptr_t virtual_address)
+{
+	return (virtual_address >> 12) & PT_INDEX_MASK;
+}
+
+bool memmanager_handle_page_fault(page_flags_t err, uintptr_t virtual_address)
+{
+	if(err & PAGE_PRESENT)
+	{
+		return false;
+	}
+	size_t pd_index = get_page_dir_index(virtual_address);
+
+	if(current_page_directory[pd_index] & PAGE_PRESENT)
+	{
+		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
+
+		size_t pt_index = get_page_tbl_index(virtual_address);
+
+		uintptr_t entry = page_table[pt_index];
+
+		if(entry & PAGE_MAP_ON_ACCESS)
+		{
+			k_assert(entry & PAGE_RESERVED);
+			k_assert(!(entry & PAGE_PRESENT));
+
+			uintptr_t physical = memmanager_allocate_physical_page();
+			if(!physical)
+			{
+				printf("Can't allocate physical page\n");
+				return false;
+			}
+
+			virtual_address &= PAGE_ADDRESS_MASK;
+
+			page_flags_t flags = entry & (PAGE_FLAGS_MASK & ~(PAGE_RESERVED | PAGE_MAP_ON_ACCESS));
+
+			uintptr_t page_value = physical | flags | PAGE_PRESENT;
+
+			page_table[pt_index] = page_value | PAGE_RW;
+			__flush_tlb_page(virtual_address);
+
+			//security measure
+			memset((void*)virtual_address, 0, PAGE_SIZE);
+
+			if(!(flags & PAGE_RW))
+			{
+				page_table[pt_index] = page_value;
+				__flush_tlb_page(virtual_address);
+			}
+
+			return true;
+		}
+	}
+
+	printf("Can't handle page fault\n");
+
+	return false;
+}
+
 void memmanager_print_all_mappings_to_physical_DEBUG(uintptr_t physical)
 {
 	for(size_t pd_index = 0; pd_index < PAGE_TABLE_SIZE; pd_index++)
 	{
 		if(current_page_directory[pd_index] & PAGE_PRESENT)
 		{
-			uint32_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
+			uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
 			for(size_t pt_index = 0; pt_index < PAGE_TABLE_SIZE; pt_index++)
 			{
 				if(page_table[pt_index] & PAGE_PRESENT)
 				{
-					uintptr_t physical_address = page_table[pt_index] & ~PAGE_ADDRESS_MASK;
-					if((physical & ~PAGE_ADDRESS_MASK) == physical_address)
+					uintptr_t physical_address = page_table[pt_index] & PAGE_ADDRESS_MASK;
+					if((physical & PAGE_ADDRESS_MASK) == physical_address)
 					{
 						uintptr_t v = (pd_index << 22) + pt_index * PAGE_SIZE;
 
@@ -366,7 +454,7 @@ void memmanager_init(void)
 	//printf("Lo: %d\n", _multiboot->m_memoryLo);
 	//printf("Hi: %d\n", _multiboot->m_memoryHi);
 
-	
+
 
 	//while(true);
 

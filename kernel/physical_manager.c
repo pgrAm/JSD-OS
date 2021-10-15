@@ -81,7 +81,7 @@ void physical_memory_reserve(uintptr_t address, size_t size)
 	{
 		if(memory_map[i].offset > address + size)
 		{
-			printf("<= %d bytes already reserved at %X\n", size, address);
+			printf(">= %d bytes already reserved at %X\n", size, address);
 			return;
 		}
 
@@ -192,7 +192,7 @@ uintptr_t physical_memory_allocate_from(size_t size, size_t align, size_t* block
 				i--;
 			}
 
-			block = i;
+			*block = i;
 			return physical_address;
 		}
 	}
@@ -288,7 +288,6 @@ void physical_memory_init(void)
 
 	//reserve BIOS & VRAM
 	physical_memory_reserve(0x80000, 0xFFFFF - 0x80000);
-
 }
 
 void print_free_map()

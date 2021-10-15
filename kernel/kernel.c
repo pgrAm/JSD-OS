@@ -44,13 +44,13 @@ void kernel_main()
 	isrs_init();
 	irqs_init();
 
+	basic_text_init();
+
 	physical_memory_init();
 	memmanager_init();
 
 	//call global constructors
 	handle_init_array();
-
-	basic_text_init();
 
 	printf("Found Kernel %X - %X\n", 0x8000, &_BSS_END_);
 

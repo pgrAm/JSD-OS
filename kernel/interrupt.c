@@ -137,15 +137,20 @@ extern uint32_t getcr2reg(void);
 
 #include <stdio.h>
 
-
 void fault_handler(interrupt_info*r)
 {
     if (r->int_no < 32)
     {
+        if(r->int_no == 14 && 
+           memmanager_handle_page_fault(r->err_code, getcr2reg())) //page fault
+        {
+            return; //page fault handled, we can resume execution
+        }
+
         //set_video_mode(90, 60, VIDEO_TEXT_MODE);
         //clear_screen();
 
-        printf("%s Exception. System Halted!\n", exception_messages[r->int_no]);
+        printf("Unhandled %s Exception. System Halted!\n", exception_messages[r->int_no]);
 		
         printf("GS=%X\n", r->gs);
         printf("FS=%X\n", r->fs);

@@ -12,19 +12,18 @@ extern "C" {
 void memmanager_init(void);
 uintptr_t memmanager_get_physical(uintptr_t virtual_address);
 
-void* memmanager_reserve_pages(void* virtual_address, size_t n, uint32_t flags);
-void memmanager_unreserve_pages(void* virtual_address, size_t n);
-
+typedef uintptr_t page_flags_t;
 SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages);
-SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, uint32_t flags);
+SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, page_flags_t flags);
 
-uint32_t memmanager_get_page_flags(void* virtual_address);
-void memmanager_set_page_flags(void* virtual_address, size_t num_pages, uint32_t flags);
-void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, uint32_t flags);
+void memmanager_set_page_flags(void* virtual_address, size_t num_pages, page_flags_t flags);
+void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, page_flags_t flags);
 
 uintptr_t memmanager_new_memory_space();
 void memmanager_enter_memory_space(uintptr_t memspace);
 bool memmanager_destroy_memory_space(uintptr_t memspace);
+
+bool memmanager_handle_page_fault(page_flags_t err, uintptr_t page);
 
 extern void set_page_directory(uintptr_t* address);
 extern void enable_paging(void);
@@ -35,11 +34,25 @@ enum page_flags
 {
     PAGE_PRESENT = 0x01,
     PAGE_RW = 0x02,
-    PAGE_USER = 0x04
+    PAGE_USER = 0x04,
+
+    // OS specific
+
+    PAGE_RESERVED = 0x800, // bit 11
+    PAGE_MAP_ON_ACCESS = 0x400, // bit 10
+
+
+    PAGE_ALLOCATED = PAGE_RESERVED | PAGE_PRESENT
 };
 
 #define PAGE_SIZE 4096
 #define PAGE_TABLE_SIZE 1024
+
+inline size_t memmanager_minimum_pages(size_t bytes)
+{
+    return (bytes + (PAGE_SIZE - 1)) / PAGE_SIZE;
+}
+
 
 #ifdef __cplusplus
 }

@@ -207,8 +207,8 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 		return;
 	}
 
-	newTask->user_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_USER | PAGE_PRESENT | PAGE_RW);
-	newTask->kernel_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_PRESENT | PAGE_RW);
+	newTask->user_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_USER | PAGE_RW);
+	newTask->kernel_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_RW);
 	newTask->tc_block.esp0 = (uint32_t)newTask->kernel_stack_top + PAGE_SIZE;
 	newTask->tc_block.esp = newTask->tc_block.esp0 - (RESERVED_STACK_WORDS * sizeof(uint32_t));
 	newTask->tc_block.cr3 = (uint32_t)get_page_directory();

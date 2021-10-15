@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 #include <algorithm>
+#include <new>
 
 #include <kernel/memorymanager.h>
 #include <kernel/locks.h>
@@ -160,6 +161,7 @@ private:
 	volatile size_t m_cursorpos;
 };
 
+uint8_t k_terminal_mem[sizeof(kernel_terminal)];
 kernel_terminal* k_terminal = nullptr;
 
 SYSCALL_HANDLER int set_cursor_offset(int offset)
@@ -172,9 +174,11 @@ static void initialize_terminal(int col, int row)
 {
 	if(k_terminal) 
 	{
-		delete k_terminal;
+		k_terminal->~kernel_terminal();
 	}
-	k_terminal = new kernel_terminal(default_driver, row, col);
+	k_terminal = new (k_terminal_mem) kernel_terminal(default_driver, row, col);
+
+	k_terminal->clear();
 }
 
 void set_cursor_visibility(bool on)
@@ -200,7 +204,7 @@ void clear_screen()
 
 void display_add_driver(display_driver* d, bool use_as_default)
 {
-	display_drivers.push_back(d);
+	//display_drivers.push_back(d);
 	if(use_as_default)
 	{
 		default_driver = d;
