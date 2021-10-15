@@ -25,16 +25,16 @@ void filesystem_seek_file(file_stream* f, size_t pos);
 void filesystem_set_default_drive(size_t index);
 
 SYSCALL_HANDLER file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index);
-SYSCALL_HANDLER file_handle* filesystem_find_file_by_path(const directory_handle* rel, const char* name);
+SYSCALL_HANDLER file_handle* filesystem_find_file_by_path(const directory_handle* rel, const char* path, size_t path_len);
 
 SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
 SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_handle* f, int flags);
-SYSCALL_HANDLER directory_handle* filesystem_open_directory(const directory_handle* rel, const char* name, int flags);
+SYSCALL_HANDLER directory_handle* filesystem_open_directory(const directory_handle* rel, const char* path, size_t path_len, int flags);
 SYSCALL_HANDLER int filesystem_close_directory(directory_handle* dir);
 
 SYSCALL_HANDLER file_stream* filesystem_open_file_handle(file_handle* f, int flags);
-SYSCALL_HANDLER file_stream* filesystem_open_file(const directory_handle* rel, const char* name, int flags);
+SYSCALL_HANDLER file_stream* filesystem_open_file(const directory_handle* rel, const char* path, size_t path_len, int flags);
 SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int filesystem_close_file(file_stream* f);
 

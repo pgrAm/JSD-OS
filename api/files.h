@@ -17,6 +17,7 @@ typedef struct
 	uint32_t flags;
 	time_t time_created;
 	time_t time_modified;
+	size_t name_len;
 	char name[MAX_PATH];
 } file_info;
 

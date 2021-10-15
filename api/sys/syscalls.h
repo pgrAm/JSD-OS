@@ -107,9 +107,9 @@ static inline void exit(int a)
 	do_syscall_1(SYSCALL_EXIT, (uint32_t)a);
 }
 
-static inline file_stream* open(directory_handle* rel, const char* path, int flags)
+static inline file_stream* open(directory_handle* rel, const char* path, size_t path_len, int flags)
 {
-	return (file_stream*)do_syscall_3(SYSCALL_OPEN, (uint32_t)rel, (uint32_t)path, (uint32_t)flags);
+	return (file_stream*)do_syscall_4(SYSCALL_OPEN, (uint32_t)rel, (uint32_t)path, (uint32_t)path_len, (uint32_t)flags);
 }
 
 static inline int close(file_stream* file)
@@ -122,9 +122,9 @@ static inline int read(void* dst, size_t len, file_stream* file)
 	return (int)do_syscall_3(SYSCALL_READ, (uint32_t)dst, (uint32_t)len, (uint32_t)file);
 }
 
-static inline void spawn_process(const char* path, int flags)
+static inline void spawn_process(const char* path, size_t path_len, int flags)
 {
-	do_syscall_2(SYSCALL_SPAWN, (uint32_t)path, (uint32_t)flags);
+	do_syscall_3(SYSCALL_SPAWN, (uint32_t)path, (uint32_t)path_len, (uint32_t)flags);
 }
 
 static inline time_t master_time()
@@ -201,18 +201,18 @@ static inline uint8_t* map_display_memory()
 {
 	return (uint8_t*)do_syscall_0(SYSCALL_MAP_DISPLAY_MEMORY);
 }
-static inline directory_handle* open_dir(directory_handle* rel, const char* path, int flags)
+static inline directory_handle* open_dir(directory_handle* rel, const char* path, size_t path_len, int flags)
 {
-	return (directory_handle*)do_syscall_3(SYSCALL_OPEN_DIR, (uint32_t)rel, (uint32_t)path, (uint32_t)flags);
+	return (directory_handle*)do_syscall_4(SYSCALL_OPEN_DIR, (uint32_t)rel, (uint32_t)path, (uint32_t)path_len, (uint32_t)flags);
 }
 static inline int close_dir(directory_handle* dir) 
 {
 	return (int)do_syscall_1(SYSCALL_CLOSE_DIR, (uint32_t)dir);
 }
 
-static inline file_handle* find_path(const directory_handle* rel, const char* name)
+static inline file_handle* find_path(const directory_handle* rel, const char* name, size_t path_len)
 {
-	return (file_handle*)do_syscall_2(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name);
+	return (file_handle*)do_syscall_3(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name, (uint32_t)path_len);
 }
 
 static inline directory_handle* open_dir_handle(const file_handle* f, int flags)

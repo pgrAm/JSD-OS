@@ -154,14 +154,16 @@ directory_handle* filesystem_get_root_directory(size_t drive_number)
 	return nullptr;
 }
 
-static file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* name)
+static file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* name, size_t name_len)
 {
+	std::string nm{name, name_len};
+
 	if(d != nullptr)
 	{
 		for(size_t i = 0; i < d->num_files; i++)
 		{
 			//printf("%s\n", d->file_list[i].full_name);
-			if(strcasecmp(d->file_list[i].full_name.c_str(), name) == 0)
+			if(strcasecmp(d->file_list[i].full_name.c_str(), nm.c_str()) == 0)
 			{			
 				return &d->file_list[i];
 			}
@@ -174,7 +176,7 @@ static file_handle* filesystem_find_file_in_dir(const directory_handle* d, const
 static file_handle found;
 
 SYSCALL_HANDLER 
-file_handle* filesystem_find_file_by_path(const directory_handle* d, const char* name)
+file_handle* filesystem_find_file_by_path(const directory_handle* d, const char* name, size_t name_len)
 {
 	if(name == nullptr) 
 	{ 
@@ -186,7 +188,7 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 		d = filesystem_get_root_directory(default_drive);
 	}
 
-	std::string path{name};
+	std::string path{name, name_len};
 	size_t name_begin = 0;
 	size_t path_begin = path.find('/');
 	while (path_begin == name_begin) //name begins with a '/'
@@ -200,7 +202,7 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 	{
 		auto dirname = path.substr(name_begin, path_begin - name_begin);
 
-		file_handle* fd = filesystem_find_file_in_dir(d, dirname.c_str());
+		file_handle* fd = filesystem_find_file_in_dir(d, dirname.c_str(), dirname.size());
 
 		if(fd == nullptr || !(fd->data.flags & IS_DIR))
 		{ 
@@ -216,7 +218,7 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 
 		auto remaining_path = path.substr(path_begin);
 
-		file_handle f = *filesystem_find_file_by_path(dir, remaining_path.c_str());
+		file_handle f = *filesystem_find_file_by_path(dir, remaining_path.c_str(), remaining_path.size());
 
 		filesystem_close_directory(dir);
 
@@ -227,7 +229,7 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 	else
 	{
 		auto remaining_path = path.substr(name_begin);
-		return filesystem_find_file_in_dir(d, remaining_path.c_str());
+		return filesystem_find_file_in_dir(d, remaining_path.c_str(), remaining_path.size());
 	}
 }
 
@@ -267,6 +269,7 @@ int filesystem_get_file_info(file_info* dst, const file_handle* src)
 	dst->flags = src->data.flags;
 	dst->time_created = src->time_created;
 	dst->time_modified = src->time_modified;
+	dst->name_len = src->full_name.size();
 
 	return 0;
 }
@@ -287,18 +290,22 @@ int filesystem_close_directory(directory_handle* d)
 {
 	if(d != nullptr)
 	{
-		delete[] d->file_list;
-		delete d;
+		if(&(virtual_drives[d->disk_id]->root) != d)
+		{
+			delete[] d->file_list;
+			delete d;
+		}
 	}
 	return 0;
 }
 
 SYSCALL_HANDLER 
 file_stream* filesystem_open_file(const directory_handle* rel, 
-								  const char* name, 
+								  const char* path, 
+								  size_t path_len,
 								  int flags)
 {
-	file_handle* f = filesystem_find_file_by_path(rel, name);
+	file_handle* f = filesystem_find_file_by_path(rel, path, path_len);
 	return filesystem_open_file_handle(f, flags);
 }
 
@@ -322,10 +329,11 @@ SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
 
 SYSCALL_HANDLER 
 directory_handle* filesystem_open_directory(const directory_handle* rel,
-											const char* name, 
+											const char* path, 
+											size_t path_len,
 											int flags)
 {
-	file_handle* f = filesystem_find_file_by_path(rel, name);
+	file_handle* f = filesystem_find_file_by_path(rel, path, path_len);
 	return filesystem_open_directory_handle(f, flags);
 }
 	

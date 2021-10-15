@@ -183,7 +183,9 @@ static void write_font(unsigned char* buf, unsigned font_height)
 
 #define PSF_MAGIC 0x0436
 
-uint8_t* loadpsf(const char* file)
+#include <string>
+
+uint8_t* loadpsf(const std::string& file)
 {
 	typedef struct {
 		uint16_t magic;		// Magic number
@@ -191,7 +193,7 @@ uint8_t* loadpsf(const char* file)
 		uint8_t charsize;	// Character size
 	} __attribute__((packed)) PSF_font;
 
-	file_stream* f = filesystem_open_file(nullptr, file, 0);
+	file_stream* f = filesystem_open_file(nullptr, file.c_str(), file.size(), 0);
 
 	if (!f) return nullptr;
 

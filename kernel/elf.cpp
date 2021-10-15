@@ -120,16 +120,16 @@ static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* t
 static int elf_process_dynamic_section(ELF_linker_data* object, const std::string& dir_path);
 static int load_elf(file_handle* file, dynamic_object* object, bool user, const std::string& dir_path);
 
-extern "C" int load_elf(const char* path, dynamic_object* object, bool user)
+int load_elf(const char* path, size_t path_len, dynamic_object* object, bool user)
 {
-	file_handle* f = filesystem_find_file_by_path(nullptr, path);
+	file_handle* f = filesystem_find_file_by_path(nullptr, path, path_len);
 	if(f == nullptr)
 	{
 		printf("could not find elf file %s\n", path);
 		return 0;
 	}
 
-	std::string dir_path{path};
+	std::string dir_path{path, path_len};
 	if(auto slash = dir_path.find_last_of('/'); slash != std::string::npos)
 	{
 		dir_path.resize(slash);
@@ -331,7 +331,7 @@ static int elf_process_dynamic_section(ELF_linker_data* object, const std::strin
 		{
 			if(entry->d_tag == DT_NEEDED)
 			{
-				const char* lib_name = object->string_table + entry->d_un.d_val;
+				std::string lib_name = {object->string_table + entry->d_un.d_val};
 
 				uint32_t val;
 				if(!object->lib_set->lookup(lib_name, &val))
@@ -341,9 +341,9 @@ static int elf_process_dynamic_section(ELF_linker_data* object, const std::strin
 					lib.symbol_map = object->symbol_map;
 					lib.glob_data_symbol_map = object->glob_data_symbol_map;
 
-					auto lib_dir = filesystem_open_directory(nullptr, dir_path.c_str(), 0);
+					auto lib_dir = filesystem_open_directory(nullptr, dir_path.c_str(), dir_path.size(), 0);
 
-					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name))
+					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name.c_str(), lib_name.size()))
 					{
 						if(load_elf(lib_handle, &lib, object->userspace, dir_path))
 						{

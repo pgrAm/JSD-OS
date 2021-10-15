@@ -29,14 +29,14 @@ dynamic_object::sym_map driver_lib_set{};
 dynamic_object::sym_map driver_symbol_map{};
 dynamic_object::sym_map driver_glob_data_symbol_map{};
 
-static void load_driver(std::string filename, std::string func_name)
+static void load_driver(const std::string& filename, const std::string& func_name)
 {
 	dynamic_object ob{};
 	ob.lib_set = &driver_symbol_map;
 	ob.symbol_map = &driver_symbol_map;
 	ob.glob_data_symbol_map = &driver_glob_data_symbol_map;
 
-	load_elf(filename.c_str(), &ob, false);
+	load_elf(filename.c_str(), filename.size(), &ob, false);
 
 	uint32_t func_address;
 	if(ob.symbol_map->lookup(func_name.c_str(), &func_address))
@@ -98,7 +98,9 @@ extern "C" void load_drivers()
 							  (uint32_t)func_list[i].address);
 	}
 
-	file_stream* f = filesystem_open_file(nullptr, "init.sys", 0);
+	const char init_path[] = "init.sys";
+
+	file_stream* f = filesystem_open_file(nullptr, init_path, sizeof(init_path), 0);
 
 	if(!f)
 	{

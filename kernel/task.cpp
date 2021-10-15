@@ -161,7 +161,7 @@ SYSCALL_HANDLER void exit_process(int val)
 	switch_to_task(next_pid);
 }
 
-SYSCALL_HANDLER void spawn_process(const char* p, int flags)
+SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
 {
 	if (num_processes >= max_processes)
 	{
@@ -171,14 +171,14 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 
 	//we need to copy the path onto the stack 
 	//otherwise it will be in the address space of another process
-	int pathlen = strlen(p);
-	if (pathlen > 80 - 1)
+	if (path_len > 80 - 1)
 	{
 		puts("Cannot launch process: filename too long\n");
 		return;
 	}
 	char path[80];
-	memcpy(path, p, pathlen + 1);
+	memcpy(path, p, path_len + 1);
+	path[path_len] = '\0';
 
 	uint32_t oldcr3 = (uint32_t)get_page_directory();
 	
@@ -199,7 +199,7 @@ SYSCALL_HANDLER void spawn_process(const char* p, int flags)
 
 	newTask->objects.push_back(d);
 
-	if(!load_elf(path, newTask->objects[0], true))
+	if(!load_elf(path, path_len, newTask->objects[0], true))
 	{
 		delete newTask;
 		set_page_directory((uint32_t*)oldcr3);

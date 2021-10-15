@@ -15,7 +15,7 @@ typedef struct dynamic_object dynamic_object;
 
 #define WAIT_FOR_PROCESS 0x01
 
-SYSCALL_HANDLER void spawn_process(const char* path, int flags);
+SYSCALL_HANDLER void spawn_process(const char* path, size_t path_len, int flags);
 SYSCALL_HANDLER void exit_process(int val);
 void run_next_task();
 void run_background_tasks();

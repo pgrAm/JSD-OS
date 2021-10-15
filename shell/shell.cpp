@@ -63,16 +63,17 @@ void list_directory()
 
 		total_bytes += f.size;
 
+		std::string name = {f.name, f.name_len};
+
 		if(f.flags & IS_DIR)
 		{
 			printf(" %-9s (DIR)     -  %02d-%02d-%4d  %02d-%02d-%4d\n",
-				   f.name,
+				   name.c_str(),
 				   created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
 				   modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
 		}
 		else
 		{
-			std::string name = f.name;
 			auto dot = name.find_first_of('.');
 
 			printf(" %-10s %-3s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n",
@@ -86,9 +87,9 @@ void list_directory()
 	printf("\n %5u Files   %5u Bytes\n\n", i - 1, total_bytes);
 }
 
-file_handle* find_file_in_dir(const directory_handle* dir, file_info* f, const char* name)
+file_handle* find_file_in_dir(const directory_handle* dir, file_info* f, const std::string& name)
 {
-	file_handle* f_handle = find_path(dir, name);
+	file_handle* f_handle = find_path(dir, name.c_str(), name.size());
 	if(f_handle != nullptr)
 	{
 		if(get_file_info(f, f_handle) == 0 && !(f->flags & IS_DIR))
@@ -97,6 +98,30 @@ file_handle* find_file_in_dir(const directory_handle* dir, file_info* f, const c
 		}
 	}
 	return nullptr;
+}
+
+void print_mem()
+{
+	auto mem = get_free_memory();
+
+	printf("Free memory %d:\n", mem);
+
+	if(auto GiBs = (mem / 0x40000000) % 0x400)
+	{
+		printf("\t%d GiB(s)\n", GiBs);
+	}
+	if(auto MiBs = (mem / 0x100000) % 0x400)
+	{
+		printf("\t%d MiB(s)\n", MiBs);
+	}
+	if(auto KiBs = (mem / 0x400) % 0x400)
+	{
+		printf("\t%d KiB(s)\n", KiBs);
+	}
+	if(auto Bs = mem % 0x400)
+	{
+		printf("\t%d B(s)\n", Bs);
+	}
 }
 
 void clear_console()
@@ -218,15 +243,17 @@ int get_command(char* input)
 	{
 		if(keywords.size() > 1)
 		{
-			const char* path = keywords[1].c_str();
-			directory_handle* d = open_dir(current_directory, path, 0);
+			const auto& path = keywords[1];
+			directory_handle* d = open_dir(current_directory,
+										   path.c_str(),
+										   path.size(), 0);
 			if(d != nullptr)
 			{
 				current_directory = d;
 				return 1;
 			}
 			close_dir(d);
-			printf("Could not find path %s\n", path);
+			printf("Could not find path %s\n", path.c_str());
 		}
 	}
 	else if("mode" == keyword)
@@ -245,11 +272,11 @@ int get_command(char* input)
 	}
 	else if("mem" == keyword)
 	{
-		printf("%d bytes free\n", get_free_memory());
+		print_mem();
 	}
 	else if("cat" == keyword || "type" == keyword)
 	{
-		const char* arg = keywords[1].c_str();
+		const auto& arg = keywords[1];
 		file_info file;
 		file_handle* f_handle = find_file_in_dir(current_directory, &file, arg);
 		if(f_handle)
@@ -270,25 +297,26 @@ int get_command(char* input)
 				return 0;
 			}
 		}
-		printf("Could not open file %s\n", arg);
+		printf("Could not open file %s\n", arg.c_str());
 		return -1;
 	}
 	else
 	{
 		file_info file;
-		if(find_file_in_dir(current_directory, &file, keyword.c_str()))
+		if(find_file_in_dir(current_directory, &file, keyword))
 		{
 			const char* extension = strchr(file.name, '.') + 1;
 
 			if(strcasecmp("elf", extension) == 0)
 			{
-				spawn_process(file.name, WAIT_FOR_PROCESS);
+				spawn_process(file.name, file.name_len, WAIT_FOR_PROCESS);
 				return 0;
 			}
 
 			if(strcasecmp("bat", extension) == 0)
 			{
-				file_stream* f = open(current_directory, keyword.c_str(), 0);
+				file_stream* f = open(current_directory, 
+									  keyword.c_str(), keyword.size(), 0);
 				if(f)
 				{
 					uint8_t* dataBuf = new uint8_t[file.size];
@@ -342,6 +370,8 @@ void splash_text(int w)
 
 int main(int argc, char** argv)
 {
+	//asm volatile ("1: jmp 1b");
+
 	initialize_text_mode(0, 0);
 	splash_text(get_terminal_width());
 

@@ -91,7 +91,9 @@ void kernel_main()
 
 	printf("%u KB free / %u KB Memory\n\n", free_mem / 1024, total_mem / 1024);
 
-	spawn_process("shell.elf", WAIT_FOR_PROCESS);
+	const char shell_name[] = "shell.elf";
+
+	spawn_process(shell_name, sizeof(shell_name), WAIT_FOR_PROCESS);
 
 	for(;;);
 }

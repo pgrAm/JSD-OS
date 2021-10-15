@@ -232,7 +232,7 @@ enum ELF_program_flags
 	PF_MASKPROC = 0xf0000000
 };
 
-int load_elf(const char* path, dynamic_object* newTask, bool user);
+int load_elf(const char* path, size_t path_len, dynamic_object* newTask, bool user);
 
 #ifdef __cplusplus
 }
