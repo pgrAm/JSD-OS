@@ -33,14 +33,14 @@ public:
 		}
 	}
 
-	bool lookup(const K& key, D* value)
+	template<typename _Ky> bool lookup(const _Ky& key, D* value)
 	{
 		size_t i = hash(key) % buckets.size();
 		hash_node* entry = buckets[i];
 
 		while(entry != nullptr)
 		{
-			if(entry->key == key)
+			if(key == entry->key)
 			{
 				*value = entry->data;
 				return true;
@@ -122,7 +122,7 @@ private:
 		return x;
 	}
 
-	uint32_t hash(const std::string& name)
+	uint32_t hash(const std::string_view name)
 	{
 		uint32_t h = 0;
 		for(size_t i = 0; i < name.size(); i++)

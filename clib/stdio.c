@@ -36,13 +36,13 @@
 //void _stdout_print_len_func(FILE* stream, const char* c, size_t n){ print_string_len(c, n); };
 //void _stdout_print_c_func(FILE* stream, const char c){ print_char(c); };
 //
-struct _internal_FILE
+/*struct _internal_FILE
 {
 	volatile char* buf;
 	volatile size_t bufsize;
 	volatile size_t readptr;
 	volatile size_t writeptr;
-};
+};*/
 //
 //void copy_stream(FILE* dest, FILE* src)
 //{
@@ -91,13 +91,13 @@ struct _internal_FILE
 //							.close_func = &blank_close_func
 //						};
 //
-struct _internal_FILE _internal_stdin = 	
-{ 	
-	.buf = NULL,
-	.bufsize = 0,
-	.readptr = 0,
-	.writeptr = 0
-};		
+//struct _internal_FILE _internal_stdin = 	
+//{ 	
+//	.buf = NULL,
+//	.bufsize = 0,
+//	.readptr = 0,
+//	.writeptr = 0
+//};		
 
 
 //struct _internal_FILE _internal_stderr = 	{ 
@@ -123,7 +123,7 @@ struct _internal_FILE _internal_stdin =
 //						};
 						
 //struct _internal_FILE* stdout = 	&_internal_stdout;
-struct _internal_FILE* stdin = &_internal_stdin;
+//struct _internal_FILE* stdin = &_internal_stdin;
 //struct _internal_FILE* stderr = 	&_internal_stderr;
 
 FILE* fopen (const char * filename, const char * mode)
@@ -214,7 +214,7 @@ char *gets(char *str) //blatantly unsafe function please do not use: BUFFER OVER
 	return str;
 }
 
-int fputc(int character, FILE * stream)
+/*int fputc(int character, FILE * stream)
 {
 	if(stream == stdin)
 	{
@@ -232,7 +232,7 @@ int fputc(int character, FILE * stream)
 	//stream->print_c_func(stream, (unsigned char)character);
 	
 	return character;
-}
+}*/
 
 int putchar(int character)
 {
@@ -243,7 +243,7 @@ int putchar(int character)
 	return character;
 }
 
-int getc(FILE* stream)
+/*int getc(FILE* stream)
 {
 	if(stream == stdin)
 	{
@@ -256,7 +256,7 @@ int getc(FILE* stream)
 int getchar()
 {
 	return getc(stdin);//stdin->get_c_func(stdin);
-}
+}*/
 
 #define WRITECHAR(c, m) if(count < (m - 1)) { *ptr++ = c; } count++;
 

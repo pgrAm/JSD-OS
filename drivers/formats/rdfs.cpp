@@ -63,6 +63,16 @@ typedef struct
 	time_t		created;
 } __attribute__((packed)) rdfs_dir_entry;
 
+static std::string_view read_field(const char* field, size_t size)
+{
+	std::string_view f(field, size);
+	if(auto pos = f.find('\0'); pos != std::string_view::npos)
+	{
+		return f.substr(0, pos);
+	}
+	return f;
+}
+
 static void rdfs_read_dir(directory_handle* dest, const file_data_block* f, const filesystem_virtual_drive* fd)
 {
 	fs_index location = f->location_on_disk;
@@ -83,17 +93,8 @@ static void rdfs_read_dir(directory_handle* dest, const file_data_block* f, cons
 
 		auto& file = dest->file_list[i];
 
-		file.name.assign(entry.name, 8);
-		if(auto pos = file.name.find('\0'); pos != std::string::npos)
-		{
-			file.name.resize(pos);
-		}
-
-		file.type.assign(entry.extension, 3);
-		if(auto pos = file.type.find('\0'); pos != std::string::npos)
-		{
-			file.type.resize(pos);
-		}
+		file.name = read_field(entry.name, 8);
+		file.type = read_field(entry.extension, 3);
 
 		file.full_name = file.name;
 		if(!file.type.empty())

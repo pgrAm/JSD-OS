@@ -42,6 +42,8 @@ uint8_t* isa_dma_allocate_buffer(size_t size)
 {
 	size_t size_in_pages = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 
+	//printf("DMA allocating %d pages\n", size_in_pages);
+
 	for(uintptr_t address = 0; address < 0xFFFFFF; address += 0x10000)
 	{
 		uintptr_t physical = physical_memory_allocate_in_range(	address,
@@ -62,6 +64,8 @@ __attribute__((noinline))
 //SYSCALL_HANDLER
 int dummy(uint8_t* buffer, size_t num_pages)
 {
+	//printf("DMA freeing %d pages\n", num_pages);
+
 	return memmanager_free_pages(buffer, num_pages);
 }
 

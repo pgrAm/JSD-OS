@@ -6,6 +6,11 @@
 #include <time.h>
 #include <files.h>
 #include <virtual_keys.h>
+#include <common/display_mode.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define WAIT_FOR_PROCESS 0x01
 
@@ -186,7 +191,6 @@ static inline directory_handle* get_root_directory(size_t drive_index)
 	return (directory_handle*)do_syscall_1(SYSCALL_GET_ROOT_DIR, (uint32_t)drive_index);
 }
 
-#include <common/display_mode.h>
 static inline int set_display_mode(display_mode* requested, display_mode* actual)
 {
 	return (int)do_syscall_2(SYSCALL_SET_DISPLAY_MODE, (uint32_t)requested, (uint32_t)actual);
@@ -230,5 +234,7 @@ static inline int get_keystate(key_type key)
 	return (int)do_syscall_1(SYSCALL_GET_KEYSTATE, (uint32_t)key);
 }
 
-
+#ifdef __cplusplus
+}
+#endif
 #endif

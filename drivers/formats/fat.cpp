@@ -231,23 +231,24 @@ static time_t fat_time_to_time_t(uint16_t date, uint16_t time)
 	return mktime(&file_time);
 }
 
+static std::string_view read_field(const char* field, size_t size)
+{
+	std::string_view f(field, size);
+	if(auto pos = f.find(' '); pos != std::string_view::npos)
+	{
+		return f.substr(0, pos);
+	}
+	return f;
+}
+
 static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* entry, size_t disk_id)
 {
 	if(entry->name[0] == 0) {
 		return false;
 	} //end of directory
 
-	dest.name.assign(entry->name, 8);
-	if(auto pos = dest.name.find(' '); pos != std::string::npos)
-	{
-		dest.name.resize(pos);
-	}
-
-	dest.type.assign(entry->extension, 3);
-	if(auto pos = dest.type.find(' '); pos != std::string::npos)
-	{
-		dest.type.resize(pos);
-	}
+	dest.name = read_field(entry->name, 8);
+	dest.type = read_field(entry->extension, 3);
 
 	dest.full_name = dest.name;
 	if(!dest.type.empty())

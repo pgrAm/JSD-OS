@@ -18,7 +18,7 @@ extern "C" {
 typedef size_t fpos_t;
 typedef struct _internal_FILE FILE;
 
-extern FILE* stdin;
+//extern FILE* stdin;
 
 void clearerr(FILE* stream);
 FILE* fopen(const char* filename, const char* mode);

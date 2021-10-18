@@ -1,21 +1,21 @@
-extern "C" {
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
 
-#include <sys/syscalls.h>
 #include <graphics/graphics.h>
 #include <keyboard.h>
-}
+#include <sys/syscalls.h>
 
 #include <string>
 #include <vector>
+#include <charconv>
 
 void splash_text(int w);
 
 std::string console_user = "root";
 char prompt_char = ']';
+
 #define MAX_HISTORY_SIZE 4
 std::string command_buffers[MAX_HISTORY_SIZE];
 size_t history_size = 0;
@@ -24,7 +24,6 @@ size_t command_buffer_index = 0;
 directory_handle* current_directory = nullptr;
 
 size_t drive_index = 0;
-size_t test_index = 0;
 
 void select_drive(size_t index)
 {
@@ -87,9 +86,9 @@ void list_directory()
 	printf("\n %5u Files   %5u Bytes\n\n", i - 1, total_bytes);
 }
 
-file_handle* find_file_in_dir(const directory_handle* dir, file_info* f, const std::string& name)
+file_handle* find_file_in_dir(const directory_handle* dir, file_info* f, const std::string_view name)
 {
-	file_handle* f_handle = find_path(dir, name.c_str(), name.size());
+	file_handle* f_handle = find_path(dir, name.data(), name.size());
 	if(f_handle != nullptr)
 	{
 		if(get_file_info(f, f_handle) == 0 && !(f->flags & IS_DIR))
@@ -130,75 +129,24 @@ void clear_console()
 	video_clear();
 }
 
-int get_command(char* input)
+std::vector<std::string_view> tokenize(std::string_view input, char delim)
 {
-	std::string current_line;
+	std::vector<std::string_view> keywords;
 
-	if(input == nullptr)
+	auto pos = input.find_first_of(delim);
+	keywords.push_back(input.substr(0, pos));
+	while(pos++ != std::string_view::npos)
 	{
-		if(history_size >= MAX_HISTORY_SIZE)
-		{
-			history_size = command_buffer_index + 1;
-		}
-		std::string command_buffer = command_buffers[command_buffer_index++ % history_size];
-
-		while(true)
-		{
-			key_type k = wait_and_getkey();
-			if((k == VK_UP || k == VK_DOWN) && get_keystate(k))
-			{
-				command_buffers[command_buffer_index] = command_buffer;
-
-				command_buffer_index = (k == VK_UP) ? command_buffer_index - 1 : command_buffer_index + 1;
-				command_buffer_index %= history_size;
-
-				video_erase_chars(command_buffer.size());
-				command_buffer = command_buffers[command_buffer_index];
-
-				printf("%s", command_buffer.c_str());
-			}
-			else
-			{
-				char in_char = get_ascii_from_vk(k);
-
-				if(in_char == '\b')
-				{
-					if(!command_buffer.empty())
-					{
-						command_buffer.pop_back();
-						video_erase_chars(1);
-					}
-				}
-				else if(in_char == '\n')
-				{
-					putchar(in_char);
-					break;
-				}
-				else if(in_char != '\0')
-				{
-					putchar(in_char);
-					command_buffer += in_char;
-				}
-			}
-		}
-
-		current_line = command_buffer;
-	}
-	else
-	{
-		current_line = strtok(input, "\n");
-	}
-
-	std::vector<std::string> keywords;
-
-	auto pos = current_line.find_first_of(' ');
-	keywords.push_back(current_line.substr(0, pos));
-	while(pos++ != std::string::npos)
-	{
-		auto n = current_line.find_first_of(' ', pos);
-		keywords.push_back(current_line.substr(pos, n));
+		auto n = input.find_first_of(delim, pos);
+		keywords.push_back(input.substr(pos, n));
 		pos = n;
 	}
+	return keywords;
+}
+
+int execute_line(std::string_view current_line)
+{
+	std::vector<std::string_view> keywords = tokenize(current_line, ' ');
 
 	if(keywords.empty())
 	{
@@ -225,7 +173,9 @@ int get_command(char* input)
 	}
 	else if("drive:" == keyword)
 	{
-		select_drive(atoi(keywords[1].c_str()));
+		size_t drive = 0;
+		std::from_chars(keywords[1].cbegin(), keywords[1].cend(), drive);
+		select_drive(drive);
 	}
 	else if("cls" == keyword || "clear" == keyword)
 	{
@@ -233,7 +183,8 @@ int get_command(char* input)
 	}
 	else if("echo" == keyword)
 	{
-		printf("%s\n", keywords[1].c_str());
+		print_string(keywords[1].data(), keywords[1].size());
+		putchar('\n');
 	}
 	else if("dir" == keyword || "ls" == keyword)
 	{
@@ -245,7 +196,7 @@ int get_command(char* input)
 		{
 			const auto& path = keywords[1];
 			directory_handle* d = open_dir(current_directory,
-										   path.c_str(),
+										   path.data(),
 										   path.size(), 0);
 			if(d != nullptr)
 			{
@@ -253,13 +204,17 @@ int get_command(char* input)
 				return 1;
 			}
 			close_dir(d);
-			printf("Could not find path %s\n", path.c_str());
+			printf("Could not find path");
+			print_string(path.data(), path.size());
+			putchar('\n');
 		}
 	}
 	else if("mode" == keyword)
 	{
-		int width = atoi(keywords[1].c_str());
-		int height = atoi(keywords[2].c_str());
+		unsigned int width = 0;
+		std::from_chars(keywords[1].cbegin(), keywords[1].cend(), width);
+		unsigned int height = 0;
+		std::from_chars(keywords[2].cbegin(), keywords[2].cend(), height);
 
 		if(initialize_text_mode(width, height) == 0)
 		{
@@ -297,7 +252,9 @@ int get_command(char* input)
 				return 0;
 			}
 		}
-		printf("Could not open file %s\n", arg.c_str());
+		printf("Could not open file");
+		print_string(arg.data(), arg.size());
+		putchar('\n');
 		return -1;
 	}
 	else
@@ -315,8 +272,8 @@ int get_command(char* input)
 
 			if(strcasecmp("bat", extension) == 0)
 			{
-				file_stream* f = open(current_directory, 
-									  keyword.c_str(), keyword.size(), 0);
+				file_stream* f = open(current_directory,
+									  keyword.data(), keyword.size(), 0);
 				if(f)
 				{
 					uint8_t* dataBuf = new uint8_t[file.size];
@@ -324,7 +281,11 @@ int get_command(char* input)
 					read(dataBuf, file.size, f);
 					close(f);
 
-					get_command((char*)dataBuf);
+					auto lines = tokenize(std::string_view((char*)dataBuf, file.size), '\n');
+					for(auto ln : lines)
+					{
+						execute_line(ln);
+					}
 					delete[] dataBuf;
 
 					return 0;
@@ -339,6 +300,57 @@ int get_command(char* input)
 	return 1;
 }
 
+int get_command(char* input)
+{
+	if(history_size >= MAX_HISTORY_SIZE)
+	{
+		history_size = command_buffer_index + 1;
+	}
+	std::string command_buffer = command_buffers[command_buffer_index++ % history_size];
+
+	while(true)
+	{
+		key_type k = wait_and_getkey();
+		if((k == VK_UP || k == VK_DOWN) && get_keystate(k))
+		{
+			command_buffers[command_buffer_index] = command_buffer;
+
+			command_buffer_index = (k == VK_UP) ? command_buffer_index - 1 : command_buffer_index + 1;
+			command_buffer_index %= history_size;
+
+			video_erase_chars(command_buffer.size());
+			command_buffer = command_buffers[command_buffer_index];
+
+			printf("%s", command_buffer.c_str());
+		}
+		else
+		{
+			char in_char = get_ascii_from_vk(k);
+
+			if(in_char == '\b')
+			{
+				if(!command_buffer.empty())
+				{
+					command_buffer.pop_back();
+					video_erase_chars(1);
+				}
+			}
+			else if(in_char == '\n')
+			{
+				putchar(in_char);
+				break;
+			}
+			else if(in_char != '\0')
+			{
+				putchar(in_char);
+				command_buffer += in_char;
+			}
+		}
+	}
+
+	return execute_line(command_buffer);
+}
+
 const char* drive_names[] = {"rd0", "fd0", "fd1"};
 
 void prompt()
@@ -349,7 +361,8 @@ void prompt()
 		drive = drive_names[drive_index];
 	}
 
-	printf("\x1b[32;22m%s\x1b[37m@%s%c", console_user.c_str(), drive, prompt_char);
+	printf("\x1b[32;22m");
+	printf("%s\x1b[37m@%s%c", console_user.c_str(), drive, prompt_char);
 }
 
 void splash_text(int w)

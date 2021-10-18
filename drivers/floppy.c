@@ -78,8 +78,8 @@ static bool motor_is_ready[2] = {false, false};
 static kernel_cv irq6_condition = {0, -1};
 
 static void floppy_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
-static uint8_t* floppy_allocate_buffer(size_t size);
-static int floppy_free_buffer(uint8_t* buffer, size_t size);
+//static uint8_t* floppy_allocate_buffer(size_t size);
+//static int floppy_free_buffer(uint8_t* buffer, size_t size);
 
 static disk_driver floppy_driver = {
 	floppy_read_blocks,
@@ -162,7 +162,7 @@ static void floppy_configure()
 	floppy_sendbyte(8);
 }
 
-static uint8_t* floppy_allocate_buffer(size_t size)
+/*static uint8_t* floppy_allocate_buffer(size_t size)
 {
 	return isa_dma_allocate_buffer(size);
 }
@@ -170,7 +170,7 @@ static uint8_t* floppy_allocate_buffer(size_t size)
 static int floppy_free_buffer(uint8_t* buffer, size_t size)
 {
 	return isa_dma_free_buffer(buffer, size);
-}
+}*/
 
 void floppy_init()
 {

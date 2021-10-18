@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <string_view>
 
 struct iso9660_drive
 {
@@ -126,7 +127,7 @@ struct __attribute__((packed)) iso9660_volume_descriptor
 	char application_use[];
 };
 
-static time_t iso9660_time_to_time_t(const iso9660_time& t)
+/*static time_t iso9660_time_to_time_t(const iso9660_time& t)
 {
 	struct tm file_time = {
 		.tm_sec = atoi(std::string(t.second, 2).c_str()),
@@ -143,7 +144,7 @@ static time_t iso9660_time_to_time_t(const iso9660_time& t)
 	};
 
 	return mktime(&file_time);
-}
+}*/
 
 static time_t iso9660_time_to_time_t(const iso9660_dir_time& t)
 {
@@ -171,32 +172,39 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 	if(entry->length == 0)
 		return entry->length;
 
-	auto name = (const char*)entry_ptr + offsetof(iso9660_directory_entry, name);
+	size_t name_size = entry->name_len;
 
-	dest.full_name.assign(name, entry->name_len);
-	if(auto pos = dest.full_name.find(';'); pos != std::string::npos)
+	std::string_view full_name =
 	{
-		dest.full_name.resize(pos);
+		(const char*)entry_ptr + offsetof(iso9660_directory_entry, name),
+		name_size
+	};
+
+	if(auto pos = full_name.find(';'); pos != std::string_view::npos)
+	{
+		full_name = full_name.substr(0, pos);
 	}
 
-	if(dest.full_name == "")
+	if(full_name.empty() || full_name[0] == '\0')
 	{
 		dest.full_name = ".";
 		dest.name = dest.full_name;
 	}
-	else if(dest.full_name == "\1")
+	else if(full_name == "\1")
 	{
 		dest.full_name = "..";
 		dest.name = dest.full_name;
 	}
 	else
 	{
-		auto dot_pos = dest.full_name.find('.');
-		dest.name = dest.full_name.substr(0, dot_pos);
+		dest.full_name = full_name;
 
-		if(dot_pos != std::string::npos)
+		auto dot_pos = full_name.find('.');
+		dest.name = full_name.substr(0, dot_pos);
+
+		if(dot_pos != std::string_view::npos)
 		{
-			dest.type = dest.full_name.substr(dot_pos + 1);
+			dest.type = full_name.substr(dot_pos + 1);
 		}
 	}
 

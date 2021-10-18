@@ -8,6 +8,8 @@
 #include <kernel/util/hash.h>
 #include <kernel/dynamic_object.h>
 
+#include <string_view>
+
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
@@ -117,8 +119,8 @@ static span elf_get_size(ELF_header32* file_header, file_stream* f)
 
 static int elf_read_symbols(ELF_linker_data* object);
 static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
-static int elf_process_dynamic_section(ELF_linker_data* object, const std::string& dir_path);
-static int load_elf(file_handle* file, dynamic_object* object, bool user, const std::string& dir_path);
+static int elf_process_dynamic_section(ELF_linker_data* object, const std::string_view& dir_path);
+static int load_elf(file_handle* file, dynamic_object* object, bool user, const std::string_view& dir_path);
 
 int load_elf(const char* path, size_t path_len, dynamic_object* object, bool user)
 {
@@ -129,22 +131,22 @@ int load_elf(const char* path, size_t path_len, dynamic_object* object, bool use
 		return 0;
 	}
 
-	std::string dir_path{path, path_len};
+	std::string_view dir_path{path, path_len};
 	if(auto slash = dir_path.find_last_of('/'); slash != std::string::npos)
 	{
-		dir_path.resize(slash);
+		dir_path = dir_path.substr(0, slash);
 	}
 	else
 	{
-		dir_path.clear();
+		dir_path = std::string_view{};
 	}
 	
-	//printf("dir path = %s\n", dir_path.c_str());
+	//printf("dir path = %s\n", std::string(dir_path).c_str());
 
 	return load_elf(f, object, user, dir_path);
 }
 
-static int load_elf(file_handle* file, dynamic_object* object, bool user, const std::string& dir_path)
+static int load_elf(file_handle* file, dynamic_object* object, bool user, const std::string_view& dir_path)
 {
 	ELF_ident file_identifer;
 	ELF_header32 file_header;
@@ -254,7 +256,9 @@ static int load_elf(file_handle* file, dynamic_object* object, bool user, const 
 	return 1;
 }
 
-static int elf_process_dynamic_section(ELF_linker_data* object, const std::string& dir_path)
+static void elf_read_copied_symbols(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
+
+static int elf_process_dynamic_section(ELF_linker_data* object, const std::string_view& dir_path)
 {
 	if(object == nullptr)
 	{
@@ -325,13 +329,11 @@ static int elf_process_dynamic_section(ELF_linker_data* object, const std::strin
 			}
 		}
 
-		elf_read_symbols(object);
-
 		for(ELF_dyn32* entry = object->dynamic_section; entry->d_tag != DT_NULL; entry++)
 		{
 			if(entry->d_tag == DT_NEEDED)
 			{
-				std::string lib_name = {object->string_table + entry->d_un.d_val};
+				std::string_view lib_name = {object->string_table + entry->d_un.d_val};
 
 				uint32_t val;
 				if(!object->lib_set->lookup(lib_name, &val))
@@ -341,19 +343,21 @@ static int elf_process_dynamic_section(ELF_linker_data* object, const std::strin
 					lib.symbol_map = object->symbol_map;
 					lib.glob_data_symbol_map = object->glob_data_symbol_map;
 
-					auto lib_dir = filesystem_open_directory(nullptr, dir_path.c_str(), dir_path.size(), 0);
+					auto lib_dir = filesystem_open_directory(nullptr, dir_path.data(), dir_path.size(), 0);
 
-					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name.c_str(), lib_name.size()))
+					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name.data(), lib_name.size()))
 					{
 						if(load_elf(lib_handle, &lib, object->userspace, dir_path))
 						{
-							lib.lib_set->insert(lib_name, 1);
+							lib.lib_set->insert(std::string(lib_name), 1);
 						}
 					}
 					filesystem_close_directory(lib_dir);
 				}
 			}
 		}
+
+		elf_read_symbols(object);
 
 		if(relocation_addr)
 		{
@@ -415,6 +419,7 @@ static inline bool elf_relocation_uses_symbol(uint8_t type)
 	}
 }
 
+
 static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries)
 {
 	if(table == NULL)
@@ -436,21 +441,25 @@ static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* t
 
 		ELF_sym32* symbol = &object->symbol_table[symbol_index];
 		uintptr_t symbol_val = (uintptr_t)object->base_address + symbol->value;
-		const char* symbol_name = nullptr;
+		std::string_view symbol_name;
 
 		if(elf_relocation_uses_symbol(relocation_type))
 		{
-			symbol_name = object->string_table + symbol->name;
+			auto s_name = object->string_table + symbol->name;
 
-			if(!symbol_name)
+			if(!s_name)
 			{
 				printf("Unable to locate symbol %u, NULL symbol\n", symbol_index);
 				symbol_val = 0;
 			}
-			else if(!object->symbol_map->lookup(symbol_name, &symbol_val))
+			else 		
 			{
-				printf("Unable to locate symbol %u \"%s\"\n", symbol_index, symbol_name);
-				symbol_val = 0;
+				symbol_name = s_name;
+				if(!object->symbol_map->lookup(symbol_name, &symbol_val))
+				{
+					printf("Unable to locate symbol %u \"%s\"\n", symbol_index, s_name);
+					symbol_val = 0;
+				}
 			}
 		}
 
@@ -459,7 +468,7 @@ static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* t
 		switch(relocation_type)
 		{
 		case R_386_GLOB_DAT:
-			if(symbol_name)
+			if(!symbol_name.empty())
 			{
 				object->glob_data_symbol_map->lookup(symbol_name, &symbol_val);
 			}

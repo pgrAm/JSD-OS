@@ -3,6 +3,9 @@
 
 #include <string.h>
 #include <algorithm>
+#include <type_traits>
+#include <string_view>
+#include <char_traits.h>
 
 namespace std {
 	template<typename C> class basic_string;
@@ -13,19 +16,20 @@ namespace std {
 				if(!(expression)) { \
 					printf("%s %s %d\n", #expression, __FILE__, (unsigned)(__LINE__)); while(true);}
 	*/
-
-#define assert(expression)
+	#define assert(expression) 
 };
 
-template<typename charT>
+
+template<typename CharT>
 class std::basic_string
 {
 public:
-	using value_type = charT;
+	using value_type = CharT;
 	using size_type = size_t;
 	using iterator = value_type*;
 	using const_iterator = const value_type*;
-	static const size_t npos = -1;
+	using traits_type = char_traits<value_type>;
+	static const size_type npos = -1;
 
 	basic_string() noexcept
 	{
@@ -111,6 +115,48 @@ public:
 		__copy_from_null_terminated_string(str.data(), new_size);
 
 		return *this;
+	}
+
+	using __self_view = std::basic_string_view<CharT>;
+
+	template <class Tp>
+	struct __is_sv_convertible : public integral_constant<bool,
+		is_convertible_v<const Tp&, __self_view> &&
+		!is_convertible_v<const Tp&, const CharT*>> 
+	{};
+
+	struct __sv_wrapper
+	{
+		explicit __sv_wrapper(__self_view __ssv) noexcept : _sv(__ssv) { }
+		__self_view _sv;
+	};
+
+	explicit basic_string(__sv_wrapper __sv)
+		: basic_string(__sv._sv.data(), __sv._sv.size()) 
+	{}
+
+	template <class T, class = typename enable_if<__is_sv_convertible<T>::value>::type>
+		explicit basic_string(const T& t) :
+		basic_string(__sv_wrapper(t))
+	{}
+
+	template <class T, class = typename enable_if<__is_sv_convertible<T>::value>::type>
+	basic_string& assign(const T& t)
+	{
+		__self_view sv = t;
+		return assign(sv.data(), sv.size());
+	}
+
+	template <class T, class = typename enable_if<__is_sv_convertible<T>::value>::type>
+	basic_string& operator=(const T& t)
+	{
+		__self_view sv = t;
+		return assign(sv);
+	}
+
+	constexpr operator basic_string_view<CharT>() const noexcept
+	{
+		return basic_string_view<CharT>(data(), size());
 	}
 
 	basic_string& operator=(const value_type* str)
@@ -310,7 +356,16 @@ public:
 
 	int compare(const basic_string& s) const noexcept
 	{
-		return memcmp(data(), s.data(), size() < s.size() ? size() : s.size());
+		size_type lhs_sz = size();
+		size_type rhs_sz = s.size();
+		int result = traits_type::compare(data(), s.data(), min(lhs_sz, rhs_sz));
+		if(result != 0)
+			return result;
+		if(lhs_sz < rhs_sz)
+			return -1;
+		if(lhs_sz > rhs_sz)
+			return 1;
+		return 0;
 	}
 
 	bool empty() noexcept

@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 extern "C" {
 	#include <kernel/memorymanager.h>
@@ -13,6 +14,7 @@ extern "C" {
 
 #include <vector>
 #include <string>
+#include <string_view>
 
 #define DEFAULT_CHUNK_READ_SIZE 1024
 
@@ -154,17 +156,14 @@ directory_handle* filesystem_get_root_directory(size_t drive_number)
 	return nullptr;
 }
 
-static file_handle* filesystem_find_file_in_dir(const directory_handle* d, const char* name, size_t name_len)
+static file_handle* filesystem_find_file_in_dir(const directory_handle* d, std::string_view name)
 {
-	std::string nm{name, name_len};
-
 	if(d != nullptr)
 	{
 		for(size_t i = 0; i < d->num_files; i++)
 		{
-			//printf("%s\n", d->file_list[i].full_name);
-			if(strcasecmp(d->file_list[i].full_name.c_str(), nm.c_str()) == 0)
-			{			
+			if(filesystem_names_identical(d->file_list[i].full_name, name))
+			{		
 				return &d->file_list[i];
 			}
 		}
@@ -188,7 +187,10 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 		d = filesystem_get_root_directory(default_drive);
 	}
 
-	std::string path{name, name_len};
+	std::string_view path{name, name_len};
+
+	//printf("%s\n", std::string(path).c_str());
+
 	size_t name_begin = 0;
 	size_t path_begin = path.find('/');
 	while (path_begin == name_begin) //name begins with a '/'
@@ -198,11 +200,13 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 	}
 
 	//if there are still '/'s in the path
-	if (path_begin != std::string::npos)
+	if (path_begin != std::string_view::npos)
 	{
 		auto dirname = path.substr(name_begin, path_begin - name_begin);
 
-		file_handle* fd = filesystem_find_file_in_dir(d, dirname.c_str(), dirname.size());
+		//printf("%s\n", std::string(dirname).c_str());
+
+		file_handle* fd = filesystem_find_file_in_dir(d, dirname);
 
 		if(fd == nullptr || !(fd->data.flags & IS_DIR))
 		{ 
@@ -218,7 +222,7 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 
 		auto remaining_path = path.substr(path_begin);
 
-		file_handle f = *filesystem_find_file_by_path(dir, remaining_path.c_str(), remaining_path.size());
+		file_handle f = *filesystem_find_file_by_path(dir, remaining_path.data(), remaining_path.size());
 
 		filesystem_close_directory(dir);
 
@@ -229,7 +233,7 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 	else
 	{
 		auto remaining_path = path.substr(name_begin);
-		return filesystem_find_file_in_dir(d, remaining_path.c_str(), remaining_path.size());
+		return filesystem_find_file_in_dir(d, remaining_path);
 	}
 }
 

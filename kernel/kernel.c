@@ -93,7 +93,7 @@ void kernel_main()
 
 	const char shell_name[] = "shell.elf";
 
-	spawn_process(shell_name, sizeof(shell_name), WAIT_FOR_PROCESS);
+	spawn_process(shell_name, sizeof(shell_name)-1, WAIT_FOR_PROCESS);
 
 	for(;;);
 }

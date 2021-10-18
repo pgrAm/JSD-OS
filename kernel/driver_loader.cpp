@@ -21,7 +21,7 @@ extern "C" {
 #include <string>
 
 struct func_info {
-	std::string name;
+	const std::string_view name;
 	void* address;
 };
 
@@ -29,17 +29,17 @@ dynamic_object::sym_map driver_lib_set{};
 dynamic_object::sym_map driver_symbol_map{};
 dynamic_object::sym_map driver_glob_data_symbol_map{};
 
-static void load_driver(const std::string& filename, const std::string& func_name)
+static void load_driver(const std::string_view filename, const std::string_view func_name)
 {
 	dynamic_object ob{};
 	ob.lib_set = &driver_symbol_map;
 	ob.symbol_map = &driver_symbol_map;
 	ob.glob_data_symbol_map = &driver_glob_data_symbol_map;
 
-	load_elf(filename.c_str(), filename.size(), &ob, false);
+	load_elf(filename.data(), filename.size(), &ob, false);
 
 	uint32_t func_address;
-	if(ob.symbol_map->lookup(func_name.c_str(), &func_address))
+	if(ob.symbol_map->lookup(func_name, &func_address))
 	{
 		((void (*)())func_address)();
 	}
@@ -94,13 +94,13 @@ extern "C" void load_drivers()
 	auto num_funcs = sizeof(func_list) / sizeof(func_info);
 	for(size_t i = 0; i < num_funcs; i++)
 	{
-		driver_symbol_map.insert(func_list[i].name,
+		driver_symbol_map.insert(std::string(func_list[i].name),
 							  (uint32_t)func_list[i].address);
 	}
 
-	const char init_path[] = "init.sys";
+	std::string_view init_path = "init.sys";
 
-	file_stream* f = filesystem_open_file(nullptr, init_path, sizeof(init_path), 0);
+	file_stream* f = filesystem_open_file(nullptr, init_path.data(), init_path.size(), 0);
 
 	if(!f)
 	{
@@ -121,12 +121,14 @@ extern "C" void load_drivers()
 
 		if(c == '\n')
 		{
+			auto line = std::string_view(buffer);
+
 			auto space = buffer.find_first_of(' ');
-			auto token = buffer.substr(0, space);
+			auto token = line.substr(0, space);
 
 			if(token == "load_driver")
 			{
-				auto filename = buffer.substr(space + 1);
+				auto filename = line.substr(space + 1);
 				auto slash = filename.find_last_of('/');
 
 				if(slash == std::string::npos)
@@ -135,9 +137,14 @@ extern "C" void load_drivers()
 					slash++;
 
 				auto dot = filename.find_first_of('.');
-				auto init_func = filename.substr(slash, dot - slash) + "_init";
-
-				printf("loading driver %s, calling %s\n", filename.c_str(), init_func.c_str());
+				std::string init_func = std::string{filename.substr(slash, dot - slash)};
+				init_func += "_init";
+				
+				printf("loading driver ");
+				print_string_len(filename.data(), filename.size());
+				printf(", calling ");
+				print_string_len(init_func.data(), init_func.size());
+				putchar('\n');
 
 				load_driver(filename, init_func);
 			}

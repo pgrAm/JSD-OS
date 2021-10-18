@@ -5,6 +5,12 @@ struct file_handle;
 struct file_stream;
 struct directory_handle;
 
+#include <time.h>
+#include <stdbool.h>
+
+#include <kernel/syscall.h>
+#include <api/files.h>
+
 #ifdef __cplusplus
 extern "C" {
 #else
@@ -12,12 +18,6 @@ typedef struct file_handle file_handle;
 typedef struct file_stream file_stream;
 typedef struct directory_handle directory_handle;
 #endif
-
-#include <time.h>
-#include <stdbool.h>
-
-#include <kernel/syscall.h>
-#include <api/files.h>
 
 SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t drive);
 

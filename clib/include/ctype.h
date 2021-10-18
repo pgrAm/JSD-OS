@@ -1,6 +1,8 @@
 #ifndef CTYPE_H
 #define	CTYPE_H
 
+#include <stdio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,24 +16,57 @@ extern "C" {
 #define CT_HEX	0x40	// hex digit 
 #define CT_SP	0x80	// hard space (0x20) 
 		
-extern char _ctype[];
-/* Basic macros */
+extern const char *_ctype;
 
-#define isalnum(c)	(_ctype[(unsigned)(c)] & (CT_UP | CT_LOW | CT_DIG))
-#define isalpha(c)	(_ctype[(unsigned)(c)] & (CT_UP | CT_LOW))
-#define iscntrl(c)	(_ctype[(unsigned)(c)] & (CT_CTL))
-#define isdigit(c)	(_ctype[(unsigned)(c)] & (CT_DIG))
-#define isgraph(c)	(_ctype[(unsigned)(c)] & (CT_PUN | CT_UP | CT_LOW | CT_DIG))
-#define islower(c)	(_ctype[(unsigned)(c)] & (CT_LOW))
-#define isprint(c)	(_ctype[(unsigned)(c)] & (CT_PUN | CT_UP | CT_LOW | CT_DIG | CT_SP))
-#define ispunct(c)	(_ctype[(unsigned)(c)] & (CT_PUN))
-#define isspace(c)	(_ctype[(unsigned)(c)] & (CT_WHT))
-#define isupper(c)	(_ctype[(unsigned)(c)] & (CT_UP))
-#define isxdigit(c)	(_ctype[(unsigned)(c)] & (CT_DIG | CT_HEX))
-#define isascii(c)	((unsigned)(c) <= 0x7F)
-#define toascii(c)	((unsigned)(c) & 0x7F)
-#define tolower(c)	(isupper(c) ? c + 'a' - 'A' : c)
-#define toupper(c)	(islower(c) ? c + 'A' - 'a' : c)
+inline int isalnum(int c)	
+{ 
+	return _ctype[(unsigned)(c)] & (CT_UP | CT_LOW | CT_DIG);
+}
+inline int isalpha(int c)	
+{ 
+	return _ctype[(unsigned)(c)] & (CT_UP | CT_LOW);
+}
+inline int iscntrl(int c)	
+{ 
+	return _ctype[(unsigned)(c)] & CT_CTL;
+}
+inline int isdigit(int c)	
+{ 
+	return _ctype[(unsigned)c] & CT_DIG;
+}
+inline int isgraph(int c)	{ 
+	return _ctype[(unsigned)(c)] & (CT_PUN | CT_UP | CT_LOW | CT_DIG);
+}
+inline int islower(int c)	{ 
+	return (_ctype[(unsigned)(c)] & (CT_LOW));
+}
+inline int isprint(int c)	{ 
+	return (_ctype[(unsigned)(c)] & (CT_PUN | CT_UP | CT_LOW | CT_DIG | CT_SP));
+}
+inline int ispunct(int c)	{ 
+	return (_ctype[(unsigned)(c)] & (CT_PUN));
+}
+inline int isspace(int c)	{ 
+	return (_ctype[(unsigned)(c)] & (CT_WHT));
+}
+inline int isupper(int c)	{ 
+	return (_ctype[(unsigned)(c)] & (CT_UP));
+}
+inline int isxdigit(int c)	{ 
+	return (_ctype[(unsigned)(c)] & (CT_DIG | CT_HEX));
+}
+inline int isascii(int c)	{ 
+	return ((unsigned)(c) <= 0x7F);
+}
+inline int toascii(int c)	{ 
+	return ((unsigned)(c) & 0x7F);
+}
+inline int tolower(int c)	{ 
+	return (isupper(c) ? c + 'a' - 'A' : c);
+}
+inline int toupper(int c) {
+	return (islower(c) ? c + 'A' - 'a' : c);
+}
 
 #ifdef __cplusplus
 }
