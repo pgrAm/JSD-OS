@@ -13,7 +13,7 @@
 
 void splash_text(int w);
 
-std::string console_user = "root";
+std::string_view console_user = "root";
 char prompt_char = ']';
 
 #define MAX_HISTORY_SIZE 4
@@ -262,33 +262,38 @@ int execute_line(std::string_view current_line)
 		file_info file;
 		if(find_file_in_dir(current_directory, &file, keyword))
 		{
-			const char* extension = strchr(file.name, '.') + 1;
+			std::string_view name = {file.name, file.name_len};
 
-			if(strcasecmp("elf", extension) == 0)
+			if(auto dot = name.find('.'); dot != std::string_view::npos)
 			{
-				spawn_process(file.name, file.name_len, WAIT_FOR_PROCESS);
-				return 0;
-			}
+				std::string_view extension = name.substr(dot + 1);
 
-			if(strcasecmp("bat", extension) == 0)
-			{
-				file_stream* f = open(current_directory,
-									  keyword.data(), keyword.size(), 0);
-				if(f)
+				if(filesystem_names_identical("elf", extension))
 				{
-					uint8_t* dataBuf = new uint8_t[file.size];
-
-					read(dataBuf, file.size, f);
-					close(f);
-
-					auto lines = tokenize(std::string_view((char*)dataBuf, file.size), '\n');
-					for(auto ln : lines)
-					{
-						execute_line(ln);
-					}
-					delete[] dataBuf;
-
+					spawn_process(file.name, file.name_len, WAIT_FOR_PROCESS);
 					return 0;
+				}
+
+				if(filesystem_names_identical("bat", extension))
+				{
+					file_stream* f = open(current_directory,
+										  keyword.data(), keyword.size(), 0);
+					if(f)
+					{
+						uint8_t* dataBuf = new uint8_t[file.size];
+
+						read(dataBuf, file.size, f);
+						close(f);
+
+						auto lines = tokenize(std::string_view((char*)dataBuf, file.size), '\n');
+						for(auto ln : lines)
+						{
+							execute_line(ln);
+						}
+						delete[] dataBuf;
+
+						return 0;
+					}
 				}
 			}
 		}
@@ -362,7 +367,8 @@ void prompt()
 	}
 
 	printf("\x1b[32;22m");
-	printf("%s\x1b[37m@%s%c", console_user.c_str(), drive, prompt_char);
+	print_string(console_user.data(), console_user.size());
+	printf("\x1b[37m@%s%c", drive, prompt_char);
 }
 
 void splash_text(int w)

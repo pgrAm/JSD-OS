@@ -132,7 +132,7 @@ int load_elf(const char* path, size_t path_len, dynamic_object* object, bool use
 	}
 
 	std::string_view dir_path{path, path_len};
-	if(auto slash = dir_path.find_last_of('/'); slash != std::string::npos)
+	if(auto slash = dir_path.find_last_of('/'); slash != std::string_view::npos)
 	{
 		dir_path = dir_path.substr(0, slash);
 	}

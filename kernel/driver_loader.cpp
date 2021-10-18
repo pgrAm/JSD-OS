@@ -123,7 +123,7 @@ extern "C" void load_drivers()
 		{
 			auto line = std::string_view(buffer);
 
-			auto space = buffer.find_first_of(' ');
+			auto space = line.find_first_of(' ');
 			auto token = line.substr(0, space);
 
 			if(token == "load_driver")
@@ -131,7 +131,7 @@ extern "C" void load_drivers()
 				auto filename = line.substr(space + 1);
 				auto slash = filename.find_last_of('/');
 
-				if(slash == std::string::npos)
+				if(slash == std::string_view::npos)
 					slash = 0;
 				else
 					slash++;
