@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 #include <string>
-
+#include <vector>
 #include <kernel/fs_driver.h>
 
 #include "fat.h"
@@ -276,6 +276,15 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* ent
 	return true;
 }
 
+static void fill_dir_from_vector(std::vector<file_handle>& files, directory_handle* dest, size_t disk_id)
+{
+	dest->name = "";
+	dest->disk_id = disk_id;
+	dest->file_list = new file_handle[files.size()];
+	dest->num_files = files.size();
+	std::copy(files.cbegin(), files.cend(), dest->file_list);
+}
+
 static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
@@ -288,19 +297,9 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 	}
 
 	size_t max_num_files = d->root_entries;
-
-	dest->name = "";
-	dest->file_list = new file_handle[max_num_files];
-	dest->disk_id = fd->id;
-
 	size_t buffer_size = d->root_size * d->bytes_per_sector;
 
 	filesystem_buffer dir_buf{fd->disk, buffer_size};
-
-	//printf("%X\n", memmanager_get_physical((uintptr_t)dir_buf.data()));
-	//printf("%d\n", buffer_size);
-	//printf("%d\n", d->root_size);
-	//printf("%d\n", d->root_size * d->blocks_per_sector);
 
 	filesystem_read_blocks_from_disk(fd, d->root_location,
 									 dir_buf.data(),
@@ -308,7 +307,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 
 	fat_directory_entry* root_directory = (fat_directory_entry*)dir_buf.data();
 
-	size_t num_files = 0;
+	std::vector<file_handle> files;
 	for(size_t i = 0; i < max_num_files; i++)
 	{
 		if(root_directory[i].attributes & LFN)
@@ -316,33 +315,25 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 			continue;
 		}
 
-		if(!fat_read_dir_entry(dest->file_list[num_files],
+		file_handle out;
+		if(!fat_read_dir_entry(out,
 							   &root_directory[i], fd->id))
 		{
 			break;
 		} //end of directory
 
-		num_files++;
+		files.push_back(out);
 	}
 
-	dest->num_files = num_files;
+	fill_dir_from_vector(files, dest, fd->id);
 }
 
 static void fat_read_dir(directory_handle* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
 {
 	file_stream* dir_stream = filesystem_create_stream(dir);
 
-	size_t max_num_files = 100;// dir->size / sizeof(fat_directory_entry);
-
-	//printf("\ndir %u\n", dir->size);
-
-	dest->name = "";// strdup(dir->full_name);
-	dest->file_list = new file_handle[max_num_files];
-	dest->disk_id = fd->id;
-
-	size_t num_files = 0;
-
-	for(size_t i = 0; i < max_num_files; i++)
+	std::vector<file_handle> files;
+	while(true)
 	{
 		fat_directory_entry entry;
 		if(filesystem_read_file(&entry, sizeof(fat_directory_entry), dir_stream) 
@@ -356,15 +347,16 @@ static void fat_read_dir(directory_handle* dest, const file_data_block* dir, con
 			continue;
 		}
 
-		if (!fat_read_dir_entry(dest->file_list[num_files], &entry, fd->id))
+		file_handle out;
+		if (!fat_read_dir_entry(out, &entry, fd->id))
 		{
 			break; 
 		}
 
-		num_files++;
+		files.push_back(out);
 	}
-
-	dest->num_files = num_files;
+	
+	fill_dir_from_vector(files, dest, fd->id);
 
 	filesystem_close_file(dir_stream);
 }

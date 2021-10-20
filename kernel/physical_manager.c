@@ -253,7 +253,9 @@ size_t physical_mem_size(void)
 
 extern uint32_t* tss_esp0_location;
 extern void _IMAGE_END_;
+extern void _KERNEL_START_;
 
+multiboot_modules kernel_modules;
 
 void physical_memory_init(void) 
 {
@@ -285,6 +287,8 @@ void physical_memory_init(void)
 
 		//printf("%X - %X\n", rd_begin, rd_end);
 	}
+
+	physical_memory_add_block(num_memory_blocks, 0x500, &_KERNEL_START_ - 0x500);
 
 	//reserve BIOS & VRAM
 	physical_memory_reserve(0x80000, 0xFFFFF - 0x80000);

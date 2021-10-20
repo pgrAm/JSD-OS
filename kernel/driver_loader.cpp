@@ -162,6 +162,8 @@ extern "C" void load_drivers()
 			buffer += c;
 		}
 	}
+
+	filesystem_close_file(f);
 }
 
 extern "C" {

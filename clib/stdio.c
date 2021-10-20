@@ -36,13 +36,42 @@
 //void _stdout_print_len_func(FILE* stream, const char* c, size_t n){ print_string_len(c, n); };
 //void _stdout_print_c_func(FILE* stream, const char c){ print_char(c); };
 //
-/*struct _internal_FILE
+#ifndef __KERNEL
+
+struct FILE
 {
-	volatile char* buf;
-	volatile size_t bufsize;
-	volatile size_t readptr;
-	volatile size_t writeptr;
-};*/
+	void* impl_ptr;
+	void (*write)(const char* buf, size_t size, void* impl);
+	void (*read)(char* buf, size_t size, void* impl);
+	void (*close)(void* impl);
+};
+
+FILE m_stdout = {NULL, NULL, NULL};
+
+FILE* stdout = &m_stdout;
+FILE* stdin = NULL;
+FILE* stderr = NULL;
+
+void set_stdout(void (*write)(const char* buf, size_t size, void* impl))
+{
+	stdout->write = write;
+}
+
+static void file_write(const char* buf, size_t size, FILE* f)
+{
+	if(f != NULL && f->write != NULL)
+	{
+		f->write(buf, size, f->impl_ptr);
+	}
+}
+#else
+FILE* stdout = NULL;
+
+void file_write(const char* buf, size_t size, FILE* f)
+{
+	print_string(buf, size);
+}
+#endif
 //
 //void copy_stream(FILE* dest, FILE* src)
 //{
@@ -238,8 +267,8 @@ int putchar(int character)
 {
 	char c = (char)character;
 	
-	print_string(&c, 1);
-	
+	file_write(&c, 1, stdout);
+
 	return character;
 }
 
@@ -486,9 +515,8 @@ EMIT2:			/* pad on left with spaces or zeroes (for right justify) */
 
 int puts(const char* str)
 {
-	//stdout->print_func(stdout, str);
-	print_string(str, strlen(str));
-	
+	file_write(str, strlen(str), stdout);
+
 	putchar('\n');
 	return 1;
 }
@@ -541,7 +569,7 @@ int fprintf(FILE * stream, const char * format, ...)
 	va_start(args, format);
 	
 	int len = vsnprintf(buffer, 128, format, args);
-	//stream->print_len_func(stream, buffer, len);
+	file_write(buffer, len, stream);
 	
 	va_end(args);
 	
@@ -555,9 +583,8 @@ int printf(const char* format, ...)
 	va_start(args, format);
 	
 	int len = vsnprintf(buffer, 128, format, args);
-	//stdout->print_len_func(stdout, buffer, len);
-	print_string(buffer, len);
-	
+	file_write(buffer, len, stdout);
+
 	va_end(args);
 	
 	return len;

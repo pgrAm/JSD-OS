@@ -16,7 +16,7 @@ extern "C" {
 #define FILENAME_MAX 256
 
 typedef size_t fpos_t;
-typedef struct _internal_FILE FILE;
+typedef struct FILE FILE;
 
 //extern FILE* stdin;
 
@@ -25,7 +25,7 @@ FILE* fopen(const char* filename, const char* mode);
 int fclose(FILE* stream);
 int feof(FILE* stream);
 int ferror(FILE* stream);
-int fputc(int character, FILE* stream);
+//int fputc(int character, FILE* stream);
 int fputs(const char* str, FILE* stream);
 int fprintf(FILE* stream, const char* format, ...);
 int sprintf(char* s, const char * format, ...);
@@ -37,10 +37,12 @@ int vsnprintf(char *buffer, size_t n, const char* fmt, va_list args);
 int printf(const char* format, ...);
 int putchar(int character);
 int getchar();
-int getc(FILE* stream);
+//int getc(FILE* stream);
 int puts(const char* str);
 void perror(const char* str);
-int fflush(FILE* stream);
+//int fflush(FILE* stream);
+
+void set_stdout(void (*write)(const char* buf, size_t size, void* impl));
 
 #ifdef __cplusplus
 }

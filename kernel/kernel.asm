@@ -2,7 +2,11 @@
 [bits 32] 		; We’re in protected mode by now , so use 32 - bit instructions.
 [extern kernel_main] 	; Declare that we will be referencing the external symbol 'main ’,
 [extern _BSS_END_]
+
 global _multiboot
+
+global _KERNEL_START_
+_KERNEL_START_:
 
 start:
 	jmp header_end

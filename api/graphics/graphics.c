@@ -68,6 +68,11 @@ void video_erase_chars(size_t num)
 	set_cursor_offset(cursorpos - num);
 }
 
+void stdout_write(const char* buf, size_t size, void* impl)
+{
+	print_string(buf, size);
+}
+
 int initialize_text_mode(int col, int row)
 {
 	display_mode requested = {
@@ -88,6 +93,8 @@ int initialize_text_mode(int col, int row)
 		set_cursor_visibility(true);
 		set_cursor_offset(0);
 	}
+
+	set_stdout(stdout_write);
 
 	return err;
 }
