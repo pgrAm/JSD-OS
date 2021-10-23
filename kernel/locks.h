@@ -6,6 +6,10 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifndef __I386_ONLY
+#define SYNC_HAS_CAS_FUNC 1
+#endif
+
 typedef uint32_t int_lock;
 
 static inline int_lock lock_interrupts()
@@ -45,6 +49,7 @@ static inline void wait_for_interrupt()
 typedef struct
 {
 	volatile int ownerPID;
+	volatile uint8_t tas_lock;
 } kernel_mutex;
 
 bool kernel_try_lock_mutex(kernel_mutex* m);
@@ -53,8 +58,9 @@ void kernel_unlock_mutex(kernel_mutex* m);
 
 typedef struct
 {
-	volatile int available;
 	volatile int waitingPID;
+	volatile uint8_t unavailable;
+	volatile uint8_t tas_lock;
 } kernel_cv;
 
 void kernel_signal_cv(kernel_cv* m);

@@ -253,3 +253,11 @@ void switch_to_task(int pid)
 		switch_task(&running_tasks[pid]);
 	}
 }
+
+void switch_to_active_task()
+{
+	if(!this_task_is_active())
+	{
+		switch_to_task(get_active_process());
+	}
+}

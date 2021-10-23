@@ -14,7 +14,7 @@ volatile size_t keybuf_front = 0;
 size_t keybuf_back = 0;
 key_type keybuf[KEY_BUFFER_SIZE];
 
-static kernel_cv key_pressed_cv = {0, -1};
+static kernel_cv key_pressed_cv = {-1, 1};
 
 static void add_keypress(key_type k)
 {

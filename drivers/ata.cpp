@@ -132,7 +132,7 @@ struct IDEChannelRegisters {
 	uint8_t		no_interrupt;  // nIEN (No Interrupt);
 } channels[2];
 
-static kernel_cv irq_condition[2] = {{0, -1}, {0, -1}};
+static kernel_cv irq_condition[2] = {{-1, 1}, {-1, 1}};
 
 struct ata_drive
 {

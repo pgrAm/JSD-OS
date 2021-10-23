@@ -75,7 +75,7 @@ enum floppy_commands
 #define MT_BIT 0x80
 
 static bool motor_is_ready[2] = {false, false};
-static kernel_cv irq6_condition = {0, -1};
+static kernel_cv irq6_condition = {-1, 1};
 
 static void floppy_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
 //static uint8_t* floppy_allocate_buffer(size_t size);
