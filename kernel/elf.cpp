@@ -124,21 +124,19 @@ static int load_elf(file_handle* file, dynamic_object* object, bool user, const 
 
 int load_elf(const char* path, size_t path_len, dynamic_object* object, bool user)
 {
+	std::string_view elf_path{path, path_len};
+
 	file_handle* f = filesystem_find_file_by_path(nullptr, path, path_len);
 	if(f == nullptr)
 	{
-		printf("could not find elf file %s\n", path);
+		printf("could not find elf file %s\n", std::string(elf_path).c_str());
 		return 0;
 	}
 
-	std::string_view dir_path{path, path_len};
-	if(auto slash = dir_path.find_last_of('/'); slash != std::string_view::npos)
+	std::string_view dir_path{};
+	if(auto slash = elf_path.find_last_of('/'); slash != std::string_view::npos)
 	{
-		dir_path = dir_path.substr(0, slash);
-	}
-	else
-	{
-		dir_path = std::string_view{};
+		dir_path = elf_path.substr(0, slash);
 	}
 	
 	//printf("dir path = %s\n", std::string(dir_path).c_str());
@@ -255,8 +253,6 @@ static int load_elf(file_handle* file, dynamic_object* object, bool user, const 
 
 	return 1;
 }
-
-static void elf_read_copied_symbols(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
 
 static int elf_process_dynamic_section(ELF_linker_data* object, const std::string_view& dir_path)
 {

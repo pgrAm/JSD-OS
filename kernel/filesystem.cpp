@@ -5,10 +5,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 
-extern "C" {
-	#include <kernel/memorymanager.h>
-}
-
+#include <kernel/memorymanager.h>
 #include <kernel/filesystem.h>
 #include <kernel/fs_driver.h>
 
@@ -204,8 +201,6 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 	{
 		auto dirname = path.substr(name_begin, path_begin - name_begin);
 
-		//printf("%s\n", std::string(dirname).c_str());
-
 		file_handle* fd = filesystem_find_file_in_dir(d, dirname);
 
 		if(fd == nullptr || !(fd->data.flags & IS_DIR))
@@ -222,13 +217,20 @@ file_handle* filesystem_find_file_by_path(const directory_handle* d, const char*
 
 		auto remaining_path = path.substr(path_begin);
 
-		file_handle f = *filesystem_find_file_by_path(dir, remaining_path.data(), remaining_path.size());
+
+		file_handle fh;
+		auto f = filesystem_find_file_by_path(dir, remaining_path.data(), remaining_path.size());
+
+		if(f) fh = *f;
 
 		filesystem_close_directory(dir);
 
-		found = f;
-
-		return &found;
+		if(f)
+		{
+			found = fh;
+			return &found;
+		}
+		return nullptr;
 	}
 	else
 	{

@@ -36,16 +36,23 @@ static void load_driver(const std::string_view filename, const std::string_view 
 	ob.symbol_map = &driver_symbol_map;
 	ob.glob_data_symbol_map = &driver_glob_data_symbol_map;
 
-	load_elf(filename.data(), filename.size(), &ob, false);
-
-	uint32_t func_address;
-	if(ob.symbol_map->lookup(func_name, &func_address))
+	if(load_elf(filename.data(), filename.size(), &ob, false))
 	{
-		((void (*)())func_address)();
+		uint32_t func_address;
+		if(ob.symbol_map->lookup(func_name, &func_address))
+		{
+			((void (*)())func_address)();
+		}
+		else
+		{
+			printf("cannot find function\n");
+		}
 	}
 	else
 	{
-		printf("cannot find function\n");
+		printf("Cannot find ");
+		print_string_len(filename.data(), filename.size());
+		putchar('\n');
 	}
 }
 
