@@ -80,7 +80,7 @@ const char *exception_messages[] =
     "Reserved",
     "Reserved",
 
-    "Reservedt",
+    "Reserved",
     "Reserved",
     "Reserved",
     "Reserved",
@@ -129,7 +129,7 @@ void irqs_init()
 	
     for (size_t i = 32; i < 48; i++)
     {
-        idt_install_handler(32, irq_stub, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+        idt_install_handler(i, irq_stub, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
     }
 }
 
@@ -164,6 +164,7 @@ void fault_handler(interrupt_info*r)
         if(r->int_no == 13) //GPF
         {
             printf("EFLAGS=%X\n", r->eflags);
+            printf("%X\n", r->err_code);
         }
 		else if (r->int_no == 14) //page fault
 		{
