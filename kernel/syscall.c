@@ -57,5 +57,5 @@ const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);
 
 void setup_syscalls()
 {
-	idt_install_handler(0x80, handle_syscall, IDT_SEGMENT_KERNEL, IDT_SOFTWARE_INTERRUPT);
+	isr_install_handler(0x80, handle_syscall, false);
 }

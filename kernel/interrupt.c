@@ -38,19 +38,6 @@ void idt_install_handler(uint8_t i, void* address, uint16_t sel, uint8_t flags)
 	idt[i].address_high = (((uint32_t)address) >> 16) & 0xffff;
 }
 
-void idt_init()
-{
-    // Sets the special IDT pointer up
-    idtp.limit = (sizeof (struct idt_entry) * 256) - 1;
-    idtp.base = (uint32_t)(&idt);
-
-    //Clear out the entire IDT, initializing it to zeros
-    memset(&idt, 0, sizeof(struct idt_entry) * 256);
-
-    // Points the processor's internal register to the new IDT
-    idt_load();
-}
-
 const char *exception_messages[] =
 {
     "Division By Zero",
@@ -95,6 +82,16 @@ INTERRUPT_HANDLER void irq_stub(interrupt_frame* r)
     send_eoi(41);
 }
 
+void isr_install_handler(size_t vector, irq_func r, bool user)
+{
+    idt_install_handler(vector, r, user ? IDT_SEGMENT_USER : IDT_SEGMENT_KERNEL, IDT_SOFTWARE_INTERRUPT);
+}
+
+void isr_uninstall_handler(size_t vector)
+{
+    idt_install_handler(vector, NULL, IDT_SEGMENT_KERNEL, 0);
+}
+
 void irq_install_handler(size_t irq, irq_func handler)
 {
     idt_install_handler(32 + irq, handler, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
@@ -106,31 +103,31 @@ void irq_uninstall_handler(size_t irq)
     idt_install_handler(32 + irq, irq_stub, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
 }
 
-void irq_remap(void)
+void send_eoi(size_t index)
 {
-    outb(0x20, 0x11);
-    outb(0xA0, 0x11);
-    outb(0x21, 0x20);
-    outb(0xA1, 0x28);
-    outb(0x21, 0x04);
-    outb(0xA1, 0x02);
-    outb(0x21, 0x01);
-    outb(0xA1, 0x01);
-    outb(0x21, 0x0);
-    outb(0xA1, 0x0);
+    if(index >= 40)
+    {
+        outb(0xA0, 0x20);
+    }
+    outb(0x20, 0x20);
 }
 
-/* We first remap the interrupt controllers, and then we install
-*  the appropriate ISRs to the correct entries in the IDT. This
-*  is just like installing the exception handlers */
-void irqs_init()
+void irq_remap(void)
 {
-    irq_remap();
-	
-    for (size_t i = 32; i < 48; i++)
-    {
-        idt_install_handler(i, irq_stub, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
-    }
+    outb(0x20, 0x11); //Init PIC#1
+    outb(0xA0, 0x11); //Init PIC#2
+
+    outb(0x21, 0x20); //PIC#1 sends interrupt 32-39
+    outb(0xA1, 0x28); //PIC#2 sends interrupt 40-47
+
+    outb(0x21, 0x04); //Inform PIC#1 that PIC#2 is at 0x02
+    outb(0xA1, 0x02);
+
+    outb(0x21, 0x01);
+    outb(0xA1, 0x01);
+
+    outb(0x21, 0x0);
+    outb(0xA1, 0x0);
 }
 
 extern uint32_t getcr2reg(void);
@@ -246,8 +243,22 @@ extern void isr29();
 extern void isr30();
 extern void isr31();
 
-void isrs_init()
+void idt_init()
 {
+    // Sets the special IDT pointer up
+    idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
+    idtp.base = (uint32_t)(&idt);
+
+    //Clear out the entire IDT, initializing it to zeros
+    memset(&idt, 0, sizeof(struct idt_entry) * 256);
+
+    // Points the processor's internal register to the new IDT
+    idt_load();
+}
+
+void interrupts_init()
+{
+    idt_init();
 
     idt_install_handler(0, 		isr0, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
     idt_install_handler(1, 		isr1, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
@@ -284,4 +295,11 @@ void isrs_init()
     idt_install_handler(29, 	isr29, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
     idt_install_handler(30, 	isr30, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
     idt_install_handler(31, 	isr31, 	IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+
+    irq_remap();
+
+    for(size_t i = 32; i < 48; i++)
+    {
+        idt_install_handler(i, irq_stub, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+    }
 }

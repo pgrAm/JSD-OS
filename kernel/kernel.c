@@ -40,9 +40,7 @@ void kernel_main()
 {
 	//clear_screen();
 
-	idt_init();
-	isrs_init();
-	irqs_init();
+	interrupts_init();
 
 	basic_text_init();
 
@@ -84,7 +82,7 @@ void kernel_main()
 
 	printf("driver loading complete\n");
 
-	clear_screen();
+	//clear_screen();
 
 	size_t free_mem = physical_num_bytes_free();
 	size_t total_mem = physical_mem_size();

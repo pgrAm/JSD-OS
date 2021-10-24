@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <string.h>
-
+#include <stdbool.h>
 #include <drivers/portio.h>
 typedef struct
 {
@@ -20,6 +20,7 @@ typedef struct
 #define IDT_HARDWARE_INTERRUPT (IDT_INT_PRESENT | IDT_INT_RING(0) | IDT_GATE_INT_32)
 #define IDT_SOFTWARE_INTERRUPT (IDT_INT_PRESENT | IDT_INT_RING(3) | IDT_GATE_INT_32)
 #define IDT_SEGMENT_KERNEL 0x08
+#define IDT_SEGMENT_USER 0x18
 
 typedef struct
 {
@@ -34,20 +35,11 @@ typedef struct
 
 typedef INTERRUPT_HANDLER void (irq_func)(interrupt_frame* r);
 
-static inline void send_eoi(size_t index)
-{
-    if (index >= 40)
-    {
-        outb(0xA0, 0x20);
-    }
-    outb(0x20, 0x20);
-}
-
-void idt_install_handler(uint8_t i, void* address, uint16_t sel, uint8_t flags);
-void idt_init();
+void send_eoi(size_t index);
+void interrupts_init();
+void isr_install_handler(size_t vector, irq_func r, bool user);
+void isr_uninstall_handler(size_t irq);
 void irq_install_handler(size_t irq, irq_func r);
 void irq_uninstall_handler(size_t irq);
-void isrs_init();
-void irqs_init();
 
 #endif
