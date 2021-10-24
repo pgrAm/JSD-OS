@@ -34,24 +34,46 @@ void tas_release(volatile uint8_t* l)
 	__sync_lock_release(l);
 }
 
+inline int_lock atomic_lock_aquire(volatile uint8_t* tas_lock)
+{
+	while(true)
+	{
+		int_lock l = lock_interrupts();
+		if(tas_aquire(tas_lock) == 0)
+			return l;
+		unlock_interrupts(l);
+	}
+}
+
+inline void atomic_lock_release(int_lock l, volatile uint8_t* tas_lock)
+{
+	tas_release(tas_lock);
+	unlock_interrupts(l);
+}
+
 inline int cas_func(volatile uint8_t* tas_lock, volatile int* ptr, int oldval, int newval)
 {
-	while(tas_aquire(tas_lock) != 0);
+	int_lock l = atomic_lock_aquire(tas_lock);
+
 	int old_ptr_val = *ptr;
 	if(*ptr == oldval)
 	{
 		*ptr = newval;
 	}
-	tas_release(tas_lock);
+
+	atomic_lock_release(l, tas_lock);
+
 	return old_ptr_val;
 }
 
 void cas_atomic_set(volatile uint8_t* tas_lock, volatile int* ptr, int newval)
 {
-	while(tas_aquire(tas_lock) != 0);
+	int_lock l = atomic_lock_aquire(tas_lock);
+
 	__asm__ __volatile__("" ::: "memory");
 	*ptr = newval;
-	tas_release(tas_lock);
+
+	atomic_lock_release(l, tas_lock);
 }
 
 #endif
