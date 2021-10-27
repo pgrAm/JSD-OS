@@ -1,3 +1,4 @@
+extern void exit(int status);
 extern int main(int argc, char** argv);
 extern void _init();
 extern void _fini();
@@ -24,11 +25,13 @@ void _start()
 
 	handle_init_array();
 
-	main(0, 0);
+	int r = main(0, 0);
 
 	handle_fini_array();
 
 	_fini();
+
+    exit(r);
 }
 
 void __cxa_pure_virtual() {

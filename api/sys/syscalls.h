@@ -107,7 +107,7 @@ static inline void iopl(int a)
 	do_syscall_1(SYSCALL_IOPL, (uint32_t)a);
 }
 
-static inline void exit(int a)
+static inline void sys_exit(int a)
 {
 	do_syscall_1(SYSCALL_EXIT, (uint32_t)a);
 }
