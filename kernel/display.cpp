@@ -232,6 +232,8 @@ bool display_mode_satisfied(display_mode* requested, display_mode* actual)
 			(requested->format == 0 || requested->format == actual->format);
 }
 
+display_mode current_mode;
+
 SYSCALL_HANDLER int set_display_mode(display_mode* requested, display_mode* actual)
 {
 	if (this_task_is_active())
@@ -244,7 +246,12 @@ SYSCALL_HANDLER int set_display_mode(display_mode* requested, display_mode* actu
 
 		bool success = default_driver->set_mode(requested, actual);
 
-		initialize_terminal(actual->width, actual->height);
+		current_mode = *actual;
+
+		if(actual->flags & DISPLAY_TEXT_MODE)
+		{
+			initialize_terminal(actual->width, actual->height);
+		}
 
 		return success ? 0 : -1;
 	}
@@ -255,7 +262,11 @@ SYSCALL_HANDLER uint8_t* map_display_memory(void)
 {
 	if (this_task_is_active())
 	{
-		return (uint8_t*)memmanager_map_to_new_pages((uint32_t)default_driver->get_framebuffer(), 0x10000 / PAGE_SIZE, PAGE_USER | PAGE_PRESENT | PAGE_RW);
+		auto num_pages = memmanager_minimum_pages(current_mode.height * current_mode.pitch);
+		auto buf = default_driver->get_framebuffer();
+
+		return (uint8_t*)memmanager_map_to_new_pages((uintptr_t)buf, num_pages, 
+													 PAGE_USER | PAGE_PRESENT | PAGE_RW);
 	}
 	return nullptr;
 }

@@ -134,7 +134,7 @@ void memmanager_unmap_page(uintptr_t virtual_address)
 	}
 }
 
-void memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, page_flags_t flags)
+bool memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, page_flags_t flags)
 {
 	size_t pd_index = virtual_address >> 22;
 	uintptr_t pd_entry = current_page_directory[pd_index];
@@ -146,24 +146,24 @@ void memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, 
 	else if((flags & PAGE_USER) && !(pd_entry & PAGE_USER))
 	{
 		printf("Page at %X does not match requested flags\n", virtual_address);
-		while(true);
-		return;
+		return false;
 	}
 
 	uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
 	size_t pt_index = (virtual_address >> 12) & PT_INDEX_MASK;
 
-	if(!(page_table[pt_index] & PAGE_MAP_ON_ACCESS) && page_table[pt_index] & PAGE_ALLOCATED)
+	if(page_table[pt_index] & PAGE_ALLOCATED)
 	{
 		printf("warning page already exists at %X!\n", virtual_address);
-		while(true);
+		return false;
 	}
 
 	page_table[pt_index] = (physical_address & PAGE_ADDRESS_MASK) | flags;
 
 	__flush_tlb_page(virtual_address);
 
+	return true;
 	//printf("%X mapped to physical address %X\n", virtual_address, physical_address);	
 }
 
@@ -173,7 +173,8 @@ void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, page_fla
 
 	for(size_t i = 0; i < n; i++)
 	{
-		memmanager_map_page((uintptr_t)virtual_address + i * PAGE_SIZE, physical_address + i * PAGE_SIZE, flags);
+		if(!memmanager_map_page((uintptr_t)virtual_address + i * PAGE_SIZE, physical_address + i * PAGE_SIZE, flags))
+			return NULL;
 	}
 
 	return virtual_address;
@@ -217,7 +218,8 @@ static void* memmanager_alloc_page(page_flags_t flags)
 	uintptr_t virtual_address = memmanager_get_unmapped_pages(1, flags);
 	uintptr_t physical_address = memmanager_allocate_physical_page();
 
-	memmanager_map_page(virtual_address, physical_address, flags | PAGE_PRESENT);
+	if(!memmanager_map_page(virtual_address, physical_address, flags | PAGE_PRESENT))
+		return NULL;
 
 	return (void*)virtual_address;
 }
@@ -278,7 +280,7 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 	page_flags_t pf = flags | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
 	for(size_t i = 0; i < n; i++)
 	{
-		memmanager_map_page(page_virtual_address, 0, pf);
+		k_assert(memmanager_map_page(page_virtual_address, 0, pf));
 
 		k_assert(memmanager_get_page_flags(page_virtual_address) & PAGE_RESERVED);
 		k_assert(!(memmanager_get_page_flags(page_virtual_address) & PAGE_PRESENT));

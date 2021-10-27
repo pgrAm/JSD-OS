@@ -224,7 +224,7 @@ uintptr_t physical_memory_allocate_in_range(uintptr_t start, uintptr_t end, size
 		}
 	}
 
-	printf("Could not allocate enough physical memory\n");
+	//printf("Could not allocate enough physical memory\n");
 
 	return 0;
 }
@@ -288,10 +288,10 @@ void physical_memory_init(void)
 		//printf("%X - %X\n", rd_begin, rd_end);
 	}
 
-	physical_memory_add_block(num_memory_blocks, 0x500, &_KERNEL_START_ - 0x500);
+	physical_memory_add_block(num_memory_blocks, 0x1000, (uintptr_t)&_KERNEL_START_ - 0x500);
 
 	//reserve BIOS & VRAM
-	physical_memory_reserve(0x80000, 0xFFFFF - 0x80000);
+	physical_memory_reserve(0x80000, 0x100000 - 0x80000);
 }
 
 void print_free_map()

@@ -52,7 +52,7 @@ public:
 		return false;
 	}
 
-	void insert(const K& key, const D& value)
+	template<typename _Ky> void insert(const _Ky& key, const D& value)
 	{
 		size_t i = hash(key) % buckets.size();
 		hash_node* prev = nullptr;
@@ -66,7 +66,7 @@ public:
 
 		if(entry == nullptr)
 		{
-			entry = new hash_node{key, value};
+			entry = new hash_node{K(key), value};
 
 			if(prev == nullptr)
 			{
@@ -83,7 +83,7 @@ public:
 		}
 	}
 
-	void remove(const K& key)
+	template<typename _Ky> void remove(const _Ky& key)
 	{
 		D i = hash_string(key) % buckets.size();
 		hash_node* prev = nullptr;

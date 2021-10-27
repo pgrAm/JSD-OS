@@ -33,7 +33,7 @@ enum display_flags {
 struct display_mode {
 	size_t width;
 	size_t height;
-	size_t pitch;
+	size_t pitch;	//in bytes
 	size_t refresh;
 	size_t bpp;
 	display_format format;

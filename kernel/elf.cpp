@@ -345,7 +345,7 @@ static int elf_process_dynamic_section(ELF_linker_data* object, const std::strin
 					{
 						if(load_elf(lib_handle, &lib, object->userspace, dir_path))
 						{
-							lib.lib_set->insert(std::string(lib_name), 1);
+							lib.lib_set->insert(lib_name, 1);
 						}
 					}
 					filesystem_close_directory(lib_dir);
@@ -454,6 +454,7 @@ static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* t
 				if(!object->symbol_map->lookup(symbol_name, &symbol_val))
 				{
 					printf("Unable to locate symbol %u \"%s\"\n", symbol_index, s_name);
+					while(true);
 					symbol_val = 0;
 				}
 			}

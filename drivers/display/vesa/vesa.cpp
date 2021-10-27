@@ -6,6 +6,10 @@
 #include <kernel/physical_manager.h>
 #include <kernel/display.h>
 #include <kernel/util/hash.h>
+#include <kernel/kassert.h>
+
+//#include <drivers/rs232.h>
+//uint16_t serial_port;
 
 uintptr_t low_page_begin = 0x7C00;
 uintptr_t low_page_end = low_page_begin + 1023;
@@ -28,6 +32,20 @@ struct __attribute__((packed)) far_ptr
 		return (void*)((segment * 0x10) + offset);
 	}
 };
+
+/*int ser_printf(const char* format, ...)
+{
+	char buffer[128];
+	va_list args;
+	va_start(args, format);
+
+	int len = vsnprintf(buffer, 128, format, args);
+	rs232_send_string_len(serial_port, buffer, len);
+
+	va_end(args);
+
+	return len;
+}*/
 
 static void* translate_virtual_far_ptr(far_ptr t)
 {
@@ -60,6 +78,13 @@ static void* map_address(uint32_t addr, bool write = false)
 	{
 		return virtual_stack + (addr - virtual_stack_begin);
 	}
+	
+	//allow touching the BDA
+	//if(addr < 0x500)
+	//	return (void*)addr;
+	//allow touching the EBDA
+	//if(addr >= 0x80000 && addr < 0x100000)
+	//	return (void*)addr;
 
 	uintptr_t page_addr = addr & ~(PAGE_SIZE - 1);
 	uintptr_t page_offset = addr - page_addr;
@@ -69,12 +94,21 @@ static void* map_address(uint32_t addr, bool write = false)
 		void* ret = (void*)(vaddr + page_offset);
 		return ret;
 	}
-	if(memmanager_get_physical(page_addr) == page_addr)
+
+	//if(!write && memmanager_get_physical(page_addr) == page_addr)
+	//{
+	//	return (void*)addr;
+	//}
+
+	//if(write)
+	//	ser_printf("writing %X\r\n", addr);
+	//else
+	//	ser_printf("reading %X\r\n", addr);
+
+	if((page_addr < 0x1000 || (page_addr >= 0x80000 && page_addr < 0x100000)) &&
+	   memmanager_get_physical(page_addr) == page_addr)
 	{
-		/*if(write)
-		{
-			printf("trying to access %X\n", page_addr);
-		}*/
+		//ser_printf("accessing real page %X\r\n", page_addr);
 		mapping_cache->insert(page_addr, page_addr);
 		return (void*)addr;
 	}
@@ -82,12 +116,18 @@ static void* map_address(uint32_t addr, bool write = false)
 	uintptr_t vaddr = (uintptr_t)nullptr;
 	if(mapping_cache && !mapping_cache->lookup(page_addr, &vaddr))
 	{
-		printf("trying to access %X\n", page_addr);
-
-		physical_memory_allocate_in_range(	page_addr, page_addr + PAGE_SIZE,
-											PAGE_SIZE, PAGE_SIZE);
-
-		vaddr = (uintptr_t)memmanager_map_to_new_pages(page_addr, 1, PAGE_PRESENT | PAGE_RW);
+		if(physical_memory_allocate_in_range(page_addr, page_addr + PAGE_SIZE,
+											 PAGE_SIZE, PAGE_SIZE))
+		{
+			//ser_printf("mapping %X to %X page\r\n", page_addr, vaddr);
+			vaddr = (uintptr_t)memmanager_map_to_new_pages(page_addr, 1, PAGE_PRESENT | PAGE_RW);
+			k_assert(vaddr);
+		}
+		else
+		{
+			//ser_printf("mapping %X to random page\r\n", addr);
+			vaddr = (uintptr_t)memmanager_virtual_alloc(nullptr, 1, PAGE_RW);
+		}
 		pages_mapped->push_back(vaddr);
 		mapping_cache->insert(page_addr, vaddr);
 	}
@@ -184,7 +224,9 @@ extern "C" unsigned memio_handler(x86emu_t * emu, u32 addr, u32 * val, unsigned 
 }
 
 static uint16_t int10h(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint16_t es, uint16_t di)
-{
+{ 
+	//ser_printf("int 10h; ax = %X\r\n", ax);
+
 	pages_mapped = new std::vector<uintptr_t>();
 	mapping_cache = new hash_map<uintptr_t, uintptr_t>();
 	x86emu_t* emu = x86emu_new(X86EMU_PERM_RWX, X86EMU_PERM_RWX);
@@ -209,8 +251,11 @@ static uint16_t int10h(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint1
 	{
 		memmanager_free_pages((void*)page, 1);
 	}
+
 	delete pages_mapped;
 	delete mapping_cache;
+
+	//ser_printf("int 10h; ax = %X completed\r\n", ax);
 
 	return emu->x86.R_AX;
 }
@@ -297,6 +342,8 @@ static bool vesa_populate_modes()
 	const far_ptr block = {	(uint16_t)(block_location % 0x10), 
 							(uint16_t)(block_location / 0x10) };
 
+	//memset(fake_ivt, 0, sizeof(fake_ivt));
+
 	memset(vesa_info, 0, sizeof(vesa_info_block));
 	memcpy(vesa_info->vesa_sig, "VBE2", 4);
 
@@ -369,6 +416,7 @@ bool vesa_do_mode_switch(uint16_t mode_num, bool vesa)
 	{
 		int10h(mode_num, 0, 0, 0, 0, 0);
 	}
+	//ser_printf("set\r\n");
 	return true;
 }
 
@@ -384,8 +432,12 @@ static bool vesa_set_mode(display_mode* requested, display_mode* actual)
 
 			if(display_mode_satisfied(requested, &m.mode))
 			{
-				success = vesa_do_mode_switch(m.index, m.is_vesa);
-				current_mode_index = i;
+				if(success = vesa_do_mode_switch(m.index, m.is_vesa); success)
+				{
+					//ser_printf("vesa mode set\r\n");
+					current_mode_index = i;
+					break;
+				}
 			}
 		}
 	}
@@ -394,6 +446,7 @@ static bool vesa_set_mode(display_mode* requested, display_mode* actual)
 	{
 		*actual = (*available_modes)[current_mode_index].mode;
 	}
+
 	return success;
 }
 
@@ -429,8 +482,12 @@ static display_driver vesa_driver =
 	vesa_set_cursor_visibility
 };
 
-extern "C" void vesa_init() 
+
+extern "C" void vesa_init()
 {
+	//serial_port = ((uint16_t*)0x400)[0];
+	//rs232_init(serial_port, 9600);
+
 	virtual_bootsector = new uint8_t[low_page_end - low_page_begin];
 	virtual_stack = new uint8_t[virtual_stack_end - virtual_stack_begin];
 
@@ -438,8 +495,8 @@ extern "C" void vesa_init()
 
 	if(!vesa_populate_modes())
 	{
-		delete [] virtual_stack;
-		delete [] virtual_bootsector;
+		delete[] virtual_stack;
+		delete[] virtual_bootsector;
 		delete available_modes;
 		return;
 	}

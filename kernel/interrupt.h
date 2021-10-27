@@ -1,6 +1,10 @@
 #ifndef IDT_H
 #define IDT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -42,4 +46,7 @@ void isr_uninstall_handler(size_t irq);
 void irq_install_handler(size_t irq, irq_func r);
 void irq_uninstall_handler(size_t irq);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

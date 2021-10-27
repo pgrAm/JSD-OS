@@ -67,6 +67,11 @@ int liballoc_unlock()
 {
 	return 0;
 }
+
+void exit(int status)
+{
+	sys_exit(status);
+}
 #endif
 
 #ifdef __KERNEL

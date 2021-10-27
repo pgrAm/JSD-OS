@@ -5,7 +5,6 @@
 #include <kernel/util/hash.h>
 #include <kernel/dynamic_object.h>
 
-extern "C" {
 #include <kernel/interrupt.h>
 #include <kernel/memorymanager.h>
 #include <kernel/physical_manager.h>
@@ -13,6 +12,8 @@ extern "C" {
 #include <kernel/elf.h>
 #include <kernel/locks.h>
 #include <kernel/display.h>
+
+extern "C" {
 #include <drivers/sysclock.h>
 #include <drivers/kbrd.h>
 }
@@ -70,8 +71,8 @@ static const func_info func_list[] = {
 	{"memcmp",	(void*)&memcmp},
 	{"memset",	(void*)&memset},
 	{"strcmp",	(void*)&strcmp},
-	{"filesystem_add_virtual_drive",	(void*)&filesystem_add_virtual_drive},
-	{"filesystem_add_partitioner",		(void*)&filesystem_add_partitioner},
+	{"filesystem_add_virtual_drive",(void*)&filesystem_add_virtual_drive},
+	{"filesystem_add_partitioner",	(void*)&filesystem_add_partitioner},
 	{"filesystem_add_drive",		(void*)&filesystem_add_drive},
 	{"filesystem_add_driver",		(void*)&filesystem_add_driver},
 	{"filesystem_allocate_buffer",	(void*)&filesystem_allocate_buffer},
@@ -83,6 +84,7 @@ static const func_info func_list[] = {
 	{"__regcall3__filesystem_close_file", (void*)&filesystem_close_file},
 	{"irq_install_handler", (void*)&irq_install_handler},
 	{"sysclock_sleep", (void*)&sysclock_sleep},
+	{"__regcall3__memmanager_virtual_alloc", (void*)&memmanager_virtual_alloc},
 	{"physical_memory_allocate_in_range", (void*)&physical_memory_allocate_in_range},
 	{"memmanager_map_to_new_pages", (void*)&memmanager_map_to_new_pages},
 	{"memmanager_get_physical", (void*)&memmanager_get_physical},
@@ -102,8 +104,7 @@ extern "C" void load_drivers()
 	auto num_funcs = sizeof(func_list) / sizeof(func_info);
 	for(size_t i = 0; i < num_funcs; i++)
 	{
-		driver_symbol_map.insert(std::string(func_list[i].name),
-							  (uint32_t)func_list[i].address);
+		driver_symbol_map.insert(func_list[i].name, (uintptr_t)func_list[i].address);
 	}
 
 	std::string_view init_path = "init.sys";
@@ -131,10 +132,14 @@ extern "C" void load_drivers()
 		{
 			auto line = std::string_view(buffer);
 
+
 			auto space = line.find_first_of(' ');
 			auto token = line.substr(0, space);
 
-			if(token == "load_driver")
+			if(line.size() >= 2 && line[0] == '/' && line[1] == '/')
+			{
+			}
+			else if(token == "load_driver")
 			{
 				auto filename = line.substr(space + 1);
 				auto slash = filename.find_last_of('/');
@@ -174,10 +179,8 @@ extern "C" void load_drivers()
 	filesystem_close_file(f);
 }
 
-extern "C" {
 #include <stddef.h>
 #include <stdlib.h>
-}
 
 void* operator new (size_t size)
 {
