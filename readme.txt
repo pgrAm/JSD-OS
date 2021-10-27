@@ -1,3 +1,1 @@
-READ ME!
-
-come on please read me, nobody ever does anymore
+I don't know why there is a readme, just so the disk doesn't look so empty
