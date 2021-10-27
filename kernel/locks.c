@@ -1,6 +1,8 @@
 #include "locks.h"
 #include "task.h"
 
+#include <stdio.h>
+
 #ifdef SYNC_HAS_CAS_FUNC
 bool tas_aquire(volatile uint8_t* l)
 {
@@ -10,7 +12,7 @@ bool tas_aquire(volatile uint8_t* l)
 void tas_release(volatile uint8_t* l)
 {
 	__asm__ __volatile__("" ::: "memory");
-	l = 0;
+	*l = 0;
 }
 
 inline int cas_func(volatile uint8_t* tas_lock, volatile int* ptr, int oldval, int newval)

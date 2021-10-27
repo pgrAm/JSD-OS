@@ -6,8 +6,6 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-#define __I386_ONLY 1
-
 #ifndef __I386_ONLY
 #define SYNC_HAS_CAS_FUNC 1
 #endif

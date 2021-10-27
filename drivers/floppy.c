@@ -37,14 +37,14 @@
 static void floppy_sendbyte(uint8_t byte);
 static uint8_t floppy_getbyte();
 static void floppy_reset(uint8_t driveNum);
-static void floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head);
+static bool floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head);
 
 enum floppy_registers
 {
    DIGITAL_OUTPUT_REGISTER          = 0x3F2,
    MAIN_STATUS_REGISTER             = 0x3F4, // read-only
    DATA_FIFO                        = 0x3F5,
-   CONFIGURATION_CONTROL_REGISTER   = 0x3F7  // write-only
+   CONFIGURATION_CONTROL_REGISTER   = 0x3F7, // write-only
 };
 
 enum floppy_commands
@@ -116,6 +116,7 @@ static size_t num_floppy_drives = 0;
 static void floppy_set_drive_params(uint8_t type, floppy_drive* f)
 {
 	f->type = type;
+	f->mutex.tas_lock = 0;
 	f->mutex.ownerPID = -1;
 
 	switch(type)
@@ -181,6 +182,11 @@ void floppy_init()
 
 	printf("\t%d floppy drives detected\n", num_floppy_drives);
 	
+	if(num_floppy_drives == 0)
+	{
+		return;
+	}
+
 	irq_install_handler(6, floppy_irq_handler);
 	
 	outb(DIGITAL_OUTPUT_REGISTER, 0x0C); //make sure interrupt is enabled
@@ -225,8 +231,11 @@ static void floppy_read_sectors(floppy_drive* d, size_t lba, uint8_t* buf, size_
 	for(uint8_t i = 0; i < 5; i++)
 	{		
 		//printf("seeking to c=%d h=%d s=%d\n", cylinder, head, sector);
-		floppy_seek(d->drive_index, cylinder, head);
-		
+		if(!floppy_seek(d->drive_index, cylinder, head))
+		{
+			continue;
+		}
+
 		isa_dma_begin_transfer(0x02, 0x44, buf, FLOPPY_BYTES_PER_SECTOR * num_sectors);
 		
 		floppy_sendbyte(READ_DATA | MFM_BIT | MT_BIT);
@@ -239,10 +248,9 @@ static void floppy_read_sectors(floppy_drive* d, size_t lba, uint8_t* buf, size_
 		floppy_sendbyte(0x1b);      // 27 default gap3 value
 		floppy_sendbyte(0xff);      // default value for data length
 		
+		//this will wait forever if no media is present
 		wait_for_irq6(); // wait for irq6 to signal operation complete
-		
-		//printf("irq6\n");
-		
+				
 		uint8_t st0 = floppy_getbyte();
 		
 		for(int b = 0; b < 6; b++)
@@ -383,7 +391,7 @@ static void floppy_reset(uint8_t driveNum)
 	floppy_calibrate(driveNum);
 }
 
-static void floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head)
+static bool floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head)
 {
 	for(int i = 0; i < 3; i++)
 	{
@@ -405,8 +413,8 @@ static void floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head)
             continue;
         }
 		
-		if(fdc_cylinder == cylinder) break;
+		if(fdc_cylinder == cylinder) return true;
 	}
-	
-	//floppy_motor_off(driveNum);
+
+	return false;
 }
