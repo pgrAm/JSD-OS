@@ -74,7 +74,7 @@ static const virtual_keycode key_translation_table[] = {
 
 static INTERRUPT_HANDLER void AT_keyboard_handler(interrupt_frame* r)
 {
-	send_eoi(1 + 32);
+	acknowledge_irq(1);
 
 	uint8_t lookup = 0;
 	bool pressed = false;

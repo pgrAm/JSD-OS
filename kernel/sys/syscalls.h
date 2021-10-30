@@ -11,7 +11,7 @@
 #include <kernel/task.h>
 #include <kernel/memorymanager.h>
 #include <kernel/display.h>
-#include <drivers/sysclock.h>
+#include <kernel/sysclock.h>
 #include <drivers/kbrd.h>
 
 #define print_string print_string_len

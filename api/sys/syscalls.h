@@ -142,9 +142,9 @@ static inline size_t get_free_memory()
 	return (size_t)do_syscall_0(SYSCALL_GET_FREE_MEM);
 }
 
-static inline clock_t clock_ticks()
+static inline clock_t clock_ticks(size_t* rate)
 {
-	return (clock_t)do_syscall_0(SYSCALL_TICKS);
+	return (clock_t)do_syscall_1(SYSCALL_TICKS, (uint32_t)rate);
 }
 
 static inline int get_utc_offset()

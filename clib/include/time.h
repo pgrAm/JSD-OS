@@ -27,7 +27,7 @@ struct tm
 	int tm_isdst; 	// Daylight Saving Time flag
 };
 
-#define CLOCKS_PER_SEC 1000
+#define CLOCKS_PER_SEC (__c_get_clock_tick_rate())
 
 clock_t clock(void);
 

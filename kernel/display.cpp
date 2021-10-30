@@ -128,7 +128,7 @@ public:
 		auto dst = get_text_buffer();
 		auto src = dst + m_num_cols;
 
-		memcpy(dst, src, m_total_size * sizeof(text_char));
+		memcpy(dst, src, (m_total_size - m_num_cols) * sizeof(text_char));
 		set_cursor_position(m_num_rows - 1, 0);
 		clear_row(m_num_rows - 1);
 	}

@@ -5,8 +5,9 @@
 #include <kernel/fs_driver.h>
 #include <kernel/interrupt.h>
 #include <kernel/locks.h>
+#include <kernel/sysclock.h>
+
 #include <drivers/portio.h>
-#include <drivers/sysclock.h>
 #include <drivers/isa_dma.h>
 #include <drivers/cmos.h>
 
@@ -89,7 +90,7 @@ static disk_driver floppy_driver = {
 
 static INTERRUPT_HANDLER void floppy_irq_handler(interrupt_frame* r)
 {
-	send_eoi(6 + 32);
+	acknowledge_irq(6);
 	kernel_signal_cv(&irq6_condition);
 }
 
@@ -320,7 +321,7 @@ static void floppy_motor_on(uint8_t driveNum)
 	if(!motor_is_ready[driveNum]) 
 	{
 		outb(DIGITAL_OUTPUT_REGISTER, (0x10 << driveNum) | 0x0c | (driveNum & 0x03));
-		sysclock_sleep(500);			// wait 500ms for motor to spin up
+		sysclock_sleep(500, MILLISECONDS);			// wait 500ms for motor to spin up
 		motor_is_ready[driveNum] = true;
 	}
 }
@@ -330,7 +331,7 @@ static void floppy_motor_off(uint8_t driveNum)
 	if(motor_is_ready[driveNum]) 
 	{
 		outb(DIGITAL_OUTPUT_REGISTER, 0x0c | (driveNum & 0x03)); 
-		sysclock_sleep(2000);   // start motor kill countdown: 2s
+		sysclock_sleep(2000, MILLISECONDS);   // start motor kill countdown: 2s
 		motor_is_ready[driveNum] = false;
 	}
 }

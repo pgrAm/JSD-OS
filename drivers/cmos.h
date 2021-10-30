@@ -1,7 +1,12 @@
 #ifndef CMOS_H
 #define CMOS_H
 
-#include "portio.h"
+#include <time.h>
+#include <drivers/portio.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 inline int cmos_get_update_flag() 
 {
@@ -14,4 +19,10 @@ inline uint8_t cmos_get_register(int reg)
       outb(0x70, reg);
       return inb(0x71);
 }
+
+clock_t cmos_get_date_time(struct tm* result);
+
+#ifdef __cplusplus
+}
+#endif
 #endif

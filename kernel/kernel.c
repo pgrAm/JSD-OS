@@ -13,8 +13,8 @@
 #include <kernel/task.h>
 #include <kernel/elf.h>
 #include <kernel/display.h>
+#include <kernel/sysclock.h>
 
-#include <drivers/sysclock.h>
 #include <drivers/ramdisk.h>
 #include <drivers/kbrd.h>
 #include <drivers/formats/rdfs.h>
@@ -77,6 +77,10 @@ void kernel_main()
 
 	//memmanager_print_free_map();
 	//while(true);
+
+	/*while(true) {
+		printf("%d\n", sysclock_get_ticks(NULL));
+	}*/
 
 	load_drivers();
 

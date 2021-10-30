@@ -12,9 +12,9 @@
 #include <kernel/elf.h>
 #include <kernel/locks.h>
 #include <kernel/display.h>
+#include <kernel/sysclock.h>
 
 extern "C" {
-#include <drivers/sysclock.h>
 #include <drivers/kbrd.h>
 }
 
@@ -96,7 +96,7 @@ static const func_info func_list[] = {
 	{"kernel_wait_cv", (void*)&kernel_wait_cv},
 	{"display_add_driver", (void*)&display_add_driver},
 	{"display_mode_satisfied", (void*)&display_mode_satisfied},
-	{"send_eoi", (void*)&send_eoi}
+	{"acknowledge_irq", (void*)&acknowledge_irq}
 };
 
 extern "C" void load_drivers()

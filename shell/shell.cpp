@@ -398,7 +398,7 @@ int main(int argc, char** argv)
 
 	printf("UTC Time: %s\n", asctime(gmtime(&t_time)));
 
-	printf("UNIX TIME: %d\n", t_time);
+	printf("EPOCH TIME: %d\n", t_time);
 
 	printf("EST Time: %s\n", ctime(&t_time));
 

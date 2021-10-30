@@ -2,11 +2,9 @@
 
 #include <kernel/locks.h>
 #include <kernel/fs_driver.h>
-extern "C" {
-#include <drivers/portio.h>
-#include <drivers/sysclock.h>
+#include <kernel/sysclock.h>
 #include <kernel/interrupt.h>
-};
+#include <drivers/portio.h>
 
 #define ATA_SECTOR_SIZE 0x200
 #define ATAPI_SECTOR_SIZE 0x800
@@ -438,13 +436,13 @@ void ide_wait_irq(size_t index)
 
 static INTERRUPT_HANDLER void ata_irq_handler0(interrupt_frame* r)
 {
-	send_eoi(14 + 32);
+	acknowledge_irq(14);
 	kernel_signal_cv(&irq_condition[0]);
 }
 
 static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
 {
-	send_eoi(15 + 32);
+	acknowledge_irq(15);
 	kernel_signal_cv(&irq_condition[1]);
 }
 
@@ -628,11 +626,11 @@ void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1, uint16_t ba
 
 			// select drive.
 			ata_write(channel, ATA_REG_HDDEVSEL, 0xA0 | (index << 4));
-			sysclock_sleep(1); // wait 1ms for selection
+			sysclock_sleep(1, MILLISECONDS); // wait 1ms for selection
 
 			// send ATA identify command:
 			ata_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
-			sysclock_sleep(1);
+			sysclock_sleep(1, MILLISECONDS);
 
 			// poll drive, will return nonzero if it exists
 			if(ata_read(channel, ATA_REG_STATUS) == 0) continue;
@@ -650,7 +648,7 @@ void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1, uint16_t ba
 					continue; // Unknown Type (may not be a device).
 
 				ata_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY_PACKET);
-				sysclock_sleep(1);
+				sysclock_sleep(1, MILLISECONDS);
 			}
 
 			// read ident space of the drive

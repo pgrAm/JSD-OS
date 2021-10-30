@@ -4,9 +4,9 @@
 #include <kernel/task.h>
 #include <kernel/memorymanager.h>
 #include <kernel/physical_manager.h>
-#include <drivers/sysclock.h>
-#include <drivers/kbrd.h>
+#include <kernel/sysclock.h>
 #include <kernel/display.h>
+#include <drivers/kbrd.h>
 
 //A syscall is accomplished by
 //putting the arguments into EAX, ECX, EDX, EDI, ESI

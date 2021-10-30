@@ -64,9 +64,16 @@ time_t time(time_t* timer)
 	return the_current_time;
 }
 
+size_t __c_get_clock_tick_rate()
+{
+	size_t rate;
+	clock_ticks(&rate);
+	return rate;
+}
+
 clock_t clock(void)
 {
-	return clock_ticks();
+	return clock_ticks(NULL);
 }
 
 static const int8_t days_per_month[2][12] = {
