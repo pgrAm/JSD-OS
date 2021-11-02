@@ -41,7 +41,8 @@ enum syscall_indices
 	SYSCALL_SET_DISPLAY_CURSOR = 22,
 	SYSCALL_GET_KEYSTATE = 23,
 	SYSCALL_GET_FREE_MEM = 24,
-	SYSCALL_IOPL = 25
+	SYSCALL_IOPL = 25,
+	SYSCALL_SET_DISPLAY_OFFSET = 26
 };
 
 struct file_handle;
@@ -217,6 +218,11 @@ static inline int close_dir(directory_handle* dir)
 static inline file_handle* find_path(const directory_handle* rel, const char* name, size_t path_len)
 {
 	return (file_handle*)do_syscall_3(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name, (uint32_t)path_len);
+}
+
+static inline int set_display_offset(size_t offset, int on_retrace)
+{
+	return (int)do_syscall_2(SYSCALL_SET_DISPLAY_OFFSET, (uint32_t)offset, (uint32_t)on_retrace);
 }
 
 static inline directory_handle* open_dir_handle(const file_handle* f, int flags)

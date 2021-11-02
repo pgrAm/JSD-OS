@@ -61,10 +61,14 @@ static bool basic_text_set_mode(display_mode* requested, display_mode* actual)
 	return display_mode_satisfied(requested, &actual_mode);
 }
 
+static void basic_text_set_display_offset(size_t offset, bool on_retrace) {}
+
 static display_driver basic_text = 
 {
 	basic_text_set_mode,
 	basic_text_get_framebuffer,
+
+	basic_text_set_display_offset,
 
 	basic_text_get_cursor_offset,
 	basic_text_set_cursor_offset,

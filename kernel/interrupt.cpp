@@ -172,8 +172,14 @@ extern "C" void fault_handler(interrupt_info * r)
             return; //page fault handled, we can resume execution
         }
 
-        //set_video_mode(90, 60, VIDEO_TEXT_MODE);
-        //clear_screen();
+        display_mode requested = {
+            80, 25,
+            0,0,0,
+            FORMAT_DONT_CARE,
+            DISPLAY_TEXT_MODE
+        };
+        display_mode actual;
+        set_display_mode(&requested, &actual);
 
         printf("Unhandled %s Exception. System Halted!\n", exception_messages[r->int_no]);
 

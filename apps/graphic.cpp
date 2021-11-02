@@ -3,6 +3,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+uint32_t from_rgb(uint8_t r, uint8_t g, uint8_t b)
+{
+	return	((uint32_t)r << 16)|
+			((uint32_t)g << 8) |
+			((uint32_t)b);
+}
+
 int main(int argc, char** argv)
 {
 	display_mode requested = {
@@ -10,7 +17,7 @@ int main(int argc, char** argv)
 		0,
 		0,
 		32,
-		FORMAT_RGBA,
+		FORMAT_ARGB32,
 		0
 	};
 	display_mode actual;
@@ -23,13 +30,43 @@ int main(int argc, char** argv)
 
 	auto mem = (uint32_t*)map_display_memory();
 
-	size_t spacing = actual.width / 10;
-	for(size_t x = 0; x < actual.width; x += spacing)
+	size_t x_spacing = actual.width / 10;
+	for(size_t x = 0; x < actual.width; x += x_spacing)
 	{
 		for(size_t y = 0; y < actual.height; y++)
 		{
 			mem[y * (actual.pitch / 4) + x] = 0xFFFF00;
 		}
+	}
+
+	size_t y_spacing = actual.height / 10;
+	for(size_t y = 0; y < actual.height; y += y_spacing)
+	{
+		for(size_t x = 0; x < actual.width; x++)
+		{
+			mem[y * (actual.pitch / 4) + x] = 0x00FFFF00;
+		}
+	}
+
+	//while(VK_ESCAPE != wait_and_getkey());
+
+	for(size_t y = 0; y < actual.height; y++)
+	{
+		auto cy = y * 255 / actual.height;
+
+		for(size_t x = 0; x < actual.width; x++)
+		{
+			auto c = x * 255 / actual.width;
+
+			mem[y * (actual.pitch / 4) + x] = from_rgb(c, cy, 255 - c);
+		}
+	}
+
+	size_t offset = 0;
+	while(offset < actual.height * actual.pitch)
+	{
+		set_display_offset(offset, true);
+		offset += actual.pitch;
 	}
 
 	while(VK_ESCAPE != wait_and_getkey());

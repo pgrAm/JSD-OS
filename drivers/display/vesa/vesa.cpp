@@ -223,13 +223,14 @@ extern "C" unsigned memio_handler(x86emu_t * emu, u32 addr, u32 * val, unsigned 
 	return 0;
 }
 
-static uint16_t int10h(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint16_t es, uint16_t di)
-{ 
+static x86emu_t* int10h_start(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint16_t es, uint16_t di)
+{
 	//ser_printf("int 10h; ax = %X\r\n", ax);
 
 	pages_mapped = new std::vector<uintptr_t>();
 	mapping_cache = new hash_map<uintptr_t, uintptr_t>();
-	x86emu_t* emu = x86emu_new(X86EMU_PERM_RWX, X86EMU_PERM_RWX);
+
+	auto emu = x86emu_new(X86EMU_PERM_RWX, X86EMU_PERM_RWX);
 	x86emu_set_memio_handler(emu, &memio_handler);
 
 	x86emu_set_seg_register(emu, emu->x86.R_CS_SEL, 0);
@@ -242,9 +243,17 @@ static uint16_t int10h(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint1
 	emu->x86.R_AX = ax;
 	emu->x86.R_BX = bx;
 	emu->x86.R_CX = cx;
+	emu->x86.R_DX = dx;
 	emu->x86.R_DI = di;
 	x86emu_intr_raise(emu, 0x10, INTR_TYPE_SOFT, 0);
 	x86emu_run(emu, X86EMU_RUN_LOOP);
+
+	return emu;
+}
+
+
+static void int10h_cleanup(x86emu_t* emu)
+{
 	x86emu_done(emu);
 
 	for(auto page : *pages_mapped)
@@ -254,10 +263,202 @@ static uint16_t int10h(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint1
 
 	delete pages_mapped;
 	delete mapping_cache;
+}
 
-	//ser_printf("int 10h; ax = %X completed\r\n", ax);
+static uint16_t int10h(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint16_t es, uint16_t di)
+{ 
+	//ser_printf("int 10h; ax = %X\r\n", ax);
 
-	return emu->x86.R_AX;
+	auto emu = int10h_start(ax, bx, cx, dx, es, di);
+	auto result_ax = emu->x86.R_AX;
+
+	int10h_cleanup(emu);
+
+	return result_ax;
+}
+
+//based on SDL_MasksToPixelFormatEnum from SDL2
+display_format vesa_format_from_masks(size_t bpp,	uint32_t r_mask, uint32_t g_mask, 
+													uint32_t b_mask, uint32_t a_mask)
+{
+	switch(bpp) 
+	{
+	case 1:
+		return FORMAT_GRAYSCALE;
+	case 4:
+		return FORMAT_INDEXED_BIT_PLANE;
+	case 8:
+		if(r_mask == 0) 
+		{
+			return FORMAT_INDEXED_LINEAR;
+		}
+		if(r_mask == 0xE0 && g_mask == 0x1C &&
+		   b_mask == 0x03 && a_mask == 0x00) 
+		{
+			return FORMAT_RGB332;
+		}
+		break;
+	case 12:
+		if(r_mask == 0) 
+		{
+			return FORMAT_RGB444;
+		}
+		if(r_mask == 0x0F00 && g_mask == 0x00F0 &&
+		   b_mask == 0x000F && a_mask == 0x0000) 
+		{
+			return FORMAT_RGB444;
+		}
+		if(r_mask == 0x000F && g_mask == 0x00F0 &&
+		   b_mask == 0x0F00 && a_mask == 0x0000) 
+		{
+			return FORMAT_BGR444;
+		}
+		break;
+	case 15:
+		if(r_mask == 0) {
+			return FORMAT_RGB555;
+		}
+		//fallthrough
+	case 16:
+		if(r_mask == 0) 
+		{
+			return FORMAT_RGB565;
+		}
+		if(r_mask == 0x7C00 && g_mask == 0x03E0 &&
+		   b_mask == 0x001F && a_mask == 0x0000) 
+		{
+			return FORMAT_RGB555;
+		}
+		if(r_mask == 0x001F && g_mask == 0x03E0 &&
+		   b_mask == 0x7C00 && a_mask == 0x0000) 
+		{
+			return FORMAT_BGR555;
+		}
+		if(r_mask == 0x0F00 && g_mask == 0x00F0 &&
+		   b_mask == 0x000F && a_mask == 0xF000) 
+		{
+			return FORMAT_ARGB4444;
+		}
+		if(r_mask == 0xF000 && g_mask == 0x0F00 &&
+		   b_mask == 0x00F0 && a_mask == 0x000F) 
+		{
+			return FORMAT_RGBA4444;
+		}
+		if(r_mask == 0x000F && g_mask == 0x00F0 &&
+		   b_mask == 0x0F00 && a_mask == 0xF000) 
+		{
+			return FORMAT_ABGR4444;
+		}
+		if(r_mask == 0x00F0 && g_mask == 0x0F00 &&
+		   b_mask == 0xF000 && a_mask == 0x000F) 
+		{
+			return FORMAT_BGRA4444;
+		}
+		if(r_mask == 0x7C00 && g_mask == 0x03E0 &&
+		   b_mask == 0x001F && a_mask == 0x8000) 
+		{
+			return FORMAT_ARGB1555;
+		}
+		if(r_mask == 0xF800 && g_mask == 0x07C0 &&
+		   b_mask == 0x003E && a_mask == 0x0001) 
+		{
+			return FORMAT_RGBA5551;
+		}
+		if(r_mask == 0x001F && g_mask == 0x03E0 &&
+		   b_mask == 0x7C00 && a_mask == 0x8000)
+		{
+			return FORMAT_ABGR1555;
+		}
+		if(r_mask == 0x003E && g_mask == 0x07C0 &&
+		   b_mask == 0xF800 && a_mask == 0x0001) 
+		{
+			return FORMAT_BGRA5551;
+		}
+		if(r_mask == 0xF800 && g_mask == 0x07E0 &&
+		   b_mask == 0x001F && a_mask == 0x0000) 
+		{
+			return FORMAT_RGB565;
+		}
+		if(r_mask == 0x001F && g_mask == 0x07E0 &&
+		   b_mask == 0xF800 && a_mask == 0x0000) 
+		{
+			return FORMAT_BGR565;
+		}
+		if(r_mask == 0x003F && g_mask == 0x07C0 &&
+		   b_mask == 0xF800 && a_mask == 0x0000) 
+		{
+			return FORMAT_RGB565;
+		}
+		break;
+	case 24:
+		switch(r_mask) 
+		{
+		case 0:
+		case 0x00FF0000:
+#ifdef MACHINE_IS_BIG_ENDIAN
+			return FORMAT_RGB24;
+#else
+			return FORMAT_BGR24;
+#endif
+		case 0x000000FF:
+#ifdef MACHINE_IS_BIG_ENDIAN
+			return FORMAT_BGR24;
+#else
+			return FORMAT_RGB24;
+#endif
+		}
+	case 32:
+		if(r_mask == 0) 
+		{
+			return FORMAT_RGB888;
+		}
+		if(r_mask == 0x00FF0000 && g_mask == 0x0000FF00 &&
+		   b_mask == 0x000000FF && a_mask == 0x00000000) 
+		{
+			return FORMAT_RGB888;
+		}
+		if(r_mask == 0xFF000000 && g_mask == 0x00FF0000 &&
+		   b_mask == 0x0000FF00 && a_mask == 0x00000000) 
+		{
+			return FORMAT_RGBX8888;
+		}
+		if(r_mask == 0x000000FF && g_mask == 0x0000FF00 &&
+		   b_mask == 0x00FF0000 && a_mask == 0x00000000) 
+		{
+			return FORMAT_BGR888;
+		}
+		if(r_mask == 0x0000FF00 && g_mask == 0x00FF0000 &&
+		   b_mask == 0xFF000000 && a_mask == 0x00000000) 
+		{
+			return FORMAT_BGRX8888;
+		}
+		if(r_mask == 0x00FF0000 && g_mask == 0x0000FF00 &&
+		   b_mask == 0x000000FF && a_mask == 0xFF000000) 
+		{
+			return FORMAT_ARGB8888;
+		}
+		if(r_mask == 0xFF000000 && g_mask == 0x00FF0000 &&
+		   b_mask == 0x0000FF00 && a_mask == 0x000000FF) 
+		{
+			return FORMAT_RGBA8888;
+		}
+		if(r_mask == 0x000000FF && g_mask == 0x0000FF00 &&
+		   b_mask == 0x00FF0000 && a_mask == 0xFF000000) 
+		{
+			return FORMAT_ABGR8888;
+		}
+		if(r_mask == 0x0000FF00 && g_mask == 0x00FF0000 &&
+		   b_mask == 0xFF000000 && a_mask == 0x000000FF) 
+		{
+			return FORMAT_BGRA8888;
+		}
+		if(r_mask == 0x3FF00000 && g_mask == 0x000FFC00 &&
+		   b_mask == 0x000003FF && a_mask == 0xC0000000) 
+		{
+			return FORMAT_ARGB2101010;
+		}
+	}
+	return FORMAT_DONT_CARE;
 }
 
 enum vesa_memory_model {
@@ -306,7 +507,7 @@ struct __attribute__((packed)) vesa_mode_info
 
 	uint32_t framebuffer;		// physical address of the linear frame buffer; write here to draw to the screen
 	uint32_t off_screen_mem_off;
-	uint16_t off_screen_mem_size;	// size of memory in the framebuffer but not being displayed on the screen
+	uint16_t off_screen_mem_size;// size of memory in the framebuffer but not being displayed on the screen
 	uint8_t reserved1[206];
 };
 
@@ -330,6 +531,92 @@ struct vesa_mode
 
 int current_mode_index = -1;
 std::vector<vesa_mode>* available_modes;
+
+template <typename R>
+static constexpr R gen_mask(unsigned int const n)
+{
+	return static_cast<R>(-(n != 0))
+		& (static_cast<R>(-1) >> ((sizeof(R) * 8) - n));
+}
+
+struct __attribute__((packed)) vesa_pm_funcs
+{
+	uint16_t set_win_offset;
+	uint16_t set_display_offset;
+	uint16_t set_palette_offset;
+	uint16_t permissions_offset;
+};
+
+static uint8_t* vesa_pm_interface = nullptr;
+
+static void vesa_set_diplay_offset(size_t offset, bool on_retrace)
+{
+	uint8_t	 bl = on_retrace ? 0x80 : 0x00;
+
+	if(!vesa_pm_interface)
+	{
+		auto mode = (*available_modes)[current_mode_index].mode;
+
+		auto bytes_pp = (mode.bpp / 8);
+
+		auto pixel_offset = offset / bytes_pp;
+
+		auto pixel_pitch = mode.pitch / bytes_pp;
+
+		int10h(0x4F07, bl, pixel_offset % pixel_pitch, pixel_offset / pixel_pitch, 0, 0);
+		return;
+	}
+
+	void* func_ptr =	vesa_pm_interface + 
+						((vesa_pm_funcs*)vesa_pm_interface)->set_display_offset;
+
+	uint16_t ax = 0x4F07;
+	uint16_t cx = offset & 0xFFFF;
+	uint16_t dx = offset >> 16;
+
+	__asm__ volatile("pushw %%es\n"
+					 "call *%4\n"
+					 "popw %%es\n"
+					 :"+a"(ax), "+c"(cx), "+b"(bl), "+d"(dx)
+					 : "r"(func_ptr)
+					 : "%edi", "memory");
+}
+
+static bool vesa_get_pm_interface()
+{
+	auto emu = int10h_start(0x4f0A, 0, 0, 0, 0, 0);
+
+	bool success = emu->x86.R_AX == 0x4f;
+
+	if(success)
+	{
+		size_t table_size = emu->x86.R_CX;
+
+		far_ptr table_ptr{emu->x86.R_DI, emu->x86.R_ES};
+
+		uint8_t* func_table = (uint8_t*)translate_virtual_far_ptr(table_ptr);
+
+		vesa_pm_interface = new uint8_t[table_size];
+
+		memcpy(vesa_pm_interface, func_table, table_size);
+
+		/*uint8_t* func_ptr = vesa_pm_interface +
+			((vesa_pm_funcs*)vesa_pm_interface)->set_display_offset;
+
+		printf("%X\n", table_size);
+		printf("%X\n", ((vesa_pm_funcs*)func_table)->set_display_offset);
+
+		for(size_t i = 0; func_ptr[i] != 0xc3; i++)
+		{
+			printf("%02X ", func_ptr[i]);
+		}
+		while(true);*/
+	}
+
+	int10h_cleanup(emu);
+
+	return success;
+}
 
 static bool vesa_populate_modes()
 {
@@ -387,6 +674,11 @@ static bool vesa_populate_modes()
 			   mode_info->memory_model != DIRECT_COLOR) continue;
 		}
 
+		auto r_mask = gen_mask<uint32_t>(mode_info->red_mask) << mode_info->red_position;
+		auto g_mask = gen_mask<uint32_t>(mode_info->green_mask) << mode_info->green_position;
+		auto b_mask = gen_mask<uint32_t>(mode_info->blue_mask) << mode_info->blue_position;
+		auto a_mask = gen_mask<uint32_t>(mode_info->reserved_mask) << mode_info->reserved_position;
+
 		vesa_mode d_mode = {
 			{
 				mode_info->width,
@@ -394,7 +686,11 @@ static bool vesa_populate_modes()
 				mode_info->pitch,
 				60,
 				mode_info->bpp,
-				is_text ? FORMAT_TEXT_W_ATTRIBUTE : FORMAT_RGBA,
+				is_text ? FORMAT_TEXT_W_ATTRIBUTE : 
+				vesa_format_from_masks(mode_info->bpp,
+										r_mask, g_mask,
+										b_mask, a_mask),
+
 				is_text ? DISPLAY_TEXT_MODE : DISPLAY_RGB
 			},
 			mode_info->framebuffer,
@@ -402,7 +698,16 @@ static bool vesa_populate_modes()
 			true
 		};
 		available_modes->push_back(d_mode);
+
+		/*printf("%dx%dx%d, %d, %X, %X, %X, %X\n", 
+			   d_mode.mode.width, 
+			   d_mode.mode.height, 
+			   d_mode.mode.bpp, 
+			   d_mode.mode.format,
+			   r_mask, g_mask, b_mask, a_mask);*/
 	}
+
+	//while(true);
 
 	return true;
 }
@@ -477,6 +782,8 @@ static display_driver vesa_driver =
 	vesa_set_mode,
 	vesa_get_framebuffer,
 
+	vesa_set_diplay_offset,
+
 	vesa_get_cursor_offset,
 	vesa_set_cursor_offset,
 	vesa_set_cursor_visibility
@@ -500,6 +807,8 @@ extern "C" void vesa_init()
 		delete available_modes;
 		return;
 	}
+
+	vesa_get_pm_interface();
 
 	display_mode requested = {
 		80, 25,

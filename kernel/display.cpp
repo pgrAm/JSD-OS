@@ -258,6 +258,12 @@ SYSCALL_HANDLER int set_display_mode(display_mode* requested, display_mode* actu
 	return -1;
 }
 
+SYSCALL_HANDLER int set_display_offset(size_t offset, int on_retrace)
+{
+	default_driver->set_display_offset(offset, !!on_retrace);
+	return 0;
+}
+
 SYSCALL_HANDLER uint8_t* map_display_memory(void)
 {
 	if (this_task_is_active())

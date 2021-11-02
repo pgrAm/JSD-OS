@@ -43,6 +43,12 @@ To do:
 #define	VGA_NUM_REGS		(1 + VGA_NUM_SEQ_REGS + VGA_NUM_CRTC_REGS + \
 				VGA_NUM_GC_REGS + VGA_NUM_AC_REGS)
 
+#define HIGH_ADDRESS 0x0C
+#define LOW_ADDRESS  0x0D
+
+#define INPUT_STATUS_1		0x03da
+#define VRETRACE			0x08
+
 #include "vga_modes.h"
 
 vga_mode* current_mode = nullptr;
@@ -295,10 +301,24 @@ static bool vga_set_mode(display_mode* requested, display_mode* actual)
 	return success;
 }
 
+void vga_set_display_offset(size_t offset, bool on_retrace)
+{
+	if(on_retrace)
+	{
+		while(!(inb(INPUT_STATUS_1) & VRETRACE));
+		while((inb(INPUT_STATUS_1) & VRETRACE));
+	}
+
+	outw(VGA_CRTC_INDEX, HIGH_ADDRESS | (offset & 0xff00));
+	outw(VGA_CRTC_INDEX, LOW_ADDRESS | (offset << 8));
+}
+
 static display_driver vga_driver =
 {
 	vga_set_mode,
 	vga_get_framebuffer,
+
+	vga_set_display_offset,
 
 	vga_get_cursor_offset,
 	vga_set_cursor_offset,

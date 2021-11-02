@@ -50,7 +50,8 @@ const void* syscall_table[] =
 	set_cursor_offset,
 	get_keystate,
 	physical_num_bytes_free,
-	iopl
+	iopl,
+	set_display_offset
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

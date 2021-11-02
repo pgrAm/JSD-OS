@@ -147,7 +147,7 @@ struct ata_drive
 
 ata_drive ide_drives[4];
 
-void ata_write(uint8_t channel, uint8_t reg, uint8_t data) {
+static void ata_write(uint8_t channel, uint8_t reg, uint8_t data) {
 	if(reg > 0x07 && reg < 0x0C)
 		ata_write(channel, ATA_REG_CONTROL, 0x80 | channels[channel].no_interrupt);
 	if(reg < 0x08)
@@ -162,7 +162,7 @@ void ata_write(uint8_t channel, uint8_t reg, uint8_t data) {
 		ata_write(channel, ATA_REG_CONTROL, channels[channel].no_interrupt);
 }
 
-uint8_t ata_read(uint8_t channel, uint8_t reg)
+static uint8_t ata_read(uint8_t channel, uint8_t reg)
 {
 	uint8_t result = 0;
 	if(reg > 0x07 && reg < 0x0C)
@@ -180,7 +180,7 @@ uint8_t ata_read(uint8_t channel, uint8_t reg)
 	return result;
 }
 
-void ata_read_buffer(uint8_t channel, uint8_t reg, uint8_t* buffer, size_t size)
+static void ata_read_buffer(uint8_t channel, uint8_t reg, uint8_t* buffer, size_t size)
 {
 	if(reg > 0x07 && reg < 0x0C)
 		ata_write(channel, ATA_REG_CONTROL, 0x80 | channels[channel].no_interrupt);
@@ -198,7 +198,7 @@ void ata_read_buffer(uint8_t channel, uint8_t reg, uint8_t* buffer, size_t size)
 		ata_write(channel, ATA_REG_CONTROL, channels[channel].no_interrupt);
 }
 
-void ata_delay400(uint8_t channel)
+static void ata_delay400(uint8_t channel)
 {
 	//Delay 400 nanosecond for BSY to be set:
 	for(size_t i = 0; i < 4; i++)
@@ -208,7 +208,7 @@ void ata_delay400(uint8_t channel)
 	}
 }
 
-ata_error ata_poll(uint8_t channel, bool check_status = false)
+static ata_error ata_poll(uint8_t channel, bool check_status = false)
 {
 	//wait for BSY to be set:
 	ata_delay400(channel);
@@ -228,7 +228,7 @@ ata_error ata_poll(uint8_t channel, bool check_status = false)
 	return ata_error::NONE;
 }
 
-ata_error ata_print_error(ata_drive& drive, ata_error err)
+static ata_error ata_print_error(ata_drive& drive, ata_error err)
 {
 	if(err == ata_error::NONE)
 		return err;
@@ -301,7 +301,7 @@ ata_error ata_print_error(ata_drive& drive, ata_error err)
 	return err;
 }
 
-ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_t lba,
+static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_t lba,
 					 uint8_t numsects, uint8_t* buffer)
 {
 	uint8_t		lba_io[6];
@@ -429,7 +429,7 @@ ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_t lba,
 	return ata_error::NONE; // Easy, isn't it?
 }
 
-void ide_wait_irq(size_t index)
+static void ata_wait_irq(size_t index)
 {
 	kernel_wait_cv(&irq_condition[index]);
 }
@@ -446,7 +446,7 @@ static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
 	kernel_signal_cv(&irq_condition[1]);
 }
 
-ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sectors, uint8_t* buffer)
+static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sectors, uint8_t* buffer)
 {
 	uint32_t channel = drive.channel;
 	uint32_t ms_bit = drive.drive;
@@ -495,7 +495,7 @@ ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sectors, ui
 	// receive data:
 	for(size_t i = 0; i < num_sectors; i++)
 	{
-		ide_wait_irq(channel);
+		ata_wait_irq(channel);
 		if(auto err = ata_poll(channel, 1); err != ata_error::NONE)
 		{
 			return err;
@@ -504,7 +504,7 @@ ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sectors, ui
 		buffer += (words * sizeof(uint16_t));
 	}
 
-	ide_wait_irq(channel);
+	ata_wait_irq(channel);
 
 	// wait for BSY & DRQ to clear:
 	while(ata_read(channel, ATA_REG_STATUS) & (ATA_SR_BSY | ATA_SR_DRQ));
@@ -598,8 +598,9 @@ static bool ata_check_status(uint8_t channel)
 	}
 }
 
-void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1, uint16_t base_port2,
-						   uint16_t base_port3, uint16_t base_port4)
+static void ata_initialize_drives(	uint16_t base_port0, uint16_t base_port1, 
+									uint16_t base_port2, uint16_t base_port3, 
+									uint16_t base_port4)
 {
 	//install irq handlers
 	irq_install_handler(14, ata_irq_handler0);

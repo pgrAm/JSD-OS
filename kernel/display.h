@@ -26,6 +26,8 @@ struct display_driver
 
 	uint8_t* (*get_framebuffer)();
 
+	void (*set_display_offset)(size_t offset, bool on_retrace);
+
 	//text mode funcs
 	size_t(*get_cursor_offset)();
 	void (*set_cursor_offset)(size_t offset);
@@ -40,6 +42,8 @@ bool display_mode_satisfied(display_mode* requested, display_mode* actual);
 
 SYSCALL_HANDLER int set_display_mode(display_mode* requested, display_mode* actual);
 SYSCALL_HANDLER uint8_t* map_display_memory(void);
+SYSCALL_HANDLER int set_display_offset(size_t offset, int on_retrace);
+
 
 #ifdef __cplusplus
 }
