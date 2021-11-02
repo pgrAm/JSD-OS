@@ -15,7 +15,7 @@ my $builddir = getcwd . "/builddir";
 
 mkpath($builddir);
 
-my @common_flags = qw(-target i386-elf -Wuninitialized -Wall -fno-asynchronous-unwind-tables -march=i386  -O2 -mno-sse -mno-mmx  -fomit-frame-pointer -fno-builtin -I ./ -Werror=implicit-function-declaration -flto -I clib/include);
+my @common_flags = qw(-target i386-elf -Wuninitialized -Wall -fno-asynchronous-unwind-tables -march=i386  -O2 -mno-sse -mno-mmx  -fomit-frame-pointer -fno-builtin -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
 my @cpp_flags = qw(-std=c++17 -fno-rtti -fno-exceptions -I cpplib/include);
 my @c_flags = qw(-std=c99 -Wc++-compat);
 my @asm_flags = qw(-f elf);
@@ -44,18 +44,20 @@ my @kernel_src = qw(
 	kernel/physical_manager.c
 	kernel/filesystem.cpp
 	kernel/elf.cpp
-	kernel/interrupt.c
+	kernel/interrupt.cpp
 	kernel/syscall.c
 	kernel/task.cpp
 	kernel/locks.c
 	kernel/driver_loader.cpp
 	kernel/display.cpp
+	kernel/sysclock.cpp
 
 	drivers/display/basic_text/basic_text.cpp
 	drivers/formats/rdfs.cpp
 	drivers/ramdisk.c
-	drivers/sysclock.c
-	drivers/kbrd.c		
+	drivers/kbrd.c
+	drivers/cmos.cpp
+	drivers/pit.cpp		
 );
 
 my @clib_src = qw(	
@@ -104,7 +106,7 @@ my $libemu = build(	static => 'true',
 					ldflags => []);
 
 my $vesa_drv = build_driver("vesa.drv", 
-							["drivers/display/vesa/vesa.cpp", "drivers/rs232.c"], 
+							["drivers/display/vesa/vesa.cpp"], 
 							[$libemu, link_lib($drv_lib)]);
 
 my $clib = build_shared("clib.lib", \@clib_src);
