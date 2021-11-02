@@ -54,7 +54,7 @@ my @kernel_src = qw(
 
 	drivers/display/basic_text/basic_text.cpp
 	drivers/formats/rdfs.cpp
-	drivers/ramdisk.c
+	drivers/ramdisk.cpp
 	drivers/kbrd.c
 	drivers/cmos.cpp
 	drivers/pit.cpp		
@@ -80,10 +80,10 @@ system("objcopy -O binary $builddir/kernal.elf $builddir/kernal.sys --set-sectio
 build_driver("AT_kbrd.drv", ["drivers/at_kbrd.c"]);
 my $isa_dma = 
 build_driver("isa_dma.drv", ["drivers/isa_dma.c"]);
-my $floppy_drv = build_driver("floppy.drv", ["drivers/floppy.c"], [link_lib($isa_dma)]);
 my $drv_lib = 
 build_driver("drvlib.lib", ["drivers/drvlib.cpp"]);
 
+my $floppy_drv = build_driver("floppy.drv", ["drivers/floppy.cpp"], [link_lib($drv_lib), link_lib($isa_dma)]);
 my $vga_drv = build_driver("vga.drv", 		["drivers/display/vga/vga.cpp"], [link_lib($drv_lib)]);
 my $mbr_drv = build_driver("mbr.drv", 		["drivers/formats/mbr.cpp"], 	[link_lib($drv_lib)]);
 my $ata_drv = build_driver("ata.drv", 		["drivers/ata.cpp"], 			[link_lib($drv_lib)]);

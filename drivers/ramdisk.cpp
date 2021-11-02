@@ -14,15 +14,15 @@ typedef struct ramdisk_drive
 	size_t size;
 } ramdisk_drive;
 
-static ramdisk_drive init_disk = {NULL, 0};
+static ramdisk_drive init_disk = {nullptr, 0};
 
 static void ramdisk_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
 static ramdisk_drive* ramdisk_get_drive(size_t index);
 
 static disk_driver ramdisk_driver = {
 	ramdisk_read_blocks,
-	NULL,
-	NULL
+	nullptr,
+	nullptr
 };
 
 static void ramdisk_read_blocks(const filesystem_drive* d, size_t offset, uint8_t* buf, size_t num_bytes)
@@ -42,7 +42,7 @@ static void ramdisk_read_blocks(const filesystem_drive* d, size_t offset, uint8_
 
 static ramdisk_drive* ramdisk_get_drive(size_t index)
 {
-	if(init_disk.base == NULL)
+	if(init_disk.base == nullptr)
 	{
 		uintptr_t rd_begin = ((multiboot_modules*)_multiboot->m_modsAddr)[0].begin;
 		uintptr_t rd_end = ((multiboot_modules*)_multiboot->m_modsAddr)[0].end;
