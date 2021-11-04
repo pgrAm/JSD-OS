@@ -1,11 +1,13 @@
 #ifndef TASK_H
 #define TASK_H
-#ifdef __cplusplus
-extern "C" {
-#endif
+
 #include <stddef.h>
 #include <stdint.h>
 #include <kernel/syscall.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define INVALID_PID (~(size_t)0x0)
 typedef struct process process;

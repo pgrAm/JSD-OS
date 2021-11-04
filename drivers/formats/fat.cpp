@@ -9,8 +9,6 @@
 #include <vector>
 #include <kernel/fs_driver.h>
 
-#include "fat.h"
-
 #define FAT12_EOF 0xFF8
 #define FAT16_EOF 0xFFF8
 #define FAT32_EOF 0x0FFFFFF8

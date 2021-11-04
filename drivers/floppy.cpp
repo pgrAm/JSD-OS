@@ -11,8 +11,6 @@
 #include <drivers/isa_dma.h>
 #include <drivers/cmos.h>
 
-#include "floppy.h"
-
 #define FLOPPY_360_SECTORS_PER_TRACK	9
 #define FLOPPY_360_HEADS_PER_CYLINDER	2
 #define FLOPPY_360_NUMBER_OF_TRACKS		40
@@ -174,7 +172,7 @@ static int floppy_free_buffer(uint8_t* buffer, size_t size)
 	return isa_dma_free_buffer(buffer, size);
 }*/
 
-void floppy_init()
+extern "C" void floppy_init()
 {
 	uint8_t floppyTypes = cmos_get_register(0x10);
 	
