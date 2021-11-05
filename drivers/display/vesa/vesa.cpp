@@ -679,6 +679,11 @@ static bool vesa_populate_modes()
 		auto b_mask = gen_mask<uint32_t>(mode_info->blue_mask) << mode_info->blue_position;
 		auto a_mask = gen_mask<uint32_t>(mode_info->reserved_mask) << mode_info->reserved_position;
 
+		if(mode_info->framebuffer == 0)
+		{
+			continue;
+		}
+
 		vesa_mode d_mode = {
 			{
 				mode_info->width,
@@ -721,7 +726,6 @@ bool vesa_do_mode_switch(uint16_t mode_num, bool vesa)
 	{
 		int10h(mode_num, 0, 0, 0, 0, 0);
 	}
-	//ser_printf("set\r\n");
 	return true;
 }
 
@@ -739,7 +743,6 @@ static bool vesa_set_mode(display_mode* requested, display_mode* actual)
 			{
 				if(success = vesa_do_mode_switch(m.index, m.is_vesa); success)
 				{
-					//ser_printf("vesa mode set\r\n");
 					current_mode_index = i;
 					break;
 				}

@@ -6,6 +6,8 @@
 #include <new>
 
 #include <kernel/memorymanager.h>
+#include <kernel/physical_manager.h>
+
 #include <kernel/locks.h>
 #include <kernel/task.h>
 #include <drivers/portio.h>
@@ -24,6 +26,27 @@ constexpr text_char clearval = {'\0', 0x0f};
 display_driver* default_driver = nullptr;
 std::vector<display_driver*> display_drivers;
 
+uint8_t* get_mapped_frame_buffer(display_driver* driver)
+{
+	auto phys_addr = driver->get_framebuffer();
+
+	printf("%X\n", phys_addr);
+
+	if((uintptr_t)phys_addr < 0x100000)
+	{
+		return phys_addr;
+	}
+
+	auto page_addr = align_addr((uintptr_t)phys_addr, PAGE_SIZE);
+
+	if(memmanager_get_physical(page_addr) != page_addr)
+	{
+		return map_display_memory();
+	}
+
+	return phys_addr;
+}
+
 class kernel_terminal
 {
 public:
@@ -31,7 +54,7 @@ public:
 
 	kernel_terminal(display_driver* driver, size_t rows, size_t cols) :
 		m_display(driver),
-		m_screen_ptr((text_char*)driver->get_framebuffer()),
+		m_screen_ptr((text_char*)get_mapped_frame_buffer(driver)),
 		m_num_rows(rows),
 		m_num_cols(cols),
 		m_total_size(rows*cols),
