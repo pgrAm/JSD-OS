@@ -8,7 +8,7 @@
 #include <kernel/interrupt.h>
 #include <kernel/memorymanager.h>
 #include <kernel/physical_manager.h>
-#include <kernel/multiboot.h>
+#include <kernel/boot_info.h>
 #include <kernel/driver_loader.h>
 #include <kernel/task.h>
 #include <kernel/elf.h>
@@ -19,8 +19,6 @@
 #include <drivers/kbrd.h>
 #include <drivers/formats/rdfs.h>
 #include <drivers/display/basic_text/basic_text.h>
-
-extern multiboot_info* _multiboot;
 
 extern void _IMAGE_END_;
 extern void _BSS_END_;
@@ -38,7 +36,7 @@ extern void memmanager_print_free_map();
 
 void kernel_main()
 {
-	//clear_screen();
+	parse_boot_info();
 
 	interrupts_init();
 
@@ -50,15 +48,11 @@ void kernel_main()
 	//call global constructors
 	handle_init_array();
 
-	printf("Found Kernel %X - %X\n", 0x8000, &_BSS_END_);
+	printf("Found Kernel: %X - %X\n", 0x8000, &_BSS_END_);
 
-	for(size_t i = 0; i < _multiboot->m_modsCount; i++)
-	{
-		uintptr_t rd_begin = ((multiboot_modules*)_multiboot->m_modsAddr)[i].begin;
-		uintptr_t rd_end = ((multiboot_modules*)_multiboot->m_modsAddr)[i].end;
-
-		printf("Found Module %X - %X\n", rd_begin, rd_end);
-	}
+	printf("Found Ram Disk: %X - %X\n", 
+		   boot_information.ramdisk_location, 
+		   boot_information.ramdisk_location + boot_information.ramdisk_size);
 
 	sysclock_init();
 

@@ -1,12 +1,10 @@
 #include <stdio.h>
 
 #include <kernel/memorymanager.h>
-#include <kernel/multiboot.h>
+#include <kernel/boot_info.h>
 #include <kernel/fs_driver.h>
 
 #include "ramdisk.h"
-
-extern multiboot_info* _multiboot;
 
 typedef struct ramdisk_drive
 {
@@ -44,8 +42,8 @@ static ramdisk_drive* ramdisk_get_drive(size_t index)
 {
 	if(init_disk.base == nullptr)
 	{
-		uintptr_t rd_begin = ((multiboot_modules*)_multiboot->m_modsAddr)[0].begin;
-		uintptr_t rd_end = ((multiboot_modules*)_multiboot->m_modsAddr)[0].end;
+		uintptr_t rd_begin = boot_information.ramdisk_location;
+		uintptr_t rd_end = rd_begin + boot_information.ramdisk_size;
 
 		size_t rd_size = rd_end - rd_begin;
 

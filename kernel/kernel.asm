@@ -3,7 +3,8 @@
 [extern kernel_main] 	; Declare that we will be referencing the external symbol 'main ’,
 [extern _BSS_END_]
 
-global _multiboot
+global _boot_eax
+global _boot_edx
 
 global _KERNEL_START_
 _KERNEL_START_:
@@ -55,6 +56,9 @@ header_end:
 	mov ebp, 0x00080000 ; Update our stack position so it is right at the top of the free space.
 	mov esp, ebp
 
+	mov dword [_boot_edx], ebx
+	mov dword [_boot_eax], eax
+
 	; set gdt
 	lgdt [gdt_descriptor]
 	jmp GDT_CODE_SEG : set_regs
@@ -65,8 +69,6 @@ set_regs:
 	mov es, ax
 	mov fs, ax
 	mov gs, ax
-	
-	mov dword [_multiboot], ebx
 
 	pushad
 	mov edi, 0x112345 ;odd megabyte address.
@@ -84,7 +86,8 @@ set_regs:
 	call kernel_main	; invoke main () in our C kernel
 	jmp $ 				; Hang forever when we return from the kernel
 
-_multiboot dd 0
+_boot_eax dd 0
+_boot_edx dd 0
 
 deal_with_a20:
     call    a20wait

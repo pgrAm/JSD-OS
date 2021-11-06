@@ -1,4 +1,5 @@
 #include <kernel/physical_manager.h>
+#include <kernel/boot_info.h>
 #include <stdio.h>
 
 typedef struct
@@ -241,9 +242,6 @@ SYSCALL_HANDLER size_t physical_num_bytes_free(void)
 	return sum;
 }
 
-#include "multiboot.h"
-extern multiboot_info* _multiboot;
-
 size_t total_mem_size = 0;
 
 size_t physical_mem_size(void)
@@ -255,19 +253,17 @@ extern uint32_t* tss_esp0_location;
 extern void _IMAGE_END_;
 extern void _KERNEL_START_;
 
-multiboot_modules kernel_modules;
-
 void physical_memory_init(void) 
 {
-	total_mem_size = _multiboot->m_memoryLo * 1024 + _multiboot->m_memoryHi * 1024;
+	total_mem_size = boot_information.low_memory * 1024 + boot_information.high_memory * 1024;
 
 	//printf("Image: %X\n", &_IMAGE_END_);
 
 	uintptr_t block0_start = (uintptr_t)&_IMAGE_END_;
-	size_t block0_size = (_multiboot->m_memoryLo * 1024) - block0_start;
+	size_t block0_size = (boot_information.low_memory * 1024) - block0_start;
 
 	physical_memory_add_block(0, block0_start, block0_size);
-	physical_memory_add_block(1, 0x00100000, _multiboot->m_memoryHi * 1024);
+	physical_memory_add_block(1, 0x00100000, boot_information.high_memory * 1024);
 
 	uintptr_t stack_loc = (uintptr_t)tss_esp0_location;// tss_esp0_location;
 	size_t stack_size = 4 * 4096;
@@ -278,15 +274,7 @@ void physical_memory_init(void)
 	physical_memory_reserve(stack_loc - stack_size, stack_size);
 
 	//reserve modules
-	for(size_t i = 0; i < _multiboot->m_modsCount; i++)
-	{
-		uintptr_t rd_begin = ((multiboot_modules*)_multiboot->m_modsAddr)[i].begin;
-		uintptr_t rd_end = ((multiboot_modules*)_multiboot->m_modsAddr)[i].end;
-
-		physical_memory_reserve(rd_begin, rd_end - rd_begin);
-
-		//printf("%X - %X\n", rd_begin, rd_end);
-	}
+	physical_memory_reserve(boot_information.ramdisk_location, boot_information.ramdisk_size);
 
 	physical_memory_add_block(num_memory_blocks, 0x1000, (uintptr_t)&_KERNEL_START_ - 0x500);
 

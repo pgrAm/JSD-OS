@@ -51,6 +51,7 @@ my @kernel_src = qw(
 	kernel/driver_loader.cpp
 	kernel/display.cpp
 	kernel/sysclock.cpp
+	kernel/boot_info.c
 
 	drivers/display/basic_text/basic_text.cpp
 	drivers/formats/rdfs.cpp
@@ -189,15 +190,21 @@ sub build_fdimage
     my $name = $args{name};
 	my $boot_file = $args{boot_file};
 	
-	unlink($name);
-	system("tools/fat_imgen -c -f \"$name\"");
-	if(defined($boot_file)) {
-		system("tools/fat_imgen -m -f \"$name\" -s \"$boot_file\"");
+	my $folder = "$builddir/fd/$name.bld";
+	my $imgfile = "$builddir/$name";
+
+	mkpath("$folder");
+
+	foreach my $file (@$files) 
+	{
+		my ($filename,$dir,undef) = fileparse($file);
+		copy($file, "$folder/$filename");
 	}
-	foreach my $file (@$files) {
-		system("tools/fat_imgen -m -f \"$name\" -i \"$file\"");
-	}
+
+	unlink("$builddir/$name");
+	system("tools/bfi -t=144 -f=\"$imgfile\" -b=$boot_file $folder");
 }
+
 
 sub build_static
 {
