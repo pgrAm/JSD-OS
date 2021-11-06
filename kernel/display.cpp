@@ -30,8 +30,6 @@ uint8_t* get_mapped_frame_buffer(display_driver* driver)
 {
 	auto phys_addr = driver->get_framebuffer();
 
-	printf("%X\n", phys_addr);
-
 	if((uintptr_t)phys_addr < 0x100000)
 	{
 		return phys_addr;

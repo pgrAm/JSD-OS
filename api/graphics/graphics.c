@@ -164,7 +164,7 @@ void clear_row(uint16_t row)
 
 static void scroll_up()
 {
-	memcpy((void*)VIDEOMEM, (void*)(VIDEOMEM + 2*NUMCOLS), 2*NUMCOLS*NUMROWS);
+	memcpy((void*)VIDEOMEM, (void*)(VIDEOMEM + 2*NUMCOLS), 2*NUMCOLS*(NUMROWS-1));
 	set_cursor_position(NUMROWS - 1, 0);
 	clear_row(NUMROWS - 1);
 }

@@ -679,10 +679,10 @@ static bool vesa_populate_modes()
 		auto b_mask = gen_mask<uint32_t>(mode_info->blue_mask) << mode_info->blue_position;
 		auto a_mask = gen_mask<uint32_t>(mode_info->reserved_mask) << mode_info->reserved_position;
 
-		if(mode_info->framebuffer == 0)
-		{
-			continue;
-		}
+
+		auto frame_buffer	= (mode_info->framebuffer != 0) 
+							? mode_info->framebuffer 
+							: (uintptr_t)far_ptr{0, mode_info->segment_a}.access();
 
 		vesa_mode d_mode = {
 			{
@@ -698,7 +698,7 @@ static bool vesa_populate_modes()
 
 				is_text ? DISPLAY_TEXT_MODE : DISPLAY_RGB
 			},
-			mode_info->framebuffer,
+			frame_buffer,
 			mode,
 			true
 		};
