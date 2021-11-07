@@ -30,14 +30,8 @@ uint8_t* get_mapped_frame_buffer(display_driver* driver)
 {
 	auto phys_addr = driver->get_framebuffer();
 
-	if((uintptr_t)phys_addr < 0x100000)
-	{
-		return phys_addr;
-	}
 
-	auto page_addr = align_addr((uintptr_t)phys_addr, PAGE_SIZE);
-
-	if(memmanager_get_physical(page_addr) != page_addr)
+	if(memmanager_get_physical((uintptr_t)phys_addr) != (uintptr_t)phys_addr)
 	{
 		return map_display_memory();
 	}

@@ -8,6 +8,10 @@ extern "C" {
 #endif
 typedef struct 
 {
+	//all adresses are physical
+	uintptr_t kernel_location;
+	size_t kernel_size;
+
 	uintptr_t ramdisk_location;
 	size_t ramdisk_size;
 

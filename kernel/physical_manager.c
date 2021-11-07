@@ -250,8 +250,6 @@ size_t physical_mem_size(void)
 }
 
 extern uint32_t* tss_esp0_location;
-extern void _IMAGE_END_;
-extern void _KERNEL_START_;
 
 void physical_memory_init(void) 
 {
@@ -259,7 +257,7 @@ void physical_memory_init(void)
 
 	//printf("Image: %X\n", &_IMAGE_END_);
 
-	uintptr_t block0_start = (uintptr_t)&_IMAGE_END_;
+	uintptr_t block0_start = boot_information.kernel_location + boot_information.kernel_size;
 	size_t block0_size = (boot_information.low_memory * 1024) - block0_start;
 
 	physical_memory_add_block(0, block0_start, block0_size);
@@ -276,7 +274,7 @@ void physical_memory_init(void)
 	//reserve modules
 	physical_memory_reserve(boot_information.ramdisk_location, boot_information.ramdisk_size);
 
-	physical_memory_add_block(num_memory_blocks, 0x1000, (uintptr_t)&_KERNEL_START_ - 0x500);
+	physical_memory_add_block(num_memory_blocks, 0x1000, boot_information.kernel_location - 0x500);
 
 	//reserve BIOS & VRAM
 	physical_memory_reserve(0x80000, 0x100000 - 0x80000);

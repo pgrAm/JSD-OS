@@ -27,7 +27,7 @@ disk_load:
 
 		mov     ax, 0x0201                            ; BIOS read sector, 1 sector
 
-		mov     dl, BYTE [boot_info + multiboot_info.bootDevice]            ; drive
+		mov     dl, BYTE [MULTIBOOT_OFFSET + multiboot_info.bootDevice]            ; drive
 		int     0x13														; call bios interrupt
 		
 		pop     cx									; restore # of sectors

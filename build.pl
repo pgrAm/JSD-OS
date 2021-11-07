@@ -71,10 +71,16 @@ my @clib_src = qw(
 	clib/string.asm
 );
 
+my $boot_mapper = build(name => "boot_mapper.a", 
+						static => 'true',
+						src => ["kernel/boot_mapper.cpp"], 
+						flags => [@common_flags, @kernel_flags, "-fno-lto", "-fPIC"], 
+						ldflags => []);
+
 build(	name => "kernal.elf", 
 		src => [@kernel_src, @clib_src], 
 		flags => [@common_flags, @kernel_flags], 
-		ldflags => \@kernel_ld_flags);
+		ldflags => [@kernel_ld_flags, $boot_mapper]);
 
 system("objcopy -O binary $builddir/kernal.elf $builddir/kernal.sys --set-section-flags .bss=alloc,load,contents --gap-fill 0");
 
@@ -132,7 +138,7 @@ system("$builddir/tools/rdfs configs/fdboot/init.sys $builddir/drvlib.lib $build
 system("nasm boot/boot_sect.asm -i boot -f bin -o $builddir/boot_sect.bin");
 
 build_fdimage(
-	name => "$builddir/os.vfd",
+	name => "os.vfd",
 	boot_file => "$builddir/boot_sect.bin", 
 	files => [
 		"$builddir/fdboot/init.rfs",
@@ -155,7 +161,7 @@ build_fdimage(
 mkpath("$builddir/iso");
 
 build_fdimage(
-	name => "$builddir/iso/isoboot.img",
+	name => "iso/isoboot.img",
 	boot_file => "$builddir/boot_sect.bin", 
 	files => [
 		"$builddir/cdboot/init.rfs",
@@ -263,8 +269,8 @@ sub build {
 	
 	my $outdir = "$builddir/$dir/$filename";
 	
-	foreach my $file (@$src) {
-		
+	foreach my $file (@$src)
+	{
 		my $outfile = "$outdir/$file.o";
 
 		mkpath(dirname($outfile));
@@ -276,6 +282,8 @@ sub build {
 		elsif($file =~ /\.cpp$/i)
 		{		
 			system($cpp, "-c", $file, "-o", $outfile, @cpp_flags, @$flags);
+			
+			#print ("$cpp -c $file -o $outfile @cpp_flags @$flags\n");
 		}
 		elsif($file =~ /\.asm$/i)
 		{		

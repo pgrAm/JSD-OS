@@ -52,7 +52,7 @@ LOAD_FAT:
 		mov     ax, dx								; cluster to read
 	push	ax									; save cluster on stack
 
-	; LBA = (cluster - 2) * _sectors_per_cluster
+	; LBA = (cluster - 2) * _sectors_per_cluster + datasector
 	; convert cluster to LBA
 		sub     ax, 0x0002                          ; zero base cluster number
 		mov     cx, _sectors_per_cluster   			; convert byte to word
@@ -78,7 +78,7 @@ LOAD_FAT:
 		je		.skip_fat_load	
 
 	; read FAT into memory (0x0500)
-		mov		cx, 1				;1 sector
+		inc		cx				;1 sector, we already know cx == 0 after disk_load
 		mov		[fat_sector], ax	;save the fat sector
 		mov     bx, FAT_LOCATION	;read the FAT to ss:0x0500
 		call  	load_disk_ss 		;load	

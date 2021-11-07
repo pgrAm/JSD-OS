@@ -1,14 +1,69 @@
 ; Ensures that we jump straight into the kernel ’s entry function.
 [bits 32] 		; We’re in protected mode by now , so use 32 - bit instructions.
 [extern kernel_main] 	; Declare that we will be referencing the external symbol 'main ’,
+[extern boot_remap_addresses]
+[extern adjust_gdt]
 [extern _BSS_END_]
+[extern _IMAGE_END_]
 
 global _boot_eax
 global _boot_edx
+global _kernel_location
+global gdt_location
+global gdt_tss_location
+global tss_location
+global gdt_descriptor_location
 
 global _KERNEL_START_
 _KERNEL_START_:
+	cli
+	pushad
+	call get_ip
+get_ip:
+	pop		ebx
+	sub		ebx, (get_ip - _KERNEL_START_) ;ebx now contains the actual _KERNEL_START_
+	
+	push	ebx
+	push	(_IMAGE_END_ - _KERNEL_START_)
+	push	_KERNEL_START_
 
+	add		ebx, (boot_remap_addresses - _KERNEL_START_)
+	call	ebx
+
+	add esp, 8
+	pop ebx
+
+	mov cr3, eax ; set cr3 to value returned by boot_remap_addresses
+
+	push ebx
+
+	mov edx, trampoline_end - trampoline_begin
+	mov ecx, edx
+	sub esp, ecx
+	mov edi, esp
+	mov esi, ebx
+	add esi, (trampoline_begin - _KERNEL_START_)
+	rep movsb
+
+
+
+	mov eax, cr0
+	or  eax, 0x80000001 ;enable paging
+
+	jmp esp
+
+trampoline_begin:
+	mov cr0, eax
+	mov eax, begin_in_VM
+	jmp eax
+trampoline_end:
+
+begin_in_VM:
+	add esp, edx
+
+	pop		ebx
+	mov		[_kernel_location], ebx
+	popad
 start:
 	jmp header_end
 	
@@ -59,6 +114,8 @@ header_end:
 	mov dword [_boot_edx], ebx
 	mov dword [_boot_eax], eax
 
+	;call adjust_gdt
+
 	; set gdt
 	lgdt [gdt_descriptor]
 	jmp GDT_CODE_SEG : set_regs
@@ -88,6 +145,7 @@ set_regs:
 
 _boot_eax dd 0
 _boot_edx dd 0
+_kernel_location dd 0
 
 deal_with_a20:
     call    a20wait
@@ -126,51 +184,54 @@ loadTSS:
 	mov	ax, GDT_TSS_SEG | 3
 	ltr ax
 	ret
-	
+
 ; GDT
+gdt_location:
 gdt_start :
 gdt_null :
-dq 0x0000000000000000
+	dq 0x0000000000000000
 gdt_code : 	
-dw 0xffff 	
-dw 0x0000 
-db 0x00 		
-db 0x9A
-db 0xCF ;flags and top nibble of limit
-db 0x00 		
+	dw 0xffff 	
+	dw 0x0000 
+	db 0x00 		
+	db 0x9A
+	db 0xCF ;flags and top nibble of limit
+	db 0x00 		
 gdt_data : 	
-dw 0xffff 	
-dw 0x0000 		
-db 0x00		
-db 0x92
-db 0xCF ;flags and top nibble of limit
-db 0x00
+	dw 0xffff 	
+	dw 0x0000 		
+	db 0x00		
+	db 0x92
+	db 0xCF ;flags and top nibble of limit
+	db 0x00
 gdt_usr_code : 	
-dw 0xffff 	
-dw 0x0000 
-db 0x00 		
-db 0xFA
-db 0xCF ;flags and top nibble of limit
-db 0x00 		
+	dw 0xffff 	
+	dw 0x0000 
+	db 0x00 		
+	db 0xFA
+	db 0xCF ;flags and top nibble of limit
+	db 0x00 		
 gdt_usr_data : 	
-dw 0xffff 	
-dw 0x0000 		
-db 0x00		
-db 0xF2
-db 0xCF ;flags and top nibble of limit
-db 0x00
+	dw 0xffff 	
+	dw 0x0000 		
+	db 0x00		
+	db 0xF2
+	db 0xCF ;flags and top nibble of limit
+	db 0x00
+gdt_tss_location:
 gdt_tss:
-dw TSS_SIZE & 0x0000FFFF		;this is the limit for the tss
-dw TSS_OFFSET & 0x0000FFFF		;this is the base for the tss
-db (TSS_OFFSET >> 16) & 0xFF	;this the the high bits	fot the base
-db 0x89	
-db ((TSS_SIZE >> 16) & 0x0F) | 0x40	;= ((limit & 0xF0000) >> 16) | 0x40
-db 0x00 				
+	dw TSS_SIZE & 0x0000FFFF		;this is the limit for the tss
+	dw TSS_OFFSET & 0x0000FFFF		;this is the base for the tss
+	db (TSS_OFFSET >> 16) & 0xFF	;this the the high bits	fot the base
+	db 0x89	
+	db ((TSS_SIZE >> 16) & 0x0F) | 0x40	;= ((limit & 0xF0000) >> 16) | 0x40
+	db 0x00 				
 gdt_end :
- 	
+
+gdt_descriptor_location:
 gdt_descriptor :
-dw gdt_end - gdt_start - 1
-dd gdt_start
+	dw gdt_end - gdt_start - 1
+	dd gdt_start
 
 GDT_CODE_SEG equ gdt_code - gdt_start
 GDT_DATA_SEG equ gdt_data - gdt_start
@@ -178,8 +239,8 @@ GDT_USER_CODE_SEG equ gdt_usr_code - gdt_start
 GDT_USER_DATA_SEG equ gdt_usr_data - gdt_start
 GDT_TSS_SEG equ gdt_tss - gdt_start
 
-
 global tss_esp0_location
+tss_location:
 tss_begin:
 	dd 	0x00000000
 tss_esp0_location:
@@ -189,7 +250,7 @@ tss_esp0_location:
 tss_end:
 
 TSS_SIZE equ (tss_end - tss_begin)
-TSS_OFFSET equ 0x8000 + tss_begin - $$
+TSS_OFFSET equ (0x8000 + tss_begin - $$)
 
 global run_user_code
 run_user_code:

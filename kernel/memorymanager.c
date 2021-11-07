@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <kernel/boot_info.h>
 #include <kernel/memorymanager.h>
 #include <kernel/physical_manager.h>
 #include <kernel/kassert.h>
@@ -450,6 +451,14 @@ void memmanager_print_all_mappings_to_physical_DEBUG(uintptr_t physical)
 	}
 }
 
+extern uint8_t _IMAGE_END_;
+extern uint8_t _KERNEL_START_;
+
+static uintptr_t* allocate_low_page()
+{
+	return (uintptr_t*)
+		physical_memory_allocate_in_range(0, 0x100000, PAGE_SIZE, PAGE_SIZE);
+}
 
 void memmanager_init(void)
 {
@@ -460,8 +469,8 @@ void memmanager_init(void)
 
 	//while(true);
 
-	uintptr_t* kernel_page_directory = (uintptr_t*)memmanager_allocate_physical_page();
-	uintptr_t* first_page_table = (uintptr_t*)memmanager_allocate_physical_page();
+	uintptr_t* kernel_page_directory = allocate_low_page();
+	uintptr_t* first_page_table = allocate_low_page();
 
 	if(first_page_table == NULL || kernel_page_directory == NULL)
 	{
@@ -485,6 +494,34 @@ void memmanager_init(void)
 
 	//Add the first 4 MiB to the page dir
 	kernel_page_directory[0] = ((uintptr_t)first_page_table) | PAGE_PRESENT | PAGE_RW;
+
+	uintptr_t k_pg_start = (uintptr_t)&_KERNEL_START_ & PAGE_ADDRESS_MASK;
+	uintptr_t k_pg_end = (uintptr_t)&_IMAGE_END_;
+	size_t num_k_pages = memmanager_minimum_pages(k_pg_end - k_pg_start);
+
+	uintptr_t kernel_addr = boot_information.kernel_location & PAGE_ADDRESS_MASK;
+
+	uintptr_t* current_pt = first_page_table;
+
+	for(size_t i = 0; i < num_k_pages; i++)
+	{
+		uintptr_t* pd_entry = &kernel_page_directory[k_pg_start >> 22];
+
+		if(*pd_entry == NULL)
+		{
+			current_pt = (uintptr_t*)allocate_low_page();
+			*pd_entry = (uintptr_t)current_pt | PAGE_PRESENT | PAGE_RW;
+		}
+
+		size_t pt_index = (k_pg_start >> 12) & (PAGE_TABLE_SIZE - 1);
+
+		current_pt[pt_index] = kernel_addr | PAGE_PRESENT | PAGE_RW;
+
+		kernel_addr += PAGE_SIZE;
+		k_pg_start += PAGE_SIZE;
+	}
+
+	//while(true);
 
 	set_page_directory(kernel_page_directory);
 

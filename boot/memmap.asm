@@ -23,7 +23,7 @@ getmem:						;low memory in KB is stored in ax, upper memory in bx and 32 bit me
 
 done_high:
 
-	mov word [boot_info + multiboot_info.memoryHi], ax
+	mov word [MULTIBOOT_OFFSET + multiboot_info.memoryHi], ax
 	
 	getlowmemory:
 		clc
@@ -31,7 +31,7 @@ done_high:
 		jnc .finish		;handle general error
 		xor ax, ax		;signal an error by getting no memoru
 	.finish:	
-		mov word [boot_info + multiboot_info.memoryLo], ax
+		mov word [MULTIBOOT_OFFSET + multiboot_info.memoryLo], ax
 		ret
 
 ;calls int 15 then checks the result for validity

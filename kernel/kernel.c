@@ -21,8 +21,6 @@
 #include <drivers/display/basic_text/basic_text.h>
 
 extern void _IMAGE_END_;
-extern void _BSS_END_;
-extern void _DATA_END_;
 
 typedef void (*func_ptr)(void);
 extern func_ptr __init_array_start[], __init_array_end[];
@@ -42,17 +40,22 @@ void kernel_main()
 
 	basic_text_init();
 
+	printf("got here\n");
+
 	physical_memory_init();
+
 	memmanager_init();
 
 	//call global constructors
 	handle_init_array();
 
-	printf("Found Kernel: %X - %X\n", 0x8000, &_BSS_END_);
+	printf(	"Found Kernel: %X - %X\n", 
+			boot_information.kernel_location, 
+			boot_information.kernel_location + boot_information.kernel_size);
 
-	printf("Found Ram Disk: %X - %X\n", 
-		   boot_information.ramdisk_location, 
-		   boot_information.ramdisk_location + boot_information.ramdisk_size);
+	printf(	"Found Ram Disk: %X - %X\n", 
+			boot_information.ramdisk_location, 
+			boot_information.ramdisk_location + boot_information.ramdisk_size);
 
 	sysclock_init();
 

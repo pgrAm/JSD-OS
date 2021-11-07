@@ -23,3 +23,8 @@ struc multiboot_info
 	;.vbe_interface_off 	resw	1
 	;.vbe_interface_len 	resw	1
 endstruc
+
+struc multiboot_module
+	.begin				resd	1
+	.end				resd	1
+endstruc

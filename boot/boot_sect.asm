@@ -34,14 +34,18 @@ bp_sectors_per_track: 	dw _sectors_per_track
 bp_heads_per_cylinder: 	dw _heads_per_cylinder
 bp_hidden_sectors: 		dd _hidden_sectors
 bp_total_sectors_big:   dd _total_sectors_big
-;bs_drive_number: 	   	db _drive_number 
-;bs_unused: 				db _unused		
-;bs_ext_boot_signature: 	db _ext_boot_signature
-;bs_serial_number:	    dd _serial_number	    
-;bs_volume_label: 	    db "EMS FLOPPY "
-;bs_file_system: 	    db "FAT12   "
+bs_drive_number: 	   	db _drive_number 
+bs_unused: 				db _unused		
+bs_ext_boot_signature: 	db _ext_boot_signature
+bs_serial_number:	    dd _serial_number	    
+bs_volume_label: 	    db "FLOPPY     "
+bs_file_system: 	    db "FAT12   "
 
-KERNEL_OFFSET  equ 0x8000 ; This is the memory address where our kernel goes
+KERNEL_OFFSET  equ 0x9000 ; This is the memory address where our kernel goes
+
+MULTIBOOT_OFFSET equ 0x7000
+
+RAMDISK_DATA equ MULTIBOOT_OFFSET + multiboot_info_size
 
 begin:
 
@@ -50,9 +54,9 @@ begin:
 	mov es, ax
 	mov	ss, ax
 	mov	sp, 0x6000
-	mov	bp, sp
-	
-	mov [boot_info + multiboot_info.bootDevice], dl 	; Save the index of the boot drive
+	mov	bp, sp 
+
+	mov [MULTIBOOT_OFFSET + multiboot_info.bootDevice], dl 	; Save the index of the boot drive
 
 	call getmem
 
@@ -63,13 +67,13 @@ begin:
 	mov si, kernel_file_name
 	call fat_load
 
-	mov si, ramdisk_begin
+	mov si, RAMDISK_DATA + multiboot_module.begin
 	call store_as_long_address
 
 	mov si, raminit_file_name
 	call fat_load
 
-	mov si, ramdisk_end
+	mov si, RAMDISK_DATA + multiboot_module.end
 	call store_as_long_address
 
 switchtopm:
@@ -94,9 +98,16 @@ init_pm :
 
 ; In protected mode now
 BEGIN_PM :
-	mov 	eax, 0x2badb002			;multiboot magic
-	mov 	ebx, boot_info
-	
+
+	mov ebx, MULTIBOOT_OFFSET
+	xor eax, eax
+	inc eax
+	mov [ebx + multiboot_info.mods_count], eax
+	mov eax, RAMDISK_DATA
+	mov [ebx + multiboot_info.mods_addr], eax
+
+	mov 	eax, 0x2badb002			;multiboot magic	
+
 	call 	KERNEL_OFFSET 			; Jumping into C and Kernel land
 	
 %include "disk.asm"
@@ -114,37 +125,6 @@ store_as_long_address:
 	shr ax, 0x0c
 	mov word [si + 0x02], ax
 	ret
-
-; Multiboot header
-boot_info:
-istruc multiboot_info
-	at multiboot_info.flags,				dd 0
-	at multiboot_info.memoryLo,				dd 0
-	at multiboot_info.memoryHi,				dd 0
-	at multiboot_info.bootDevice,			dd 0
-	at multiboot_info.cmdLine,				dd 0
-	at multiboot_info.mods_count,			dd 1
-	at multiboot_info.mods_addr,			dd modules
-	;at multiboot_info.syms0,				dd 0
-	;at multiboot_info.syms1,				dd 0
-	;at multiboot_info.syms2,				dd 0
-	;at multiboot_info.mmap_length,			dd 0
-	;at multiboot_info.mmap_addr,			dd 0
-	;at multiboot_info.drives_length,		dd 0
-	;at multiboot_info.drives_addr,			dd 0
-	;at multiboot_info.config_table,		dd 0
-	;at multiboot_info.bootloader_name,		dd 0
-	;at multiboot_info.apm_table,			dd 0
-	;at multiboot_info.vbe_control_info,	dd 0
-	;at multiboot_info.vbe_mode_info,		dw 0
-	;at multiboot_info.vbe_interface_seg,	dw 0
-	;at multiboot_info.vbe_interface_off,	dw 0
-	;at multiboot_info.vbe_interface_len,	dw 0
-iend
-
-modules:
-	ramdisk_begin:	dd 0
-	ramdisk_end:	dd 0
 
 kernel_file_name   db "KERNAL  SYS"
 raminit_file_name  db "INIT    RFS"

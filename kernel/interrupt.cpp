@@ -38,11 +38,13 @@ extern "C" void idt_load();
 
 void idt_install_handler(uint8_t i, void* address, uint16_t sel, uint8_t flags)
 {
+    auto addr = ((uintptr_t)address);
+
     idt[i].flags = flags;
     idt[i].seg_select = sel;
     idt[i].always0 = 0;
-    idt[i].address_low = ((uint32_t)address) & 0xffff;
-    idt[i].address_high = (((uint32_t)address) >> 16) & 0xffff;
+    idt[i].address_low = addr & 0xffff;
+    idt[i].address_high = (addr >> 16) & 0xffff;
 }
 
 const char* exception_messages[] =
@@ -281,8 +283,8 @@ extern "C" {
 void idt_init()
 {
     // Sets the special IDT pointer up
-    idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
-    idtp.base = (uint32_t)(&idt);
+    idtp.limit = (sizeof(idt_entry) * 256) - 1;
+    idtp.base = (uint32_t)&idt;
 
     //Clear out the entire IDT, initializing it to zeros
     memset(&idt, 0, sizeof(struct idt_entry) * 256);
