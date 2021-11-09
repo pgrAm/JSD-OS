@@ -7,6 +7,7 @@
 #include <kernel/elf.h>
 #include <kernel/util/hash.h>
 #include <kernel/dynamic_object.h>
+#include <kernel/kassert.h>
 
 #include <string_view>
 

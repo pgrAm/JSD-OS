@@ -340,7 +340,7 @@ uintptr_t memmanager_new_memory_space()
 
 	memmanager_init_page_dir(process_page_dir, memmanager_get_physical((uintptr_t)process_page_dir));
 
-	for(size_t i = 0; i < 32; i++)
+	for(size_t i = 0; i < 8; i++)
 	{
 		process_page_dir[i] = current_page_directory[i] & ~PAGE_USER;
 	}
@@ -426,7 +426,7 @@ bool memmanager_handle_page_fault(page_flags_t err, uintptr_t virtual_address)
 	return false;
 }
 
-void memmanager_print_all_mappings_to_physical_DEBUG(uintptr_t physical)
+void memmanager_print_all_mappings_to_physical_DEBUG()
 {
 	for(size_t pd_index = 0; pd_index < PAGE_TABLE_SIZE; pd_index++)
 	{
@@ -439,11 +439,13 @@ void memmanager_print_all_mappings_to_physical_DEBUG(uintptr_t physical)
 				if(page_table[pt_index] & PAGE_PRESENT)
 				{
 					uintptr_t physical_address = page_table[pt_index] & PAGE_ADDRESS_MASK;
-					if((physical & PAGE_ADDRESS_MASK) == physical_address)
+					//if((physical & PAGE_ADDRESS_MASK) == physical_address)
 					{
 						uintptr_t v = (pd_index << 22) + pt_index * PAGE_SIZE;
-
-						printf("%X mapped to %X\n", physical_address, v);
+						if(v != physical_address)
+						{
+							printf("%X mapped to %X\n", v, physical_address);
+						}
 					}
 				}
 			}

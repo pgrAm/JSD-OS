@@ -33,7 +33,7 @@ extern "C" uintptr_t boot_remap_addresses(uintptr_t kernel_VM,
 
 	uintptr_t kernel_addr = kernel_offset & ~PAGE_MASK;
 
-	for(size_t i = 0; i < 16; i++)
+	for(size_t i = 0; i < num_k_pages; i++)
 	{
 		//uintptr_t* pd_entry = &pd[pg_start >> 22];
 

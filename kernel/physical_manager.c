@@ -251,16 +251,23 @@ size_t physical_mem_size(void)
 
 extern uint32_t* tss_esp0_location;
 
+void print_free_map()
+{
+	for(size_t i = 0; i < num_memory_blocks; i++)
+	{
+		printf("Available \t%8X - %8X\n",
+			   memory_map[i].offset,
+			   memory_map[i].offset + memory_map[i].length);
+	}
+}
+
 void physical_memory_init(void) 
 {
 	total_mem_size = boot_information.low_memory * 1024 + boot_information.high_memory * 1024;
 
 	//printf("Image: %X\n", &_IMAGE_END_);
 
-	uintptr_t block0_start = boot_information.kernel_location + boot_information.kernel_size;
-	size_t block0_size = (boot_information.low_memory * 1024) - block0_start;
-
-	physical_memory_add_block(0, block0_start, block0_size);
+	physical_memory_add_block(0, 0x500, (boot_information.low_memory * 1024) - 0x500);
 	physical_memory_add_block(1, 0x00100000, boot_information.high_memory * 1024);
 
 	uintptr_t stack_loc = (uintptr_t)tss_esp0_location;// tss_esp0_location;
@@ -271,21 +278,15 @@ void physical_memory_init(void)
 	//reserve 4k for the stack
 	physical_memory_reserve(stack_loc - stack_size, stack_size);
 
+	//reserve kernel
+	physical_memory_reserve(boot_information.kernel_location, boot_information.kernel_size);
+
 	//reserve modules
 	physical_memory_reserve(boot_information.ramdisk_location, boot_information.ramdisk_size);
 
-	physical_memory_add_block(num_memory_blocks, 0x1000, boot_information.kernel_location - 0x500);
-
 	//reserve BIOS & VRAM
 	physical_memory_reserve(0x80000, 0x100000 - 0x80000);
-}
 
-void print_free_map()
-{
-	for(size_t i = 0; i < num_memory_blocks; i++)
-	{
-		printf("Available \t%8X - %8X\n",
-			   memory_map[i].offset,
-			   memory_map[i].offset + memory_map[i].length);
-	}
+	//print_free_map();
+	//while(true);
 }

@@ -288,9 +288,6 @@ void idt_init()
 
     //Clear out the entire IDT, initializing it to zeros
     memset(&idt, 0, sizeof(struct idt_entry) * 256);
-
-    // Points the processor's internal register to the new IDT
-    idt_load();
 }
 
 void interrupts_init()
@@ -343,4 +340,7 @@ void interrupts_init()
     {
         irq_install_handler(i, irq_stub2);
     }
+
+    // Points the processor's internal register to the new IDT
+    idt_load();
 }

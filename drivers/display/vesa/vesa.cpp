@@ -65,6 +65,8 @@ static void* translate_virtual_far_ptr(far_ptr t)
 		return (void*)addr;
 	}
 
+	k_assert(false);
+
 	return nullptr;
 }
 
@@ -231,6 +233,7 @@ static x86emu_t* int10h_start(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx
 	mapping_cache = new hash_map<uintptr_t, uintptr_t>();
 
 	auto emu = x86emu_new(X86EMU_PERM_RWX, X86EMU_PERM_RWX);
+
 	x86emu_set_memio_handler(emu, &memio_handler);
 
 	x86emu_set_seg_register(emu, emu->x86.R_CS_SEL, 0);
@@ -639,6 +642,8 @@ static bool vesa_populate_modes()
 		printf("Error setting up VESA BIOS");
 		return false;
 	}
+
+	//while(1);
 
 	if(memcmp(vesa_info->vesa_sig, "VESA", 4))
 	{

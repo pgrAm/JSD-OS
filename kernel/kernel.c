@@ -36,11 +36,11 @@ void kernel_main()
 {
 	parse_boot_info();
 
-	interrupts_init();
-
 	basic_text_init();
 
-	printf("got here\n");
+	//printf("got here\n");
+
+	interrupts_init();
 
 	physical_memory_init();
 
@@ -73,7 +73,6 @@ void kernel_main()
 	keyboard_init();
 
 	//memmanager_print_free_map();
-	//while(true);
 
 	/*while(true) {
 		printf("%d\n", sysclock_get_ticks(NULL));

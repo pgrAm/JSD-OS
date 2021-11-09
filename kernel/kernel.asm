@@ -21,22 +21,26 @@ _KERNEL_START_:
 	call get_ip
 get_ip:
 	pop		ebx
-	sub		ebx, (get_ip - _KERNEL_START_) ;ebx now contains the actual _KERNEL_START_
+	;compute the real address of _KERNEL_START_
+	sub		ebx, (get_ip - _KERNEL_START_) 
 	
 	push	ebx
 	push	(_IMAGE_END_ - _KERNEL_START_)
 	push	_KERNEL_START_
 
+	; call a C++ function which sets up page tables
 	add		ebx, (boot_remap_addresses - _KERNEL_START_)
 	call	ebx
 
-	add esp, 8
-	pop ebx
+	add		esp, 8
+	pop		ebx
 
-	mov cr3, eax ; set cr3 to value returned by boot_remap_addresses
+	; set cr3 to value returned by boot_remap_addresses
+	mov		cr3, eax 
 
-	push ebx
+	push	ebx
 
+	; copy trampoline code into the stack
 	mov edx, trampoline_end - trampoline_begin
 	mov ecx, edx
 	sub esp, ecx
@@ -45,21 +49,21 @@ get_ip:
 	add esi, (trampoline_begin - _KERNEL_START_)
 	rep movsb
 
-
-
+	; set up out paging values
 	mov eax, cr0
-	or  eax, 0x80000001 ;enable paging
+	or  eax, 0x80000001 
 
+	; jump into the trampoline, where we can safely change address spaces
 	jmp esp
 
 trampoline_begin:
-	mov cr0, eax
-	mov eax, begin_in_VM
-	jmp eax
+	mov cr0, eax			; enable paging
+	mov eax, begin_in_VM	; jump back to our code
+	jmp eax					; which is now in virtual address space
 trampoline_end:
 
 begin_in_VM:
-	add esp, edx
+	add esp, edx ; clean up trampoline off stack
 
 	pop		ebx
 	mov		[_kernel_location], ebx
@@ -80,10 +84,19 @@ multiboot2_header:
 	dw 2				;address tag
 	dw 0
 	dd 24
-	dd multiboot2_header
+	dd (multiboot2_header - _KERNEL_START_) + 0x10000
 	dd -1				;load file from start
 	dd 0				;load entire file
 	dd _BSS_END_		;no bss
+
+	;relocation tag
+	;dw 10
+	;dw 0
+	;dd 24
+	;dd 0x7000	; min address
+	;dd 0xFFFFFF ; max address 16 MB
+	;dd 0x1000	; page align
+	;dd 1		; load as low as possible
 
     ; required end tag
     dw 0    ; type
