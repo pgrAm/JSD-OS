@@ -108,11 +108,11 @@ multiboot1_header:
     dd 0x1BADB002
 	dd 0x00010006			; bit 16 & 2 & 1 set
 	dd -(0x1BADB002 + 0x00010006)
-	dd multiboot1_header	; header_address
-	dd start				; load_address
-	dd 0x00000000			; load_end_address
-	dd _BSS_END_			; bss_end_address
-	dd start				; entry_address
+	dd 0x80000 + (multiboot1_header - _KERNEL_START_)	; header_address
+	dd 0x80000 ;start				; load_address
+	dd 0x80000 + (_IMAGE_END_ - _KERNEL_START_)			; load_end_address
+	dd 0x80000 + (_IMAGE_END_ - _KERNEL_START_)			; bss_end_address
+	dd 0x80000 ;start				; entry_address
 	dd 1 ; text mode
 	dd 1 ; text mode
 	dd 80
@@ -140,14 +140,14 @@ set_regs:
 	mov fs, ax
 	mov gs, ax
 
-	pushad
-	mov edi, 0x112345 ;odd megabyte address.
-	mov esi, 0x012345 ;even megabyte address.
-	mov [esi], esi    ;making sure that both addresses contain different values.
-	mov [edi], edi    ;(if A20 line is cleared the two pointers would point to the address 0x012345 that would contain 0x112345 (edi)) 
-	cmpsd             ;compare addresses to see if the're equivalent.
-	popad
-	jne A20_on
+	;pushad
+	;mov edi, 0x112345 ;odd megabyte address.
+	;mov esi, 0x012345 ;even megabyte address.
+	;mov [esi], esi    ;making sure that both addresses contain different values.
+	;mov [edi], edi    ;(if A20 line is cleared the two pointers would point to the address 0x012345 that would contain 0x112345 (edi)) 
+	;cmpsd             ;compare addresses to see if the're equivalent.
+	;popad
+	;jne A20_on
 	call deal_with_a20
 	A20_on:
 
@@ -161,36 +161,41 @@ _boot_edx dd 0
 _kernel_location dd 0
 
 deal_with_a20:
+	mov		dx, 0x64
     call    a20wait
+
     mov     al, 0xAD
-    out     0x64, al
-    call    a20wait
+    call    sendkbd_cmd
+
     mov     al, 0xD0
-	out     0x64, al
-    call    a20wait2
+	out     dx, al
+a20wait2:
+    in      al, dx
+    test    al, 1
+    jz      a20wait2
+
     in      al, 0x60
     push    eax
     call    a20wait
+
     mov     al, 0xD1
-    out     0x64, al
-    call    a20wait
+    call    sendkbd_cmd
+
     pop     eax
     or      al, 2
     out     0x60, al
     call    a20wait
+
     mov     al, 0xAE
-    out     0x64, al
-    call    a20wait
+    call    sendkbd_cmd
     ret
+
+sendkbd_cmd:
+	out     dx, al
 a20wait:
-    in      al, 0x64
+    in      al, dx
     test    al, 2
     jnz     a20wait
-    ret
-a20wait2:
-    in      al, 0x64
-    test    al, 1
-    jz      a20wait2
     ret
 
 loadTSS:
