@@ -256,7 +256,7 @@ static void iso9660_read_dir(directory_handle* dest, const file_data_block* file
 	size_t num_sectors = (file->size + (f->sector_size - 1)) / f->sector_size;
 	size_t buffer_size = num_sectors * f->sector_size;
 
-	filesystem_buffer dir_data{fd->disk, ISO_DEFAULT_SECTOR_SIZE};
+	filesystem_buffer dir_data{fd->disk, buffer_size};
 
 	iso9660_read_chunks(&dir_data[0], file->location_on_disk, buffer_size, fd);
 
@@ -268,12 +268,8 @@ static void iso9660_read_dir(directory_handle* dest, const file_data_block* file
 		file_handle out;
 		if(auto length = iso9660_read_dir_entry(out, dir_ptr, fd->id); length == 0)
 		{
-			if((size_t)(dir_ptr - &dir_data[0]) < file->size)
-			{
-				dir_ptr += 1;
-				continue;
-			}
-			break;
+			dir_ptr++;
+			continue;
 		}
 		else
 		{
