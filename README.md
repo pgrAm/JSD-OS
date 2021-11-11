@@ -8,6 +8,7 @@ A small operating system for 32 bit x86
 - [x] Highly modular, don't use what you don't need
 - [x] Mutitasking using CuFS
 - [ ] SMP support
+- [ ] AMD64 version
 
 ## Non Goals
 
