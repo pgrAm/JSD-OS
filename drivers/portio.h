@@ -55,14 +55,29 @@ extern "C" {
 		: "a"(val), "Nd"(port));
 	}
 
-	static inline void outsw(uint16_t port, uint8_t* data, size_t size)
+	static inline void outsb(uint16_t port, uint8_t* data, size_t size)
+	{
+		__asm__ volatile ("rep outsb"
+						  : "+S" (data), "+c" (size)
+						  : "d" (port));
+	}
+
+	static inline void insb(uint16_t port, uint8_t* data, size_t size)
+	{
+		__asm__ volatile ("rep insb"
+						  : "+D" (data), "+c" (size)
+						  : "d" (port)
+						  : "memory");
+	}
+
+	static inline void outsw(uint16_t port, uint16_t* data, size_t size)
 	{
 		__asm__ volatile ("rep outsw"
 						  : "+S" (data), "+c" (size)
 						  : "d" (port));
 	}
 
-	static inline void insw(uint16_t port, uint8_t* data, size_t size)
+	static inline void insw(uint16_t port, uint16_t* data, size_t size)
 	{
 		__asm__ volatile ("rep insw"
 						  : "+D" (data), "+c" (size)
@@ -70,14 +85,14 @@ extern "C" {
 						  : "memory");
 	}
 
-	static inline void outsd(uint16_t port, uint8_t* data, size_t size)
+	static inline void outsd(uint16_t port, uint32_t* data, size_t size)
 	{
 		__asm__ volatile ("rep outsl"
 						  : "+S" (data), "+c" (size)
 						  : "d" (port));
 	}
 
-	static inline void insd(uint16_t port, uint8_t* data, size_t size)
+	static inline void insd(uint16_t port, uint32_t* data, size_t size)
 	{
 		__asm__ volatile ("rep insl"
 						  : "+D" (data), "+c" (size)

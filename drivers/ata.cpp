@@ -180,19 +180,19 @@ static uint8_t ata_read(uint8_t channel, uint8_t reg)
 	return result;
 }
 
-static void ata_read_buffer(uint8_t channel, uint8_t reg, uint8_t* buffer, size_t size)
+static void ata_read_buffer(uint8_t channel, uint8_t reg, uint16_t* buffer, size_t words)
 {
 	if(reg > 0x07 && reg < 0x0C)
 		ata_write(channel, ATA_REG_CONTROL, 0x80 | channels[channel].no_interrupt);
 
 	if(reg < 0x08)
-		insd(channels[channel].base + reg - 0x00, buffer, size);
+		insw(channels[channel].base + reg - 0x00, buffer, words);
 	else if(reg < 0x0C)
-		insd(channels[channel].base + reg - 0x06, buffer, size);
+		insw(channels[channel].base + reg - 0x06, buffer, words);
 	else if(reg < 0x0E)
-		insd(channels[channel].ctrl + reg - 0x0A, buffer, size);
+		insw(channels[channel].ctrl + reg - 0x0A, buffer, words);
 	else if(reg < 0x16)
-		insd(channels[channel].bus_master + reg - 0x0E, buffer, size);
+		insw(channels[channel].bus_master + reg - 0x0E, buffer, words);
 
 	if(reg > 0x07 && reg < 0x0C)
 		ata_write(channel, ATA_REG_CONTROL, channels[channel].no_interrupt);
@@ -233,10 +233,10 @@ static ata_error ata_print_error(ata_drive& drive, ata_error err)
 	if(err == ata_error::NONE)
 		return err;
 
-	printf("IDE:");
+	printf("ATA: ");
 	if(err == ata_error::DEVICE_FAULT)
 	{
-		printf("- Device Fault\n     ");
+		printf("Device Fault\n");
 		err = ata_error::DEVICE_FAULT;
 	}
 	else if(err == ata_error::GENERAL_ERROR)
@@ -244,52 +244,52 @@ static ata_error ata_print_error(ata_drive& drive, ata_error err)
 		uint8_t st = ata_read(drive.channel, ATA_REG_ERROR);
 		if(st & ATA_ER_AMNF)
 		{
-			printf("- No Address Mark Found\n     ");
+			printf("No Address Mark Found\n");
 			err = ata_error::NO_ADDRESS_MARK;
 		}
 		if(st & ATA_ER_TK0NF)
 		{
-			printf("- No Media or Media Error\n     ");
+			printf("No Media or Media Error\n");
 			err = ata_error::NO_MEDIA;
 		}
 		if(st & ATA_ER_ABRT)
 		{
-			printf("- Command Aborted\n     ");
+			printf("Command Aborted\n");
 			err = ata_error::COMMAND_ABORTED;
 		}
 		if(st & ATA_ER_MCR)
 		{
-			printf("- No Media or Media Error\n     ");
+			printf("No Media or Media Error\n");
 			err = ata_error::NO_MEDIA;
 		}
 		if(st & ATA_ER_IDNF)
 		{
-			printf("- ID mark not Found\n     ");
+			printf("ID mark not Found\n");
 			err = ata_error::NO_ID_MARK;
 		}
 		if(st & ATA_ER_MC) {
-			printf("- No Media or Media Error\n     ");
+			printf("No Media or Media Error\n");
 			err = ata_error::NO_MEDIA;
 		}
 		if(st & ATA_ER_UNC)
 		{
-			printf("- Uncorrectable Data Error\n     ");
+			printf("Uncorrectable Data Error\n");
 			err = ata_error::DATA_ERROR;
 		}
 		if(st & ATA_ER_BBK)
 		{
-			printf("- Bad Sectors\n     ");
+			printf("Bad Sectors\n");
 			err = ata_error::BAD_SECTORS;
 		}
 	}
 	else if(err == ata_error::DRQ_ERROR)
 	{
-		printf("- Reads Nothing\n     ");
+		printf("Read Nothing\n");
 		err = ata_error::NOTHING_READ;
 	}
 	else if(err == ata_error::WRITE_PROTECTED)
 	{
-		printf("- Write Protected\n     ");
+		printf("Write Protected\n");
 		err = ata_error::WRITE_PROTECTED;
 	}
 
@@ -400,7 +400,7 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 				{
 					return err; // Polling, set error and exit if there is.
 				}
-				insw(bus, buffer, words);
+				insw(bus, (uint16_t*)buffer, words);
 				buffer += (words * sizeof(uint16_t));
 			}
 		}
@@ -414,7 +414,7 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 			for(size_t i = 0; i < numsects; i++)
 			{
 				ata_poll(channel);
-				outsw(bus, buffer, words);
+				outsw(bus, (uint16_t*)buffer, words);
 				buffer += (words * sizeof(uint16_t));
 			}
 
@@ -490,7 +490,7 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 		num_sectors,
 		0x0, 0x0
 	};
-	outsw(bus, atapi_packet, sizeof(atapi_packet) / sizeof(uint16_t));
+	outsw(bus, (uint16_t*)atapi_packet, sizeof(atapi_packet) / sizeof(uint16_t));
 
 	// receive data:
 	for(size_t i = 0; i < num_sectors; i++)
@@ -500,7 +500,7 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 		{
 			return err;
 		}
-		insw(bus, buffer, words);
+		insw(bus, (uint16_t*)buffer, words);
 		buffer += (words * sizeof(uint16_t));
 	}
 
@@ -617,13 +617,17 @@ static void ata_initialize_drives(	uint16_t base_port0, uint16_t base_port1,
 	ata_write(ATA_PRIMARY, ATA_REG_CONTROL, 2);
 	ata_write(ATA_SECONDARY, ATA_REG_CONTROL, 2);
 
+	for(int i = 0; i < 4; i++)
+	{
+		ide_drives[i].exists = false;
+	}
+
 	size_t count = 0;
 	for(size_t channel = 0; channel < 2; channel++)
 	{
 		for(size_t index = 0; index < 2; index++)
 		{
 			auto& drive = ide_drives[count];
-			drive.exists = false;
 
 			// select drive.
 			ata_write(channel, ATA_REG_HDDEVSEL, 0xA0 | (index << 4));
@@ -653,8 +657,8 @@ static void ata_initialize_drives(	uint16_t base_port0, uint16_t base_port1,
 			}
 
 			// read ident space of the drive
-			uint8_t ident_buf[ATAPI_SECTOR_SIZE];
-			ata_read_buffer(channel, ATA_REG_DATA, ident_buf, 128);
+			uint16_t ident_buf[256];
+			ata_read_buffer(channel, ATA_REG_DATA, (uint16_t*)ident_buf, 256);
 
 			// read revice params
 			drive.exists = true;
