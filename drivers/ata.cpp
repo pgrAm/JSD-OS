@@ -2,7 +2,6 @@
 
 #include <kernel/locks.h>
 #include <kernel/fs_driver.h>
-#include <kernel/sysclock.h>
 #include <kernel/interrupt.h>
 #include <drivers/portio.h>
 
@@ -141,7 +140,7 @@ struct ata_drive
 	uint16_t	signature;		// drive signature
 	uint16_t	capabilities;	// features supported
 	uint32_t	command_sets;	// command sets supported.
-	uint32_t	size;			// size in sectors.
+	size_t		size;			// size in sectors.
 	char		model[41];		// model string.
 };
 
@@ -214,11 +213,11 @@ static ata_error ata_poll(uint8_t channel, bool check_status = false)
 	ata_delay400(channel);
 
 	// Wait for BSY to be zero.
-	while(ata_read(channel, ATA_REG_STATUS) & ATA_SR_BSY); 
+	while(ata_read(channel, ATA_REG_STATUS) & ATA_SR_BSY);
 
 	if(check_status)
 	{
-		uint8_t state = ata_read(channel, ATA_REG_STATUS); 
+		uint8_t state = ata_read(channel, ATA_REG_STATUS);
 
 		if(state & ATA_SR_ERR) { return ata_error::GENERAL_ERROR; }
 		if(state & ATA_SR_DF) { return ata_error::DEVICE_FAULT; }
@@ -294,7 +293,7 @@ static ata_error ata_print_error(ata_drive& drive, ata_error err)
 	}
 
 	auto p_s = drive.channel == 0 ? "Primary" : "Secondary";
-	auto m_s = drive.channel == 0 ? "First": "Second";
+	auto m_s = drive.channel == 0 ? "First" : "Second";
 
 	printf("- [%s %s] %s\n", p_s, m_s, drive.model);
 
@@ -302,7 +301,7 @@ static ata_error ata_print_error(ata_drive& drive, ata_error err)
 }
 
 static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_t lba,
-					 uint8_t numsects, uint8_t* buffer)
+							uint8_t numsects, uint8_t* buffer)
 {
 	uint8_t		lba_io[6];
 	uint32_t	channel = drive.channel;
@@ -339,7 +338,7 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 		lba_io[5] = 0;
 		head = (lba & 0xF000000) >> 24;
 	}
-	else 
+	else
 	{
 		adress_mode = ata_addressing_mode::CHS;
 		uint8_t sect = (lba % 63) + 1;
@@ -359,14 +358,13 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 	// wait for the drive to be ready
 	while(ata_read(channel, ATA_REG_STATUS) & ATA_SR_BSY);
 
-	uint8_t ms_bit = drive.drive;
 	if(adress_mode == ata_addressing_mode::CHS)
 	{
-		ata_write(channel, ATA_REG_HDDEVSEL, 0xA0 | (ms_bit << 4) | head);
+		ata_write(channel, ATA_REG_HDDEVSEL, 0xA0 | (drive.drive << 4) | head);
 	}
 	else
 	{
-		ata_write(channel, ATA_REG_HDDEVSEL, 0xE0 | (ms_bit << 4) | head);
+		ata_write(channel, ATA_REG_HDDEVSEL, 0xE0 | (drive.drive << 4) | head);
 	}
 
 	if(adress_mode == ata_addressing_mode::LBA48)
@@ -390,7 +388,7 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 		if(access_type == ata_access_type::READ)
 		{
 			uint8_t read_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
-							ATA_CMD_READ_PIO_EXT : ATA_CMD_READ_PIO;
+				ATA_CMD_READ_PIO_EXT : ATA_CMD_READ_PIO;
 
 			ata_write(channel, ATA_REG_COMMAND, read_cmd);
 
@@ -407,7 +405,7 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 		else
 		{
 			uint8_t write_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
-							 ATA_CMD_WRITE_PIO_EXT : ATA_CMD_WRITE_PIO;
+				ATA_CMD_WRITE_PIO_EXT : ATA_CMD_WRITE_PIO;
 
 			ata_write(channel, ATA_REG_COMMAND, write_cmd);
 
@@ -419,7 +417,7 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 			}
 
 			uint8_t flush_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
-								ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
+				ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
 
 			ata_write(channel, ATA_REG_COMMAND, flush_cmd);
 			ata_poll(channel);
@@ -463,7 +461,7 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 	ata_delay400(channel);
 
 	// use pio mode
-	ata_write(channel, ATA_REG_FEATURES, 0); 
+	ata_write(channel, ATA_REG_FEATURES, 0);
 
 	// send the size of buffer:
 	ata_write(channel, ATA_REG_LBA1, (words * sizeof(uint16_t)) & 0xFF);
@@ -598,9 +596,9 @@ static bool ata_check_status(uint8_t channel)
 	}
 }
 
-static void ata_initialize_drives(	uint16_t base_port0, uint16_t base_port1, 
-									uint16_t base_port2, uint16_t base_port3, 
-									uint16_t base_port4)
+static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
+								  uint16_t base_port2, uint16_t base_port3,
+								  uint16_t base_port4)
 {
 	//install irq handlers
 	irq_install_handler(14, ata_irq_handler0);
@@ -631,16 +629,16 @@ static void ata_initialize_drives(	uint16_t base_port0, uint16_t base_port1,
 
 			// select drive.
 			ata_write(channel, ATA_REG_HDDEVSEL, 0xA0 | (index << 4));
-			sysclock_sleep(1, MILLISECONDS); // wait 1ms for selection
+			ata_delay400(channel);
 
 			// send ATA identify command:
 			ata_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
-			sysclock_sleep(1, MILLISECONDS);
+			ata_delay400(channel);
 
 			// poll drive, will return nonzero if it exists
 			if(ata_read(channel, ATA_REG_STATUS) == 0) continue;
 
-			// check for ATAPI device
+			// check for ATAPI device 
 			auto type = ata_drive_type::ATA;
 			if(!ata_check_status(channel))
 			{
@@ -653,11 +651,11 @@ static void ata_initialize_drives(	uint16_t base_port0, uint16_t base_port1,
 					continue; // Unknown Type (may not be a device).
 
 				ata_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY_PACKET);
-				sysclock_sleep(1, MILLISECONDS);
+				ata_delay400(channel);
 			}
 
 			// read ident space of the drive
-			uint16_t ident_buf[256];
+			uint8_t ident_buf[256*sizeof(uint16_t)];
 			ata_read_buffer(channel, ATA_REG_DATA, (uint16_t*)ident_buf, 256);
 
 			// read revice params
@@ -695,16 +693,17 @@ static void ata_initialize_drives(	uint16_t base_port0, uint16_t base_port1,
 	{
 		if(ide_drives[i].exists)
 		{
-			auto type = ide_drives[i].type == ata_drive_type::ATA 
-						? "ATA" : "ATAPI";
+			auto type = ide_drives[i].type == ata_drive_type::ATA
+				? "ATA" : "ATAPI";
 
 			auto size_in_GB = ide_drives[i].size / 1024 / 1024 / 2;
 
-			printf("\tFound %s Drive %dGB - %s\n", 
+
+			printf("\tFound %s Drive %dGB - %s\n",
 				   type, size_in_GB, ide_drives[i].model);
 
-			filesystem_add_drive(&ata_driver, &ide_drives[i], 
-								 ide_drives[i].type == ata_drive_type::ATA 
+			filesystem_add_drive(&ata_driver, &ide_drives[i],
+								 ide_drives[i].type == ata_drive_type::ATA
 								 ? ATA_SECTOR_SIZE
 								 : ATAPI_SECTOR_SIZE, ide_drives[i].size);
 		}
