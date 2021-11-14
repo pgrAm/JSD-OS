@@ -672,9 +672,17 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 			{
 				drive.size = *((uint32_t*)(ident_buf + ATA_IDENT_MAX_LBA_EXT));
 			}
-			else //drive uses CHS or 28-bit Addressing:
+			else if(drive.capabilities & ata_capability::LBA)
 			{
 				drive.size = *((uint32_t*)(ident_buf + ATA_IDENT_MAX_LBA));
+			}
+			else //must use CHS
+			{
+				auto cylinders	= *((uint16_t*)(ident_buf + ATA_IDENT_CYLINDERS));
+				auto heads		= *((uint16_t*)(ident_buf + ATA_IDENT_HEADS));
+				auto sectors	= *((uint16_t*)(ident_buf + ATA_IDENT_SECTORS));
+
+				drive.size = cylinders * heads * sectors;
 			}
 
 			// read the model string
@@ -697,7 +705,6 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 				? "ATA" : "ATAPI";
 
 			auto size_in_GB = ide_drives[i].size / 1024 / 1024 / 2;
-
 
 			printf("\tFound %s Drive %dGB - %s\n",
 				   type, size_in_GB, ide_drives[i].model);
