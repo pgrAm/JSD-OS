@@ -3,16 +3,9 @@
 
 global idt_load
 idt_load:
-	sti ;!!!!!!!!!!!!!!!!!THIS ENABLES IRQS DON'T FORGET!!!!!!!!!!!!!!!!!!!!!
     lidt [idtp]
-	ret
-
-	;make 16 new global irqs
-%assign i 0
-%rep 16
-	global irq %+ i
-%assign i i+1 
-%endrep 		
+    sti ;!!!!!!!!!!!!!!!!!THIS ENABLES IRQS DON'T FORGET!!!!!!!!!!!!!!!!!!!!!
+	ret	
 	
 ;make 32 new global isrs
 %assign i 0
