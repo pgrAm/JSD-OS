@@ -21,6 +21,7 @@ typedef struct
 	uint32_t	m_syms0;
 	uint32_t	m_syms1;
 	uint32_t	m_syms2;
+	uint32_t	m_syms3;
 	uint32_t	m_mmap_length;
 	uint32_t	m_mmap_addr;
 	uint32_t	m_drives_length;
@@ -34,5 +35,13 @@ typedef struct
 	uint16_t	m_vbe_interface_off;
 	uint16_t	m_vbe_interface_len;
 } __attribute__((packed)) multiboot_info;
+
+typedef struct 
+{
+	uint32_t m_size;
+	uint64_t m_addr;
+	uint64_t m_length;
+	uint32_t m_type;
+} __attribute__((packed)) multiboot_mmap_entry;
 
 #endif

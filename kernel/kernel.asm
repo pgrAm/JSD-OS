@@ -89,6 +89,11 @@ multiboot2_header:
 	dd 0				;load entire file
 	dd _BSS_END_		;no bss
 
+	dw 3
+	dw 0
+	dd 12
+	dd (multiboot2_header - _KERNEL_START_) + 0x10000	; min address
+
 	;relocation tag
 	;dw 10
 	;dw 0
@@ -99,21 +104,20 @@ multiboot2_header:
 	;dd 1		; load as low as possible
 
     ; required end tag
-    dw 0    ; type
-    dw 0    ; flags
-    dd 8    ; size
+    ;dw 0    ; type
+    ;dw 0    ; flags
+   ; dd 8    ; size
 multiboot2_header_end:
 	align 4
 multiboot1_header:
     dd 0x1BADB002
 	dd 0x00010006			; bit 16 & 2 & 1 set
 	dd -(0x1BADB002 + 0x00010006)
-	dd 0x80000 + (multiboot1_header - _KERNEL_START_)	; header_address
-	dd 0x80000 ;start				; load_address
-	dd 0x80000 + (_IMAGE_END_ - _KERNEL_START_)			; load_end_address
-	dd 0x80000 + (_IMAGE_END_ - _KERNEL_START_)			; bss_end_address
-	dd 0x80000 ;start				; entry_address
-	dd 1 ; text mode
+	dd 0x70000 + (multiboot1_header - _KERNEL_START_)	; header_address
+	dd 0x70000 ;start				; load_address
+	dd 0x70000 + (_IMAGE_END_ - _KERNEL_START_)			; load_end_address
+	dd 0x70000 + (_IMAGE_END_ - _KERNEL_START_)			; bss_end_address
+	dd 0x70000 ;start				; entry_address
 	dd 1 ; text mode
 	dd 80
 	dd 25
@@ -121,7 +125,7 @@ multiboot1_header:
 multiboot1_header_end:
 header_end:
 	cli
-	mov ebp, 0x00080000 ; Update our stack position so it is right at the top of the free space.
+	mov ebp, 0x00070000 ; Update our stack position so it is right at the top of the free space.
 	mov esp, ebp
 
 	mov dword [_boot_edx], ebx
@@ -262,7 +266,7 @@ tss_location:
 tss_begin:
 	dd 	0x00000000
 tss_esp0_location:
-	dd	0x00080000			;kernel stack pointer
+	dd	0x00070000			;kernel stack pointer
 	dd	GDT_DATA_SEG		;kernel stack segment
 	times 23 dd 0x00000000
 tss_end:

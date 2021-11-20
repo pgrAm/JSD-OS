@@ -44,6 +44,8 @@ void kernel_main()
 
 	physical_memory_init();
 
+	reserve_boot_mem();
+
 	memmanager_init();
 
 	//call global constructors

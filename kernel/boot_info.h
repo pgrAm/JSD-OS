@@ -15,11 +15,16 @@ typedef struct
 	uintptr_t ramdisk_location;
 	size_t ramdisk_size;
 
+	uintptr_t memmap_location;
+	size_t memmap_size;
+
 	size_t high_memory;
 	size_t low_memory;
 } boot_info;
 
 void parse_boot_info();
+
+void reserve_boot_mem();
 
 extern boot_info boot_information;
 
