@@ -89,11 +89,14 @@ my $isa_dma =
 build_driver("isa_dma.drv", ["drivers/isa_dma.c"]);
 my $drv_lib = 
 build_driver("drvlib.lib", ["drivers/drvlib.cpp"]);
+my $pci_drv = 
+build_driver("pci.drv", ["drivers/pci.cpp"], [link_lib($drv_lib)]);
 
 my $floppy_drv = build_driver("floppy.drv", ["drivers/floppy.cpp"], [link_lib($drv_lib), link_lib($isa_dma)]);
 my $vga_drv = build_driver("vga.drv", 		["drivers/display/vga/vga.cpp"], [link_lib($drv_lib)]);
 my $mbr_drv = build_driver("mbr.drv", 		["drivers/formats/mbr.cpp"], 	[link_lib($drv_lib)]);
-my $ata_drv = build_driver("ata.drv", 		["drivers/ata.cpp"], 			[link_lib($drv_lib)]);
+my $ata_drv = build_driver("ata.drv", 		["drivers/ata.cpp"], 			[link_lib($drv_lib), link_lib($pci_drv)]);
+#my $ahci_drv = build_driver("ahci.drv", 	["drivers/ahci.cpp"], 			[link_lib($drv_lib), link_lib($pci_drv)]);
 my $fat_drv = build_driver("fat.drv", 		["drivers/formats/fat.cpp"], 	[link_lib($drv_lib)]);
 my $iso_drv = build_driver("iso9660.drv",	["drivers/formats/iso9660.cpp"],[link_lib($drv_lib)]);
 
@@ -131,7 +134,7 @@ my $primes = build(name => "primes.elf", src => ["api/crt0.c", "api/crti.asm", "
 my $graphicstest = build(name => "graphic.elf", src => ["api/crt0.c", "api/crti.asm", "apps/graphic.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($graphics), $kb, $cppr]);
 
 mkpath("$builddir/fdboot");
-system("$builddir/tools/rdfs configs/cdboot/init.sys $builddir/drvlib.lib $builddir/iso9660.drv $builddir/ata.drv $builddir/AT_kbrd.drv -o $builddir/cdboot/init.rfs");
+system("$builddir/tools/rdfs configs/cdboot/init.sys $builddir/drvlib.lib $builddir/iso9660.drv $builddir/ata.drv $builddir/AT_kbrd.drv $builddir/pci.drv -o $builddir/cdboot/init.rfs");
 mkpath("$builddir/cdboot");
 system("$builddir/tools/rdfs configs/fdboot/init.sys $builddir/drvlib.lib $builddir/fat.drv $builddir/floppy.drv $builddir/AT_kbrd.drv $builddir/isa_dma.drv -o $builddir/fdboot/init.rfs");
 
@@ -151,6 +154,7 @@ build_fdimage(
 		$primes,
 		$ata_drv,
 		$vga_drv,
+		$pci_drv,
 		$iso_drv,
 		$mbr_drv,
 		$graphics,

@@ -3,57 +3,15 @@
 #include <kernel/locks.h>
 #include <kernel/fs_driver.h>
 #include <kernel/interrupt.h>
+#include <kernel/sysclock.h>
+#include <kernel/kassert.h>
+
 #include <drivers/portio.h>
 
-#define ATA_SECTOR_SIZE 0x200
-#define ATAPI_SECTOR_SIZE 0x800
+#include <drivers/pci.h>
+#include <drivers/ata_cmd.h>
 
-#define ATA_SR_BSY     0x80    // Busy
-#define ATA_SR_DRDY    0x40    // Drive ready
-#define ATA_SR_DF      0x20    // Drive write fault
-#define ATA_SR_DSC     0x10    // Drive seek complete
-#define ATA_SR_DRQ     0x08    // Data request ready
-#define ATA_SR_CORR    0x04    // Corrected data
-#define ATA_SR_IDX     0x02    // Index
-#define ATA_SR_ERR     0x01    // Error
-
-#define ATA_ER_BBK      0x80    // Bad block
-#define ATA_ER_UNC      0x40    // Uncorrectable data
-#define ATA_ER_MC       0x20    // Media changed
-#define ATA_ER_IDNF     0x10    // ID mark not found
-#define ATA_ER_MCR      0x08    // Media change request
-#define ATA_ER_ABRT     0x04    // Command aborted
-#define ATA_ER_TK0NF    0x02    // Track 0 not found
-#define ATA_ER_AMNF     0x01    // No address mark
-
-#define ATA_CMD_READ_PIO          0x20
-#define ATA_CMD_READ_PIO_EXT      0x24
-#define ATA_CMD_READ_DMA          0xC8
-#define ATA_CMD_READ_DMA_EXT      0x25
-#define ATA_CMD_WRITE_PIO         0x30
-#define ATA_CMD_WRITE_PIO_EXT     0x34
-#define ATA_CMD_WRITE_DMA         0xCA
-#define ATA_CMD_WRITE_DMA_EXT     0x35
-#define ATA_CMD_CACHE_FLUSH       0xE7
-#define ATA_CMD_CACHE_FLUSH_EXT   0xEA
-#define ATA_CMD_PACKET            0xA0
-#define ATA_CMD_IDENTIFY_PACKET   0xA1
-#define ATA_CMD_IDENTIFY          0xEC
-
-#define ATAPI_CMD_READ       0xA8
-#define ATAPI_CMD_EJECT      0x1B
-
-#define ATA_IDENT_DEVICETYPE   0
-#define ATA_IDENT_CYLINDERS    2
-#define ATA_IDENT_HEADS        6
-#define ATA_IDENT_SECTORS      12
-#define ATA_IDENT_SERIAL       20
-#define ATA_IDENT_MODEL        54
-#define ATA_IDENT_CAPABILITIES 98
-#define ATA_IDENT_FIELDVALID   106
-#define ATA_IDENT_MAX_LBA      120
-#define ATA_IDENT_COMMANDSETS  164
-#define ATA_IDENT_MAX_LBA_EXT  200
+#include <vector>
 
 #define IDE_ATA        0x00
 #define IDE_ATAPI      0x01
@@ -75,8 +33,8 @@
 #define ATA_REG_LBA3       0x09
 #define ATA_REG_LBA4       0x0A
 #define ATA_REG_LBA5       0x0B
-#define ATA_REG_CONTROL    0x0C
-#define ATA_REG_ALTSTATUS  0x0C
+#define ATA_REG_CONTROL    0
+#define ATA_REG_ALTSTATUS  0
 #define ATA_REG_DEVADDRESS 0x0D
 
 // Channels:
@@ -122,11 +80,13 @@ enum class ata_addressing_mode {
 	CHS
 };
 
-struct IDEChannelRegisters {
+struct ata_channel {
 	uint16_t	base;  // I/O Base.
 	uint16_t	ctrl;  // Control Base
 	uint16_t	bus_master; // Bus Master IDE
 	uint8_t		no_interrupt;  // nIEN (No Interrupt);
+	pci_device	pci_device;
+	size_t		irq;
 } channels[2];
 
 static kernel_cv irq_condition[2] = {{-1, 1}, {-1, 1}};
@@ -146,64 +106,17 @@ struct ata_drive
 
 ata_drive ide_drives[4];
 
-static void ata_write(uint8_t channel, uint8_t reg, uint8_t data) {
-	if(reg > 0x07 && reg < 0x0C)
-		ata_write(channel, ATA_REG_CONTROL, 0x80 | channels[channel].no_interrupt);
-	if(reg < 0x08)
-		outb(channels[channel].base + reg - 0x00, data);
-	else if(reg < 0x0C)
-		outb(channels[channel].base + reg - 0x06, data);
-	else if(reg < 0x0E)
-		outb(channels[channel].ctrl + reg - 0x0A, data);
-	else if(reg < 0x16)
-		outb(channels[channel].bus_master + reg - 0x0E, data);
-	if(reg > 0x07 && reg < 0x0C)
-		ata_write(channel, ATA_REG_CONTROL, channels[channel].no_interrupt);
-}
-
-static uint8_t ata_read(uint8_t channel, uint8_t reg)
+static void ata_wait_irq(size_t index)
 {
-	uint8_t result = 0;
-	if(reg > 0x07 && reg < 0x0C)
-		ata_write(channel, ATA_REG_CONTROL, 0x80 | channels[channel].no_interrupt);
-	if(reg < 0x08)
-		result = inb(channels[channel].base + reg - 0x00);
-	else if(reg < 0x0C)
-		result = inb(channels[channel].base + reg - 0x06);
-	else if(reg < 0x0E)
-		result = inb(channels[channel].ctrl + reg - 0x0A);
-	else if(reg < 0x16)
-		result = inb(channels[channel].bus_master + reg - 0x0E);
-	if(reg > 0x07 && reg < 0x0C)
-		ata_write(channel, ATA_REG_CONTROL, channels[channel].no_interrupt);
-	return result;
-}
-
-static void ata_read_buffer(uint8_t channel, uint8_t reg, uint16_t* buffer, size_t words)
-{
-	if(reg > 0x07 && reg < 0x0C)
-		ata_write(channel, ATA_REG_CONTROL, 0x80 | channels[channel].no_interrupt);
-
-	if(reg < 0x08)
-		insw(channels[channel].base + reg - 0x00, buffer, words);
-	else if(reg < 0x0C)
-		insw(channels[channel].base + reg - 0x06, buffer, words);
-	else if(reg < 0x0E)
-		insw(channels[channel].ctrl + reg - 0x0A, buffer, words);
-	else if(reg < 0x16)
-		insw(channels[channel].bus_master + reg - 0x0E, buffer, words);
-
-	if(reg > 0x07 && reg < 0x0C)
-		ata_write(channel, ATA_REG_CONTROL, channels[channel].no_interrupt);
+	kernel_wait_cv(&irq_condition[index]);
 }
 
 static void ata_delay400(uint8_t channel)
 {
-	//Delay 400 nanosecond for BSY to be set:
+	//Delay 400 nanoseconds by reading ALTSTATUS (100ns each)
 	for(size_t i = 0; i < 4; i++)
 	{
-		// Reading the ALTSTATUS port takes 100ns
-		ata_read(channel, ATA_REG_ALTSTATUS);
+		inb(channels[channel].ctrl + ATA_REG_ALTSTATUS);
 	}
 }
 
@@ -212,12 +125,14 @@ static ata_error ata_poll(uint8_t channel, bool check_status = false)
 	//wait for BSY to be set:
 	ata_delay400(channel);
 
+	uint16_t base_port = channels[channel].base;
+
 	// Wait for BSY to be zero.
-	while(ata_read(channel, ATA_REG_STATUS) & ATA_SR_BSY);
+	while(inb(base_port + ATA_REG_STATUS) & ATA_SR_BSY);
 
 	if(check_status)
 	{
-		uint8_t state = ata_read(channel, ATA_REG_STATUS);
+		uint8_t state = inb(base_port + ATA_REG_STATUS);
 
 		if(state & ATA_SR_ERR) { return ata_error::GENERAL_ERROR; }
 		if(state & ATA_SR_DF) { return ata_error::DEVICE_FAULT; }
@@ -227,7 +142,7 @@ static ata_error ata_poll(uint8_t channel, bool check_status = false)
 	return ata_error::NONE;
 }
 
-static ata_error ata_print_error(ata_drive& drive, ata_error err)
+static ata_error ata_print_error(const ata_drive& drive, ata_error err)
 {
 	if(err == ata_error::NONE)
 		return err;
@@ -240,7 +155,7 @@ static ata_error ata_print_error(ata_drive& drive, ata_error err)
 	}
 	else if(err == ata_error::GENERAL_ERROR)
 	{
-		uint8_t st = ata_read(drive.channel, ATA_REG_ERROR);
+		uint8_t st = inb(channels[drive.channel].base + ATA_REG_ERROR);
 		if(st & ATA_ER_AMNF)
 		{
 			printf("No Address Mark Found\n");
@@ -305,10 +220,12 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 {
 	uint8_t		lba_io[6];
 	uint32_t	channel = drive.channel;
-	uint32_t	bus = channels[channel].base;
 	uint32_t	words = 256; // Almost every ATA drive has a sector-size of 512-byte.
 
-	ata_write(channel, ATA_REG_CONTROL, channels[channel].no_interrupt = 0x02);
+	uint16_t base_port = channels[channel].base;
+	uint16_t crtl_port = channels[channel].ctrl;
+
+	outb(crtl_port, channels[channel].no_interrupt = 0x00);
 
 	uint8_t head = 0;
 	auto adress_mode = ata_addressing_mode::LBA28;
@@ -356,28 +273,24 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 	bool dma = false;
 
 	// wait for the drive to be ready
-	while(ata_read(channel, ATA_REG_STATUS) & ATA_SR_BSY);
+	while(inb(base_port + ATA_REG_STATUS) & ATA_SR_BSY);
 
-	if(adress_mode == ata_addressing_mode::CHS)
-	{
-		ata_write(channel, ATA_REG_HDDEVSEL, 0xA0 | (drive.drive << 4) | head);
-	}
-	else
-	{
-		ata_write(channel, ATA_REG_HDDEVSEL, 0xE0 | (drive.drive << 4) | head);
-	}
+	auto mode = (adress_mode == ata_addressing_mode::CHS) ? 0xA0 : 0xE0;
+
+	outb(base_port + ATA_REG_HDDEVSEL, mode | (drive.drive << 4) | head);
+	ata_delay400(channel);
 
 	if(adress_mode == ata_addressing_mode::LBA48)
 	{
-		ata_write(channel, ATA_REG_SECCOUNT1, 0);
-		ata_write(channel, ATA_REG_LBA3, lba_io[3]);
-		ata_write(channel, ATA_REG_LBA4, lba_io[4]);
-		ata_write(channel, ATA_REG_LBA5, lba_io[5]);
+		outb(base_port + ATA_REG_SECCOUNT1 - 6, 0);
+		outb(base_port + ATA_REG_LBA3 - 6, lba_io[3]);
+		outb(base_port + ATA_REG_LBA4 - 6, lba_io[4]);
+		outb(base_port + ATA_REG_LBA5 - 6, lba_io[5]);
 	}
-	ata_write(channel, ATA_REG_SECCOUNT0, numsects);
-	ata_write(channel, ATA_REG_LBA0, lba_io[0]);
-	ata_write(channel, ATA_REG_LBA1, lba_io[1]);
-	ata_write(channel, ATA_REG_LBA2, lba_io[2]);
+	outb(base_port + ATA_REG_SECCOUNT0, numsects);
+	outb(base_port + ATA_REG_LBA0, lba_io[0]);
+	outb(base_port + ATA_REG_LBA1, lba_io[1]);
+	outb(base_port + ATA_REG_LBA2, lba_io[2]);
 
 	if(dma)
 	{
@@ -390,15 +303,17 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 			uint8_t read_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
 				ATA_CMD_READ_PIO_EXT : ATA_CMD_READ_PIO;
 
-			ata_write(channel, ATA_REG_COMMAND, read_cmd);
+			outb(base_port + ATA_REG_COMMAND, read_cmd);
+			ata_delay400(channel);
 
 			for(size_t i = 0; i < numsects; i++)
 			{
+				ata_wait_irq(channel);
 				if(auto err = ata_poll(channel, true); err != ata_error::NONE)
 				{
 					return err; // Polling, set error and exit if there is.
 				}
-				insw(bus, (uint16_t*)buffer, words);
+				insw(base_port, (uint16_t*)buffer, words);
 				buffer += (words * sizeof(uint16_t));
 			}
 		}
@@ -407,68 +322,70 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 			uint8_t write_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
 				ATA_CMD_WRITE_PIO_EXT : ATA_CMD_WRITE_PIO;
 
-			ata_write(channel, ATA_REG_COMMAND, write_cmd);
+			outb(base_port + ATA_REG_COMMAND, write_cmd);
+			ata_delay400(channel);
 
 			for(size_t i = 0; i < numsects; i++)
 			{
+				ata_wait_irq(channel);
 				ata_poll(channel);
-				outsw(bus, (uint16_t*)buffer, words);
+				outsw(base_port, (uint16_t*)buffer, words);
 				buffer += (words * sizeof(uint16_t));
 			}
 
 			uint8_t flush_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
 				ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
 
-			ata_write(channel, ATA_REG_COMMAND, flush_cmd);
+			outb(base_port + ATA_REG_COMMAND, flush_cmd);
+			ata_delay400(channel);
 			ata_poll(channel);
 		}
 	}
 
-	return ata_error::NONE; // Easy, isn't it?
-}
-
-static void ata_wait_irq(size_t index)
-{
-	kernel_wait_cv(&irq_condition[index]);
+	return ata_error::NONE;
 }
 
 static INTERRUPT_HANDLER void ata_irq_handler0(interrupt_frame* r)
 {
-	acknowledge_irq(14);
+	inb(channels[0].base + ATA_REG_STATUS);
 	kernel_signal_cv(&irq_condition[0]);
+	acknowledge_irq(14);
 }
 
 static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
 {
-	acknowledge_irq(15);
+	inb(channels[1].base + ATA_REG_STATUS);
 	kernel_signal_cv(&irq_condition[1]);
+	acknowledge_irq(15);
 }
 
 static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sectors, uint8_t* buffer)
 {
 	uint32_t channel = drive.channel;
 	uint32_t ms_bit = drive.drive;
-	uint32_t bus = channels[channel].base;
 	uint32_t words = ATAPI_SECTOR_SIZE / sizeof(uint16_t);
 
+	uint16_t base_port = channels[channel].base;
+	uint16_t crtl_port = channels[channel].ctrl;
+
 	// enable IRQs
-	ata_write(channel, ATA_REG_CONTROL, channels[channel].no_interrupt = 0x0);
+	outb(crtl_port, channels[channel].no_interrupt = 0x0);
 
 	// select the drive:
-	ata_write(channel, ATA_REG_HDDEVSEL, ms_bit << 4);
+	outb(base_port + ATA_REG_HDDEVSEL, ms_bit << 4);
 
 	// wait 400ns for select to complete:
 	ata_delay400(channel);
 
 	// use pio mode
-	ata_write(channel, ATA_REG_FEATURES, 0);
+	outb(base_port + ATA_REG_FEATURES, 0);
 
 	// send the size of buffer:
-	ata_write(channel, ATA_REG_LBA1, (words * sizeof(uint16_t)) & 0xFF);
-	ata_write(channel, ATA_REG_LBA2, (words * sizeof(uint16_t)) >> 8);
+	outb(base_port + ATA_REG_LBA1, (words * sizeof(uint16_t)) & 0xFF);
+	outb(base_port + ATA_REG_LBA2, (words * sizeof(uint16_t)) >> 8);
 
 	// send the packet command:
-	ata_write(channel, ATA_REG_COMMAND, ATA_CMD_PACKET);
+	outb(base_port + ATA_REG_COMMAND, ATA_CMD_PACKET);
 
 	// Wait for the driver to finish or return an error code
 	if(auto err = ata_poll(channel, true); err != ata_error::NONE)
@@ -488,24 +405,24 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 		num_sectors,
 		0x0, 0x0
 	};
-	outsw(bus, (uint16_t*)atapi_packet, sizeof(atapi_packet) / sizeof(uint16_t));
+	outsw(base_port, (uint16_t*)atapi_packet, sizeof(atapi_packet) / sizeof(uint16_t));
 
 	// receive data:
 	for(size_t i = 0; i < num_sectors; i++)
 	{
 		ata_wait_irq(channel);
-		if(auto err = ata_poll(channel, 1); err != ata_error::NONE)
+		if(auto err = ata_poll(channel, true); err != ata_error::NONE)
 		{
 			return err;
 		}
-		insw(bus, (uint16_t*)buffer, words);
+		insw(base_port, (uint16_t*)buffer, words);
 		buffer += (words * sizeof(uint16_t));
 	}
 
 	ata_wait_irq(channel);
 
 	// wait for BSY & DRQ to clear:
-	while(ata_read(channel, ATA_REG_STATUS) & (ATA_SR_BSY | ATA_SR_DRQ));
+	while(inb(base_port + ATA_REG_STATUS) & (ATA_SR_BSY | ATA_SR_DRQ));
 
 	return ata_error::NONE;
 }
@@ -584,79 +501,142 @@ static disk_driver ata_driver = {
 
 static bool ata_check_status(uint8_t channel)
 {
-	while(1)
+	while(true)
 	{
-		uint8_t status = ata_read(channel, ATA_REG_STATUS);
-		if((status & ATA_SR_ERR))
+		uint8_t status = inb(channels[channel].base + ATA_REG_STATUS);
+		if(status & ATA_SR_ERR)
 		{
 			return false;
 		}
-		if(!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ))
+		if(!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ) && (status & ATA_SR_DRDY))
+		{
 			return true;
+		}
+	}
+}
+
+static void ata_wait_ready(uint8_t channel)
+{
+	uint16_t base_port = channels[channel].base;
+
+	if(inb(base_port + ATA_REG_STATUS) == 0) return;
+
+	//size_t rate;
+	//auto begin = sysclock_get_ticks(&rate);
+	//auto end = begin + (10 * rate) / SECONDS;
+
+	while(true)//sysclock_get_ticks(nullptr) < end)
+	{
+		uint8_t status = inb(base_port + ATA_REG_STATUS);
+		if(status & ATA_SR_ERR)
+			break;
+		if(status & (ATA_SR_BSY | ATA_SR_DRQ))
+			continue;
+		if(status & ATA_SR_DRDY)
+			break;
 	}
 }
 
 static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 								  uint16_t base_port2, uint16_t base_port3,
-								  uint16_t base_port4)
+								  uint16_t base_port4, size_t irq = 0, 
+								  pci_device pci_device = {})
 {
-	//install irq handlers
-	irq_install_handler(14, ata_irq_handler0);
-	irq_install_handler(15, ata_irq_handler1);
-
 	channels[0].base = base_port0;
 	channels[0].ctrl = base_port1;
 	channels[0].bus_master = base_port4;
+	channels[0].pci_device = pci_device;
+	channels[0].irq = irq;
 	channels[1].base = base_port2;
 	channels[1].ctrl = base_port3;
 	channels[1].bus_master = base_port4 + 8;
+	channels[1].pci_device = pci_device;
+	channels[1].irq = irq;
 
 	// disable IRQs
-	ata_write(ATA_PRIMARY, ATA_REG_CONTROL, 2);
-	ata_write(ATA_SECONDARY, ATA_REG_CONTROL, 2);
+	//outb(channels[0].ctrl, 2);
+	//outb(channels[1].ctrl, 2);
 
 	for(int i = 0; i < 4; i++)
 	{
 		ide_drives[i].exists = false;
 	}
 
+	//auto l = lock_interrupts();
+
 	size_t count = 0;
 	for(size_t channel = 0; channel < 2; channel++)
 	{
+		uint16_t base_port = channels[channel].base;
+		uint16_t ctrl_port = channels[channel].ctrl;
+
+		//outb(ctrl_port, 0x04);
+		//ata_delay400(channel);
+		outb(ctrl_port, 0x00);
+		ata_delay400(channel);
+
 		for(size_t index = 0; index < 2; index++)
 		{
 			auto& drive = ide_drives[count];
 
-			// select drive.
-			ata_write(channel, ATA_REG_HDDEVSEL, 0xA0 | (index << 4));
+			//select the drive
+			outb(base_port + ATA_REG_HDDEVSEL, 0xA0 | (index << 4));
 			ata_delay400(channel);
+			//sysclock_sleep(1, MILLISECONDS);
 
-			// send ATA identify command:
-			ata_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+			//outb(ctrl_port, 0x02);
+			//ata_delay400(channel);
+
+			//ata_wait_irq(channel);
+
+			ata_wait_ready(channel);
+
+			//clear these regs before IDENTIFY according to spec
+			outb(base_port + ATA_REG_SECCOUNT0, 0x00);
+			outb(base_port + ATA_REG_LBA0, 0x00);
+			outb(base_port + ATA_REG_LBA1, 0x00);
+			outb(base_port + ATA_REG_LBA2, 0x00);
+			//ata_delay400(channel);
+
+			//send the IDENTIFY command
+			outb(base_port + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
 			ata_delay400(channel);
+			//sysclock_sleep(1, MILLISECONDS);
 
-			// poll drive, will return nonzero if it exists
-			if(ata_read(channel, ATA_REG_STATUS) == 0) continue;
+			if(inb(base_port + ATA_REG_STATUS) == 0) { continue; }
 
-			// check for ATAPI device 
+			auto status = ata_check_status(channel);
+
+			uint8_t cl = inb(base_port + ATA_REG_LBA1);
+			uint8_t ch = inb(base_port + ATA_REG_LBA2);
+
+			uint8_t err = inb(base_port + ATA_REG_ERROR);
+
+			printf("%X, %X, %X\n", err, cl, ch);
+
 			auto type = ata_drive_type::ATA;
-			if(!ata_check_status(channel))
+
+			//check for ATAPI device 
+			if((cl == 0x14 && ch == 0xEB) || (cl == 0x69 && ch == 0x96))
 			{
-				uint8_t cl = ata_read(channel, ATA_REG_LBA1);
-				uint8_t ch = ata_read(channel, ATA_REG_LBA2);
+				ata_wait_ready(channel);
 
-				if((cl == 0x14 && ch == 0xEB) || (cl == 0x69 && ch == 0x96))
-					type = ata_drive_type::ATAPI;
-				else
-					continue; // Unknown Type (may not be a device).
-
-				ata_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY_PACKET);
+				type = ata_drive_type::ATAPI;
+				outb(base_port + ATA_REG_COMMAND, ATA_CMD_IDENTIFY_PACKET);
 				ata_delay400(channel);
+				//sysclock_sleep(1, MILLISECONDS);
+
+				ata_check_status(channel);
+			}
+			else if(!status || (cl == 0xFF && ch == 0xFF))
+			{
+				//no usable drive here
+				continue;
 			}
 
-			// read ident space of the drive
+			//read ident result
 			uint8_t ident_buf[256*sizeof(uint16_t)];
-			ata_read_buffer(channel, ATA_REG_DATA, (uint16_t*)ident_buf, 256);
+			insw(base_port + ATA_REG_DATA, (uint16_t*)ident_buf, 256);
 
 			// read revice params
 			drive.exists = true;
@@ -688,14 +668,18 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 			// read the model string
 			for(size_t k = 0; k < 40; k += 2)
 			{
-				drive.model[k] = ident_buf[ATA_IDENT_MODEL + k + 1];
-				drive.model[k + 1] = ident_buf[ATA_IDENT_MODEL + k];
+				drive.model[k + 0] = ident_buf[ATA_IDENT_MODEL + k + 1];
+				drive.model[k + 1] = ident_buf[ATA_IDENT_MODEL + k + 0];
 			}
 			drive.model[40] = '\0'; // terminate string.
+
+			//ata_print_error(drive, ata_error::GENERAL_ERROR);
 
 			count++;
 		}
 	}
+
+	//unlock_interrupts(l);
 
 	for(int i = 0; i < 4; i++)
 	{
@@ -706,8 +690,8 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 
 			auto size_in_GB = ide_drives[i].size / 1024 / 1024 / 2;
 
-			printf("\tFound %s Drive %dGB - %s\n",
-				   type, size_in_GB, ide_drives[i].model);
+			printf("\t[%d, %d] Found %s Drive %dGB - %s\n",
+				   ide_drives[i].channel, ide_drives[i].drive, type, size_in_GB, ide_drives[i].model);
 
 			filesystem_add_drive(&ata_driver, &ide_drives[i],
 								 ide_drives[i].type == ata_drive_type::ATA
@@ -715,11 +699,128 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 								 : ATAPI_SECTOR_SIZE, ide_drives[i].size);
 		}
 	}
+
+	inb(channels[0].base + ATA_REG_STATUS);
+	inb(channels[1].base + ATA_REG_STATUS);
+}
+
+static INTERRUPT_HANDLER void ata_irq_handler(interrupt_frame* r)
+{
+
+	auto status = pci_read<uint16_t>(channels[0].pci_device, PCI_STATUS);
+
+	if(!(status & (1 << 3)))
+	{
+		//printf(".");
+		return;
+	}
+
+	pci_write<uint16_t>(channels[0].pci_device, PCI_STATUS, status & ~(1 << 3));
+
+	//printf("x-");
+
+	/*
+	auto bm_status = inb(channels[0].bus_master + 0x2);
+	if(bm_status & 0x04)
+	{
+		outb(channels[0].bus_master + 0x2, 0x04);
+	}*/
+
+	inb(channels[0].base + ATA_REG_STATUS);
+	inb(channels[1].base + ATA_REG_STATUS);
+	kernel_signal_cv(&irq_condition[0]);
+	kernel_signal_cv(&irq_condition[1]);
+
+	//outb(channels[0].bus_master + 0x2, inb(channels[0].bus_master + 0x2) | 4);
+
+	acknowledge_irq(channels[0].irq);
 }
 
 extern "C" int ata_init()
 {
-	ata_initialize_drives(0x1F0, 0x3F6, 0x170, 0x376, 0x000);
+	std::vector<pci_device> devices;
+
+	pci_device_by_class(
+		[](pci_device device, uint16_t vendorid, uint16_t deviceid,
+		   void* extra)
+		{
+			((std::vector<pci_device>*)extra)->push_back(device);
+		}, 0x01, 0x01, &devices);
+
+	//pci_write<uint8_t>(devices[0], PCI_PROG_IF, 0x8F);
+	//sysclock_sleep(1, MILLISECONDS);
+	//pci_write<uint8_t>(devices[1], PCI_PROG_IF, 0x8A);
+	//sysclock_sleep(1, MILLISECONDS);
+
+	//install irq handlers
+	irq_install_handler(14, ata_irq_handler0);
+	irq_install_handler(15, ata_irq_handler1);
+
+	for(auto device : devices)
+	{
+		/*{
+			auto cmd_register = pci_read<uint32_t>(device, 0x4);
+			cmd_register |= 1 << 10;
+			pci_write<uint32_t>(device, 0x4, cmd_register);
+		}*/
+
+		//if(pci_read<uint8_t>(device, PCI_PROG_IF) == 0x8A)
+		//	pci_write<uint8_t>(device, PCI_PROG_IF, 0x8F);
+
+		sysclock_sleep(1, MILLISECONDS);
+
+		auto bar0 = pci_read<uint32_t>(device, PCI_BAR0);
+		auto bar1 = pci_read<uint32_t>(device, PCI_BAR1);
+		auto bar2 = pci_read<uint32_t>(device, PCI_BAR2);
+		auto bar3 = pci_read<uint32_t>(device, PCI_BAR3);
+		auto bar4 = pci_read<uint32_t>(device, PCI_BAR4);
+
+		/*printf("C=%X, SC=%X PF=%X CMD=%X IL=%X\n",
+			   (int)pci_read<uint8_t>(device, PCI_CLASS),
+			   (int)pci_read<uint8_t>(device, PCI_SUBCLASS),
+			   (int)pci_read<uint8_t>(device, PCI_PROG_IF),
+			   (int)pci_read<uint16_t>(device, PCI_COMMAND),
+			   (int)pci_read<uint8_t>(device, PCI_INTERRUPT_LINE));*/
+
+		if(bar0 == 0 || bar0 == 1)
+			bar0 = 0x1F0;
+		else
+			bar0 &= ~1;
+
+		if(bar1 == 0 || bar1 == 1)
+			bar1 = 0x3F6;
+		else
+			bar1 &= ~1;
+
+		if(bar2 == 0 || bar2 == 1)
+			bar2 = 0x170;
+		else
+			bar2 &= ~1;
+
+		if(bar3 == 0 || bar3 == 1)
+			bar3 = 0x376;
+		else
+			bar3 &= ~1;
+
+		auto interrupt_line = pci_read<uint8_t>(device, PCI_INTERRUPT_LINE);
+
+		if(interrupt_line != 0)
+		{
+			irq_install_handler(interrupt_line, ata_irq_handler);
+		}
+		ata_initialize_drives(bar0, bar1, bar2, bar3, bar4, interrupt_line, device);
+
+		{
+			auto cmd_register = pci_read<uint32_t>(device, 0x4);
+			cmd_register &= ~(1 << 10);
+			pci_write<uint32_t>(device, 0x4, cmd_register);
+		}
+	}
+	
+	if(devices.empty())
+	{
+		ata_initialize_drives(0x1F0, 0x3F6, 0x170, 0x376, 0x000);
+	}
 
 	return 0;
 }
