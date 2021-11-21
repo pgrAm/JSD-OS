@@ -45,6 +45,7 @@ void isr_install_handler(size_t vector, irq_func r, bool user);
 void isr_uninstall_handler(size_t irq);
 void irq_install_handler(size_t irq, irq_func r);
 void irq_uninstall_handler(size_t irq);
+void irq_enable(size_t irq, bool enabled);
 
 bool irq_is_requested(size_t irq);
 

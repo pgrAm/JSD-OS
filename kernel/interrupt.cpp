@@ -13,7 +13,8 @@ enum {
     PIC2_COMMAND_PORT = 0xA0,
 
     PIC_EOI_CMD = 0x20,
-    PIC_GET_IRR_CMD = 0x0A
+    PIC_GET_IRR_CMD = 0x0A,
+    PIC_GET_ISR_CMD = 0x0B
 };
 
 struct __attribute__((packed)) idt_entry
@@ -116,6 +117,25 @@ void irq_uninstall_handler(size_t irq)
 {
     auto irq_func = irq < 8 ? irq_stub1 : irq_stub2;
     idt_install_handler(32 + irq, (void*)irq_func, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+}
+
+void irq_enable(size_t irq, bool enabled)
+{
+    auto port = PIC1_COMMAND_PORT;
+    if(irq >= 8)
+    {
+        port = PIC2_COMMAND_PORT;
+        irq -= 8;
+    }
+
+    if(enabled)
+    {
+        outb(port + 1, inb(port + 1) & ~(1 << irq));
+    }
+    else
+    {
+        outb(port + 1, inb(port + 1) | (1 << irq));
+    }
 }
 
 bool irq_is_requested(size_t irq)

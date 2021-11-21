@@ -26,8 +26,8 @@ struct func_info {
 	void* address;
 };
 
-dynamic_object::sym_map driver_lib_set{};
-dynamic_object::sym_map driver_symbol_map{};
+dynamic_object::sym_map driver_lib_set{32};
+dynamic_object::sym_map driver_symbol_map{32};
 dynamic_object::sym_map driver_glob_data_symbol_map{};
 
 static void load_driver(const std::string_view filename, const std::string_view func_name)
@@ -57,6 +57,8 @@ static void load_driver(const std::string_view filename, const std::string_view 
 	}
 }
 
+typedef SYSCALL_HANDLER clock_t (*clock_func)(size_t*);
+
 static const func_info func_list[] = {
 	{"printf",	(void*)&printf},
 	{"vsnprintf",(void*)&vsnprintf},
@@ -84,8 +86,10 @@ static const func_info func_list[] = {
 	{"__regcall3__filesystem_close_file", (void*)&filesystem_close_file},
 	{"irq_install_handler", (void*)&irq_install_handler},
 	{"sysclock_sleep", (void*)&sysclock_sleep},
+	{"__regcall3__sysclock_get_ticks", (void*)(clock_func)sysclock_get_ticks},
 	{"__regcall3__memmanager_virtual_alloc", (void*)&memmanager_virtual_alloc},
 	{"physical_memory_allocate_in_range", (void*)&physical_memory_allocate_in_range},
+	{"physical_memory_allocate", (void*)&physical_memory_allocate},
 	{"memmanager_map_to_new_pages", (void*)&memmanager_map_to_new_pages},
 	{"memmanager_get_physical", (void*)&memmanager_get_physical},
 	{"__regcall3__memmanager_free_pages", (void*)&memmanager_free_pages},
@@ -96,7 +100,8 @@ static const func_info func_list[] = {
 	{"kernel_wait_cv", (void*)&kernel_wait_cv},
 	{"display_add_driver", (void*)&display_add_driver},
 	{"display_mode_satisfied", (void*)&display_mode_satisfied},
-	{"acknowledge_irq", (void*)&acknowledge_irq}
+	{"acknowledge_irq", (void*)&acknowledge_irq},
+	{"irq_enable", (void*)&irq_enable}
 };
 
 extern "C" void load_drivers()
