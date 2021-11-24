@@ -125,14 +125,14 @@ static ata_error ata_poll(uint8_t channel, bool check_status = false)
 	//wait for BSY to be set:
 	ata_delay400(channel);
 
-	uint16_t base_port = channels[channel].base;
+	uint16_t ctrl_port = channels[channel].ctrl;
 
 	// Wait for BSY to be zero.
-	while(inb(base_port + ATA_REG_STATUS) & ATA_SR_BSY);
+	while(inb(ctrl_port + ATA_REG_ALTSTATUS) & ATA_SR_BSY);
 
 	if(check_status)
 	{
-		uint8_t state = inb(base_port + ATA_REG_STATUS);
+		uint8_t state = inb(ctrl_port + ATA_REG_ALTSTATUS);
 
 		if(state & ATA_SR_ERR) { return ata_error::GENERAL_ERROR; }
 		if(state & ATA_SR_DF) { return ata_error::DEVICE_FAULT; }
@@ -207,10 +207,7 @@ static ata_error ata_print_error(const ata_drive& drive, ata_error err)
 		err = ata_error::WRITE_PROTECTED;
 	}
 
-	auto p_s = drive.channel == 0 ? "Primary" : "Secondary";
-	auto m_s = drive.channel == 0 ? "First" : "Second";
-
-	printf("- [%s %s] %s\n", p_s, m_s, drive.model);
+	printf("\t[%d, %d] %s\n", drive.channel, drive.drive, drive.model);
 
 	return err;
 }
@@ -354,28 +351,36 @@ static INTERRUPT_HANDLER void ata_irq_handler0(interrupt_frame* r)
 
 static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
 {
-	inb(channels[1].base + ATA_REG_STATUS);
-	kernel_signal_cv(&irq_condition[1]);
-	acknowledge_irq(15);
+	outb(0xA0, 0x0B);
+	if(inb(0xA0) & (1 << 7))
+	{
+		inb(channels[1].base + ATA_REG_STATUS);
+		kernel_signal_cv(&irq_condition[1]);
+		acknowledge_irq(15);
+	}
+	else
+	{
+		acknowledge_irq(8);
+	}
 }
 
 static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sectors, uint8_t* buffer)
 {
 	uint32_t channel = drive.channel;
-	uint32_t ms_bit = drive.drive;
 	uint32_t words = ATAPI_SECTOR_SIZE / sizeof(uint16_t);
 
-	uint16_t base_port = channels[channel].base;
-	uint16_t crtl_port = channels[channel].ctrl;
+	irq_condition[channel].unavailable = 1;
 
-	// enable IRQs
-	outb(crtl_port, channels[channel].no_interrupt = 0x0);
+	uint16_t base_port = channels[channel].base;
+	uint16_t ctrl_port = channels[channel].ctrl;
 
 	// select the drive:
-	outb(base_port + ATA_REG_HDDEVSEL, ms_bit << 4);
-
+	outb(base_port + ATA_REG_HDDEVSEL, drive.drive << 4);
 	// wait 400ns for select to complete:
 	ata_delay400(channel);
+
+	// enable IRQs
+	outb(ctrl_port, channels[channel].no_interrupt = 0x0);
 
 	// use pio mode
 	outb(base_port + ATA_REG_FEATURES, 0);
@@ -405,6 +410,7 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 		num_sectors,
 		0x0, 0x0
 	};
+	irq_condition[channel].unavailable = 1;
 	outsw(base_port, (uint16_t*)atapi_packet, sizeof(atapi_packet) / sizeof(uint16_t));
 
 	// receive data:
@@ -503,7 +509,7 @@ static bool ata_check_status(uint8_t channel)
 {
 	while(true)
 	{
-		uint8_t status = inb(channels[channel].base + ATA_REG_STATUS);
+		uint8_t status = inb(channels[channel].ctrl + ATA_REG_ALTSTATUS);
 		if(status & ATA_SR_ERR)
 		{
 			return false;
@@ -517,17 +523,13 @@ static bool ata_check_status(uint8_t channel)
 
 static void ata_wait_ready(uint8_t channel)
 {
-	uint16_t base_port = channels[channel].base;
+	uint16_t ctrl_port = channels[channel].ctrl;
 
-	if(inb(base_port + ATA_REG_STATUS) == 0) return;
+	if(inb(ctrl_port + ATA_REG_ALTSTATUS) == 0) return;
 
-	//size_t rate;
-	//auto begin = sysclock_get_ticks(&rate);
-	//auto end = begin + (10 * rate) / SECONDS;
-
-	while(true)//sysclock_get_ticks(nullptr) < end)
+	while(true)
 	{
-		uint8_t status = inb(base_port + ATA_REG_STATUS);
+		uint8_t status = inb(ctrl_port + ATA_REG_ALTSTATUS);
 		if(status & ATA_SR_ERR)
 			break;
 		if(status & (ATA_SR_BSY | ATA_SR_DRQ))
@@ -537,10 +539,10 @@ static void ata_wait_ready(uint8_t channel)
 	}
 }
 
-static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
-								  uint16_t base_port2, uint16_t base_port3,
-								  uint16_t base_port4, size_t irq = 0, 
-								  pci_device pci_device = {})
+static size_t ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
+									uint16_t base_port2, uint16_t base_port3,
+									uint16_t base_port4, size_t irq = 0, 
+									pci_device pci_device = {})
 {
 	channels[0].base = base_port0;
 	channels[0].ctrl = base_port1;
@@ -553,41 +555,27 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 	channels[1].pci_device = pci_device;
 	channels[1].irq = irq;
 
-	// disable IRQs
-	//outb(channels[0].ctrl, 2);
-	//outb(channels[1].ctrl, 2);
-
 	for(int i = 0; i < 4; i++)
 	{
 		ide_drives[i].exists = false;
 	}
 
-	//auto l = lock_interrupts();
-
-	size_t count = 0;
+	size_t num_drives = 0;
 	for(size_t channel = 0; channel < 2; channel++)
 	{
 		uint16_t base_port = channels[channel].base;
 		uint16_t ctrl_port = channels[channel].ctrl;
 
-		//outb(ctrl_port, 0x04);
-		//ata_delay400(channel);
 		outb(ctrl_port, 0x00);
 		ata_delay400(channel);
 
 		for(size_t index = 0; index < 2; index++)
 		{
-			auto& drive = ide_drives[count];
+			auto& drive = ide_drives[num_drives];
 
 			//select the drive
 			outb(base_port + ATA_REG_HDDEVSEL, 0xA0 | (index << 4));
 			ata_delay400(channel);
-			//sysclock_sleep(1, MILLISECONDS);
-
-			//outb(ctrl_port, 0x02);
-			//ata_delay400(channel);
-
-			//ata_wait_irq(channel);
 
 			ata_wait_ready(channel);
 
@@ -596,12 +584,10 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 			outb(base_port + ATA_REG_LBA0, 0x00);
 			outb(base_port + ATA_REG_LBA1, 0x00);
 			outb(base_port + ATA_REG_LBA2, 0x00);
-			//ata_delay400(channel);
 
 			//send the IDENTIFY command
 			outb(base_port + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
 			ata_delay400(channel);
-			//sysclock_sleep(1, MILLISECONDS);
 
 			if(inb(base_port + ATA_REG_STATUS) == 0) { continue; }
 
@@ -609,10 +595,6 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 
 			uint8_t cl = inb(base_port + ATA_REG_LBA1);
 			uint8_t ch = inb(base_port + ATA_REG_LBA2);
-
-			uint8_t err = inb(base_port + ATA_REG_ERROR);
-
-			printf("%X, %X, %X\n", err, cl, ch);
 
 			auto type = ata_drive_type::ATA;
 
@@ -623,12 +605,13 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 
 				type = ata_drive_type::ATAPI;
 				outb(base_port + ATA_REG_COMMAND, ATA_CMD_IDENTIFY_PACKET);
-				ata_delay400(channel);
-				//sysclock_sleep(1, MILLISECONDS);
 
-				ata_check_status(channel);
+				if(auto err = ata_poll(channel, true); err != ata_error::NONE)
+				{
+					ata_print_error(drive, ata_error::GENERAL_ERROR);
+				}
 			}
-			else if(!status || (cl == 0xFF && ch == 0xFF))
+			else if(!status || !((cl == 0 && ch == 0) || (cl == 0x3c && ch == 0xc3)))
 			{
 				//no usable drive here
 				continue;
@@ -673,13 +656,10 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 			}
 			drive.model[40] = '\0'; // terminate string.
 
-			//ata_print_error(drive, ata_error::GENERAL_ERROR);
-
-			count++;
+			num_drives++;
 		}
 	}
 
-	//unlock_interrupts(l);
 
 	for(int i = 0; i < 4; i++)
 	{
@@ -702,12 +682,14 @@ static void ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 
 	inb(channels[0].base + ATA_REG_STATUS);
 	inb(channels[1].base + ATA_REG_STATUS);
+
+	return num_drives;
 }
 
 static INTERRUPT_HANDLER void ata_irq_handler(interrupt_frame* r)
 {
 
-	auto status = pci_read<uint16_t>(channels[0].pci_device, PCI_STATUS);
+	/*auto status = pci_read<uint16_t>(channels[0].pci_device, PCI_STATUS);
 
 	if(!(status & (1 << 3)))
 	{
@@ -715,7 +697,7 @@ static INTERRUPT_HANDLER void ata_irq_handler(interrupt_frame* r)
 		return;
 	}
 
-	pci_write<uint16_t>(channels[0].pci_device, PCI_STATUS, status & ~(1 << 3));
+	pci_write<uint16_t>(channels[0].pci_device, PCI_STATUS, status & ~(1 << 3));*/
 
 	//printf("x-");
 
@@ -740,6 +722,8 @@ extern "C" int ata_init()
 {
 	std::vector<pci_device> devices;
 
+	sysclock_sleep(1, MILLISECONDS);
+
 	pci_device_by_class(
 		[](pci_device device, uint16_t vendorid, uint16_t deviceid,
 		   void* extra)
@@ -747,25 +731,28 @@ extern "C" int ata_init()
 			((std::vector<pci_device>*)extra)->push_back(device);
 		}, 0x01, 0x01, &devices);
 
-	//pci_write<uint8_t>(devices[0], PCI_PROG_IF, 0x8F);
-	//sysclock_sleep(1, MILLISECONDS);
-	//pci_write<uint8_t>(devices[1], PCI_PROG_IF, 0x8A);
-	//sysclock_sleep(1, MILLISECONDS);
-
 	//install irq handlers
 	irq_install_handler(14, ata_irq_handler0);
 	irq_install_handler(15, ata_irq_handler1);
+	irq_enable(14, true);
+	irq_enable(15, true);
 
 	for(auto device : devices)
 	{
-		/*{
-			auto cmd_register = pci_read<uint32_t>(device, 0x4);
-			cmd_register |= 1 << 10;
-			pci_write<uint32_t>(device, 0x4, cmd_register);
-		}*/
-
-		//if(pci_read<uint8_t>(device, PCI_PROG_IF) == 0x8A)
-		//	pci_write<uint8_t>(device, PCI_PROG_IF, 0x8F);
+		//look for a troublesome ICH7 chipset and set it to legacy mode
+		if(pci_read<uint16_t>(device, PCI_VENDOR_ID) == 0x8086 &&
+		   pci_read<uint16_t>(device, PCI_DEVICE_ID) == 0x27C0)
+		{
+			if(auto pif = pci_read<uint8_t>(device, PCI_PROG_IF); (pif & 0x0A) == 0x0A)
+			{
+				pci_write<uint8_t>(device, PCI_PROG_IF, 0x8A);
+				pci_write<uint32_t>(device, PCI_BAR0, 1);
+				pci_write<uint32_t>(device, PCI_BAR1, 1);
+				pci_write<uint32_t>(device, PCI_BAR2, 1);
+				pci_write<uint32_t>(device, PCI_BAR3, 1);
+				pci_write<uint8_t>(device, PCI_INTERRUPT_LINE, 0);
+			}
+		}
 
 		sysclock_sleep(1, MILLISECONDS);
 
@@ -774,13 +761,6 @@ extern "C" int ata_init()
 		auto bar2 = pci_read<uint32_t>(device, PCI_BAR2);
 		auto bar3 = pci_read<uint32_t>(device, PCI_BAR3);
 		auto bar4 = pci_read<uint32_t>(device, PCI_BAR4);
-
-		/*printf("C=%X, SC=%X PF=%X CMD=%X IL=%X\n",
-			   (int)pci_read<uint8_t>(device, PCI_CLASS),
-			   (int)pci_read<uint8_t>(device, PCI_SUBCLASS),
-			   (int)pci_read<uint8_t>(device, PCI_PROG_IF),
-			   (int)pci_read<uint16_t>(device, PCI_COMMAND),
-			   (int)pci_read<uint8_t>(device, PCI_INTERRUPT_LINE));*/
 
 		if(bar0 == 0 || bar0 == 1)
 			bar0 = 0x1F0;
@@ -808,12 +788,11 @@ extern "C" int ata_init()
 		{
 			irq_install_handler(interrupt_line, ata_irq_handler);
 		}
-		ata_initialize_drives(bar0, bar1, bar2, bar3, bar4, interrupt_line, device);
-
+		if(!ata_initialize_drives(bar0, bar1, bar2, bar3, bar4, interrupt_line, device))
 		{
-			auto cmd_register = pci_read<uint32_t>(device, 0x4);
-			cmd_register &= ~(1 << 10);
-			pci_write<uint32_t>(device, 0x4, cmd_register);
+			//disable the PCI device if no drives found
+			pci_write<uint16_t>(device, PCI_COMMAND,
+								(pci_read<uint16_t>(device, PCI_COMMAND) & ~0x03) | (1 << 10));
 		}
 	}
 	
