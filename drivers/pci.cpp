@@ -74,7 +74,7 @@ bool pci_check_type(pci_device device, size_t d_class, size_t d_subclass)
 void pci_scan_func(pci_func f, size_t d_class, size_t d_subclass, size_t bus, size_t slot, size_t func, void* udata)
 {
 	auto device = pci_device{(uint8_t)bus, (uint8_t)slot, (uint8_t)func};
-	if((d_class == 0xFF && d_class == 0xFF) || 
+	if((d_class == 0xFF && d_subclass == 0xFF) ||
 	   pci_check_type(device, d_class, d_subclass))
 	{
 		f(device,
