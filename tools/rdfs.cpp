@@ -5,6 +5,8 @@
 #include <iterator>
 #include <filesystem>
 #include <algorithm>
+#include <iostream>
+#include <string.h>
 
 struct __attribute__((packed)) rdfs_dir_entry
 {
@@ -20,6 +22,10 @@ struct __attribute__((packed)) rdfs_dir_entry
 std::vector<char> readFile(std::string in)
 {
 	std::ifstream f(in, std::ios::binary);
+	if(!f.is_open())
+	{
+		std::cout << "RDFS error: cannot open " << in << "\n";
+	}
 	return std::vector<char>(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
 }
 
@@ -44,6 +50,10 @@ int main(int argc, char** argv)
 	}
 
 	std::ofstream f(output, std::ios::binary);
+	if(!f.is_open())
+	{
+		std::cout << "RDFS error: cannot open output file " << output << "\n";
+	}
 
 	f.write("RDSK", 4);
 
