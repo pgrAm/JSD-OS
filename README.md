@@ -1,5 +1,9 @@
-# JSD-OS
+# JSD/OS
 A small operating system for 32 bit x86
+
+## What does JSD/OS stand for
+
+The actual meaning of the acronym is intentionally ambigous but might stand for one of "**J**ake **S**. **D**el Mastro **O**perating **S**ystem" or "**J**ake'**S** **D**isk **O**perating **S**ystem" or maybe even "**J**ake's **S**oftware **D**istribution **O**perating **S**ystem" or finally "**J**ava**S**cript is **D**isallowed **O**perating **S**ystem" 
 
 ## Goals
 
