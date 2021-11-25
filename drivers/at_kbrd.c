@@ -1,4 +1,3 @@
-//#include <stdio.h>
 
 #include <kernel/interrupt.h>
 #include <drivers/portio.h>
@@ -72,27 +71,30 @@ static const virtual_keycode key_translation_table[] = {
 					  VK_NONE,					 VK_NONE,					 VK_NONE,				 VK_NONE
 };
 
+uint8_t last_key = 0;
+
 static INTERRUPT_HANDLER void AT_keyboard_handler(interrupt_frame* r)
 {
+	const uint8_t key = inb(0x60);
 	acknowledge_irq(1);
 
 	uint8_t lookup = 0;
 	bool pressed = false;
-	while (inb(0x64) & 1)
+
+	if(key < 0xE0)
 	{
-		const uint8_t key = inb(0x60);
-		if (key < 0xE0)
-		{
-			lookup += (key & 0x7f);
-			pressed = !(key & 0x80);
-		}
-		else
+		lookup += (key & 0x7f);
+		pressed = !(key & 0x80);
+
+		if(last_key == 0xE0)
 		{
 			lookup += 128;
 		}
+
+		handle_keyevent(key_translation_table[lookup], pressed);
 	}
 
-	handle_keyevent(key_translation_table[lookup], pressed);
+	last_key = key;
 }
 
 void AT_kbrd_init()
