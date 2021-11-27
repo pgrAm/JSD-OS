@@ -1,81 +1,76 @@
 #ifndef _LIBALLOC_H
 #define _LIBALLOC_H
 
-/** \defgroup ALLOCHOOKS liballoc hooks 
- *
- * These are the OS specific functions which need to 
- * be implemented on any platform that the library
- * is expected to work on.
- */
-
-/** @{ */
-
 #include <stddef.h>
 
-// If we are told to not define our own size_t, then we skip the define.
-//#define _HAVE_UINTPTR_T
-//typedef	unsigned long	uintptr_t;
+class heap_allocator
+{
+public:
+	void* malloc_bytes(size_t req_size);
+	void free_bytes(void* ptr);
+	void* calloc_bytes(size_t nobj, size_t size);
+	void* realloc_bytes(void* p, size_t size);
 
-//This lets you prefix malloc and friends
-#define PREFIX(func) func
+	constexpr heap_allocator(int (*lock_func)(),
+				   int (*unlock_func)(),
+				   void* (*alloc_func)(size_t),
+				   int (*free_func)(void*, size_t))
+		: lock(lock_func),
+		unlock(unlock_func),
+		sys_alloc_pages(alloc_func),
+		sys_free_pages(free_func)
+	{}
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+private:
+	struct minor_block;
+	struct major_block;
 
+	struct major_block* l_memRoot = nullptr;	///< The root memory block acquired from the system.
+	struct major_block* l_bestBet = nullptr;	///< The major with the most free memory.
 
+	unsigned int l_pageSize = 4096;		///< The size of an individual page. Set up in liballoc_init.
+	unsigned int l_pageCount = 16;		///< The number of pages to request per chunk. Set up in liballoc_init.
+	unsigned long long l_allocated = 0;	///< Running total of allocated memory.
+	unsigned long long l_inuse = 0;		///< Running total of used memory.
 
-/** This function is supposed to lock the memory data structures. It
- * could be as simple as disabling interrupts or acquiring a spinlock.
- * It's up to you to decide. 
- *
- * \return 0 if the lock was acquired successfully. Anything else is
- * failure.
- */
-extern int liballoc_lock();
+	long long l_warningCount = 0;		///< Number of warnings encountered
+	long long l_errorCount = 0;			///< Number of actual errors
+	long long l_possibleOverruns = 0;	///< Number of possible overruns
 
-/** This function unlocks what was previously locked by the liballoc_lock
- * function.  If it disabled interrupts, it enables interrupts. If it
- * had acquiried a spinlock, it releases the spinlock. etc.
- *
- * \return 0 if the lock was successfully released.
- */
-extern int liballoc_unlock();
+	major_block* allocate_new_page(size_t size);
 
-/** This is the hook into the local system which allocates pages. It
- * accepts an integer parameter which is the number of pages
- * required.  The page size was set up in the liballoc_init function.
- *
- * \return NULL if the pages were not allocated.
- * \return A pointer to the allocated memory.
- */
-extern void* liballoc_alloc(size_t);
+	// This function is supposed to lock the memory data structures. It
+	// could be as simple as disabling interrupts or acquiring a spinlock.
+	// It's up to you to decide.
+	// 
+	// return 0 if the lock was acquired successfully. Anything else is
+	// failure.
+	int (*lock)();
 
-/** This frees previously allocated memory. The void* parameter passed
- * to the function is the exact same value returned from a previous
- * liballoc_alloc call.
- *
- * The integer value is the number of pages to free.
- *
- * \return 0 if the memory was successfully freed.
- */
-extern int liballoc_free(void*,size_t);
+	// This function unlocks what was previously locked by the liballoc_lock
+	// function.  If it disabled interrupts, it enables interrupts. If it
+	// had acquiried a spinlock, it releases the spinlock. etc.
+	// 
+	// return 0 if the lock was successfully released.
+	int (*unlock)();
 
+	// This is the hook into the local system which allocates pages. It
+	// accepts an integer parameter which is the number of pages
+	// required.  The page size was set up in the liballoc_init function.
+	// 
+	// return NULL if the pages were not allocated.
+	// return A pointer to the allocated memory.
+	void* (*sys_alloc_pages)(size_t);
 
-       
-
-extern void    *PREFIX(malloc)(size_t);				///< The standard function.
-extern void    *PREFIX(realloc)(void *, size_t);		///< The standard function.
-extern void    *PREFIX(calloc)(size_t, size_t);		///< The standard function.
-extern void     PREFIX(free)(void *);					///< The standard function.
-
-
-#ifdef __cplusplus
-}
-#endif
-
-
-/** @} */
+	//  This frees previously allocated memory. The void* parameter passed
+	// to the function is the exact same value returned from a previous
+	// liballoc_alloc call.
+	// 
+	// The integer value is the number of pages to free.
+	// 
+	// return 0 if the memory was successfully freed.
+	int (*sys_free_pages)(void*, size_t);
+};
 
 #endif
 

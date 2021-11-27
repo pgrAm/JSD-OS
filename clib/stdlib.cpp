@@ -89,3 +89,25 @@ int liballoc_free(void* p, size_t n)
 {
 	return free_pages(p, n);
 }
+
+heap_allocator library_allocator{
+	liballoc_lock, 
+	liballoc_unlock,
+	liballoc_alloc, 
+	liballoc_free
+};
+
+void* malloc(size_t n)
+{
+	return library_allocator.malloc_bytes(n);
+}
+
+void* calloc(size_t num, size_t size)
+{
+	return library_allocator.calloc_bytes(num, size);
+}
+
+void free(void* p)
+{
+	return library_allocator.free_bytes(p);
+}

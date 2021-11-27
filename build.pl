@@ -66,8 +66,8 @@ my @clib_src = qw(
 	clib/stdio.c
 	clib/ctype.c
 	clib/time.c
-	clib/stdlib.c
-	clib/liballoc.c
+	clib/stdlib.cpp
+	clib/liballoc.cpp
 	clib/string.asm
 );
 
