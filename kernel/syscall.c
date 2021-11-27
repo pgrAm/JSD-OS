@@ -45,7 +45,7 @@ const void* syscall_table[] =
 	filesystem_get_root_directory,
 	set_display_mode,
 	map_display_memory,
-	filesystem_open_directory,
+	get_display_mode,
 	filesystem_close_directory,
 	set_cursor_offset,
 	get_keystate,

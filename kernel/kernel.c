@@ -84,13 +84,6 @@ void kernel_main()
 
 	printf("driver loading complete\n");
 
-	//clear_screen();
-
-	size_t free_mem = physical_num_bytes_free();
-	size_t total_mem = physical_mem_size();
-
-	printf("%u KB free / %u KB Memory\n\n", free_mem / 1024, total_mem / 1024);
-
 	const char shell_name[] = "shell.elf";
 
 	spawn_process(shell_name, sizeof(shell_name)-1, WAIT_FOR_PROCESS);

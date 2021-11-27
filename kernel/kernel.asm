@@ -113,11 +113,11 @@ multiboot1_header:
     dd 0x1BADB002
 	dd 0x00010006			; bit 16 & 2 & 1 set
 	dd -(0x1BADB002 + 0x00010006)
-	dd 0x70000 + (multiboot1_header - _KERNEL_START_)	; header_address
-	dd 0x70000 ;start				; load_address
-	dd 0x70000 + (_IMAGE_END_ - _KERNEL_START_)			; load_end_address
-	dd 0x70000 + (_IMAGE_END_ - _KERNEL_START_)			; bss_end_address
-	dd 0x70000 ;start				; entry_address
+	dd 0x200000 + (multiboot1_header - _KERNEL_START_)	; header_address
+	dd 0x200000 ;start				; load_address
+	dd 0x200000 + (_IMAGE_END_ - _KERNEL_START_)			; load_end_address
+	dd 0x200000 + (_IMAGE_END_ - _KERNEL_START_)			; bss_end_address
+	dd 0x200000 ;start				; entry_address
 	dd 1 ; text mode
 	dd 80
 	dd 25

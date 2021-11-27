@@ -734,6 +734,16 @@ bool vesa_do_mode_switch(uint16_t mode_num, bool vesa)
 	return true;
 }
 
+static bool vesa_get_mode(size_t index, display_mode* result)
+{
+	if(index < available_modes->size())
+	{
+		*result = (*available_modes)[index].mode;
+		return true;
+	}
+	return false;
+}
+
 static bool vesa_set_mode(display_mode* requested, display_mode* actual)
 {
 	bool success = current_mode_index != -1 &&
@@ -788,6 +798,7 @@ static void vesa_set_cursor_offset(size_t offset)
 static display_driver vesa_driver =
 {
 	vesa_set_mode,
+	vesa_get_mode,
 	vesa_get_framebuffer,
 
 	vesa_set_diplay_offset,

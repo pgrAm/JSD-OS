@@ -1,0 +1,2 @@
+load_driver AT_kbrd.drv
+load_driver vesa.drv

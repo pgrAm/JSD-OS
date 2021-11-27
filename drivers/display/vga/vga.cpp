@@ -277,6 +277,16 @@ static void vga_set_cursor_offset(size_t offset)
 	outb(VGA_CRTC_DATA, (uint8_t)((offset >> 8) & 0xFF));
 }
 
+static bool vga_get_mode(size_t index, display_mode* result)
+{
+	if(index < NUM_GRAPHICS_MODES)
+	{
+		*result = available_modes[index].mode;
+		return true;
+	}
+	return false;
+}
+
 static bool vga_set_mode(display_mode* requested, display_mode* actual)
 {
 	bool success =	current_mode != nullptr && 
@@ -316,6 +326,7 @@ void vga_set_display_offset(size_t offset, bool on_retrace)
 static display_driver vga_driver =
 {
 	vga_set_mode,
+	vga_get_mode,
 	vga_get_framebuffer,
 
 	vga_set_display_offset,

@@ -332,8 +332,7 @@ SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
 	delete stream;
 	return 0;
 }
-
-SYSCALL_HANDLER 
+ 
 directory_handle* filesystem_open_directory(const directory_handle* rel,
 											const char* path, 
 											size_t path_len,
@@ -361,8 +360,8 @@ static fs_index filesystem_resolve_location_on_disk(const file_stream* f)
 	return filesystem_get_next_location_on_disk(f, 
 												f->seekpos & ~(drive->chunk_read_size-1),
 												f->file.location_on_disk);
-}	
-	
+}
+
 static fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 {
 	//printf("filesystem_read_chunk from cluster %d\n", chunk_index);

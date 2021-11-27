@@ -25,7 +25,6 @@ int main(int argc, char** argv)
 	{
 		initialize_text_mode(80, 25);
 		printf("Could not set graphics mode\n");
-		return 42;
 	}
 
 	auto mem = (uint32_t*)map_display_memory();

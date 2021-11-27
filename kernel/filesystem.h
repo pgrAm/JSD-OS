@@ -30,7 +30,7 @@ SYSCALL_HANDLER file_handle* filesystem_find_file_by_path(const directory_handle
 SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
 SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_handle* f, int flags);
-SYSCALL_HANDLER directory_handle* filesystem_open_directory(const directory_handle* rel, const char* path, size_t path_len, int flags);
+directory_handle* filesystem_open_directory(const directory_handle* rel, const char* path, size_t path_len, int flags);
 SYSCALL_HANDLER int filesystem_close_directory(directory_handle* dir);
 
 SYSCALL_HANDLER file_stream* filesystem_open_file_handle(file_handle* f, int flags);

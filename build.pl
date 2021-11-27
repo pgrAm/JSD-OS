@@ -84,6 +84,7 @@ build(	name => "kernal.elf",
 
 system("objcopy -O binary $builddir/kernal.elf $builddir/kernal.sys --set-section-flags .bss=alloc,load,contents --gap-fill 0");
 
+my $kb_drv = 
 build_driver("AT_kbrd.drv", ["drivers/at_kbrd.c"]);
 my $isa_dma = 
 build_driver("isa_dma.drv", ["drivers/isa_dma.c"]);
@@ -131,12 +132,17 @@ my $shell = build(name => "shell.elf", src => ["api/crt0.c", "api/crti.asm", "sh
 
 my $primes = build(name => "primes.elf", src => ["api/crt0.c", "api/crti.asm", "apps/primes.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($graphics), $kb, $cppr]);
 
+my $listmode = build(name => "listmode.elf", src => ["api/crt0.c", "api/crti.asm", "apps/listmode.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($graphics), $kb, $cppr]);
+
 my $graphicstest = build(name => "graphic.elf", src => ["api/crt0.c", "api/crti.asm", "apps/graphic.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($graphics), $kb, $cppr]);
 
 mkpath("$builddir/fdboot");
-system("$builddir/tools/rdfs configs/cdboot/init.sys $builddir/drvlib.lib $builddir/iso9660.drv $builddir/ata.drv $builddir/AT_kbrd.drv $builddir/pci.drv -o $builddir/cdboot/init.rfs");
+system("$builddir/tools/rdfs", "configs/cdboot/init.sys", $drv_lib, $iso_drv, $ata_drv, $kb_drv, $pci_drv, "-o", "$builddir/cdboot/init.rfs");
 mkpath("$builddir/cdboot");
-system("$builddir/tools/rdfs configs/fdboot/init.sys $builddir/drvlib.lib $builddir/fat.drv $builddir/floppy.drv $builddir/AT_kbrd.drv $builddir/isa_dma.drv -o $builddir/fdboot/init.rfs");
+system("$builddir/tools/rdfs", "configs/fdboot/init.sys", $drv_lib, $fat_drv, $floppy_drv, $kb_drv, $isa_dma, "-o", "$builddir/fdboot/init.rfs");
+mkpath("$builddir/netboot");
+system("$builddir/tools/rdfs", "configs/netboot/init.sys", $listmode, $vesa_drv, $drv_lib, $kb_drv, $shell, $graphicstest, $clib, $graphics, "-o", "$builddir/netboot/init.rfs");
+
 
 system("nasm boot/boot_sect.asm -i boot -f bin -o $builddir/boot_sect.bin");
 
@@ -178,6 +184,7 @@ copy($graphics, 	"$builddir/iso/graphics.lib");
 copy($clib, 		"$builddir/iso/clib.lib");
 copy($shell, 		"$builddir/iso/shell.elf");
 copy($primes, 		"$builddir/iso/primes.elf");
+copy($listmode, 	"$builddir/iso/listmode.elf");
 
 mkpath("$builddir/iso/drivers");
 copy($fat_drv, 		"$builddir/iso/drivers/fat.drv");

@@ -165,6 +165,11 @@ public:
 			return 1;
 		}
 	}
+
+	bool still_valid(display_driver* d, size_t width, size_t height)
+	{
+		return (d == m_display) && (width == m_num_cols) && (height == m_num_rows);
+	}
 private:
 
 	display_driver* m_display;
@@ -187,12 +192,17 @@ SYSCALL_HANDLER int set_cursor_offset(int offset)
 
 static void initialize_terminal(int col, int row)
 {
+	//size_t p = 0;
+
 	if(k_terminal) 
 	{
+		if(k_terminal->still_valid(default_driver, col, row))
+		{
+			return;
+		}
 		k_terminal->~kernel_terminal();
 	}
 	k_terminal = new (k_terminal_mem) kernel_terminal(default_driver, row, col);
-
 	k_terminal->clear();
 }
 
@@ -248,6 +258,26 @@ bool display_mode_satisfied(display_mode* requested, display_mode* actual)
 }
 
 display_mode current_mode;
+
+SYSCALL_HANDLER int get_display_mode(int index, display_mode* result)
+{
+	if(result == nullptr)
+	{
+		return -1;
+	}
+
+	if(index == -1)
+	{
+		*result = current_mode;
+		return 0;
+	}
+
+	if(index >= 0)
+	{
+		return default_driver->get_mode(index, result) ? 0 : -1;
+	}
+	return -1;
+}
 
 SYSCALL_HANDLER int set_display_mode(display_mode* requested, display_mode* actual)
 {

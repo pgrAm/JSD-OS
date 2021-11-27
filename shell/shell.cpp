@@ -13,7 +13,7 @@
 
 void splash_text(int w);
 
-std::string_view console_user = "root";
+std::string current_path{};
 char prompt_char = ']';
 
 #define MAX_HISTORY_SIZE 4
@@ -32,6 +32,7 @@ void select_drive(size_t index)
 		close_dir(current_directory);
 	}
 	drive_index = index;
+	current_path.clear();
 	current_directory = get_root_directory(drive_index);
 }
 
@@ -103,7 +104,7 @@ void print_mem()
 {
 	auto mem = get_free_memory();
 
-	printf("Free memory %d:\n", mem);
+	printf("Free memory %u:\n", mem);
 
 	if(auto GiBs = (mem / 0x40000000) % 0x400)
 	{
@@ -195,18 +196,38 @@ int execute_line(std::string_view current_line)
 		if(keywords.size() > 1)
 		{
 			const auto& path = keywords[1];
-			directory_handle* d = open_dir(current_directory,
-										   path.data(),
-										   path.size(), 0);
-			if(d != nullptr)
+
+			file_info file;
+			file_handle* f_handle = find_path(current_directory, path.data(), path.size());
+
+			if(f_handle == nullptr)
 			{
-				current_directory = d;
-				return 1;
+				printf("Could not find path ");
+				print_string(path.data(), path.size());
+				putchar('\n');
+				return -1;
 			}
-			close_dir(d);
-			printf("Could not find path");
-			print_string(path.data(), path.size());
-			putchar('\n');
+
+			if(get_file_info(&file, f_handle) != 0 || !(file.flags & IS_DIR))
+			{
+				print_string(path.data(), path.size());
+				printf(" is not a valid directory\n");
+				return -1;
+			}
+
+			auto d = open_dir_handle(f_handle, 0);
+
+			if(d == nullptr)
+			{
+				printf("Could not open directory ");
+				print_string(path.data(), path.size());
+				putchar('\n');
+				return -1;
+			}
+
+			current_path.assign(file.name, file.size);
+			current_directory = d;
+			return 1;
 		}
 	}
 	else if("mode" == keyword)
@@ -366,9 +387,9 @@ void prompt()
 		drive = drive_names[drive_index];
 	}
 
-	printf("\x1b[32;22m");
-	print_string(console_user.data(), console_user.size());
-	printf("\x1b[37m@%s%c", drive, prompt_char);
+	//printf("\x1b[32;22m");
+	//printf("\x1b[37m@");
+	printf("\x1b[32;22m%s\x1b[37m:/%s%c", drive, current_path.c_str(), prompt_char);
 }
 
 void splash_text(int w)
@@ -392,6 +413,7 @@ int main(int argc, char** argv)
 	//asm volatile ("1: jmp 1b");
 
 	initialize_text_mode(0, 0);
+	video_clear();
 	splash_text(get_terminal_width());
 
 	time_t t_time = time(nullptr);

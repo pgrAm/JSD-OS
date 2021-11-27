@@ -36,7 +36,7 @@ enum syscall_indices
 	SYSCALL_GET_ROOT_DIR = 17,
 	SYSCALL_SET_DISPLAY_MODE = 18,
 	SYSCALL_MAP_DISPLAY_MEMORY = 19,
-	SYSCALL_OPEN_DIR = 20,
+	SYSCALL_GET_DISPLAY_MODE = 20,
 	SYSCALL_CLOSE_DIR = 21,
 	SYSCALL_SET_DISPLAY_CURSOR = 22,
 	SYSCALL_GET_KEYSTATE = 23,
@@ -197,6 +197,11 @@ static inline int set_display_mode(display_mode* requested, display_mode* actual
 	return (int)do_syscall_2(SYSCALL_SET_DISPLAY_MODE, (uint32_t)requested, (uint32_t)actual);
 }
 
+static inline int get_display_mode(int index, display_mode* actual)
+{
+	return (int)do_syscall_2(SYSCALL_GET_DISPLAY_MODE, (uint32_t)index, (uint32_t)actual);
+}
+
 static inline int set_display_cursor(int offset)
 {
 	return (int)do_syscall_1(SYSCALL_SET_DISPLAY_CURSOR, (uint32_t)offset);
@@ -206,10 +211,7 @@ static inline uint8_t* map_display_memory()
 {
 	return (uint8_t*)do_syscall_0(SYSCALL_MAP_DISPLAY_MEMORY);
 }
-static inline directory_handle* open_dir(directory_handle* rel, const char* path, size_t path_len, int flags)
-{
-	return (directory_handle*)do_syscall_4(SYSCALL_OPEN_DIR, (uint32_t)rel, (uint32_t)path, (uint32_t)path_len, (uint32_t)flags);
-}
+
 static inline int close_dir(directory_handle* dir) 
 {
 	return (int)do_syscall_1(SYSCALL_CLOSE_DIR, (uint32_t)dir);
@@ -238,6 +240,12 @@ static inline file_stream* open_file_handle(file_handle* f, int flags)
 static inline int get_keystate(key_type key)
 {
 	return (int)do_syscall_1(SYSCALL_GET_KEYSTATE, (uint32_t)key);
+}
+
+static inline directory_handle* open_dir(directory_handle* rel, const char* path, size_t path_len, int flags)
+{
+	file_handle* f = find_path(rel, path, path_len);
+	return open_dir_handle(f, flags);
 }
 
 #ifdef __cplusplus
