@@ -75,7 +75,7 @@ void sysclock_init()
 void sysclock_sleep(size_t time, clock_unit unit)
 {
 	clock_t begin = sysclock_get_ticks();
-	clock_t timer_end = sysclock_get_ticks() + (time * pit_get_tick_rate()) / unit;
+	clock_t timer_end = begin + (time * pit_get_tick_rate()) / unit;
 	while(sysclock_get_ticks() < timer_end);
 }
 
