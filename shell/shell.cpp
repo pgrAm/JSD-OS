@@ -17,9 +17,7 @@ std::string current_path{};
 char prompt_char = ']';
 
 #define MAX_HISTORY_SIZE 4
-std::string command_buffers[MAX_HISTORY_SIZE];
-size_t history_size = 0;
-size_t command_buffer_index = 0;
+std::vector<std::string> command_history;
 
 directory_handle* current_directory = nullptr;
 
@@ -328,24 +326,22 @@ int execute_line(std::string_view current_line)
 
 int get_command(char* input)
 {
-	if(history_size >= MAX_HISTORY_SIZE)
-	{
-		history_size = command_buffer_index + 1;
-	}
-	std::string command_buffer = command_buffers[command_buffer_index++ % history_size];
+	std::string command_buffer;
+
+	size_t history_index = 0;
 
 	while(true)
 	{
 		key_type k = wait_and_getkey();
 		if((k == VK_UP || k == VK_DOWN) && get_keystate(k))
 		{
-			command_buffers[command_buffer_index] = command_buffer;
-
-			command_buffer_index = (k == VK_UP) ? command_buffer_index - 1 : command_buffer_index + 1;
-			command_buffer_index %= history_size;
-
 			video_erase_chars(command_buffer.size());
-			command_buffer = command_buffers[command_buffer_index];
+
+			history_index %= command_history.size();
+
+			command_buffer = command_history[history_index];
+
+			history_index = (k == VK_UP) ? history_index + 1 : history_index - 1;
 
 			printf("%s", command_buffer.c_str());
 		}
@@ -373,6 +369,8 @@ int get_command(char* input)
 			}
 		}
 	}
+
+	command_history.push_back(command_buffer);
 
 	return execute_line(command_buffer);
 }
@@ -429,11 +427,6 @@ int main(int argc, char** argv)
 	if(current_directory == nullptr)
 	{
 		printf("Could not mount root directory for drive %u %s\n", drive_index, drive_names[drive_index]);
-	}
-
-	for(size_t i = 0; i < MAX_HISTORY_SIZE; i++)
-	{
-		command_buffers[i] = "";
 	}
 
 	for(;;)
