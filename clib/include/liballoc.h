@@ -28,8 +28,10 @@ private:
 	struct major_block* l_memRoot = nullptr;	///< The root memory block acquired from the system.
 	struct major_block* l_bestBet = nullptr;	///< The major with the most free memory.
 
-	unsigned int l_pageSize = 4096;		///< The size of an individual page. Set up in liballoc_init.
-	unsigned int l_pageCount = 16;		///< The number of pages to request per chunk. Set up in liballoc_init.
+	const size_t m_alignment = 4;
+
+	const size_t l_pageSize = 4096;		///< The size of an individual page. Set up in liballoc_init.
+	const size_t l_pageCount = 16;		///< The number of pages to request per chunk. Set up in liballoc_init.
 	unsigned long long l_allocated = 0;	///< Running total of allocated memory.
 	unsigned long long l_inuse = 0;		///< Running total of used memory.
 
@@ -45,14 +47,14 @@ private:
 	// 
 	// return 0 if the lock was acquired successfully. Anything else is
 	// failure.
-	int (*lock)();
+	int (* const lock)();
 
 	// This function unlocks what was previously locked by the liballoc_lock
 	// function.  If it disabled interrupts, it enables interrupts. If it
 	// had acquiried a spinlock, it releases the spinlock. etc.
 	// 
 	// return 0 if the lock was successfully released.
-	int (*unlock)();
+	int (* const unlock)();
 
 	// This is the hook into the local system which allocates pages. It
 	// accepts an integer parameter which is the number of pages
@@ -60,7 +62,7 @@ private:
 	// 
 	// return NULL if the pages were not allocated.
 	// return A pointer to the allocated memory.
-	void* (*sys_alloc_pages)(size_t);
+	void* (* const sys_alloc_pages)(size_t);
 
 	//  This frees previously allocated memory. The void* parameter passed
 	// to the function is the exact same value returned from a previous
@@ -69,7 +71,7 @@ private:
 	// The integer value is the number of pages to free.
 	// 
 	// return 0 if the memory was successfully freed.
-	int (*sys_free_pages)(void*, size_t);
+	int (* const sys_free_pages)(void*, size_t);
 };
 
 #endif

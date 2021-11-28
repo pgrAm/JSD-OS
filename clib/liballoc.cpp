@@ -1,6 +1,6 @@
 #include <liballoc.h>
 
-// JSD/OS heap allocator, based on liballoc from SpoonOS by durand
+// JSD/OS heap allocator, based on liballoc from SpoonOS by Durand Miller
 
 /**  Durand's Amazing Super Duper Memory functions.  */
 //#define DEBUG 1
@@ -9,11 +9,10 @@
 
 #include <string.h>
 
-#define VERSION 	"1.1"
-#define ALIGNMENT	16ul//4ul				///< This is the byte alignment that memory must be allocated on. IMPORTANT for GTK and other stuff.
+#define VERSION 	"1.1j"
 
-#define ALIGN_TYPE		char ///unsigned char[16] /// unsigned short
-#define ALIGN_INFO		sizeof(ALIGN_TYPE)*16	///< Alignment information is stored right before the pointer. This is the number of bytes of information stored there.
+#define ALIGN_TYPE		size_t ///unsigned char[16] /// unsigned short
+#define ALIGN_INFO		sizeof(ALIGN_TYPE)	///< Alignment information is stored right before the pointer. This is the number of bytes of information stored there.
 
 #define USE_CASE1
 #define USE_CASE2
@@ -22,32 +21,33 @@
 #define USE_CASE5
 
 // This will conveniently align our pointer upwards
-inline void ALIGN(uintptr_t& ptr)
+[[nodiscard]] inline uintptr_t ALIGN(uintptr_t ptr, size_t alignment)
 {
-	if(ALIGNMENT > 1)
+	if(alignment > 1)
 	{
-		uintptr_t diff;
 		ptr = ptr + ALIGN_INFO;
-		diff = (uintptr_t)ptr & (ALIGNMENT - 1);
+		uintptr_t diff = (uintptr_t)ptr & (alignment - 1);
 		if(diff != 0)
 		{
-			diff = ALIGNMENT - diff;
+			diff = alignment - diff;
 			ptr = ptr + diff;
 		}
 		*((ALIGN_TYPE*)(ptr - ALIGN_INFO)) = diff + ALIGN_INFO;
 	}
+	return ptr;
 }
 
-inline void UNALIGN(uintptr_t& ptr)
+[[nodiscard]] inline uintptr_t UNALIGN(uintptr_t ptr, size_t alignment)
 {
-	if(ALIGNMENT > 1)
+	if(alignment > 1)
 	{
 		uintptr_t diff = *((ALIGN_TYPE*)((uintptr_t)ptr - ALIGN_INFO));
-		if(diff < (ALIGNMENT + ALIGN_INFO))
+		if(diff < (alignment + ALIGN_INFO))
 		{
-			ptr = (uintptr_t)ptr - diff;
+			return (uintptr_t)ptr - diff;
 		}
 	}
+	return ptr;
 }
 
 #define LIBALLOC_MAGIC	0xc001c0de
@@ -154,7 +154,6 @@ heap_allocator::major_block* heap_allocator::allocate_new_page(size_t size)
 		st = st / (l_pageSize)+1;
 	// No, add the buffer. 
 
-
 	// Make sure it's >= the minimum size.
 	if(st < l_pageCount) st = l_pageCount;
 
@@ -191,19 +190,12 @@ heap_allocator::major_block* heap_allocator::allocate_new_page(size_t size)
 
 void* heap_allocator::malloc_bytes(size_t req_size)
 {
-	int startedBet = 0;
-	unsigned long long bestSize = 0;
-	uintptr_t p = (uintptr_t)nullptr;
-	uintptr_t diff;
-	major_block* maj;
-	minor_block* min;
-	minor_block* new_min;
 	unsigned long size = req_size;
 
 	// For alignment, we adjust size so there's enough space to align.
-	if(ALIGNMENT > 1)
+	if(m_alignment > 1)
 	{
-		size += ALIGNMENT + ALIGN_INFO;
+		size += m_alignment + ALIGN_INFO;
 	}
 	// So, ideally, we really want an alignment of 0 or 1 in order
 	// to save space.
@@ -221,7 +213,6 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 		unlock();
 		return malloc_bytes(1);
 	}
-
 
 	if(l_memRoot == NULL)
 	{
@@ -251,7 +242,6 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 #endif
 	}
 
-
 #ifdef DEBUG
 	printf("liballoc: %x PREFIX(malloc)( %i ): ",
 		   __builtin_return_address(0),
@@ -261,8 +251,9 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 	// Now we need to bounce through every major and find enough space....
 
-	maj = l_memRoot;
-	startedBet = 0;
+	major_block* maj = l_memRoot;
+	int startedBet = 0;
+	unsigned long long bestSize = 0;
 
 	// Start at the best bet....
 	if(l_bestBet != NULL)
@@ -278,7 +269,7 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 	while(maj != NULL)
 	{
-		diff = maj->size - maj->usage;
+		uintptr_t diff = maj->size - maj->usage;
 		// free memory in the block
 
 		if(bestSize < diff)
@@ -343,10 +334,7 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 			l_inuse += size;
 
-
-			p = ((uintptr_t)maj->first + sizeof(minor_block));
-
-			ALIGN(p);
+			uintptr_t p = ALIGN((uintptr_t)maj->first + sizeof(minor_block), m_alignment);
 
 #ifdef DEBUG
 			printf("CASE 2: returning %x\n", p);
@@ -381,8 +369,7 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 			l_inuse += size;
 
-			p = ((uintptr_t)(maj->first) + sizeof(minor_block));
-			ALIGN(p);
+			uintptr_t p = ALIGN((uintptr_t)(maj->first) + sizeof(minor_block), m_alignment);
 
 #ifdef DEBUG
 			printf("CASE 3: returning %x\n", p);
@@ -398,7 +385,7 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 #ifdef USE_CASE4
 
 		// CASE 4: There is enough space in this block. But is it contiguous?
-		min = maj->first;
+		minor_block* min = maj->first;
 
 		// Looping within the block now...
 		while(min != NULL)
@@ -428,9 +415,7 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 					l_inuse += size;
 
-					p = ((uintptr_t)min + sizeof(minor_block));
-					ALIGN(p);
-
+					uintptr_t p = ALIGN((uintptr_t)min + sizeof(minor_block), m_alignment);
 #ifdef DEBUG
 					printf("CASE 4.1: returning %x\n", p);
 					FLUSH();
@@ -455,7 +440,7 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 				if(diff >= (size + sizeof(minor_block)))
 				{
 					// yay......
-					new_min = (minor_block*)((uintptr_t)min + sizeof(minor_block) + min->size);
+					minor_block* new_min = (minor_block*)((uintptr_t)min + sizeof(minor_block) + min->size);
 
 					new_min->magic = LIBALLOC_MAGIC;
 					new_min->next = min->next;
@@ -469,10 +454,7 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 					l_inuse += size;
 
-					p = ((uintptr_t)new_min + sizeof(minor_block));
-					ALIGN(p);
-
-
+					uintptr_t p = ALIGN((uintptr_t)new_min + sizeof(minor_block), m_alignment);
 #ifdef DEBUG
 					printf("CASE 4.2: returning %x\n", p);
 					FLUSH();
@@ -536,9 +518,6 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 void heap_allocator::free_bytes(void* to_free)
 {
-	minor_block* min;
-	major_block* maj;
-
 	if(to_free == nullptr)
 	{
 		l_warningCount += 1;
@@ -550,13 +529,11 @@ void heap_allocator::free_bytes(void* to_free)
 		return;
 	}
 
-	uintptr_t ptr = (uintptr_t)to_free;
-
-	UNALIGN(ptr);
+	uintptr_t ptr = UNALIGN((uintptr_t)to_free, m_alignment);
 
 	lock();		// lockit
 
-	min = (minor_block*)((uintptr_t)ptr - sizeof(minor_block));
+	minor_block* min = (minor_block*)((uintptr_t)ptr - sizeof(minor_block));
 
 	if(min->magic != LIBALLOC_MAGIC)
 	{
@@ -611,7 +588,7 @@ void heap_allocator::free_bytes(void* to_free)
 #endif
 
 
-	maj = min->block;
+	major_block* maj = min->block;
 
 	l_inuse -= min->size;
 
@@ -683,8 +660,7 @@ void* heap_allocator::realloc_bytes(void* p, size_t size)
 	if(p == nullptr) return malloc_bytes(size);
 
 	// Unalign the pointer if required.
-	uintptr_t ptr = (uintptr_t)p;
-	UNALIGN(ptr);
+	uintptr_t ptr = UNALIGN((uintptr_t)p, m_alignment);
 
 	lock();		// lockit
 

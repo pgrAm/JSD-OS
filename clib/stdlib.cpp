@@ -45,25 +45,25 @@ int atoi(const char * str)
 #ifdef __KERNEL
 //static volatile int_lock alloc_lock = 0;
 
-static kernel_mutex alloc_lock = { -1 };
-int liballoc_lock()
+static kernel_mutex alloc_lock = { -1, 0 };
+static int liballoc_lock()
 {
 	kernel_lock_mutex(&alloc_lock);
 	return 0;
 }
 
-int liballoc_unlock()
+static int liballoc_unlock()
 {
 	kernel_unlock_mutex(&alloc_lock);
 	return 0;
 }
 #else
-int liballoc_lock()
+static int liballoc_lock()
 {
 	return 0;
 }
 
-int liballoc_unlock()
+static int liballoc_unlock()
 {
 	return 0;
 }
@@ -80,17 +80,17 @@ void exit(int status)
 	#define MALLOC_FLAGS (PAGE_USER | PAGE_RW)
 #endif
 	
-void* liballoc_alloc(size_t n)
+static void* liballoc_alloc(size_t n)
 {
 	return alloc_pages(NULL, n, MALLOC_FLAGS);
 }
 
-int liballoc_free(void* p, size_t n)
+static int liballoc_free(void* p, size_t n)
 {
 	return free_pages(p, n);
 }
 
-heap_allocator library_allocator{
+static heap_allocator library_allocator{
 	liballoc_lock, 
 	liballoc_unlock,
 	liballoc_alloc, 
