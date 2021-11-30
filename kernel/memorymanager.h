@@ -16,6 +16,8 @@ typedef uintptr_t page_flags_t;
 SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages);
 SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, page_flags_t flags);
 
+int memmanager_unmap_pages(void* page, size_t num_pages);
+
 void memmanager_set_page_flags(void* virtual_address, size_t num_pages, page_flags_t flags);
 void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, page_flags_t flags);
 

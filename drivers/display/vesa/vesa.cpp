@@ -20,6 +20,7 @@ uintptr_t virtual_stack_begin = virtual_stack_end - 1024;
 uint8_t* virtual_stack = nullptr;
 
 static std::vector<uintptr_t>* pages_mapped;
+static std::vector<uintptr_t>* pages_allocated;
 static hash_map<uintptr_t, uintptr_t>* mapping_cache;
 
 struct __attribute__((packed)) far_ptr
@@ -65,9 +66,20 @@ static void* translate_virtual_far_ptr(far_ptr t)
 		return (void*)addr;
 	}
 
-	k_assert(false);
+	uintptr_t page_addr = addr & ~(PAGE_SIZE - 1);
+	uintptr_t page_offset = addr - page_addr;
 
-	return nullptr;
+	auto vaddr = (uintptr_t)memmanager_map_to_new_pages(page_addr, 1, PAGE_PRESENT | PAGE_RW);
+
+	if(vaddr)
+	{
+		return (void*)(vaddr + page_offset);
+	}
+	else
+	{
+		k_assert(false);
+		return nullptr;
+	}
 }
 
 static void* map_address(uint32_t addr, bool write = false)
@@ -107,12 +119,13 @@ static void* map_address(uint32_t addr, bool write = false)
 	//else
 	//	ser_printf("reading %X\r\n", addr);
 
-	if((page_addr < 0x1000 || (page_addr >= 0x80000 && page_addr < 0x100000)) &&
-	   memmanager_get_physical(page_addr) == page_addr)
+	if(page_addr < 0x1000 || (page_addr >= 0x80000 && page_addr < 0x100000))
 	{
-		//ser_printf("accessing real page %X\r\n", page_addr);
-		mapping_cache->insert(page_addr, page_addr);
-		return (void*)addr;
+		printf("accessing real page %X\r\n", page_addr);
+		auto vaddr = (uintptr_t)memmanager_map_to_new_pages(page_addr, 1, PAGE_PRESENT | PAGE_RW);
+		pages_mapped->push_back(vaddr);
+		mapping_cache->insert(page_addr, vaddr);
+		return (void*)(vaddr + page_offset);
 	}
 
 	uintptr_t vaddr = (uintptr_t)nullptr;
@@ -127,10 +140,11 @@ static void* map_address(uint32_t addr, bool write = false)
 		}
 		else
 		{
-			//ser_printf("mapping %X to random page\r\n", addr);
+			printf("mapping %X to random page\n", addr);
 			vaddr = (uintptr_t)memmanager_virtual_alloc(nullptr, 1, PAGE_RW);
+			k_assert(false);
 		}
-		pages_mapped->push_back(vaddr);
+		pages_allocated->push_back(vaddr);
 		mapping_cache->insert(page_addr, vaddr);
 	}
 	return (void*)(vaddr + page_offset);
@@ -230,6 +244,7 @@ static x86emu_t* int10h_start(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx
 	//ser_printf("int 10h; ax = %X\r\n", ax);
 
 	pages_mapped = new std::vector<uintptr_t>();
+	pages_allocated = new std::vector<uintptr_t>();
 	mapping_cache = new hash_map<uintptr_t, uintptr_t>();
 
 	auto emu = x86emu_new(X86EMU_PERM_RWX, X86EMU_PERM_RWX);
@@ -261,9 +276,15 @@ static void int10h_cleanup(x86emu_t* emu)
 
 	for(auto page : *pages_mapped)
 	{
+		memmanager_unmap_pages((void*)page, 1);
+	}
+
+	for(auto page : *pages_allocated)
+	{
 		memmanager_free_pages((void*)page, 1);
 	}
 
+	delete pages_allocated;
 	delete pages_mapped;
 	delete mapping_cache;
 }

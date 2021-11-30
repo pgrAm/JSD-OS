@@ -16,7 +16,10 @@ To do:
 #include <stdio.h>
 
 #include <kernel/filesystem.h>
+#include <kernel/memorymanager.h>
 #include <kernel/display.h>
+#include <kernel/kassert.h>
+
 #include <drivers/portio.h>
 
 #define	VGA_AC_INDEX		0x3C0
@@ -51,9 +54,11 @@ To do:
 
 #include "vga_modes.h"
 
-vga_mode* current_mode = nullptr;
+static vga_mode* current_mode = nullptr;
 
-void write_regs(uint8_t* regs)
+static uint8_t* vga_memory = nullptr;
+
+static void write_regs(uint8_t* regs)
 {
 	// write MISCELLANEOUS reg
 	outb(VGA_MISC_WRITE, *regs);
@@ -115,7 +120,7 @@ static void set_plane(uint8_t p)
 VGA framebuffer is at 0xA0000, 0xB0000, or 0xB8000
 depending on bits in GC 6
 *****************************************************************************/
-uint8_t* vga_get_framebuffer()
+static uint8_t* vga_get_framebuffer()
 {
 	unsigned seg;
 
@@ -168,9 +173,11 @@ static void write_font(unsigned char* buf, unsigned font_height)
 
 	//size_t font_offset = font_height == 16 ? 0x0400 : 0;
 
+	auto start = vga_memory + ((uintptr_t)vga_get_framebuffer() - 0xA0000);
+
 	for (size_t i = 0; i < 256; i++)
 	{
-		memcpy(vga_get_framebuffer() + i * 32, buf, font_height);
+		memcpy(start + i * 32, buf, font_height);
 		buf += font_height;
 	}
 
@@ -189,7 +196,7 @@ static void write_font(unsigned char* buf, unsigned font_height)
 
 #define PSF_MAGIC 0x0436
 
-uint8_t* loadpsf(std::string_view file)
+static uint8_t* loadpsf(std::string_view file)
 {
 	typedef struct {
 		uint16_t magic;		// Magic number
@@ -219,10 +226,10 @@ uint8_t* loadpsf(std::string_view file)
 	return buffer;
 }
 
-uint8_t* font16 = nullptr;
-uint8_t* font08 = nullptr;
+static uint8_t* font16 = nullptr;
+static uint8_t* font08 = nullptr;
 
-bool vga_do_mode_switch(vga_mode* m)
+static bool vga_do_mode_switch(vga_mode* m)
 {
 	write_regs(m->regs);
 
@@ -311,7 +318,7 @@ static bool vga_set_mode(display_mode* requested, display_mode* actual)
 	return success;
 }
 
-void vga_set_display_offset(size_t offset, bool on_retrace)
+static void vga_set_display_offset(size_t offset, bool on_retrace)
 {
 	if(on_retrace)
 	{
@@ -338,6 +345,15 @@ static display_driver vga_driver =
 
 extern "C" void vga_init(void)
 {
+	uintptr_t begin = 0xA0000;
+	uintptr_t memory_size = 256 * 1024; //256k
+
+	auto num_pages = memmanager_minimum_pages(memory_size);
+
+	vga_memory = (uint8_t*)memmanager_map_to_new_pages(begin, num_pages, PAGE_PRESENT | PAGE_RW);
+
+	k_assert(vga_memory);
+
 	display_mode requested = {
 		80, 25,
 		0,

@@ -5,6 +5,7 @@
 [extern adjust_gdt]
 [extern _BSS_END_]
 [extern _IMAGE_END_]
+[extern init_stack]
 
 global _boot_eax
 global _boot_edx
@@ -125,7 +126,7 @@ multiboot1_header:
 multiboot1_header_end:
 header_end:
 	cli
-	mov ebp, 0x00070000 ; Update our stack position so it is right at the top of the free space.
+	mov ebp, init_stack
 	mov esp, ebp
 
 	mov dword [_boot_edx], ebx
@@ -266,7 +267,7 @@ tss_location:
 tss_begin:
 	dd 	0x00000000
 tss_esp0_location:
-	dd	0x00070000			;kernel stack pointer
+	dd	init_stack			;kernel stack pointer
 	dd	GDT_DATA_SEG		;kernel stack segment
 	times 23 dd 0x00000000
 tss_end:

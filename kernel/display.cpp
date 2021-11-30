@@ -30,7 +30,6 @@ uint8_t* get_mapped_frame_buffer(display_driver* driver)
 {
 	auto phys_addr = driver->get_framebuffer();
 
-
 	if(memmanager_get_physical((uintptr_t)phys_addr) != (uintptr_t)phys_addr)
 	{
 		return map_display_memory();

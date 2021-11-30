@@ -36,8 +36,6 @@ void kernel_main()
 {
 	parse_boot_info();
 
-	basic_text_init();
-
 	//printf("got here\n");
 
 	interrupts_init();
@@ -47,6 +45,8 @@ void kernel_main()
 	reserve_boot_mem();
 
 	memmanager_init();
+
+	basic_text_init();
 
 	//call global constructors
 	handle_init_array();

@@ -249,8 +249,6 @@ size_t physical_mem_size(void)
 	return total_mem_size;
 }
 
-extern uint32_t* tss_esp0_location;
-
 void print_free_map()
 {
 	for(size_t i = 0; i < num_memory_blocks; i++)
@@ -269,14 +267,6 @@ void physical_memory_init(void)
 
 	physical_memory_add_block(0, 0x500, (boot_information.low_memory * 1024) - 0x500);
 	physical_memory_add_block(1, 0x00100000, boot_information.high_memory * 1024);
-
-	uintptr_t stack_loc = (uintptr_t)tss_esp0_location;// tss_esp0_location;
-	size_t stack_size = 4 * 4096;
-
-	//printf("STACK %X - %X\n", stack_loc - stack_size, stack_loc);
-
-	//reserve 4k for the stack
-	physical_memory_reserve(stack_loc - stack_size, stack_size);
 
 	//reserve kernel
 	physical_memory_reserve(boot_information.kernel_location, boot_information.kernel_size);

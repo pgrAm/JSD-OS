@@ -4,6 +4,7 @@
 
 alignas(4096) static uintptr_t pd[PAGE_TABLE_SIZE];
 alignas(4096) static uintptr_t pt[PAGE_TABLE_SIZE];
+alignas(4096) uint8_t init_stack[PAGE_SIZE];
 
 #define PAGE_MASK (PAGE_SIZE - 1)
 

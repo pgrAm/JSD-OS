@@ -40,7 +40,7 @@ my @kernel_src = qw(
 	kernel/syscall.asm
 
 	kernel/kernel.c
-	kernel/memorymanager.c
+	kernel/memorymanager.cpp
 	kernel/physical_manager.c
 	kernel/filesystem.cpp
 	kernel/elf.cpp

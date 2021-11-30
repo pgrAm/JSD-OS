@@ -92,6 +92,7 @@ static const func_info func_list[] = {
 	{"physical_memory_allocate", (void*)&physical_memory_allocate},
 	{"memmanager_map_to_new_pages", (void*)&memmanager_map_to_new_pages},
 	{"memmanager_get_physical", (void*)&memmanager_get_physical},
+	{"memmanager_unmap_pages", (void*)&memmanager_unmap_pages},
 	{"__regcall3__memmanager_free_pages", (void*)&memmanager_free_pages},
 	{"kernel_lock_mutex", (void*)&kernel_lock_mutex},
 	{"kernel_unlock_mutex", (void*)&kernel_unlock_mutex},

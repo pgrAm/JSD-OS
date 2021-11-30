@@ -73,7 +73,7 @@ uintptr_t memmanager_get_physical(uintptr_t virtual_address)
 
 static void memmanager_create_new_page_table(size_t pd_index, page_flags_t flags)
 {
-	flags &=  ~(PAGE_RESERVED | PAGE_MAP_ON_ACCESS);
+	flags &= ~(PAGE_RESERVED | PAGE_MAP_ON_ACCESS);
 
 	current_page_directory[pd_index] = memmanager_allocate_physical_page() | PAGE_PRESENT | PAGE_RW | flags;
 
@@ -151,7 +151,7 @@ void memmanager_unmap_page(uintptr_t virtual_address)
 	}
 }
 
-bool memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, page_flags_t flags)
+static bool memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, page_flags_t flags)
 {
 	size_t pd_index = get_page_dir_index(virtual_address);
 	uintptr_t pd_entry = current_page_directory[pd_index];
@@ -205,8 +205,6 @@ uintptr_t memmanager_get_page_flags(uintptr_t virtual_address)
 void memmanager_set_page_flags(void* virtual_address, size_t num_pages, page_flags_t flags)
 {
 	uintptr_t preserved = PAGE_PRESENT | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
-
-	//flags &= ~preserved;
 
 	for(size_t i = 0; i < num_pages; i++)
 	{
@@ -270,32 +268,6 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* v_address, size_t n, page_f
 
 	uintptr_t page_virtual_address = (uintptr_t)virtual_address;
 
-	/*
-	//if(!(flags & PAGE_RW))
-	{
-		size_t block = 0;
-
-		size_t num_pages = n;
-		while(num_pages)
-		{
-			uintptr_t physical_address = physical_memory_allocate_from(PAGE_SIZE, PAGE_SIZE, &block);
-
-			memmanager_map_page(page_virtual_address, physical_address, flags | PAGE_PRESENT);
-
-			page_virtual_address += PAGE_SIZE;
-
-			if(--num_pages == 0)
-			{
-				memset(virtual_address, 0, n * PAGE_SIZE);
-
-				//printf("Successfully allocated %d pages at %X\n", n, virtual_address);		
-				return virtual_address;
-			}
-		}
-
-		return NULL;
-	}*/
-
 	page_flags_t pf = flags | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
 	for(size_t i = 0; i < n; i++)
 	{
@@ -308,6 +280,18 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* v_address, size_t n, page_f
 	}
 	
 	return (void*)virtual_address;
+}
+
+int memmanager_unmap_pages(void* page, size_t num_pages)
+{
+	uintptr_t virtual_address = (uintptr_t)page;
+
+	while(num_pages--)
+	{
+		memmanager_unmap_page(virtual_address); //unmap the page
+		virtual_address += PAGE_SIZE; //next page
+	}
+	return 0;
 }
 
 SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages)
@@ -474,17 +458,10 @@ static uintptr_t* allocate_low_page()
 
 void memmanager_init(void)
 {
-	//printf("Lo: %d\n", _multiboot->m_memoryLo);
-	//printf("Hi: %d\n", _multiboot->m_memoryHi);
+	uintptr_t* kernel_page_directory = (uintptr_t*)allocate_low_page();
+	uintptr_t* first_page_table = (uintptr_t*)allocate_low_page();
 
-
-
-	//while(true);
-
-	uintptr_t* kernel_page_directory = allocate_low_page();
-	uintptr_t* first_page_table = allocate_low_page();
-
-	if(first_page_table == NULL || kernel_page_directory == NULL)
+	if(first_page_table == nullptr || kernel_page_directory == nullptr)
 	{
 		//were completelty f'cked in this case
 		puts("There's not enough ram to run the OS :(");
@@ -498,13 +475,9 @@ void memmanager_init(void)
 
 	memmanager_init_page_dir(kernel_page_directory, (uintptr_t)kernel_page_directory);
 
-	//map the first 4 MiB of memory to itself
-	for(size_t i = 0; i < PAGE_TABLE_SIZE; i++)
-	{
-		first_page_table[i] = (i * PAGE_SIZE) | PAGE_PRESENT | PAGE_RW;
-	}
+	memset(first_page_table, 0, PAGE_SIZE);
 
-	//Add the first 4 MiB to the page dir
+	//Add the first pt to the page dir
 	kernel_page_directory[0] = ((uintptr_t)first_page_table) | PAGE_PRESENT | PAGE_RW;
 
 	uintptr_t k_pg_start = (uintptr_t)&_KERNEL_START_ & PAGE_ADDRESS_MASK;
@@ -533,9 +506,11 @@ void memmanager_init(void)
 		k_pg_start += PAGE_SIZE;
 	}
 
-	//while(true);
+	printf("here\n");
 
 	set_page_directory(kernel_page_directory);
+
+	printf("not here\n");
 
 	enable_paging();
 
