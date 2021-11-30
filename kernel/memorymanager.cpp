@@ -86,7 +86,7 @@ static void memmanager_create_new_page_table(size_t pd_index, page_flags_t flags
 	memset(page_table, 0, PAGE_SIZE);
 }
 
-static void* memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t flags)
+static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t flags)
 {
 	//size_t start = (flags & PAGE_USER) ? 0 : KERNEL_SPLIT / (PAGE_SIZE*PAGE_TABLE_SIZE);
 
@@ -98,7 +98,7 @@ static void* memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t 
 
 			if(num_pages <= PAGE_TABLE_SIZE)
 			{
-				return (void*)(pd_index << 22);
+				return pd_index << 22;
 			}
 		}
 
@@ -120,7 +120,7 @@ static void* memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t 
 
 			if(pages_found == num_pages)
 			{
-				return (void*)((pd_index << 22) + ((pt_index - num_pages) << 12));
+				return (pd_index << 22) + ((pt_index - num_pages) << 12);
 			}
 		}
 	}
@@ -128,7 +128,7 @@ static void* memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t 
 	printf("couldn't find page\n");
 	k_assert(false);
 
-	return NULL;
+	return (uintptr_t)nullptr;
 }
 
 void memmanager_unmap_page(uintptr_t virtual_address)
@@ -186,15 +186,15 @@ bool memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, 
 
 void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, page_flags_t flags)
 {
-	void* virtual_address = memmanager_get_unmapped_pages(n, flags);
+	uintptr_t virtual_address = memmanager_get_unmapped_pages(n, flags);
 
 	for(size_t i = 0; i < n; i++)
 	{
-		if(!memmanager_map_page((uintptr_t)virtual_address + i * PAGE_SIZE, physical_address + i * PAGE_SIZE, flags))
+		if(!memmanager_map_page(virtual_address + i * PAGE_SIZE, physical_address + i * PAGE_SIZE, flags))
 			return NULL;
 	}
 
-	return virtual_address;
+	return (void*)virtual_address;
 }
 
 uintptr_t memmanager_get_page_flags(uintptr_t virtual_address)
@@ -241,7 +241,7 @@ static void* memmanager_alloc_page(page_flags_t flags)
 	return (void*)virtual_address;
 }
 
-SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, page_flags_t flags)
+SYSCALL_HANDLER void* memmanager_virtual_alloc(void* v_address, size_t n, page_flags_t flags)
 {
 	//printf("\tAllocating %d pages\n", n);
 
@@ -249,21 +249,23 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 
 	flags &= (PAGE_FLAGS_MASK & ~illegal);
 
-	if(virtual_address == NULL)
+	uintptr_t virtual_address = (uintptr_t)v_address;
+
+	if(virtual_address == (uintptr_t)nullptr)
 	{
 		virtual_address = memmanager_get_unmapped_pages(n, flags);
 
 		//if its still null then there were not enough contiguous unmapped pages
-		if(virtual_address == NULL)
+		if(virtual_address == (uintptr_t)nullptr)
 		{
 			printf("failure to get %d unmapped pages", n);
-			return NULL;
+			return nullptr;
 		}
 	}	
 	else if((uintptr_t)virtual_address & PAGE_FLAGS_MASK)
 	{
 		printf("unaligned address %X", virtual_address);
-		return NULL;
+		return nullptr;
 	}
 
 	uintptr_t page_virtual_address = (uintptr_t)virtual_address;
@@ -305,7 +307,7 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, 
 		page_virtual_address += PAGE_SIZE;
 	}
 	
-	return virtual_address;
+	return (void*)virtual_address;
 }
 
 SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages)
@@ -517,7 +519,7 @@ void memmanager_init(void)
 	{
 		uintptr_t* pd_entry = &kernel_page_directory[get_page_dir_index(k_pg_start)];
 
-		if(*pd_entry == NULL)
+		if(*pd_entry == (uintptr_t)nullptr)
 		{
 			current_pt = (uintptr_t*)allocate_low_page();
 			*pd_entry = (uintptr_t)current_pt | PAGE_PRESENT | PAGE_RW;
