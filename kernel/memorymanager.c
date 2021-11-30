@@ -28,7 +28,7 @@ static inline void __flush_tlb_page(uintptr_t addr)
 #define PAGE_FLAGS_MASK (PAGE_SIZE - 1)
 #define PAGE_ADDRESS_MASK (~PAGE_FLAGS_MASK)
 
-#define MAXIMUM_ADDRESS 0xFFFFFFFF
+#define MAXIMUM_ADDRESS (~(uintptr_t)0)
 
 uintptr_t* const last_pde_address = (uintptr_t*)((uintptr_t)(PAGE_TABLE_SIZE - 1) * (uintptr_t)PAGE_TABLE_SIZE * (uintptr_t)PAGE_SIZE);
 uintptr_t* const current_page_directory = (uintptr_t*)((uintptr_t)MAXIMUM_ADDRESS - (uintptr_t)~PAGE_ADDRESS_MASK);
@@ -40,9 +40,19 @@ inline uintptr_t memmanager_allocate_physical_page()
 	return physical_memory_allocate(PAGE_SIZE, PAGE_SIZE);
 }
 
+inline size_t get_page_dir_index(uintptr_t virtual_address)
+{
+	return virtual_address >> 22;
+}
+
+inline size_t get_page_tbl_index(uintptr_t virtual_address)
+{
+	return (virtual_address >> 12) & PT_INDEX_MASK;
+}
+
 static uintptr_t memmanager_get_pt_entry(uintptr_t virtual_address)
 {
-	uintptr_t pd_index = virtual_address >> 22;
+	size_t pd_index = get_page_dir_index(virtual_address);
 	uintptr_t pd_entry = current_page_directory[pd_index];
 
 	if(!(pd_entry & PAGE_PRESENT)) //page table is not present
@@ -52,7 +62,7 @@ static uintptr_t memmanager_get_pt_entry(uintptr_t virtual_address)
 
 	uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
-	return page_table[(virtual_address >> 12) & PT_INDEX_MASK];
+	return page_table[get_page_tbl_index(virtual_address)];
 }
 
 uintptr_t memmanager_get_physical(uintptr_t virtual_address)
@@ -61,9 +71,11 @@ uintptr_t memmanager_get_physical(uintptr_t virtual_address)
 		(virtual_address & ~PAGE_ADDRESS_MASK);
 }
 
-static void memmanager_create_new_page_table(size_t pd_index)
+static void memmanager_create_new_page_table(size_t pd_index, page_flags_t flags)
 {
-	current_page_directory[pd_index] = memmanager_allocate_physical_page() | PAGE_USER | PAGE_PRESENT | PAGE_RW;
+	flags &=  ~(PAGE_RESERVED | PAGE_MAP_ON_ACCESS);
+
+	current_page_directory[pd_index] = memmanager_allocate_physical_page() | PAGE_PRESENT | PAGE_RW | flags;
 
 	__flush_tlb();
 
@@ -76,11 +88,13 @@ static void memmanager_create_new_page_table(size_t pd_index)
 
 static void* memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t flags)
 {
+	//size_t start = (flags & PAGE_USER) ? 0 : KERNEL_SPLIT / (PAGE_SIZE*PAGE_TABLE_SIZE);
+
 	for(size_t pd_index = 0; pd_index < PAGE_TABLE_SIZE; pd_index++)
 	{
 		if(!(current_page_directory[pd_index] & PAGE_PRESENT))
 		{
-			memmanager_create_new_page_table(pd_index);
+			memmanager_create_new_page_table(pd_index, flags);
 
 			if(num_pages <= PAGE_TABLE_SIZE)
 			{
@@ -89,7 +103,8 @@ static void* memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t 
 		}
 
 		//if were looking for a user page, we need a user page table
-		if((flags & PAGE_USER) && !(current_page_directory[pd_index] & PAGE_USER))
+		//if were looking for a kernel page, we need a kernel page table
+		if((bool)(flags & PAGE_USER) != (bool)(current_page_directory[pd_index] & PAGE_USER))
 		{
 			continue;
 		}
@@ -111,20 +126,21 @@ static void* memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t 
 	}
 
 	printf("couldn't find page\n");
+	k_assert(false);
 
 	return NULL;
 }
 
 void memmanager_unmap_page(uintptr_t virtual_address)
 {
-	size_t pd_index = virtual_address >> 22;
+	size_t pd_index = get_page_dir_index(virtual_address);
 	uintptr_t pd_entry = current_page_directory[pd_index];
 
 	if(pd_entry & PAGE_PRESENT)
 	{
 		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
-		page_table[(virtual_address >> 12) & PT_INDEX_MASK] = 0;
+		page_table[get_page_tbl_index(virtual_address)] = 0;
 
 		__flush_tlb_page(virtual_address);
 	}
@@ -137,22 +153,22 @@ void memmanager_unmap_page(uintptr_t virtual_address)
 
 bool memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_address, page_flags_t flags)
 {
-	size_t pd_index = virtual_address >> 22;
+	size_t pd_index = get_page_dir_index(virtual_address);
 	uintptr_t pd_entry = current_page_directory[pd_index];
 
 	if(!(pd_entry & PAGE_PRESENT)) //page table is not present
 	{
-		memmanager_create_new_page_table(pd_index);
+		memmanager_create_new_page_table(pd_index, flags);
 	}
 	else if((flags & PAGE_USER) && !(pd_entry & PAGE_USER))
 	{
-		printf("Page at %X does not match requested flags\n", virtual_address);
+		printf("Page at %X does not match requested flags %X\n", virtual_address, pd_entry & PAGE_FLAGS_MASK);
 		return false;
 	}
 
 	uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
-	size_t pt_index = (virtual_address >> 12) & PT_INDEX_MASK;
+	size_t pt_index = get_page_tbl_index(virtual_address) ;
 
 	if(page_table[pt_index] & PAGE_ALLOCATED)
 	{
@@ -196,7 +212,7 @@ void memmanager_set_page_flags(void* virtual_address, size_t num_pages, page_fla
 	{
 		uintptr_t v_address = (uintptr_t)virtual_address + i * PAGE_SIZE;
 
-		size_t pd_index = v_address >> 22;
+		size_t pd_index = get_page_dir_index(v_address);
 		uintptr_t pt_entry = current_page_directory[pd_index];
 
 		if(!(pt_entry & PAGE_PRESENT)) //page table is not present
@@ -205,7 +221,7 @@ void memmanager_set_page_flags(void* virtual_address, size_t num_pages, page_fla
 			return;
 		}
 
-		size_t pt_index = (v_address >> 12) & PT_INDEX_MASK;
+		size_t pt_index = get_page_tbl_index(v_address);
 
 		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 		page_table[pt_index] = (page_table[pt_index] & (PAGE_ADDRESS_MASK | preserved)) | flags;
@@ -340,9 +356,13 @@ uintptr_t memmanager_new_memory_space()
 
 	memmanager_init_page_dir(process_page_dir, memmanager_get_physical((uintptr_t)process_page_dir));
 
-	for(size_t i = 0; i < 8; i++)
+	for(size_t i = 0; i < PAGE_TABLE_SIZE - 1; i++)
 	{
-		process_page_dir[i] = current_page_directory[i] & ~PAGE_USER;
+		//copy only the kernel page directories
+		if(!(current_page_directory[i] & PAGE_USER))
+		{
+			process_page_dir[i] = current_page_directory[i];
+		}
 	}
 
 	return (uintptr_t)process_page_dir;
@@ -361,16 +381,6 @@ bool memmanager_destroy_memory_space(uintptr_t pdir)
 	return true;
 }
 
-inline size_t get_page_dir_index(uintptr_t virtual_address)
-{
-	return virtual_address >> 22;
-}
-
-inline size_t get_page_tbl_index(uintptr_t virtual_address)
-{
-	return (virtual_address >> 12) & PT_INDEX_MASK;
-}
-
 bool memmanager_handle_page_fault(page_flags_t err, uintptr_t virtual_address)
 {
 	if(err & PAGE_PRESENT)
@@ -384,7 +394,6 @@ bool memmanager_handle_page_fault(page_flags_t err, uintptr_t virtual_address)
 		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
 		size_t pt_index = get_page_tbl_index(virtual_address);
-
 		uintptr_t entry = page_table[pt_index];
 
 		if(entry & PAGE_MAP_ON_ACCESS)
@@ -420,7 +429,6 @@ bool memmanager_handle_page_fault(page_flags_t err, uintptr_t virtual_address)
 			return true;
 		}
 	}
-
 	printf("Can't handle page fault\n");
 
 	return false;
@@ -507,7 +515,7 @@ void memmanager_init(void)
 
 	for(size_t i = 0; i < num_k_pages; i++)
 	{
-		uintptr_t* pd_entry = &kernel_page_directory[k_pg_start >> 22];
+		uintptr_t* pd_entry = &kernel_page_directory[get_page_dir_index(k_pg_start)];
 
 		if(*pd_entry == NULL)
 		{
@@ -515,7 +523,7 @@ void memmanager_init(void)
 			*pd_entry = (uintptr_t)current_pt | PAGE_PRESENT | PAGE_RW;
 		}
 
-		size_t pt_index = (k_pg_start >> 12) & (PAGE_TABLE_SIZE - 1);
+		size_t pt_index = get_page_tbl_index(k_pg_start);
 
 		current_pt[pt_index] = kernel_addr | PAGE_PRESENT | PAGE_RW;
 
