@@ -126,7 +126,7 @@ multiboot1_header:
 multiboot1_header_end:
 header_end:
 	cli
-	mov ebp, init_stack
+	mov ebp, init_stack + 0x1000
 	mov esp, ebp
 
 	mov dword [_boot_edx], ebx
@@ -267,7 +267,7 @@ tss_location:
 tss_begin:
 	dd 	0x00000000
 tss_esp0_location:
-	dd	init_stack			;kernel stack pointer
+	dd	init_stack + 0x1000	;kernel stack pointer
 	dd	GDT_DATA_SEG		;kernel stack segment
 	times 23 dd 0x00000000
 tss_end:
