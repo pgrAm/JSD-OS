@@ -30,7 +30,7 @@ public:
 		m_size(0)
 	{}
 
-	constexpr basic_string_view(const value_type* s) : basic_string_view(s, strlen(s))
+	constexpr basic_string_view(const value_type* s) : basic_string_view(s, traits_type::length(s))
 	{}
 
 	constexpr basic_string_view(const value_type* s, size_t len) :

@@ -13,6 +13,7 @@
 #include <kernel/locks.h>
 #include <kernel/display.h>
 #include <kernel/sysclock.h>
+#include <kernel/kassert.h>
 
 extern "C" {
 #include <drivers/kbrd.h>
@@ -23,7 +24,7 @@ extern "C" {
 
 struct func_info {
 	const std::string_view name;
-	void* address;
+	const void* address;
 };
 
 dynamic_object::sym_map driver_lib_set{32};
@@ -59,55 +60,51 @@ static void load_driver(const std::string_view filename, const std::string_view 
 
 typedef SYSCALL_HANDLER clock_t (*clock_func)(size_t*);
 
-static const func_info func_list[] = {
+static constexpr func_info func_list[] = {
 	{"printf",	(void*)&printf},
-	{"vsnprintf",(void*)&vsnprintf},
-	{"strcat",	(void*)&strcat},
 	{"time",	(void*)&time},
 	{"malloc",	(void*)&malloc},
 	{"calloc",	(void*)&calloc},
 	{"free",	(void*)&free},
-	{"strtok",	(void*)&strtok},
 	{"strlen",	(void*)&strlen},
 	{"mktime",	(void*)&mktime},
 	{"memcmp",	(void*)&memcmp},
 	{"memset",	(void*)&memset},
-	{"strcmp",	(void*)&strcmp},
 	{"filesystem_add_virtual_drive",(void*)&filesystem_add_virtual_drive},
 	{"filesystem_add_partitioner",	(void*)&filesystem_add_partitioner},
 	{"filesystem_add_drive",		(void*)&filesystem_add_drive},
 	{"filesystem_add_driver",		(void*)&filesystem_add_driver},
 	{"filesystem_allocate_buffer",	(void*)&filesystem_allocate_buffer},
 	{"filesystem_free_buffer",		(void*)&filesystem_free_buffer},
-	{"filesystem_read_blocks_from_disk", (void*)&filesystem_read_blocks_from_disk},
-	{"filesystem_create_stream", (void*)&filesystem_create_stream},
-	{"__regcall3__filesystem_open_file", (void*)&filesystem_open_file},
-	{"__regcall3__filesystem_read_file", (void*)&filesystem_read_file},
-	{"__regcall3__filesystem_close_file", (void*)&filesystem_close_file},
-	{"irq_install_handler", (void*)&irq_install_handler},
-	{"sysclock_sleep", (void*)&sysclock_sleep},
+	{"filesystem_read_blocks_from_disk",	(void*)&filesystem_read_blocks_from_disk},
+	{"filesystem_create_stream",			(void*)&filesystem_create_stream},
+	{"__regcall3__filesystem_open_file",	(void*)&filesystem_open_file},
+	{"__regcall3__filesystem_read_file",	(void*)&filesystem_read_file},
+	{"__regcall3__filesystem_close_file",	(void*)&filesystem_close_file},
+	{"irq_install_handler",			(void*)&irq_install_handler},
+	{"sysclock_sleep",				(void*)&sysclock_sleep},
 	{"__regcall3__sysclock_get_ticks", (void*)(clock_func)sysclock_get_ticks},
 	{"__regcall3__memmanager_virtual_alloc", (void*)&memmanager_virtual_alloc},
 	{"physical_memory_allocate_in_range", (void*)&physical_memory_allocate_in_range},
-	{"physical_memory_allocate", (void*)&physical_memory_allocate},
+	{"physical_memory_allocate",	(void*)&physical_memory_allocate},
 	{"memmanager_map_to_new_pages", (void*)&memmanager_map_to_new_pages},
-	{"memmanager_get_physical", (void*)&memmanager_get_physical},
-	{"memmanager_unmap_pages", (void*)&memmanager_unmap_pages},
+	{"memmanager_get_physical",		(void*)&memmanager_get_physical},
+	{"memmanager_unmap_pages",		(void*)&memmanager_unmap_pages},
 	{"__regcall3__memmanager_free_pages", (void*)&memmanager_free_pages},
-	{"kernel_lock_mutex", (void*)&kernel_lock_mutex},
+	{"kernel_lock_mutex",	(void*)&kernel_lock_mutex},
 	{"kernel_unlock_mutex", (void*)&kernel_unlock_mutex},
-	{"handle_keyevent", (void*)&handle_keyevent},
-	{"kernel_signal_cv", (void*)&kernel_signal_cv},
-	{"kernel_wait_cv", (void*)&kernel_wait_cv},
-	{"display_add_driver", (void*)&display_add_driver},
+	{"handle_keyevent",		(void*)&handle_keyevent},
+	{"kernel_signal_cv",	(void*)&kernel_signal_cv},
+	{"kernel_wait_cv",		(void*)&kernel_wait_cv},
+	{"display_add_driver",	(void*)&display_add_driver},
 	{"display_mode_satisfied", (void*)&display_mode_satisfied},
-	{"acknowledge_irq", (void*)&acknowledge_irq},
-	{"irq_enable", (void*)&irq_enable}
+	{"acknowledge_irq",		(void*)&acknowledge_irq},
+	{"irq_enable",			(void*)&irq_enable}
 };
 
 extern "C" void load_drivers()
 {
-	auto num_funcs = sizeof(func_list) / sizeof(func_info);
+	const auto num_funcs = sizeof(func_list) / sizeof(func_info);
 	for(size_t i = 0; i < num_funcs; i++)
 	{
 		driver_symbol_map.insert(func_list[i].name, (uintptr_t)func_list[i].address);
@@ -137,7 +134,6 @@ extern "C" void load_drivers()
 		if(c == '\n')
 		{
 			auto line = std::string_view(buffer);
-
 
 			auto space = line.find_first_of(' ');
 			auto token = line.substr(0, space);

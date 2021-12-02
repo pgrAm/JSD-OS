@@ -25,10 +25,10 @@ struct file_stream
 };
 
 size_t default_drive = 0;
-std::vector<filesystem_drive*> drives;
-std::vector<filesystem_virtual_drive*> virtual_drives;
-std::vector<const filesystem_driver*> fs_drivers;
-std::vector<partition_func> partitioners;
+static std::vector<filesystem_drive*> drives;
+static std::vector<filesystem_virtual_drive*> virtual_drives;
+static std::vector<const filesystem_driver*> fs_drivers;
+static std::vector<partition_func> partitioners;
 
 extern "C" void filesystem_add_partitioner(partition_func p)
 {

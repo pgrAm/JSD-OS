@@ -13,7 +13,7 @@ template <class K, class D>
 class hash_map
 {
 public:
-	hash_map(size_t num_buckets = 16) : buckets(num_buckets, nullptr)
+	constexpr hash_map(size_t num_buckets = 16) noexcept : buckets(num_buckets, nullptr)
 	{}
 
 	~hash_map()
@@ -35,7 +35,7 @@ public:
 
 	template<typename _Ky> bool lookup(const _Ky& key, D* value)
 	{
-		size_t i = hash(key) % buckets.size();
+		const size_t i = hash(key) % buckets.size();
 		hash_node* entry = buckets[i];
 
 		while(entry != nullptr)
@@ -114,7 +114,7 @@ public:
 	}
 
 private:
-	uint32_t hash(uint32_t x)
+	static uint32_t hash(uint32_t x)
 	{
 		x = ((x >> 16) ^ x) * 0x45d9f3b;
 		x = ((x >> 16) ^ x) * 0x45d9f3b;
@@ -122,13 +122,13 @@ private:
 		return x;
 	}
 
-	uint32_t hash(const std::string_view name)
+	static uint32_t hash(const std::string_view name)
 	{
 		uint32_t h = 0;
 		for(size_t i = 0; i < name.size(); i++)
 		{
 			h = (h << 4) + *(uint8_t*)&name[i];
-			uint32_t g = h & 0xf0000000;
+			const uint32_t g = h & 0xf0000000;
 			if(g)
 			{
 				h ^= g >> 24;

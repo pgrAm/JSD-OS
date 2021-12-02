@@ -605,14 +605,14 @@ inline bool operator!=(const std::basic_string<C>& lhs,
 
 template <typename C>
 inline bool operator==(const typename std::basic_string<C>::value_type* lhs,
-					   const std::basic_string<C> rhs)
+					   const std::basic_string<C>& rhs)
 {
 	return rhs.compare(lhs) == 0;
 }
 
 template <typename C>
 inline bool operator!=(const typename std::basic_string<C>::value_type* lhs,
-					   const std::basic_string<C> rhs)
+					   const std::basic_string<C>& rhs)
 {
 	return rhs.compare(lhs) != 0;
 }

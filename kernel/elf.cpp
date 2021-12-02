@@ -140,8 +140,6 @@ int load_elf(const char* path, size_t path_len, dynamic_object* object, bool use
 		dir_path = elf_path.substr(0, slash);
 	}
 	
-	//printf("dir path = %s\n", std::string(dir_path).c_str());
-
 	return load_elf(f, object, user, dir_path);
 }
 
