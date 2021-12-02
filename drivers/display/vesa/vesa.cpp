@@ -121,7 +121,6 @@ static void* map_address(uint32_t addr, bool write = false)
 
 	if(page_addr < 0x1000 || (page_addr >= 0x80000 && page_addr < 0x100000))
 	{
-		printf("accessing real page %X\r\n", page_addr);
 		auto vaddr = (uintptr_t)memmanager_map_to_new_pages(page_addr, 1, PAGE_PRESENT | PAGE_RW);
 		pages_mapped->push_back(vaddr);
 		mapping_cache->insert(page_addr, vaddr);
@@ -140,7 +139,6 @@ static void* map_address(uint32_t addr, bool write = false)
 		}
 		else
 		{
-			printf("mapping %X to random page\n", addr);
 			vaddr = (uintptr_t)memmanager_virtual_alloc(nullptr, 1, PAGE_RW);
 			k_assert(false);
 		}
