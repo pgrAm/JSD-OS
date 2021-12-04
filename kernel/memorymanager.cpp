@@ -90,7 +90,7 @@ static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flag
 {
 	//size_t start = (flags & PAGE_USER) ? 0 : KERNEL_SPLIT / (PAGE_SIZE*PAGE_TABLE_SIZE);
 
-	for(size_t pd_index = 0; pd_index < PAGE_TABLE_SIZE; pd_index++)
+	for(size_t pd_index = 1; pd_index < PAGE_TABLE_SIZE; pd_index++)
 	{
 		if(!(current_page_directory[pd_index] & PAGE_PRESENT))
 		{
@@ -420,7 +420,7 @@ bool memmanager_handle_page_fault(page_flags_t err, uintptr_t virtual_address)
 	return false;
 }
 
-void memmanager_print_all_mappings_to_physical_DEBUG()
+extern "C" void memmanager_print_all_mappings_to_physical_DEBUG()
 {
 	for(size_t pd_index = 0; pd_index < PAGE_TABLE_SIZE; pd_index++)
 	{
@@ -477,6 +477,8 @@ void memmanager_init(void)
 
 	memset(first_page_table, 0, PAGE_SIZE);
 
+	first_page_table[0] = PAGE_RESERVED; //reserve page but don't map it
+
 	//Add the first pt to the page dir
 	kernel_page_directory[0] = ((uintptr_t)first_page_table) | PAGE_PRESENT | PAGE_RW;
 
@@ -507,7 +509,6 @@ void memmanager_init(void)
 		kernel_addr += PAGE_SIZE;
 		k_pg_start += PAGE_SIZE;
 	}
-
 	set_page_directory(kernel_page_directory);
 
 	enable_paging();
