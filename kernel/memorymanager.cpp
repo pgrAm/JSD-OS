@@ -256,13 +256,13 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* v_address, size_t n, page_f
 		//if its still null then there were not enough contiguous unmapped pages
 		if(virtual_address == (uintptr_t)nullptr)
 		{
-			printf("failure to get %d unmapped pages", n);
+			printf("failure to get %d unmapped pages\n", n);
 			return nullptr;
 		}
 	}	
 	else if((uintptr_t)virtual_address & PAGE_FLAGS_MASK)
 	{
-		printf("unaligned address %X", virtual_address);
+		printf("unaligned address %X\n", virtual_address);
 		return nullptr;
 	}
 
@@ -495,6 +495,8 @@ void memmanager_init(void)
 		if(*pd_entry == (uintptr_t)nullptr)
 		{
 			current_pt = (uintptr_t*)allocate_low_page();
+			memset(current_pt, 0, PAGE_SIZE);
+
 			*pd_entry = (uintptr_t)current_pt | PAGE_PRESENT | PAGE_RW;
 		}
 
@@ -506,11 +508,7 @@ void memmanager_init(void)
 		k_pg_start += PAGE_SIZE;
 	}
 
-	printf("here\n");
-
 	set_page_directory(kernel_page_directory);
-
-	printf("not here\n");
 
 	enable_paging();
 
