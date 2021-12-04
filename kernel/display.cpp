@@ -26,26 +26,28 @@ constexpr text_char clearval = {'\0', 0x0f};
 display_driver* default_driver = nullptr;
 std::vector<display_driver*> display_drivers;
 
-uint8_t* get_mapped_frame_buffer(display_driver* driver)
-{
-	auto phys_addr = driver->get_framebuffer();
-
-	if(memmanager_get_physical((uintptr_t)phys_addr) != (uintptr_t)phys_addr)
-	{
-		return map_display_memory();
-	}
-
-	return phys_addr;
-}
-
 class kernel_terminal
 {
+	static text_char* get_mapped_frame_buffer(display_driver* driver, size_t size)
+	{
+		uintptr_t phys_addr = (uintptr_t)driver->get_framebuffer();
+
+		if(memmanager_get_physical(phys_addr) != phys_addr)
+		{
+			auto num_pages = memmanager_minimum_pages(size * sizeof(text_char));
+			return (text_char*)memmanager_map_to_new_pages(phys_addr, num_pages,
+														   PAGE_PRESENT | PAGE_RW);
+		}
+
+		return (text_char*)phys_addr;
+	}
+
 public:
 	static const int tab_size = 5;
 
 	kernel_terminal(display_driver* driver, size_t rows, size_t cols) :
 		m_display(driver),
-		m_screen_ptr((text_char*)get_mapped_frame_buffer(driver)),
+		m_screen_ptr((text_char*)get_mapped_frame_buffer(driver, rows*cols)),
 		m_num_rows(rows),
 		m_num_cols(cols),
 		m_total_size(rows*cols),
