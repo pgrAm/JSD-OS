@@ -68,6 +68,21 @@ void kernel_wait_cv(kernel_cv* m);
 bool kernel_try_wait_cv(kernel_cv* m);
 
 #ifdef __cplusplus
+
+class scoped_lock {
+public:
+	scoped_lock(kernel_mutex* m) : m_mutex(m)
+	{
+		kernel_lock_mutex(m_mutex);
+	}
+	~scoped_lock()
+	{
+		kernel_unlock_mutex(m_mutex);
+	}
+private:
+	kernel_mutex* const m_mutex;
+};
+
 }
 #endif
 #endif

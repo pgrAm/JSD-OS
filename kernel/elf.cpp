@@ -181,6 +181,7 @@ static int load_elf(file_handle* file, dynamic_object* object, bool user, const 
 
 			if(s.base != nullptr) //if the elf cares where its loaded then don't add the base adress
 			{
+				k_assert((uintptr_t)s.base == base_adress);
 				base_adress = 0;
 			}
 

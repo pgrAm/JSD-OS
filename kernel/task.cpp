@@ -11,16 +11,18 @@ extern "C" {
 #include <kernel/elf.h>
 #include <kernel/filesystem.h>
 #include <kernel/dynamic_object.h>
+#include <kernel/tss.h>
 
 #include <vector>
 
 //Thread control block
 typedef struct
 {
-	uint32_t esp;
-	uint32_t esp0;
-	uint32_t cr3;
-	uint32_t pid;
+	uintptr_t esp;
+	uintptr_t esp0;
+	uintptr_t cr3;
+	tss* tss_ptr;
+	size_t pid;
 	process* p_data;
 } __attribute__((packed)) TCB; //tcb man, tcb...
 
@@ -38,7 +40,6 @@ extern "C" void run_user_code(void* address, void* stack);
 extern "C" void switch_task(TCB *t);
 
 extern TCB* current_task_TCB;
-extern uint32_t* tss_esp0_location;
 
 size_t num_processes = 1;
 const size_t max_processes = 10;
@@ -94,11 +95,20 @@ void run_background_tasks()
 	switch_to_task(next);
 }
 
+extern uint8_t* init_stack;
+
+tss* current_TSS = nullptr;
+
 void setup_first_task()
 {	
-	running_tasks[0].esp0 = (uint32_t)tss_esp0_location;
+	uintptr_t esp0 = (uintptr_t)init_stack + PAGE_SIZE;
+
+	current_TSS = create_TSS(esp0);
+
+	running_tasks[0].esp0 = (uint32_t)esp0;
 	running_tasks[0].cr3 = (uint32_t)get_page_directory();
 	running_tasks[0].pid = 0;
+	running_tasks[0].tss_ptr = current_TSS;
 	active_process = 0;
 	current_task_TCB = &running_tasks[0];
 }
@@ -202,16 +212,18 @@ SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
 	if(!load_elf(path, path_len, newTask->objects[0], true))
 	{
 		delete newTask;
-		set_page_directory((uint32_t*)oldcr3);
+		set_page_directory((uintptr_t*)oldcr3);
 		memmanager_destroy_memory_space(address_space);
 		return;
 	}
 
 	newTask->user_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_USER | PAGE_RW);
 	newTask->kernel_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_RW);
+
 	newTask->tc_block.esp0 = (uint32_t)newTask->kernel_stack_top + PAGE_SIZE;
 	newTask->tc_block.esp = newTask->tc_block.esp0 - (RESERVED_STACK_WORDS * sizeof(uint32_t));
 	newTask->tc_block.cr3 = (uint32_t)get_page_directory();
+	newTask->tc_block.tss_ptr = current_TSS;
 	newTask->tc_block.pid = num_processes++;
 	newTask->tc_block.p_data = newTask;
 
