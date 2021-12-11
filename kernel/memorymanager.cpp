@@ -4,6 +4,7 @@
 #include <kernel/boot_info.h>
 #include <kernel/memorymanager.h>
 #include <kernel/physical_manager.h>
+#include <kernel/locks.h>
 #include <kernel/kassert.h>
 
 static inline void __flush_tlb()
@@ -24,11 +25,18 @@ static inline void __flush_tlb_page(uintptr_t addr)
 #endif
 }
 
+//this mutex must be locked when accessing/modfying kernel address space mappings
+static kernel_mutex kernel_addr_mutex = {-1, 0};
+
+extern "C" void memmanager_print_all_mappings_to_physical_DEBUG();
+
 #define PT_INDEX_MASK (PAGE_TABLE_SIZE - 1)
 #define PAGE_FLAGS_MASK (PAGE_SIZE - 1)
 #define PAGE_ADDRESS_MASK (~PAGE_FLAGS_MASK)
 
 #define MAXIMUM_ADDRESS (~(uintptr_t)0)
+
+#define KERNEL_SPLIT (MAXIMUM_ADDRESS - MAXIMUM_ADDRESS/8)
 
 uintptr_t* const last_pde_address = (uintptr_t*)((uintptr_t)(PAGE_TABLE_SIZE - 1) * (uintptr_t)PAGE_TABLE_SIZE * (uintptr_t)PAGE_SIZE);
 uintptr_t* const current_page_directory = (uintptr_t*)((uintptr_t)MAXIMUM_ADDRESS - (uintptr_t)~PAGE_ADDRESS_MASK);
@@ -88,10 +96,13 @@ static void memmanager_create_new_page_table(size_t pd_index, page_flags_t flags
 
 static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t flags)
 {
-	//size_t start = (flags & PAGE_USER) ? 0 : KERNEL_SPLIT / (PAGE_SIZE*PAGE_TABLE_SIZE);
+	uintptr_t start_addr = (flags & PAGE_USER) ? 0 : KERNEL_SPLIT;
 
-	for(size_t pd_index = 1; pd_index < PAGE_TABLE_SIZE; pd_index++)
+	size_t pages_found = 0;
+
+	for(size_t addr = start_addr; addr < MAXIMUM_ADDRESS; addr += PAGE_SIZE)
 	{
+		auto pd_index = get_page_dir_index(addr);
 		if(!(current_page_directory[pd_index] & PAGE_PRESENT))
 		{
 			memmanager_create_new_page_table(pd_index, flags);
@@ -106,22 +117,20 @@ static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flag
 		//if were looking for a kernel page, we need a kernel page table
 		if((bool)(flags & PAGE_USER) != (bool)(current_page_directory[pd_index] & PAGE_USER))
 		{
+			pages_found = 0;
+			addr = ((pd_index + 1) << 22) - PAGE_SIZE;
 			continue;
 		}
 
 		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
-		size_t pages_found = 0;
-		size_t pt_index = 0;
+		auto pt_entry = page_table[get_page_tbl_index(addr)];
 
-		while(pt_index < PAGE_TABLE_SIZE)
+		pages_found = (pt_entry & PAGE_ALLOCATED) ? 0 : pages_found + 1;
+
+		if(pages_found == num_pages)
 		{
-			pages_found = (page_table[pt_index++] & PAGE_ALLOCATED) ? 0 : pages_found + 1;
-
-			if(pages_found == num_pages)
-			{
-				return (pd_index << 22) + ((pt_index - num_pages) << 12);
-			}
+			return addr - (num_pages - 1) * PAGE_SIZE;
 		}
 	}
 
@@ -186,6 +195,8 @@ static bool memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_ad
 
 void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, page_flags_t flags)
 {
+	scoped_lock l{&kernel_addr_mutex};
+
 	uintptr_t virtual_address = memmanager_get_unmapped_pages(n, flags);
 
 	for(size_t i = 0; i < n; i++)
@@ -222,7 +233,10 @@ void memmanager_set_page_flags(void* virtual_address, size_t num_pages, page_fla
 		size_t pt_index = get_page_tbl_index(v_address);
 
 		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
-		page_table[pt_index] = (page_table[pt_index] & (PAGE_ADDRESS_MASK | preserved)) | flags;
+		
+		uintptr_t new_entry = (page_table[pt_index] & (PAGE_ADDRESS_MASK | preserved)) | flags;
+		
+		__atomic_store(&page_table[pt_index], &new_entry, __ATOMIC_RELAXED);
 
 		__flush_tlb_page(v_address);
 	}
@@ -230,8 +244,11 @@ void memmanager_set_page_flags(void* virtual_address, size_t num_pages, page_fla
 
 static void* memmanager_alloc_page(page_flags_t flags)
 {
-	uintptr_t virtual_address = memmanager_get_unmapped_pages(1, flags);
 	uintptr_t physical_address = memmanager_allocate_physical_page();
+
+	scoped_lock l{&kernel_addr_mutex};
+
+	uintptr_t virtual_address = memmanager_get_unmapped_pages(1, flags);
 
 	if(!memmanager_map_page(virtual_address, physical_address, flags | PAGE_PRESENT))
 		return NULL;
@@ -241,7 +258,7 @@ static void* memmanager_alloc_page(page_flags_t flags)
 
 SYSCALL_HANDLER void* memmanager_virtual_alloc(void* v_address, size_t n, page_flags_t flags)
 {
-	//printf("\tAllocating %d pages\n", n);
+	scoped_lock l{&kernel_addr_mutex};
 
 	uintptr_t illegal = PAGE_PRESENT | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
 
