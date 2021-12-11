@@ -113,7 +113,7 @@ void kernel_signal_cv(kernel_cv* m)
 	switch_to_active_task();
 }
 
-inline bool do_try_wait_cv(kernel_cv* m, int current_pid)
+static inline bool do_try_wait_cv(kernel_cv* m, int current_pid)
 {
 	int pid = cas_func(&m->tas_lock, &m->waitingPID, INVALID_PID, current_pid);
 	if(pid == INVALID_PID) //locked

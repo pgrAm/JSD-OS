@@ -1,0 +1,98 @@
+#ifndef STD_ARRAY_H
+#define STD_ARRAY_H
+
+extern "C" {
+#include <string.h>
+}
+
+#include <algorithm>
+
+namespace std {
+	template<class T, size_t N> class array;
+};
+
+template<class T, size_t N>
+class std::array {
+public:
+	using iterator = T*;
+	using const_iterator = const T*;
+	using size_type = size_t;
+
+	constexpr iterator begin()
+	{
+		return ____data;
+	}
+
+	constexpr iterator end()
+	{
+		return ____data + N;
+	}
+
+	constexpr const_iterator cbegin() const noexcept
+	{
+		return ____data;
+	}
+
+	constexpr const_iterator cend() const noexcept
+	{
+		return ____data + N;
+	}
+
+	constexpr size_type size() const
+	{
+		return N;
+	}
+
+	constexpr size_type length() const
+	{
+		return size();
+	}
+
+	constexpr T& at(size_type n)
+	{
+		return ____data[n];
+	}
+
+	constexpr const T& at(size_type n) const
+	{
+		return ____data[n];
+	}
+
+	constexpr T& operator[](size_type n)
+	{
+		return ____data[n];
+	}
+
+	constexpr const T& operator[](size_type n) const
+	{
+		return ____data[n];
+	}
+
+	constexpr T* data() const
+	{
+		return ____data;
+	}
+
+	constexpr void swap(array& v) noexcept
+	{
+		std::swap(____data, v.____data);
+	}
+
+	constexpr bool empty()
+	{
+		return N == 0;
+	}
+
+	constexpr const T& back() const
+	{
+		return ____data[N - 1];
+	}
+
+	constexpr T& back()
+	{
+		return ____data[N - 1];
+	}
+
+	T ____data[N];
+};
+#endif

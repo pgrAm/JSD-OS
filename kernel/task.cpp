@@ -41,10 +41,7 @@ extern "C" void switch_task(TCB *t);
 
 extern TCB* current_task_TCB;
 
-size_t num_processes = 1;
-const size_t max_processes = 10;
-//this should be something like an std::vector
-TCB running_tasks[max_processes];
+static std::vector<TCB*> running_tasks;
 
 size_t active_process = 0;
 
@@ -76,7 +73,7 @@ void run_next_task()
 {
 	int_lock l = lock_interrupts();
 	//lock tasks
-	active_process = (active_process + 1) % num_processes;
+	active_process = (active_process + 1) % running_tasks.size();
 	int next = active_process;
 	//unlock tasks
 	unlock_interrupts(l);
@@ -88,7 +85,7 @@ void run_background_tasks()
 {
 	int_lock l = lock_interrupts();
 	//lock tasks
-	int next = (get_running_process() + 1) % num_processes;
+	int next = (get_running_process() + 1) % running_tasks.size();
 	//unlock tasks
 	unlock_interrupts(l);
 
@@ -105,12 +102,15 @@ void setup_first_task()
 
 	current_TSS = create_TSS(esp0);
 
-	running_tasks[0].esp0 = (uint32_t)esp0;
-	running_tasks[0].cr3 = (uint32_t)get_page_directory();
-	running_tasks[0].pid = 0;
-	running_tasks[0].tss_ptr = current_TSS;
+	running_tasks.push_back(new TCB{
+		.esp = 0,
+		.esp0 = (uint32_t)esp0,
+		.cr3 = (uint32_t)get_page_directory(),
+		.tss_ptr = current_TSS,
+		.pid = 0
+	});
 	active_process = 0;
-	current_task_TCB = &running_tasks[0];
+	current_task_TCB = running_tasks[0];
 }
 
 void start_user_process(process* t)
@@ -140,10 +140,10 @@ SYSCALL_HANDLER void exit_process(int val)
 	int_lock l = lock_interrupts();
 	int current_pid = current_task_TCB->pid;
 
-	process* current_process = running_tasks[current_pid].p_data;
+	process* current_process = running_tasks[current_pid]->p_data;
 
 	int next_pid = current_process->parent_pid;
-	running_tasks[current_pid].pid = INVALID_PID;
+	running_tasks[current_pid]->pid = INVALID_PID;
 
 	if (active_process == current_pid)
 	{
@@ -173,22 +173,9 @@ SYSCALL_HANDLER void exit_process(int val)
 
 SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
 {
-	if (num_processes >= max_processes)
-	{
-		puts("Too Many processes");
-		return;
-	}
-
-	//we need to copy the path onto the stack 
-	//otherwise it will be in the address space of another process
-	if (path_len > 80 - 1)
-	{
-		puts("Cannot launch process: filename too long\n");
-		return;
-	}
-	char path[80];
-	memcpy(path, p, path_len + 1);
-	path[path_len] = '\0';
+	//we need to copy the path into a kernel space object
+	//or else we won't be able to access it from another address space
+	std::string path{p, path_len};
 
 	uint32_t oldcr3 = (uint32_t)get_page_directory();
 	
@@ -209,7 +196,7 @@ SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
 
 	newTask->objects.push_back(d);
 
-	if(!load_elf(path, path_len, newTask->objects[0], true))
+	if(!load_elf(path.data(), path.size(), newTask->objects[0], true))
 	{
 		delete newTask;
 		set_page_directory((uintptr_t*)oldcr3);
@@ -224,7 +211,7 @@ SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
 	newTask->tc_block.esp = newTask->tc_block.esp0 - (RESERVED_STACK_WORDS * sizeof(uint32_t));
 	newTask->tc_block.cr3 = (uint32_t)get_page_directory();
 	newTask->tc_block.tss_ptr = current_TSS;
-	newTask->tc_block.pid = num_processes++;
+	newTask->tc_block.pid = running_tasks.size();
 	newTask->tc_block.p_data = newTask;
 
 	//we are setting up the stack of the new process
@@ -237,7 +224,7 @@ SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
 	uint32_t this_process = newTask->tc_block.pid;
 
 	//lock tasks
-	running_tasks[this_process] = newTask->tc_block;
+	running_tasks.push_back(&newTask->tc_block);
 	//unlock tasks
 
 	set_page_directory((uint32_t*)oldcr3);
@@ -260,9 +247,9 @@ SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
 
 void switch_to_task(int pid)
 {
-	if (running_tasks[pid].pid != INVALID_PID && !task_is_running(pid))
+	if (running_tasks[pid]->pid != INVALID_PID && !task_is_running(pid))
 	{
-		switch_task(&running_tasks[pid]);
+		switch_task(running_tasks[pid]);
 	}
 }
 

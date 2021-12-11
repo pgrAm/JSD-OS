@@ -7,6 +7,7 @@
 #else
 #include <kernel/locks.h>
 #include <kernel/sys/syscalls.h>
+#include <kernel/kassert.h>
 #endif
 
 #define _HAVE_UINTPTR_T
@@ -100,6 +101,11 @@ static heap_allocator library_allocator{
 void* malloc(size_t n)
 {
 	return library_allocator.malloc_bytes(n);
+}
+
+void* realloc(void* ptr, size_t size)
+{
+	return library_allocator.realloc_bytes(ptr, size);
 }
 
 void* calloc(size_t num, size_t size)

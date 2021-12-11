@@ -67,7 +67,5 @@ tss* create_TSS(uintptr_t stack_addr)
 	
 	load_TSS(tss_seg);
 
-	printf("%X\n", tss_addr);
-
 	return n_tss;
 }

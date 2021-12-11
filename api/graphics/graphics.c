@@ -15,7 +15,7 @@ size_t SCREEN_SIZE = 0;
 
 volatile size_t cursorpos = 0;
 
-inline char* get_current_draw_pointer()
+static inline char* get_current_draw_pointer()
 {
 	char* vmem = (char*)(VIDEOMEM + cursorpos * sizeof(uint16_t));
 	return vmem;

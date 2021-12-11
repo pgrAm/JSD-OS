@@ -278,9 +278,9 @@ static void floppy_read_blocks(const filesystem_drive* d, size_t block_number, u
 {
 	floppy_drive* disk = (floppy_drive*)d->drv_impl_data;
 
-	kernel_lock_mutex(&disk->mutex);
+	scoped_lock l{&disk->mutex};
+
 	floppy_read_sectors(disk, block_number, buf, num_blocks);
-	kernel_unlock_mutex(&disk->mutex);
 }
 
 //sendbyte() routine from intel manual

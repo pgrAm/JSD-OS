@@ -71,7 +71,7 @@ static const virtual_keycode key_translation_table[] = {
 					  VK_NONE,					 VK_NONE,					 VK_NONE,				 VK_NONE
 };
 
-uint8_t last_key = 0;
+static uint8_t last_key = 0;
 
 static INTERRUPT_HANDLER void AT_keyboard_handler(interrupt_frame* r)
 {

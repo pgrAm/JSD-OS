@@ -212,6 +212,11 @@ void set_cursor_visibility(bool on)
 	default_driver->set_cursor_visible(on);
 }
 
+void print_string(std::string_view str)
+{
+	print_string_len(str.data(), str.size());
+}
+
 void print_string_len(const char* str, size_t length)
 {
 	if(k_terminal)

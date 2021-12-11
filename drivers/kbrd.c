@@ -8,7 +8,7 @@
 
 #include "kbrd.h"
 
-#define KEY_BUFFER_SIZE 512
+#define KEY_BUFFER_SIZE 256
 #define KEY_FAILURE 0xFF
 volatile size_t keybuf_front = 0;
 size_t keybuf_back = 0;

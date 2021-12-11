@@ -9,8 +9,8 @@ typedef struct
 } memory_block;
 
 #define MAX_NUM_MEMORY_BLOCKS 128
-size_t num_memory_blocks = 0;
-memory_block memory_map[MAX_NUM_MEMORY_BLOCKS] = {};
+static size_t num_memory_blocks = 0;
+static memory_block memory_map[MAX_NUM_MEMORY_BLOCKS] = {};
 
 void physical_memory_add_block(size_t block_index, size_t address, size_t length)
 {
@@ -225,7 +225,7 @@ uintptr_t physical_memory_allocate_in_range(uintptr_t start, uintptr_t end, size
 		}
 	}
 
-	//printf("Could not allocate enough physical memory\n");
+	printf("Could not allocate enough physical memory\n");
 
 	return 0;
 }
@@ -263,8 +263,6 @@ void physical_memory_init(void)
 {
 	total_mem_size = boot_information.low_memory * 1024 + boot_information.high_memory * 1024;
 
-	//printf("Image: %X\n", &_IMAGE_END_);
-
 	physical_memory_add_block(0, 0x500, (boot_information.low_memory * 1024) - 0x500);
 	physical_memory_add_block(1, 0x00100000, boot_information.high_memory * 1024);
 
@@ -276,7 +274,4 @@ void physical_memory_init(void)
 
 	//reserve BIOS & VRAM
 	physical_memory_reserve(0x80000, 0x100000 - 0x80000);
-
-	//print_free_map();
-	//while(true);
 }

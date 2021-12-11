@@ -47,7 +47,7 @@ my @kernel_src = qw(
 	kernel/interrupt.cpp
 	kernel/syscall.c
 	kernel/task.cpp
-	kernel/locks.c
+	kernel/locks.cpp
 	kernel/driver_loader.cpp
 	kernel/display.cpp
 	kernel/sysclock.cpp

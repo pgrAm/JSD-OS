@@ -1,6 +1,9 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 #ifdef __cplusplus
+
+#include <string_view>
+
 extern "C" {
 #endif
 #include <stdint.h>
@@ -47,5 +50,8 @@ SYSCALL_HANDLER int set_display_offset(size_t offset, int on_retrace);
 
 #ifdef __cplusplus
 }
+
+void print_string(std::string_view str);
+
 #endif
 #endif
