@@ -58,6 +58,13 @@ inline size_t get_page_tbl_index(uintptr_t virtual_address)
 	return (virtual_address >> 12) & PT_INDEX_MASK;
 }
 
+static uintptr_t &memmanager_get_pt_entry(uintptr_t virtual_address, size_t pd_index)
+{
+	uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
+
+	return page_table[get_page_tbl_index(virtual_address)];
+}
+
 static uintptr_t memmanager_get_pt_entry(uintptr_t virtual_address)
 {
 	size_t pd_index = get_page_dir_index(virtual_address);
@@ -68,15 +75,19 @@ static uintptr_t memmanager_get_pt_entry(uintptr_t virtual_address)
 		return pd_entry;
 	}
 
-	uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
-
-	return page_table[get_page_tbl_index(virtual_address)];
+	return memmanager_get_pt_entry(virtual_address, pd_index);
 }
 
 uintptr_t memmanager_get_physical(uintptr_t virtual_address)
 {
 	return (memmanager_get_pt_entry(virtual_address) & PAGE_ADDRESS_MASK) +
 		(virtual_address & ~PAGE_ADDRESS_MASK);
+}
+
+void memmanager_update_pt(uintptr_t* pt_ptr, uintptr_t new_value, uintptr_t v_address)
+{
+	__atomic_store(pt_ptr, &new_value, __ATOMIC_RELAXED);
+	__flush_tlb_page(v_address);
 }
 
 static void memmanager_create_new_page_table(size_t pd_index, page_flags_t flags)
@@ -122,9 +133,7 @@ static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flag
 			continue;
 		}
 
-		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
-
-		auto pt_entry = page_table[get_page_tbl_index(addr)];
+		uintptr_t pt_entry = memmanager_get_pt_entry(addr, pd_index);
 
 		pages_found = (pt_entry & PAGE_ALLOCATED) ? 0 : pages_found + 1;
 
@@ -142,16 +151,17 @@ static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flag
 
 void memmanager_unmap_page(uintptr_t virtual_address)
 {
+	scoped_lock l{&kernel_addr_mutex};
+
 	size_t pd_index = get_page_dir_index(virtual_address);
 	uintptr_t pd_entry = current_page_directory[pd_index];
 
 	if(pd_entry & PAGE_PRESENT)
 	{
-		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
-
-		page_table[get_page_tbl_index(virtual_address)] = 0;
-
-		__flush_tlb_page(virtual_address);
+		//unmap the page
+		memmanager_update_pt(&memmanager_get_pt_entry(virtual_address, pd_index),
+							 0,
+							 virtual_address);
 	}
 	else
 	{
@@ -175,22 +185,19 @@ static bool memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_ad
 		return false;
 	}
 
-	uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
+	uintptr_t &pt_entry = memmanager_get_pt_entry(virtual_address, pd_index);
 
-	size_t pt_index = get_page_tbl_index(virtual_address) ;
-
-	if(page_table[pt_index] & PAGE_ALLOCATED)
+	if(pt_entry & PAGE_ALLOCATED)
 	{
 		printf("warning page already exists at %X!\n", virtual_address);
 		return false;
 	}
 
-	page_table[pt_index] = (physical_address & PAGE_ADDRESS_MASK) | flags;
-
-	__flush_tlb_page(virtual_address);
+	memmanager_update_pt(&pt_entry,
+						 (physical_address & PAGE_ADDRESS_MASK) | flags,
+						 virtual_address);
 
 	return true;
-	//printf("%X mapped to physical address %X\n", virtual_address, physical_address);	
 }
 
 void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, page_flags_t flags)
@@ -219,26 +226,22 @@ void memmanager_set_page_flags(void* virtual_address, size_t num_pages, page_fla
 
 	for(size_t i = 0; i < num_pages; i++)
 	{
-		uintptr_t v_address = (uintptr_t)virtual_address + i * PAGE_SIZE;
+		const uintptr_t v_address = (uintptr_t)virtual_address + i * PAGE_SIZE;
 
-		size_t pd_index = get_page_dir_index(v_address);
-		uintptr_t pt_entry = current_page_directory[pd_index];
+		const size_t pd_index = get_page_dir_index(v_address);
+		const uintptr_t pd_entry = current_page_directory[pd_index];
 
-		if(!(pt_entry & PAGE_PRESENT)) //page table is not present
+		if(!(pd_entry & PAGE_PRESENT)) //page table is not present
 		{
 			puts("page table not present, while attempting to set flags");
 			return;
 		}
 
-		size_t pt_index = get_page_tbl_index(v_address);
+		uintptr_t& page_entry = memmanager_get_pt_entry(v_address, pd_index);
 
-		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
-		
-		uintptr_t new_entry = (page_table[pt_index] & (PAGE_ADDRESS_MASK | preserved)) | flags;
-		
-		__atomic_store(&page_table[pt_index], &new_entry, __ATOMIC_RELAXED);
-
-		__flush_tlb_page(v_address);
+		memmanager_update_pt(&page_entry,
+							 (page_entry & (PAGE_ADDRESS_MASK | preserved)) | flags,
+							 v_address);
 	}
 }
 
@@ -394,15 +397,12 @@ bool memmanager_handle_page_fault(page_flags_t err, uintptr_t virtual_address)
 
 	if(current_page_directory[pd_index] & PAGE_PRESENT)
 	{
-		uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
+		uintptr_t& pt_entry = memmanager_get_pt_entry(virtual_address, pd_index);
 
-		size_t pt_index = get_page_tbl_index(virtual_address);
-		uintptr_t entry = page_table[pt_index];
-
-		if(entry & PAGE_MAP_ON_ACCESS)
+		if(pt_entry & PAGE_MAP_ON_ACCESS)
 		{
-			k_assert(entry & PAGE_RESERVED);
-			k_assert(!(entry & PAGE_PRESENT));
+			k_assert(pt_entry & PAGE_RESERVED);
+			k_assert(!(pt_entry & PAGE_PRESENT));
 
 			uintptr_t physical = memmanager_allocate_physical_page();
 			if(!physical)
@@ -413,20 +413,18 @@ bool memmanager_handle_page_fault(page_flags_t err, uintptr_t virtual_address)
 
 			virtual_address &= PAGE_ADDRESS_MASK;
 
-			page_flags_t flags = entry & (PAGE_FLAGS_MASK & ~(PAGE_RESERVED | PAGE_MAP_ON_ACCESS));
+			page_flags_t flags = pt_entry & (PAGE_FLAGS_MASK & ~(PAGE_RESERVED | PAGE_MAP_ON_ACCESS));
 
 			uintptr_t page_value = physical | flags | PAGE_PRESENT;
 
-			page_table[pt_index] = page_value | PAGE_RW;
-			__flush_tlb_page(virtual_address);
+			memmanager_update_pt(&pt_entry, page_value | PAGE_RW, virtual_address);
 
 			//security measure
 			memset((void*)virtual_address, 0, PAGE_SIZE);
 
 			if(!(flags & PAGE_RW))
 			{
-				page_table[pt_index] = page_value;
-				__flush_tlb_page(virtual_address);
+				memmanager_update_pt(&pt_entry, page_value, virtual_address);
 			}
 
 			return true;
