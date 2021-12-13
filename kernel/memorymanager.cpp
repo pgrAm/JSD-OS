@@ -48,17 +48,17 @@ inline uintptr_t memmanager_allocate_physical_page()
 	return physical_memory_allocate(PAGE_SIZE, PAGE_SIZE);
 }
 
-inline size_t get_page_dir_index(uintptr_t virtual_address)
+inline constexpr size_t get_page_dir_index(uintptr_t virtual_address)
 {
 	return virtual_address >> 22;
 }
 
-inline size_t get_page_tbl_index(uintptr_t virtual_address)
+inline constexpr size_t get_page_tbl_index(uintptr_t virtual_address)
 {
 	return (virtual_address >> 12) & PT_INDEX_MASK;
 }
 
-static uintptr_t &memmanager_get_pt_entry(uintptr_t virtual_address, size_t pd_index)
+static uintptr_t& memmanager_get_pt_entry(uintptr_t virtual_address, size_t pd_index)
 {
 	uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
@@ -107,13 +107,13 @@ static void memmanager_create_new_page_table(size_t pd_index, page_flags_t flags
 
 static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flags_t flags)
 {
-	uintptr_t start_addr = (flags & PAGE_USER) ? 0 : KERNEL_SPLIT;
+	const uintptr_t first_pt = (flags & PAGE_USER) ? 0 : get_page_dir_index(KERNEL_SPLIT);
+	const uintptr_t last_pt = get_page_dir_index(MAXIMUM_ADDRESS);
 
 	size_t pages_found = 0;
 
-	for(size_t addr = start_addr; addr < MAXIMUM_ADDRESS; addr += PAGE_SIZE)
+	for(size_t pd_index = first_pt; pd_index < last_pt; pd_index++)
 	{
-		auto pd_index = get_page_dir_index(addr);
 		if(!(current_page_directory[pd_index] & PAGE_PRESENT))
 		{
 			memmanager_create_new_page_table(pd_index, flags);
@@ -129,17 +129,25 @@ static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flag
 		if((bool)(flags & PAGE_USER) != (bool)(current_page_directory[pd_index] & PAGE_USER))
 		{
 			pages_found = 0;
-			addr = ((pd_index + 1) << 22) - PAGE_SIZE;
 			continue;
 		}
 
-		uintptr_t pt_entry = memmanager_get_pt_entry(addr, pd_index);
+		const uintptr_t* page_table = GET_PAGE_TABLE_ADDRESS(pd_index);
 
-		pages_found = (pt_entry & PAGE_ALLOCATED) ? 0 : pages_found + 1;
-
-		if(pages_found == num_pages)
+		for(size_t i = 0; i < PAGE_TABLE_SIZE; i++)
 		{
-			return addr - (num_pages - 1) * PAGE_SIZE;
+			if(page_table[i] & PAGE_ALLOCATED)
+			{
+				pages_found = 0;
+				continue;
+			}
+
+			pages_found++;
+
+			if(pages_found == num_pages)
+			{
+				return (pd_index << 22) + (i - (num_pages - 1)) * PAGE_SIZE;
+			}
 		}
 	}
 
@@ -185,7 +193,7 @@ static bool memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_ad
 		return false;
 	}
 
-	uintptr_t &pt_entry = memmanager_get_pt_entry(virtual_address, pd_index);
+	uintptr_t& pt_entry = memmanager_get_pt_entry(virtual_address, pd_index);
 
 	if(pt_entry & PAGE_ALLOCATED)
 	{
@@ -279,7 +287,7 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* v_address, size_t n, page_f
 			printf("failure to get %d unmapped pages\n", n);
 			return nullptr;
 		}
-	}	
+	}
 	else if((uintptr_t)virtual_address & PAGE_FLAGS_MASK)
 	{
 		printf("unaligned address %X\n", virtual_address);
@@ -298,7 +306,7 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* v_address, size_t n, page_f
 
 		page_virtual_address += PAGE_SIZE;
 	}
-	
+
 	return (void*)virtual_address;
 }
 
