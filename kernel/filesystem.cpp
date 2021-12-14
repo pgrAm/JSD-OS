@@ -57,7 +57,7 @@ extern "C" void filesystem_add_driver(const filesystem_driver* fs_drv)
 	fs_drivers.push_back(fs_drv);
 }
 
-void filesystem_read_drive_partitions(filesystem_drive* drive)
+static void filesystem_read_drive_partitions(filesystem_drive* drive)
 {
 	for(size_t i = 0; i < partitioners.size(); i++)
 	{

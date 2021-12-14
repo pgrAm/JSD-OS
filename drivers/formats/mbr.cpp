@@ -21,7 +21,7 @@ struct __attribute__((packed)) mbr
 	uint8_t			signature[2];
 };
 
-int mbr_read_partitions(filesystem_drive* d)
+static int mbr_read_partitions(filesystem_drive* d)
 {
 	size_t num_sectors = (MBR_SIZE + (d->minimum_block_size - 1)) / d->minimum_block_size;
 	size_t buffer_size = num_sectors * d->minimum_block_size;

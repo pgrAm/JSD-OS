@@ -54,11 +54,11 @@ To do:
 
 #include "vga_modes.h"
 
-static vga_mode* current_mode = nullptr;
+static const vga_mode* current_mode = nullptr;
 
 static uint8_t* vga_memory = nullptr;
 
-static void write_regs(uint8_t* regs)
+static void write_regs(const uint8_t* regs)
 {
 	// write MISCELLANEOUS reg
 	outb(VGA_MISC_WRITE, *regs);
@@ -76,8 +76,10 @@ static void write_regs(uint8_t* regs)
 	outb(VGA_CRTC_INDEX, 0x11);
 	outb(VGA_CRTC_DATA, inb(VGA_CRTC_DATA) & ~0x80);
 	//make sure they remain unlocked
-	regs[0x03] |= 0x80;
-	regs[0x11] &= ~0x80;
+
+	//assert(regs[0x03] & 0x80);
+	//assert(!(regs[0x11] & 0x80));
+
 	//write CRTC regs
 	for (size_t i = 0; i < VGA_NUM_CRTC_REGS; i++)
 	{
@@ -142,7 +144,7 @@ static uint8_t* vga_get_framebuffer()
 }
 
 //write font to plane P4 (assuming planes are named P1, P2, P4, P8)
-static void write_font(unsigned char* buf, unsigned font_height)
+static void write_font(const uint8_t* buf, unsigned font_height)
 {
 	//save registers
 	//set_plane() modifies GC 4 and SEQ 2, so save them as well
@@ -229,7 +231,7 @@ static uint8_t* loadpsf(std::string_view file)
 static uint8_t* font16 = nullptr;
 static uint8_t* font08 = nullptr;
 
-static bool vga_do_mode_switch(vga_mode* m)
+static bool vga_do_mode_switch(const vga_mode* m)
 {
 	write_regs(m->regs);
 
@@ -302,7 +304,7 @@ static bool vga_set_mode(display_mode* requested, display_mode* actual)
 	{
 		for(int i = 0; i < NUM_GRAPHICS_MODES; i++)
 		{
-			vga_mode* m = &available_modes[i];
+			const vga_mode* m = &available_modes[i];
 
 			if(display_mode_satisfied(requested, &m->mode))
 			{

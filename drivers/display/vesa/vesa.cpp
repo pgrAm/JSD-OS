@@ -11,13 +11,13 @@
 //#include <drivers/rs232.h>
 //uint16_t serial_port;
 
-uintptr_t low_page_begin = 0x7C00;
-uintptr_t low_page_end = low_page_begin + 1023;
-uint8_t* virtual_bootsector = nullptr;
+static uintptr_t low_page_begin = 0x7C00;
+static uintptr_t low_page_end = low_page_begin + 1023;
+static uint8_t* virtual_bootsector = nullptr;
 
-uintptr_t virtual_stack_end = 0x00080000;
-uintptr_t virtual_stack_begin = virtual_stack_end - 1024;
-uint8_t* virtual_stack = nullptr;
+static uintptr_t virtual_stack_end = 0x00080000;
+static uintptr_t virtual_stack_begin = virtual_stack_end - 1024;
+static uint8_t* virtual_stack = nullptr;
 
 static std::vector<uintptr_t>* pages_mapped;
 static std::vector<uintptr_t>* pages_allocated;
@@ -300,8 +300,8 @@ static uint16_t int10h(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint1
 }
 
 //based on SDL_MasksToPixelFormatEnum from SDL2
-display_format vesa_format_from_masks(size_t bpp,	uint32_t r_mask, uint32_t g_mask, 
-													uint32_t b_mask, uint32_t a_mask)
+static display_format vesa_format_from_masks(	size_t bpp, uint32_t r_mask, uint32_t g_mask, 
+												uint32_t b_mask, uint32_t a_mask)
 {
 	switch(bpp) 
 	{
@@ -551,9 +551,6 @@ struct vesa_mode
 	bool is_vesa;
 };
 
-int current_mode_index = -1;
-std::vector<vesa_mode>* available_modes;
-
 template <typename R>
 static constexpr R gen_mask(unsigned int const n)
 {
@@ -568,6 +565,9 @@ struct __attribute__((packed)) vesa_pm_funcs
 	uint16_t set_palette_offset;
 	uint16_t permissions_offset;
 };
+
+static int current_mode_index = -1;
+static std::vector<vesa_mode>* available_modes;
 
 static uint8_t* vesa_pm_interface = nullptr;
 

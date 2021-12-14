@@ -88,7 +88,7 @@ system("objcopy -O binary $builddir/kernal.elf $builddir/kernal.sys --set-sectio
 my $kb_drv = 
 build_driver("AT_kbrd.drv", ["drivers/at_kbrd.c"]);
 my $isa_dma = 
-build_driver("isa_dma.drv", ["drivers/isa_dma.c"]);
+build_driver("isa_dma.drv", ["drivers/isa_dma.cpp"]);
 my $drv_lib = 
 build_driver("drvlib.lib", ["drivers/drvlib.cpp"]);
 my $pci_drv = 

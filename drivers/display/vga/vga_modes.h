@@ -9,7 +9,7 @@ VGA REGISTER DUMPS FOR VARIOUS TEXT MODES
 	80x25	(80x30)	80x50	(80x60)
 	(90x25)	90x30	(90x50)	90x60
 *****************************************************************************/
-uint8_t g_40x25_text[] =
+static constexpr uint8_t g_40x25_text[] =
 {
 	/* MISC */
 	0x67,
@@ -29,7 +29,7 @@ uint8_t g_40x25_text[] =
 	0x0C, 0x00, 0x0F, 0x08, 0x00,
 };
 
-uint8_t g_40x50_text[] =
+static constexpr uint8_t g_40x50_text[] =
 {
 	/* MISC */
 	0x67,
@@ -49,7 +49,7 @@ uint8_t g_40x50_text[] =
 	0x0C, 0x00, 0x0F, 0x08, 0x00,
 };
 
-uint8_t g_80x25_text[] =
+static constexpr uint8_t g_80x25_text[] =
 {
 	/* MISC */
 	0x67,
@@ -69,7 +69,7 @@ uint8_t g_80x25_text[] =
 	0x0C, 0x00, 0x0F, 0x08, 0x00
 };
 
-uint8_t g_80x50_text[] =
+static constexpr uint8_t g_80x50_text[] =
 {
 	/* MISC */
 	0x67,
@@ -89,7 +89,7 @@ uint8_t g_80x50_text[] =
 	0x0C, 0x00, 0x0F, 0x08, 0x00,
 };
 
-uint8_t g_90x30_text[] =
+static constexpr uint8_t g_90x30_text[] =
 {
 	/* MISC */
 	0xE7,
@@ -109,7 +109,7 @@ uint8_t g_90x30_text[] =
 	0x0C, 0x00, 0x0F, 0x08, 0x00,
 };
 
-uint8_t g_90x60_text[] =
+static constexpr uint8_t g_90x60_text[] =
 {
 	/* MISC */
 	0xE7,
@@ -131,7 +131,7 @@ uint8_t g_90x60_text[] =
 /*****************************************************************************
 VGA REGISTER DUMPS FOR VARIOUS GRAPHICS MODES
 *****************************************************************************/
-uint8_t g_640x480x2[] =
+static constexpr uint8_t g_640x480x2[] =
 {
 	/* MISC */
 	0xE3,
@@ -156,7 +156,7 @@ is different from BIOS mode 05h in two ways:
 - Framebuffer is at A000:0000 instead of B800:0000
 - Framebuffer is linear (no screwy line-by-line CGA addressing)
 *****************************************************************************/
-uint8_t g_320x200x4[] =
+static constexpr uint8_t g_320x200x4[] =
 {
 	/* MISC */
 	0x63,
@@ -176,7 +176,7 @@ uint8_t g_320x200x4[] =
 	0x01, 0x00, 0x03, 0x00, 0x00
 };
 
-uint8_t g_640x480x16[] =
+static constexpr uint8_t g_640x480x16[] =
 {
 	/* MISC */
 	0xE3,
@@ -196,7 +196,7 @@ uint8_t g_640x480x16[] =
 	0x01, 0x00, 0x0F, 0x00, 0x00
 };
 
-uint8_t g_720x480x16[] =
+static constexpr uint8_t g_720x480x16[] =
 {
 	/* MISC */
 	0xE7,
@@ -216,7 +216,7 @@ uint8_t g_720x480x16[] =
 	0x01, 0x00, 0x0F, 0x00, 0x00,
 };
 
-uint8_t g_320x200x256[] =
+static constexpr uint8_t g_320x200x256[] =
 {
 	/* MISC */
 	0x63,
@@ -236,7 +236,7 @@ uint8_t g_320x200x256[] =
 	0x41, 0x00, 0x0F, 0x00,	0x00
 };
 
-uint8_t g_320x240x256_modex[] =
+static constexpr uint8_t g_320x240x256_modex[] =
 {
 	/* MISC */
 	0x63,
@@ -256,7 +256,7 @@ uint8_t g_320x240x256_modex[] =
 	0x41, 0x00, 0x0F, 0x00, 0x00
 };
 
-uint8_t g_400x240x256_modex[] =
+static constexpr uint8_t g_400x240x256_modex[] =
 {
 	/* MISC */
 	0xe7,
@@ -276,18 +276,18 @@ uint8_t g_400x240x256_modex[] =
 	0x41, 0x00, 0x0F, 0x00, 0x00
 };
 
-typedef struct
+struct vga_mode
 {
 	size_t char_height;
-	uint8_t* regs;
+	const uint8_t* regs;
 	display_mode mode;
-} vga_mode;
+};
 
 #define NUM_GRAPHICS_MODES 14
 
 #include <common/display_mode.h>
 
-vga_mode available_modes[NUM_GRAPHICS_MODES] = {
+static constexpr vga_mode available_modes[NUM_GRAPHICS_MODES] = {
 	{16, g_40x25_text,	{40, 25, 80, 60, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE}},
 	{8,  g_40x50_text,	{40, 50, 80, 60, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE}},
 	{16, g_80x25_text,	{80, 25, 160, 70, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE}},

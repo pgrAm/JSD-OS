@@ -243,7 +243,7 @@ void display_add_driver(display_driver* d, bool use_as_default)
 	}
 }
 
-bool display_mode_satisfied(display_mode* requested, display_mode* actual)
+bool display_mode_satisfied(const display_mode* requested, const display_mode* actual)
 {
 	if(requested == nullptr)
 	{

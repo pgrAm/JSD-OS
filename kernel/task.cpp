@@ -43,7 +43,7 @@ extern TCB* current_task_TCB;
 
 static std::vector<TCB*> running_tasks;
 
-size_t active_process = 0;
+static size_t active_process = 0;
 
 int get_running_process()
 {

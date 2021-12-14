@@ -42,7 +42,7 @@ static uint8_t* basic_text_get_framebuffer()
 	return (uint8_t*)VIDEOMEM;
 }
 
-display_mode actual_mode{
+static display_mode actual_mode{
 	80,
 	25,
 	80,

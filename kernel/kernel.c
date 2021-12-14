@@ -14,6 +14,7 @@
 #include <kernel/elf.h>
 #include <kernel/display.h>
 #include <kernel/sysclock.h>
+#include <kernel/kassert.h>
 
 #include <drivers/ramdisk.h>
 #include <drivers/kbrd.h>
@@ -61,6 +62,8 @@ void kernel_main()
 
 	sysclock_init();
 
+	clock_t init_time = sysclock_get_ticks(NULL);
+
 	setup_syscalls();
 
 	setup_first_task(); //we are now running as a kernel level task
@@ -83,6 +86,10 @@ void kernel_main()
 	load_drivers();
 
 	printf("driver loading complete\n");
+
+	//printf("%d ticks\n", sysclock_get_ticks(NULL) - init_time);
+
+	//k_assert(false);
 
 	const char shell_name[] = "shell.elf";
 

@@ -131,7 +131,7 @@ typedef struct
 
 }__attribute__((packed)) fat16_ext_bpb;
 
-filesystem_driver fat_driver = {
+static filesystem_driver fat_driver = {
 	fat_mount_disk,
 	fat_get_relative_cluster,
 	fat_read_clusters,

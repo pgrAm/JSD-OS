@@ -18,9 +18,9 @@
 #define PCI_ADDRESS_PORT 0xCF8
 #define PCI_VALUE_PORT   0xCFC
 
-void pci_scan_bus(pci_func f, size_t d_class, size_t d_subclass, size_t bus, void* udata);
+static void pci_scan_bus(pci_func f, size_t d_class, size_t d_subclass, size_t bus, void* udata);
 
-static inline uint32_t pci_get_addr(pci_device device, size_t field)
+static inline constexpr uint32_t pci_get_addr(pci_device device, size_t field)
 {
 	return 0x80000000 
 		| (device.bus << 16) 
@@ -65,13 +65,13 @@ template<> uint8_t pci_read<uint8_t>(pci_device device, size_t field)
 	return (uint8_t)((ind(0xCFC) >> ((field & 3) * 8)) & 0xFF);
 }
 
-bool pci_check_type(pci_device device, size_t d_class, size_t d_subclass)
+static bool pci_check_type(pci_device device, size_t d_class, size_t d_subclass)
 {
 	return	(pci_read<uint8_t>(device, PCI_CLASS) == d_class) &&
 			(pci_read<uint8_t>(device, PCI_SUBCLASS) == d_subclass);
 }
 
-void pci_scan_func(pci_func f, size_t d_class, size_t d_subclass, size_t bus, size_t slot, size_t func, void* udata)
+static void pci_scan_func(pci_func f, size_t d_class, size_t d_subclass, size_t bus, size_t slot, size_t func, void* udata)
 {
 	auto device = pci_device{(uint8_t)bus, (uint8_t)slot, (uint8_t)func};
 	if((d_class == 0xFF && d_subclass == 0xFF) ||
@@ -91,7 +91,7 @@ void pci_scan_func(pci_func f, size_t d_class, size_t d_subclass, size_t bus, si
 	}
 }
 
-void pci_scan_slot(pci_func f, size_t d_class, size_t d_subclass, size_t bus, size_t slot, void* udata)
+static void pci_scan_slot(pci_func f, size_t d_class, size_t d_subclass, size_t bus, size_t slot, void* udata)
 {
 	auto device = pci_device{(uint8_t)bus, (uint8_t)slot, 0};
 	if(pci_read<uint16_t>(device, PCI_VENDOR_ID) == PCI_NONE)
@@ -113,7 +113,7 @@ void pci_scan_slot(pci_func f, size_t d_class, size_t d_subclass, size_t bus, si
 	}
 }
 
-void pci_scan_bus(pci_func f, size_t d_class, size_t d_subclass, size_t bus, void* udata)
+static void pci_scan_bus(pci_func f, size_t d_class, size_t d_subclass, size_t bus, void* udata)
 {
 	for(size_t slot = 0; slot < 32; ++slot)
 	{

@@ -40,7 +40,7 @@ typedef struct display_driver display_driver;
 
 void display_add_driver(display_driver* d, bool use_as_default);
 
-bool display_mode_satisfied(display_mode* requested, display_mode* actual);
+bool display_mode_satisfied(const display_mode* requested, const display_mode* actual);
 
 SYSCALL_HANDLER int set_cursor_offset(int offset);
 SYSCALL_HANDLER int set_display_mode(display_mode* requested, display_mode* actual);

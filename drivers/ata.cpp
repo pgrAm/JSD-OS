@@ -87,9 +87,7 @@ struct ata_channel {
 	uint8_t		no_interrupt;  // nIEN (No Interrupt);
 	pci_device	pci_device;
 	size_t		irq;
-} channels[2];
-
-static kernel_cv irq_condition[2] = {{-1, 1}, {-1, 1}};
+};
 
 struct ata_drive
 {
@@ -104,7 +102,10 @@ struct ata_drive
 	char		model[41];		// model string.
 };
 
-ata_drive ide_drives[4];
+static ata_channel channels[2];
+static ata_drive ide_drives[4];
+static kernel_cv irq_condition[2] = {{-1, 1}, {-1, 1}};
+
 
 static void ata_wait_irq(size_t index)
 {
@@ -433,7 +434,7 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 	return ata_error::NONE;
 }
 
-ata_error ata_read_sectors(ata_drive& drive, uint8_t num_sectors, uint32_t lba, uint8_t* buffer)
+static ata_error ata_read_sectors(ata_drive& drive, uint8_t num_sectors, uint32_t lba, uint8_t* buffer)
 {
 	if(!drive.exists)
 	{
@@ -461,7 +462,7 @@ ata_error ata_read_sectors(ata_drive& drive, uint8_t num_sectors, uint32_t lba, 
 	}
 }
 
-ata_error ata_write_sectors(ata_drive& drive, uint8_t num_sectors, uint32_t lba, uint8_t* buffer)
+static ata_error ata_write_sectors(ata_drive& drive, uint8_t num_sectors, uint32_t lba, uint8_t* buffer)
 {
 	if(!drive.exists)
 	{

@@ -27,9 +27,9 @@ struct func_info {
 	const void* address;
 };
 
-dynamic_object::sym_map driver_lib_set{32};
-dynamic_object::sym_map driver_symbol_map{32};
-dynamic_object::sym_map driver_glob_data_symbol_map{};
+static dynamic_object::sym_map driver_lib_set{32};
+static dynamic_object::sym_map driver_symbol_map{32};
+static dynamic_object::sym_map driver_glob_data_symbol_map{};
 
 static void load_driver(const std::string_view filename, const std::string_view func_name)
 {
