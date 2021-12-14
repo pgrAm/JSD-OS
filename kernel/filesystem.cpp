@@ -428,11 +428,24 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream*
 		dst_ptr += buf_start_size;
 	}
 	
-	while(num_chunks--)
+	if(num_chunks)
 	{
-		location = filesystem_read_chunk(f, location);
-		memcpy(dst_ptr, f->buffer, drive->chunk_read_size);
-		dst_ptr += drive->chunk_read_size;
+		if(drive->disk->driver->allocate_buffer == nullptr)
+		{
+			auto size = drive->chunk_read_size * num_chunks;
+
+			location = drive->fs_driver->read_chunks(dst_ptr, location, size, drive);
+			dst_ptr += size;
+		}
+		else
+		{
+			while(num_chunks--)
+			{
+				location = filesystem_read_chunk(f, location);
+				memcpy(dst_ptr, f->buffer, drive->chunk_read_size);
+				dst_ptr += drive->chunk_read_size;
+			}
+		}
 	}
 	
 	if(buf_end_size != 0)
