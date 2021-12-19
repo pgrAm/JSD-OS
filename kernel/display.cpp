@@ -23,12 +23,14 @@ struct text_char {
 
 constexpr text_char clearval = {'\0', 0x0f};
 
-display_driver* default_driver = nullptr;
+const display_driver* default_driver = nullptr;
 std::vector<display_driver*> display_drivers;
+
+display_mode current_mode;
 
 class kernel_terminal
 {
-	static text_char* get_mapped_frame_buffer(display_driver* driver, size_t size)
+	static text_char* get_mapped_frame_buffer(const display_driver* driver, size_t size)
 	{
 		uintptr_t phys_addr = (uintptr_t)driver->get_framebuffer();
 
@@ -45,7 +47,7 @@ class kernel_terminal
 public:
 	static const int tab_size = 5;
 
-	kernel_terminal(display_driver* driver, size_t rows, size_t cols) :
+	kernel_terminal(const display_driver* driver, size_t rows, size_t cols) :
 		m_display(driver),
 		m_screen_ptr((text_char*)get_mapped_frame_buffer(driver, rows*cols)),
 		m_num_rows(rows),
@@ -167,13 +169,13 @@ public:
 		}
 	}
 
-	bool still_valid(display_driver* d, size_t width, size_t height)
+	bool still_valid(const display_driver* d, size_t width, size_t height)
 	{
 		return (d == m_display) && (width == m_num_cols) && (height == m_num_rows);
 	}
 private:
 
-	display_driver* m_display;
+	const display_driver* m_display;
 
 	text_char* m_screen_ptr; //non owning ptr
 	size_t m_num_rows;
@@ -233,13 +235,23 @@ void clear_screen()
 	}
 }
 
-void display_add_driver(display_driver* d, bool use_as_default)
+void display_add_driver(const display_driver* d, bool use_as_default)
 {
 	//display_drivers.push_back(d);
 	if(use_as_default)
 	{
+		display_mode requested = {
+			80, 25,
+			0,
+			0,
+			0,
+			FORMAT_DONT_CARE,
+			DISPLAY_TEXT_MODE
+		};
+
+		current_mode.format = DISPLAY_MODE_INVALID;
 		default_driver = d;
-		set_display_mode(nullptr, nullptr);
+		set_display_mode(&requested, nullptr);
 	}
 }
 
@@ -249,7 +261,7 @@ bool display_mode_satisfied(const display_mode* requested, const display_mode* a
 	{
 		return true;
 	}
-	if(actual == nullptr)
+	if(actual == nullptr || actual->format == DISPLAY_MODE_INVALID)
 	{
 		return false;
 	}
@@ -262,8 +274,6 @@ bool display_mode_satisfied(const display_mode* requested, const display_mode* a
 			(requested->flags == 0	|| (requested->flags & actual->flags) == requested->flags) &&
 			(requested->format == 0 || requested->format == actual->format);
 }
-
-display_mode current_mode;
 
 SYSCALL_HANDLER int get_display_mode(int index, display_mode* result)
 {
@@ -278,30 +288,50 @@ SYSCALL_HANDLER int get_display_mode(int index, display_mode* result)
 		return 0;
 	}
 
-	if(index >= 0)
+	if(index >= 0 && index < default_driver->num_modes)
 	{
-		return default_driver->get_mode(index, result) ? 0 : -1;
+		*result = default_driver->available_modes[index];
+
+		return 0;
 	}
 	return -1;
 }
 
-SYSCALL_HANDLER int set_display_mode(display_mode* requested, display_mode* actual)
+SYSCALL_HANDLER int set_display_mode(const display_mode* requested, display_mode* actual)
 {
 	if (this_task_is_active())
 	{
-		display_mode got;
-		if(actual == nullptr)
+		bool success = display_mode_satisfied(requested, &current_mode);
+
+		if(!success)
 		{
-			actual = &got;
+			for(size_t i = 0; i < default_driver->num_modes; i++)
+			{
+				auto& mode = default_driver->available_modes[i];
+
+				if(display_mode_satisfied(requested, &mode))
+				{
+					success = default_driver->set_mode(i);
+					if(success)
+					{
+						current_mode = mode;
+						break;
+					}
+				}
+			}
 		}
 
-		bool success = default_driver->set_mode(requested, actual);
-
-		current_mode = *actual;
-
-		if(actual->flags & DISPLAY_TEXT_MODE)
+		if(success)
 		{
-			initialize_terminal(actual->width, actual->height);
+			if(current_mode.flags & DISPLAY_TEXT_MODE)
+			{
+				initialize_terminal(current_mode.width, current_mode.height);
+			}
+		}
+
+		if(actual != nullptr)
+		{
+			*actual = current_mode;
 		}
 
 		return success ? 0 : -1;

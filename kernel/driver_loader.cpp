@@ -97,7 +97,6 @@ static constexpr func_info func_list[] = {
 	{"kernel_signal_cv",	(void*)&kernel_signal_cv},
 	{"kernel_wait_cv",		(void*)&kernel_wait_cv},
 	{"display_add_driver",	(void*)&display_add_driver},
-	{"display_mode_satisfied", (void*)&display_mode_satisfied},
 	{"acknowledge_irq",		(void*)&acknowledge_irq},
 	{"irq_enable",			(void*)&irq_enable}
 };

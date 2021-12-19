@@ -286,38 +286,9 @@ static void vga_set_cursor_offset(size_t offset)
 	outb(VGA_CRTC_DATA, (uint8_t)((offset >> 8) & 0xFF));
 }
 
-static bool vga_get_mode(size_t index, display_mode* result)
+static bool vga_set_mode(size_t index)
 {
-	if(index < NUM_GRAPHICS_MODES)
-	{
-		*result = available_modes[index].mode;
-		return true;
-	}
-	return false;
-}
-
-static bool vga_set_mode(display_mode* requested, display_mode* actual)
-{
-	bool success =	current_mode != nullptr && 
-					display_mode_satisfied(requested, &current_mode->mode);
-	if(!success)
-	{
-		for(int i = 0; i < NUM_GRAPHICS_MODES; i++)
-		{
-			const vga_mode* m = &available_modes[i];
-
-			if(display_mode_satisfied(requested, &m->mode))
-			{
-				success = vga_do_mode_switch(m);
-			}
-		}
-	}
-
-	if(actual != nullptr && current_mode != nullptr)
-	{
-		*actual = current_mode->mode;
-	}
-	return success;
+	return vga_do_mode_switch(&mode_data[index]);
 }
 
 static void vga_set_display_offset(size_t offset, bool on_retrace)
@@ -335,14 +306,16 @@ static void vga_set_display_offset(size_t offset, bool on_retrace)
 static display_driver vga_driver =
 {
 	vga_set_mode,
-	vga_get_mode,
 	vga_get_framebuffer,
 
 	vga_set_display_offset,
 
 	vga_get_cursor_offset,
 	vga_set_cursor_offset,
-	vga_set_cursor_visibility
+	vga_set_cursor_visibility,
+
+	available_modes,
+	NUM_GRAPHICS_MODES
 };
 
 extern "C" void vga_init(void)
@@ -356,14 +329,5 @@ extern "C" void vga_init(void)
 
 	k_assert(vga_memory);
 
-	display_mode requested = {
-		80, 25,
-		0,
-		0,
-		0,
-		FORMAT_DONT_CARE,
-		DISPLAY_TEXT_MODE
-	};
-	vga_set_mode(&requested, nullptr);
 	display_add_driver(&vga_driver, true);
 }

@@ -68,7 +68,12 @@ public:
 		return ____data[n];
 	}
 
-	constexpr T* data() const
+	constexpr T* data() noexcept
+	{
+		return ____data;
+	}
+
+	constexpr const T* data() const
 	{
 		return ____data;
 	}

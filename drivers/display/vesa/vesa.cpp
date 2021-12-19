@@ -545,7 +545,7 @@ struct __attribute__((packed)) vesa_info_block
 
 struct vesa_mode
 {
-	display_mode mode;
+	//display_mode mode;
 	uintptr_t fb_addr;
 	size_t index;
 	bool is_vesa;
@@ -567,7 +567,8 @@ struct __attribute__((packed)) vesa_pm_funcs
 };
 
 static int current_mode_index = -1;
-static std::vector<vesa_mode>* available_modes;
+static std::vector<vesa_mode>* vesa_modes;
+static std::vector<display_mode>* available_modes;
 
 static uint8_t* vesa_pm_interface = nullptr;
 
@@ -577,7 +578,7 @@ static void vesa_set_diplay_offset(size_t offset, bool on_retrace)
 
 	if(!vesa_pm_interface)
 	{
-		auto mode = (*available_modes)[current_mode_index].mode;
+		auto& mode = (*available_modes)[current_mode_index];
 
 		auto bytes_pp = (mode.bpp / 8);
 
@@ -678,7 +679,7 @@ static bool vesa_populate_modes()
 		modes.push_back(mode_array[i]);
 	}
 
-	for(auto & mode : modes) 
+	for(auto& mode : modes)
 	{
 		vesa_mode_info* mode_info = (vesa_mode_info*)data_ptr;
 		memset(mode_info, 0, sizeof(vesa_mode_info));
@@ -704,29 +705,30 @@ static bool vesa_populate_modes()
 		auto a_mask = gen_mask<uint32_t>(mode_info->reserved_mask) << mode_info->reserved_position;
 
 
-		auto frame_buffer	= (mode_info->framebuffer != 0) 
-							? mode_info->framebuffer 
-							: (uintptr_t)far_ptr{0, mode_info->segment_a}.access();
+		auto frame_buffer = (mode_info->framebuffer != 0)
+			? mode_info->framebuffer
+			: (uintptr_t)far_ptr { 0, mode_info->segment_a }.access();
 
-		vesa_mode d_mode = {
-			{
-				mode_info->width,
-				mode_info->height,
-				mode_info->pitch,
-				60,
-				mode_info->bpp,
-				is_text ? FORMAT_TEXT_W_ATTRIBUTE : 
-				vesa_format_from_masks(mode_info->bpp,
-										r_mask, g_mask,
-										b_mask, a_mask),
+		available_modes->push_back
+		({
+			mode_info->width,
+			mode_info->height,
+			mode_info->pitch,
+			60,
+			mode_info->bpp,
+			is_text ? FORMAT_TEXT_W_ATTRIBUTE :
+			vesa_format_from_masks(mode_info->bpp,
+								   r_mask, g_mask,
+								   b_mask, a_mask),
 
-				is_text ? DISPLAY_TEXT_MODE : DISPLAY_RGB
-			},
+			(uint32_t)(is_text ? DISPLAY_TEXT_MODE : DISPLAY_RGB)
+		});
+
+		vesa_modes->push_back({
 			frame_buffer,
 			mode,
 			true
-		};
-		available_modes->push_back(d_mode);
+		});
 
 		/*printf("%dx%dx%d, %d, %X, %X, %X, %X\n", 
 			   d_mode.mode.width, 
@@ -738,9 +740,15 @@ static bool vesa_populate_modes()
 
 	//while(true);
 
+	//add 1 vga text mode as a fallback
+	available_modes->push_back(
+		{80, 25, 80, 70, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE});
+	vesa_modes->push_back({0xB8000, 0x03, false});
+
 	return true;
 }
-bool vesa_do_mode_switch(uint16_t mode_num, bool vesa) 
+
+static bool vesa_do_mode_switch(uint16_t mode_num, bool vesa) 
 {
 	if(vesa)
 	{
@@ -753,50 +761,24 @@ bool vesa_do_mode_switch(uint16_t mode_num, bool vesa)
 	return true;
 }
 
-static bool vesa_get_mode(size_t index, display_mode* result)
+static bool vesa_set_mode(size_t index)
 {
-	if(index < available_modes->size())
+	auto& m = (*vesa_modes)[index];
+
+	if(vesa_do_mode_switch(m.index, m.is_vesa))
 	{
-		*result = (*available_modes)[index].mode;
+		current_mode_index = index;
 		return true;
 	}
+
 	return false;
-}
-
-static bool vesa_set_mode(display_mode* requested, display_mode* actual)
-{
-	bool success = current_mode_index != -1 &&
-		display_mode_satisfied(requested, &(*available_modes)[current_mode_index].mode);
-	if(!success)
-	{
-		for(int i = 0; i < available_modes->size(); i++)
-		{
-			auto& m = (*available_modes)[i];
-
-			if(display_mode_satisfied(requested, &m.mode))
-			{
-				if(success = vesa_do_mode_switch(m.index, m.is_vesa); success)
-				{
-					current_mode_index = i;
-					break;
-				}
-			}
-		}
-	}
-
-	if(actual != nullptr && current_mode_index != -1)
-	{
-		*actual = (*available_modes)[current_mode_index].mode;
-	}
-
-	return success;
 }
 
 static uint8_t* vesa_get_framebuffer()
 {
 	if(current_mode_index != -1)
 	{
-		return (uint8_t*)(*available_modes)[current_mode_index].fb_addr;
+		return (uint8_t*)(*vesa_modes)[current_mode_index].fb_addr;
 	}
 	return nullptr;
 }
@@ -817,16 +799,16 @@ static void vesa_set_cursor_offset(size_t offset)
 static display_driver vesa_driver =
 {
 	vesa_set_mode,
-	vesa_get_mode,
 	vesa_get_framebuffer,
 
 	vesa_set_diplay_offset,
 
 	vesa_get_cursor_offset,
 	vesa_set_cursor_offset,
-	vesa_set_cursor_visibility
-};
+	vesa_set_cursor_visibility,
 
+	nullptr, 0
+};
 
 extern "C" void vesa_init()
 {
@@ -836,7 +818,8 @@ extern "C" void vesa_init()
 	virtual_bootsector = new uint8_t[low_page_end - low_page_begin];
 	virtual_stack = new uint8_t[virtual_stack_end - virtual_stack_begin];
 
-	available_modes = new std::vector<vesa_mode>();
+	available_modes = new std::vector<display_mode>();
+	vesa_modes = new std::vector<vesa_mode>();
 
 	if(!vesa_populate_modes())
 	{
@@ -848,25 +831,8 @@ extern "C" void vesa_init()
 
 	vesa_get_pm_interface();
 
-	display_mode requested = {
-		80, 25,
-		0,
-		0,
-		0,
-		FORMAT_DONT_CARE,
-		DISPLAY_TEXT_MODE
-	};
-
-	if(!vesa_set_mode(&requested, nullptr))
-	{
-		//fall back and add 1 vga text mode
-		vesa_mode d_mode = {
-		{ 80, 25, 80, 70, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE },
-		0xB8000, 0x03, false
-		};
-		available_modes->push_back(d_mode);
-		vesa_set_mode(&requested, nullptr);
-	}
+	vesa_driver.available_modes = available_modes->data();
+	vesa_driver.num_modes = available_modes->size();
 
 	display_add_driver(&vesa_driver, true);
 }

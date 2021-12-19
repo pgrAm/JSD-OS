@@ -52,23 +52,9 @@ static display_mode actual_mode{
 	DISPLAY_TEXT_MODE
 };
 
-static bool basic_text_get_mode(size_t index, display_mode* result)
+static bool basic_text_set_mode(size_t index)
 {
-	if(index == 0)
-	{
-		*result = actual_mode;
-		return true;
-	}
-	return false;
-}
-
-static bool basic_text_set_mode(display_mode* requested, display_mode* actual)
-{
-	if(actual != nullptr)
-	{
-		*actual = actual_mode;
-	}
-	return display_mode_satisfied(requested, &actual_mode);
+	return true;
 }
 
 static void basic_text_set_display_offset(size_t offset, bool on_retrace) {}
@@ -76,7 +62,6 @@ static void basic_text_set_display_offset(size_t offset, bool on_retrace) {}
 static display_driver basic_text = 
 {
 	basic_text_set_mode,
-	basic_text_get_mode,
 
 	basic_text_get_framebuffer,
 
@@ -84,7 +69,9 @@ static display_driver basic_text =
 
 	basic_text_get_cursor_offset,
 	basic_text_set_cursor_offset,
-	basic_text_set_cursor_visibility
+	basic_text_set_cursor_visibility,
+
+	&actual_mode, 1
 };
 
 extern "C" void basic_text_init(void)

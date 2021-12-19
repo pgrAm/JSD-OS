@@ -58,6 +58,8 @@ enum display_format
 	FORMAT_NV12, //planar mode : Y + U / V interleaved(2 planes)
 	FORMAT_NV21, //planar mode : Y + V / U interleaved(2 planes)
 	*/
+
+	DISPLAY_MODE_INVALID
 };
 
 typedef enum display_format display_format;
