@@ -27,7 +27,7 @@ my @user_flags = qw(-I api/ -nodefaultlibs);
 
 my @user_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a);
 my @shlib_ld_flags = qw(-O2 -shared --lto-O3 --gc-sections);
-my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O2 --gc-sections);
+my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O2 --gc-sections -T drivers/driver.ld);
 my @kernel_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a --lto-O2 -N -O2 -Ttext=0xF000 -T linker.ld);
 
 mkpath("$builddir/tools");
