@@ -1,3 +1,6 @@
 [submodule "drivers/display/vesa/libx86emu"]
 	path = drivers/display/vesa/libx86emu
 	url = https://github.com/pgrAm/libx86emu.git
+[submodule "tools/limine"]
+	path = tools/limine
+	url = https://github.com/limine-bootloader/limine.git
