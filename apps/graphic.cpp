@@ -13,11 +13,12 @@ uint32_t from_rgb(uint8_t r, uint8_t g, uint8_t b)
 int main(int argc, char** argv)
 {
 	display_mode requested = {
-		1024, 768,
+		800, 600,
 		0,
 		0,
 		32,
 		FORMAT_ARGB32,
+		0,
 		0
 	};
 	display_mode actual;
@@ -25,6 +26,7 @@ int main(int argc, char** argv)
 	{
 		initialize_text_mode(80, 25);
 		printf("Could not set graphics mode\n");
+		return 0;
 	}
 
 	auto mem = (uint32_t*)map_display_memory();
@@ -49,9 +51,11 @@ int main(int argc, char** argv)
 
 	//while(VK_ESCAPE != wait_and_getkey());
 
-	for(size_t y = 0; y < actual.height; y++)
+	const size_t virtual_height = actual.buffer_size / actual.pitch;
+
+	for(size_t y = 0; y < virtual_height; y++)
 	{
-		auto cy = y * 255 / actual.height;
+		auto cy = y * 255 / virtual_height;
 
 		for(size_t x = 0; x < actual.width; x++)
 		{
@@ -62,7 +66,7 @@ int main(int argc, char** argv)
 	}
 
 	size_t offset = 0;
-	while(offset < actual.height * actual.pitch)
+	while(offset < actual.buffer_size - actual.height * actual.pitch)
 	{
 		set_display_offset(offset, true);
 		offset += actual.pitch;

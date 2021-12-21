@@ -160,7 +160,7 @@ template<typename T> static void mem_write(uint32_t addr, uint32_t val)
 	*(T*)map_address(addr, true) = tval;
 }
 
-extern "C" unsigned memio_handler(x86emu_t * emu, u32 addr, u32 * val, unsigned type)
+static unsigned memio_handler(x86emu_t * emu, u32 addr, u32 * val, unsigned type)
 {
 	emu->mem->invalid = 0;
 
@@ -687,6 +687,9 @@ static bool vesa_populate_modes()
 		if(int10h(0x4F01, 0, mode, 0, block.segment, block.offset) != 0x4f)
 			continue;
 
+		if(mode_info->width == 0)
+			continue;
+
 		bool is_text = mode_info->memory_model == TEXT;
 
 		if(!is_text)
@@ -709,6 +712,10 @@ static bool vesa_populate_modes()
 			? mode_info->framebuffer
 			: (uintptr_t)far_ptr { 0, mode_info->segment_a }.access();
 
+		auto mem_size = ((size_t)mode_info->height * mode_info->pitch)
+					  * ((size_t)mode_info->image_pages + 1);
+						//+ ((size_t)mode_info->off_screen_mem_size * 1024);
+
 		available_modes->push_back
 		({
 			mode_info->width,
@@ -721,7 +728,8 @@ static bool vesa_populate_modes()
 								   r_mask, g_mask,
 								   b_mask, a_mask),
 
-			(uint32_t)(is_text ? DISPLAY_TEXT_MODE : DISPLAY_RGB)
+			(uint32_t)(is_text ? DISPLAY_TEXT_MODE : DISPLAY_RGB),
+			mem_size
 		});
 
 		vesa_modes->push_back({
@@ -730,19 +738,20 @@ static bool vesa_populate_modes()
 			true
 		});
 
-		/*printf("%dx%dx%d, %d, %X, %X, %X, %X\n", 
-			   d_mode.mode.width, 
-			   d_mode.mode.height, 
-			   d_mode.mode.bpp, 
-			   d_mode.mode.format,
-			   r_mask, g_mask, b_mask, a_mask);*/
+
+		/*printf("%dx%dx%d, %d, %d\n", 
+			   mode_info->width,
+			   mode_info->height,
+			   mode_info->bpp,
+			   mode_info->bank_size,
+			   mode_info->image_pages);*/
 	}
 
 	//while(true);
 
 	//add 1 vga text mode as a fallback
 	available_modes->push_back(
-		{80, 25, 80, 70, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE});
+		{80, 25, 80, 70, 16, FORMAT_TEXT_W_ATTRIBUTE, DISPLAY_TEXT_MODE, 25*80});
 	vesa_modes->push_back({0xB8000, 0x03, false});
 
 	return true;
@@ -826,6 +835,7 @@ extern "C" void vesa_init()
 		delete[] virtual_stack;
 		delete[] virtual_bootsector;
 		delete available_modes;
+		delete vesa_modes;
 		return;
 	}
 

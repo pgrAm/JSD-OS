@@ -246,7 +246,8 @@ void display_add_driver(const display_driver* d, bool use_as_default)
 			0,
 			0,
 			FORMAT_DONT_CARE,
-			DISPLAY_TEXT_MODE
+			DISPLAY_TEXT_MODE,
+			0
 		};
 
 		current_mode.format = DISPLAY_MODE_INVALID;
@@ -272,7 +273,8 @@ bool display_mode_satisfied(const display_mode* requested, const display_mode* a
 			(requested->pitch == 0	|| requested->pitch == actual->pitch) &&
 			(requested->refresh == 0 || requested->refresh == actual->refresh) &&
 			(requested->flags == 0	|| (requested->flags & actual->flags) == requested->flags) &&
-			(requested->format == 0 || requested->format == actual->format);
+			(requested->format == 0 || requested->format == actual->format) &&
+			(requested->buffer_size == 0 || requested->buffer_size <= actual->buffer_size);
 }
 
 SYSCALL_HANDLER int get_display_mode(int index, display_mode* result)
@@ -349,7 +351,7 @@ SYSCALL_HANDLER uint8_t* map_display_memory(void)
 {
 	if (this_task_is_active())
 	{
-		auto num_pages = memmanager_minimum_pages(current_mode.height * current_mode.pitch);
+		auto num_pages = memmanager_minimum_pages(current_mode.buffer_size);
 		auto buf = default_driver->get_framebuffer();
 
 		return (uint8_t*)memmanager_map_to_new_pages((uintptr_t)buf, num_pages, 

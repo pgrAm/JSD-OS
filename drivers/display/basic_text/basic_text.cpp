@@ -49,7 +49,8 @@ static display_mode actual_mode{
 	70, //refresh
 	16, //bpp
 	FORMAT_TEXT_W_ATTRIBUTE,
-	DISPLAY_TEXT_MODE
+	DISPLAY_TEXT_MODE,
+	80 * 25 * sizeof(uint16_t)
 };
 
 static bool basic_text_set_mode(size_t index)

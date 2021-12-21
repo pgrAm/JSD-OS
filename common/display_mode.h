@@ -79,6 +79,7 @@ struct display_mode {
 	size_t bpp;
 	display_format format;
 	uint32_t flags;
+	size_t buffer_size;
 };
 
 typedef struct display_mode display_mode;
