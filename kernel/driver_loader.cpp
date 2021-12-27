@@ -13,7 +13,9 @@
 #include <kernel/locks.h>
 #include <kernel/display.h>
 #include <kernel/sysclock.h>
+#include <kernel/rt_device.h>
 #include <kernel/kassert.h>
+#include <kernel/input.h>
 
 extern "C" {
 #include <drivers/kbrd.h>
@@ -98,7 +100,11 @@ static constexpr func_info func_list[] = {
 	{"kernel_wait_cv",		(void*)&kernel_wait_cv},
 	{"display_add_driver",	(void*)&display_add_driver},
 	{"acknowledge_irq",		(void*)&acknowledge_irq},
-	{"irq_enable",			(void*)&irq_enable}
+	{"irq_enable",			(void*)&irq_enable},
+	{"add_realtime_device",	(void*)&add_realtime_device},
+	{"find_realtime_device",(void*)&find_realtime_device},
+	{"handle_input_event",	(void*)&handle_input_event},
+
 };
 
 extern "C" void load_drivers()

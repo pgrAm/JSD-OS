@@ -7,6 +7,7 @@
 extern "C" {
 #endif
 
+uint8_t* get_screen_buf();
 void print_string(const char* str, size_t length);
 void video_clear();
 void video_erase_chars(size_t num);

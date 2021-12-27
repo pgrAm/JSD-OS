@@ -53,6 +53,8 @@ my @kernel_src = qw(
 	kernel/sysclock.cpp
 	kernel/gdt.cpp
 	kernel/boot_info.c
+	kernel/rt_device.cpp		
+	kernel/input.cpp		
 
 	drivers/display/basic_text/basic_text.cpp
 	drivers/formats/rdfs.cpp
@@ -101,6 +103,9 @@ my $ata_drv = build_driver("ata.drv", 		["drivers/ata.cpp"], 			[link_lib($drv_l
 #my $ahci_drv = build_driver("ahci.drv", 	["drivers/ahci.cpp"], 			[link_lib($drv_lib), link_lib($pci_drv)]);
 my $fat_drv = build_driver("fat.drv", 		["drivers/formats/fat.cpp"], 	[link_lib($drv_lib)]);
 my $iso_drv = build_driver("iso9660.drv",	["drivers/formats/iso9660.cpp"],[link_lib($drv_lib)]);
+
+my $i8042_drv = build_driver("i8042.drv",	["drivers/i8042.cpp"], [link_lib($drv_lib)]);
+my $ps2mouse_drv = build_driver("ps2mouse.drv",	["drivers/ps2mouse.cpp"], [link_lib($drv_lib)]);
 
 my @libemu_src = qw(	
 	drivers/display/vesa/libx86emu/api.c
@@ -165,7 +170,9 @@ build_fdimage(
 		$iso_drv,
 		$mbr_drv,
 		$graphics,
-		$clib
+		$clib,
+		$i8042_drv,
+		$ps2mouse_drv
 	]
 );
 
@@ -194,6 +201,9 @@ copy($isa_dma, 		"$builddir/iso/drivers/isa_dma.drv");
 copy($vga_drv, 		"$builddir/iso/drivers/vga.drv");
 copy($vesa_drv, 	"$builddir/iso/drivers/vesa.drv");
 copy($mbr_drv, 		"$builddir/iso/drivers/mbr.drv");
+copy($i8042_drv, 	"$builddir/iso/drivers/i8042.drv");
+copy($ps2mouse_drv, "$builddir/iso/drivers/ps2mouse.drv");
+
 
 mkpath("$builddir/iso/fonts");
 copy("fonts/font08.psf", "$builddir/iso/font08.psf");

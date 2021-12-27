@@ -6,6 +6,7 @@
 #include <kernel/physical_manager.h>
 #include <kernel/sysclock.h>
 #include <kernel/display.h>
+#include <kernel/input.h>
 #include <drivers/kbrd.h>
 
 //A syscall is accomplished by
@@ -30,7 +31,7 @@ const void* syscall_table[] =
 	filesystem_close_file,
 	filesystem_read_file,
 	exit_process,
-	spawn_process, 
+	spawn_process,
 	sysclock_get_master_time,
 	sysclock_get_ticks,
 	sysclock_get_utc_offset,
@@ -51,7 +52,8 @@ const void* syscall_table[] =
 	get_keystate,
 	physical_num_bytes_free,
 	iopl,
-	set_display_offset
+	set_display_offset,
+	get_input_event
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

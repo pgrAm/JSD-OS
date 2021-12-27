@@ -23,6 +23,8 @@ directory_handle* current_directory = nullptr;
 
 size_t drive_index = 0;
 
+int cursor_x = 0, cursor_y = 0;
+
 void select_drive(size_t index)
 {
 	if(current_directory != nullptr)
@@ -324,6 +326,13 @@ int execute_line(std::string_view current_line)
 	return 1;
 }
 
+void set_mouse_color(uint8_t color)
+{
+	auto coord = (cursor_x + cursor_y * get_terminal_width()) * sizeof(uint16_t) + 1;
+
+	get_screen_buf()[coord] = (get_screen_buf()[coord] & 0x0F) | (color << 4);
+}
+
 int get_command(char* input)
 {
 	std::string command_buffer;
@@ -332,7 +341,42 @@ int get_command(char* input)
 
 	while(true)
 	{
-		key_type k = wait_and_getkey();
+		input_event e;
+		if(get_input_event(&e) == 0)
+		{
+			if(e.device_index == 0)
+			{
+				if(e.type == AXIS_MOTION)
+				{
+					if(e.control_index == 0) // x axis
+					{
+						set_mouse_color(0);
+						cursor_x = (cursor_x + e.data);
+
+						if(cursor_x < 0)
+							cursor_x = 0;
+						else if(cursor_x >= get_terminal_width())
+							cursor_x = get_terminal_width() - 1;
+
+						set_mouse_color(7);
+					}
+					else if(e.control_index == 1) // y axis
+					{
+						set_mouse_color(0);
+						cursor_y = (cursor_y + e.data);
+
+						if(cursor_y < 0)
+							cursor_y = 0;
+						else if(cursor_y >= get_terminal_height())
+							cursor_y = get_terminal_height() - 1;
+
+						set_mouse_color(7);
+					}
+				}
+			}
+		}
+
+		key_type k = getkey();
 		if((k == VK_UP || k == VK_DOWN) && get_keystate(k))
 		{
 			video_erase_chars(command_buffer.size());

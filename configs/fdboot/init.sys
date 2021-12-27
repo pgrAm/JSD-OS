@@ -6,3 +6,5 @@ load_driver vga.drv
 load_driver mbr.drv
 load_driver ata.drv
 load_driver iso9660.drv
+load_driver i8042.drv
+load_driver ps2mouse.drv

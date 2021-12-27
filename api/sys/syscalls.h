@@ -7,6 +7,7 @@
 #include <files.h>
 #include <virtual_keys.h>
 #include <common/display_mode.h>
+#include <common/input_event.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +43,8 @@ enum syscall_indices
 	SYSCALL_GET_KEYSTATE = 23,
 	SYSCALL_GET_FREE_MEM = 24,
 	SYSCALL_IOPL = 25,
-	SYSCALL_SET_DISPLAY_OFFSET = 26
+	SYSCALL_SET_DISPLAY_OFFSET = 26,
+	SYSCALL_GET_INPUT_EVENT = 27
 };
 
 struct file_handle;
@@ -246,6 +248,11 @@ static inline directory_handle* open_dir(directory_handle* rel, const char* path
 {
 	file_handle* f = find_path(rel, path, path_len);
 	return open_dir_handle(f, flags);
+}
+
+static inline int get_input_event(input_event* e)
+{
+	return (int)do_syscall_1(SYSCALL_GET_INPUT_EVENT, (uint32_t)e);
 }
 
 #ifdef __cplusplus

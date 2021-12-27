@@ -10,9 +10,9 @@
 
 #define KEY_BUFFER_SIZE 256
 #define KEY_FAILURE 0xFF
-volatile size_t keybuf_front = 0;
-size_t keybuf_back = 0;
-key_type keybuf[KEY_BUFFER_SIZE];
+static volatile size_t keybuf_front = 0;
+static size_t keybuf_back = 0;
+static key_type keybuf[KEY_BUFFER_SIZE];
 
 static kernel_cv key_pressed_cv = {-1, 1};
 

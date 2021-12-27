@@ -270,6 +270,11 @@ static int handle_char(const char source, char* dest, size_t pos)
 	}
 }
 
+uint8_t* get_screen_buf()
+{
+	return VIDEOMEM;
+}
+
 void print_string(const char* str, size_t length)
 {
 	char* vmem = get_current_draw_pointer();
