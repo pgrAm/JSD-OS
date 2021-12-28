@@ -124,6 +124,9 @@ extern "C" void ps2mouse_init()
 {
 	rt_device* device = find_realtime_device(0);
 
+	if(!device)
+		return;
+
 	device->on_new_data = mouse_handler;
 
 	ps2_send_command(device, 0xF5);

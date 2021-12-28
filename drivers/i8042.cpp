@@ -2,6 +2,7 @@
 #include <kernel/interrupt.h>
 #include <kernel/kassert.h>
 #include <kernel/rt_device.h>
+#include <kernel/locks.h>
 #include <stdio.h>
 
 #define DATA_PORT 0x60
@@ -75,12 +76,13 @@ static void i8042_device_send(size_t channel, uint8_t data)
 	{
 		i8042_send_cmd(NEXT_BYTE_TO_PORT1);
 	}
-	i8042_write_cmd(channel, data);
+	i8042_wait_ready();
+	outb(DATA_PORT, data);
 }
 
 static INTERRUPT_HANDLER void port0_handler(interrupt_frame* r)
 {
-	uint8_t data = inb(DATA_PORT);
+	const uint8_t data = inb(DATA_PORT);
 	acknowledge_irq(1);
 
 	if(devices[0] && devices[0]->on_new_data)
@@ -91,7 +93,7 @@ static INTERRUPT_HANDLER void port0_handler(interrupt_frame* r)
 
 static INTERRUPT_HANDLER void port1_handler(interrupt_frame* r)
 {
-	uint8_t data = inb(DATA_PORT);
+	const uint8_t data = inb(DATA_PORT);
 	acknowledge_irq(12);
 
 	if(devices[1] && devices[1]->on_new_data)

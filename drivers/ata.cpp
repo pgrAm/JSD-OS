@@ -106,7 +106,6 @@ static ata_channel channels[2];
 static ata_drive ide_drives[4];
 static kernel_cv irq_condition[2] = {{-1, 1}, {-1, 1}};
 
-
 static void ata_wait_irq(size_t index)
 {
 	kernel_wait_cv(&irq_condition[index]);
@@ -346,8 +345,8 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 static INTERRUPT_HANDLER void ata_irq_handler0(interrupt_frame* r)
 {
 	inb(channels[0].base + ATA_REG_STATUS);
-	kernel_signal_cv(&irq_condition[0]);
 	acknowledge_irq(14);
+	kernel_signal_cv(&irq_condition[0]);
 }
 
 static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
@@ -356,12 +355,12 @@ static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
 	if(inb(0xA0) & (1 << 7))
 	{
 		inb(channels[1].base + ATA_REG_STATUS);
-		kernel_signal_cv(&irq_condition[1]);
 		acknowledge_irq(15);
+		kernel_signal_cv(&irq_condition[1]);
 	}
 	else
 	{
-		acknowledge_irq(8);
+		acknowledge_irq(7);
 	}
 }
 
