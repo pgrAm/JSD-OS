@@ -574,12 +574,12 @@ static uint8_t* vesa_pm_interface = nullptr;
 
 static void vesa_set_diplay_offset(size_t offset, bool on_retrace)
 {
-	uint8_t	 bl = on_retrace ? 0x80 : 0x00;
+	uint16_t bl = on_retrace ? 0x80 : 0x00;
+
+	auto& mode = (*available_modes)[current_mode_index];
 
 	if(!vesa_pm_interface)
 	{
-		auto& mode = (*available_modes)[current_mode_index];
-
 		auto bytes_pp = (mode.bpp / 8);
 
 		auto pixel_offset = offset / bytes_pp;
@@ -593,6 +593,11 @@ static void vesa_set_diplay_offset(size_t offset, bool on_retrace)
 	void* func_ptr =	vesa_pm_interface + 
 						((vesa_pm_funcs*)vesa_pm_interface)->set_display_offset;
 
+	if(mode.bpp >= 8)
+	{
+		offset /= 4;
+	}
+
 	uint16_t ax = 0x4F07;
 	uint16_t cx = offset & 0xFFFF;
 	uint16_t dx = offset >> 16;
@@ -602,7 +607,7 @@ static void vesa_set_diplay_offset(size_t offset, bool on_retrace)
 					 "popw %%es\n"
 					 :"+a"(ax), "+c"(cx), "+b"(bl), "+d"(dx)
 					 : "r"(func_ptr)
-					 : "%edi", "memory");
+					 : "%edi", "memory", "cc");
 }
 
 static bool vesa_get_pm_interface()
