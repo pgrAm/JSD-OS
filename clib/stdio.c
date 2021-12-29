@@ -46,11 +46,11 @@ struct FILE
 	void (*close)(void* impl);
 };
 
-FILE m_stdout = {NULL, NULL, NULL};
+static FILE m_stdout = {NULL, NULL, NULL};
 
-FILE* stdout = &m_stdout;
-FILE* stdin = NULL;
-FILE* stderr = NULL;
+static FILE* stdout = &m_stdout;
+//static FILE* stdin = NULL;
+//static FILE* stderr = NULL;
 
 void set_stdout(void (*write)(const char* buf, size_t size, void* impl))
 {
@@ -65,7 +65,7 @@ static void file_write(const char* buf, size_t size, FILE* f)
 	}
 }
 #else
-FILE* stdout = NULL;
+static FILE* stdout = NULL;
 
 void file_write(const char* buf, size_t size, FILE* f)
 {

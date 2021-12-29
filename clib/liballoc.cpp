@@ -21,7 +21,7 @@
 #define USE_CASE5
 
 // This will conveniently align our pointer upwards
-[[nodiscard]] inline uintptr_t ALIGN(uintptr_t ptr, size_t alignment)
+[[nodiscard]] static inline uintptr_t ALIGN(uintptr_t ptr, size_t alignment)
 {
 	if(alignment > 1)
 	{
@@ -37,7 +37,7 @@
 	return ptr;
 }
 
-[[nodiscard]] inline uintptr_t UNALIGN(uintptr_t ptr, size_t alignment)
+[[nodiscard]] static inline uintptr_t UNALIGN(uintptr_t ptr, size_t alignment)
 {
 	if(alignment > 1)
 	{

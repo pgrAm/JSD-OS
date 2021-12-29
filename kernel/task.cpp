@@ -221,7 +221,7 @@ SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
 	stack_ptr[EIP_REGISTER] = (uint32_t)start_user_process; //this is where the new process will start executing
 	stack_ptr[FLAGS_REGISTER] = (uint32_t)0x0200; //flags are all off, except interrupt
 
-	uint32_t this_process = newTask->tc_block.pid;
+	size_t new_process = newTask->tc_block.pid;
 
 	//lock tasks
 	running_tasks.push_back(&newTask->tc_block);
@@ -235,13 +235,13 @@ SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
 		
 		if(this_task_is_active())
 		{
-			active_process = this_process;
+			active_process = new_process;
 		}
 		
 		//unlock tasks
 		unlock_interrupts(l);
 		
-		switch_to_task(this_process);
+		switch_to_task(new_process);
 	}
 }
 

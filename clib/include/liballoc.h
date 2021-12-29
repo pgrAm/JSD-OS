@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-class heap_allocator
+class __attribute__((visibility("hidden"))) heap_allocator
 {
 public:
 	void* malloc_bytes(size_t req_size);

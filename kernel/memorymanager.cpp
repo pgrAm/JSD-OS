@@ -438,8 +438,8 @@ bool memmanager_handle_page_fault(page_flags_t err, uintptr_t virtual_address)
 			return true;
 		}
 	}
-	printf("Can't handle page fault\n");
 
+	//Can't handle page fault
 	return false;
 }
 
