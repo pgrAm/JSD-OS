@@ -10,6 +10,41 @@ uint32_t from_rgb(uint8_t r, uint8_t g, uint8_t b)
 			((uint32_t)b);
 }
 
+void draw_gradient(size_t begin, size_t end, display_mode& actual, uint32_t* mem)
+{
+	size_t ddpl = (actual.pitch / 4);
+	size_t offset = 0;
+
+	for(size_t y = begin; y < end; y++)
+	{
+		auto cy = y * 255 / (end - begin);
+
+		for(size_t x = 0; x < actual.width; x++)
+		{
+			auto c = x * 255 / actual.width;
+
+			mem[offset++] = from_rgb(c, cy, 255 - c);
+		}
+		offset += ddpl - actual.width;
+	}
+}
+
+void draw_fill(size_t x0, size_t y0, size_t w, size_t h, display_mode& actual, uint32_t* mem)
+{
+	size_t ddpl = (actual.pitch / 4);
+	size_t offset = y0 * ddpl + x0;
+	uint32_t value = from_rgb(255, 255, 255);
+
+	for(size_t y = 0; y < h; y++)
+	{
+		for(size_t x = 0; x < w; x++)
+		{
+			mem[offset++] = value;
+		}
+		offset += ddpl - w;
+	}
+}
+
 int main(int argc, char** argv)
 {
 	display_mode requested = {
@@ -31,48 +66,57 @@ int main(int argc, char** argv)
 
 	auto mem = (uint32_t*)map_display_memory();
 
-	size_t x_spacing = actual.width / 10;
-	for(size_t x = 0; x < actual.width; x += x_spacing)
+	int cursor_x = 0, cursor_y = 0;
+
+	size_t page_begin = 0;
+	set_display_offset(page_begin, true);
+
+	while(VK_ESCAPE != getkey())
 	{
-		for(size_t y = 0; y < actual.height; y++)
+		input_event e;
+		while(get_input_event(&e) == 0)
 		{
-			mem[y * (actual.pitch / 4) + x] = 0xFFFF00;
-		}
-	}
+			if(e.device_index == 0)
+			{
+				if(e.type == AXIS_MOTION)
+				{
+					if(e.control_index == 0) // x axis
+					{
+						cursor_x = (cursor_x + e.data);
 
-	size_t y_spacing = actual.height / 10;
-	for(size_t y = 0; y < actual.height; y += y_spacing)
-	{
-		for(size_t x = 0; x < actual.width; x++)
+						if(cursor_x < 0)
+							cursor_x = 0;
+						else if(cursor_x >= (actual.width - 32))
+							cursor_x = actual.width - 32;
+					}
+					else if(e.control_index == 1) // y axis
+					{
+						cursor_y = (cursor_y + e.data);
+
+						if(cursor_y < 0)
+							cursor_y = 0;
+						else if(cursor_y >= (actual.height - 32))
+							cursor_y = actual.height - 32;
+					}
+				}
+			}
+		}
+
+		if(page_begin == 0)
 		{
-			mem[y * (actual.pitch / 4) + x] = 0x00FFFF00;
+			page_begin = (actual.height * actual.pitch);
 		}
-	}
-
-	//while(VK_ESCAPE != wait_and_getkey());
-
-	const size_t virtual_height = actual.buffer_size / actual.pitch;
-
-	for(size_t y = 0; y < virtual_height; y++)
-	{
-		auto cy = y * 255 / virtual_height;
-
-		for(size_t x = 0; x < actual.width; x++)
+		else
 		{
-			auto c = x * 255 / actual.width;
-
-			mem[y * (actual.pitch / 4) + x] = from_rgb(c, cy, 255 - c);
+			page_begin = 0;
 		}
-	}
 
-	size_t offset = 0;
-	while(offset < actual.buffer_size - actual.height * actual.pitch)
-	{
-		set_display_offset(offset, true);
-		offset += actual.pitch;
-	}
+		draw_gradient(0, actual.height, actual, mem + page_begin / 4);
 
-	while(VK_ESCAPE != wait_and_getkey());
+		draw_fill(cursor_x, cursor_y, 32, 32, actual, mem + page_begin / 4);
+
+		set_display_offset(page_begin, true);
+	}
 
 	initialize_text_mode(80, 25);
 	video_clear();
