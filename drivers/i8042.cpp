@@ -39,15 +39,36 @@ rt_device* devices[2];
 static void i8042_wait_ready()
 {
 	size_t timeout = 10000;
-	while(inb(STATUS_PORT) & 0x02 && timeout--);
+	while(timeout--)
+	{
+		if(!(inb(STATUS_PORT) & 0x02))
+			return;
+	}
 }
 
 static bool i8042_wait_response()
 {
 	size_t timeout = 10000;
-	while(!(inb(STATUS_PORT) & 0x01) && timeout--);
+	while(timeout--)
+	{
+		if(inb(STATUS_PORT) & 0x01)
+			return true;
+	}
+	return false;
+}
 
-	return timeout != 0;
+static bool i8042_wait_response(uint8_t value)
+{
+	size_t timeout = 100;
+	while(i8042_wait_response() && timeout--)
+	{
+		if(inb(DATA_PORT) == value)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 static void i8042_send_cmd(uint8_t cmd)
@@ -104,20 +125,14 @@ static INTERRUPT_HANDLER void port1_handler(interrupt_frame* r)
 
 static bool i8042_wait_ack()
 {
-	size_t timeout = 100;
-	while(i8042_wait_response() && timeout--)
-	{
-		if(inb(DATA_PORT) == 0xFA)
-		{
-			break;
-		}
-	}
-
-	return timeout != 0;
+	return i8042_wait_response(0xFA);
 }
 
 static int i8042_detect_device(size_t channel)
 {
+	irq_enable(1, false);
+	irq_enable(12, false);
+
 	i8042_device_send(channel, 0xF5);
 	if(!i8042_wait_ack())
 		return -1;
@@ -139,11 +154,15 @@ static int i8042_detect_device(size_t channel)
 
 	if(i8042_wait_response())
 	{
-		id |= inb(DATA_PORT) << 8;
+		id <<= 8;
+		id |= inb(DATA_PORT);
 	}
 
 	i8042_device_send(channel, 0xF4);
 	i8042_wait_ack();
+
+	irq_enable(1, true);
+	irq_enable(12, true);
 
 	return id;
 }
@@ -234,7 +253,6 @@ extern "C" void i8042_init()
 	{
 		i8042_send_cmd(ENABLE_PORT1);
 		config |= 0x02;
-		irq_install_handler(12, port1_handler);
 	}
 
 	//reenable interrupts for working ports
@@ -258,5 +276,10 @@ extern "C" void i8042_init()
 
 			printf("PS/2 channel %d : %X\n", i, device);
 		}
+	}
+	
+	if(num_channels >= 2)
+	{
+		irq_install_handler(12, port1_handler);
 	}
 }
