@@ -120,10 +120,10 @@ static span elf_get_size(ELF_header32* file_header, file_stream* f)
 
 static int elf_read_symbols(ELF_linker_data* object);
 static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
-static int elf_process_dynamic_section(ELF_linker_data* object, const std::string_view& dir_path);
-static int load_elf(file_handle* file, dynamic_object* object, bool user, const std::string_view& dir_path);
+static int elf_process_dynamic_section(ELF_linker_data* object, const directory_handle* lib_dir);
+int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_handle* lib_dir);
 
-int load_elf(const char* path, size_t path_len, dynamic_object* object, bool user)
+/*int load_elf(const char* path, size_t path_len, dynamic_object* object, bool user)
 {
 	std::string_view elf_path{path, path_len};
 
@@ -140,10 +140,10 @@ int load_elf(const char* path, size_t path_len, dynamic_object* object, bool use
 		dir_path = elf_path.substr(0, slash);
 	}
 	
-	return load_elf(f, object, user, dir_path);
-}
+	return load_elf(f, object, user, lib_dir);
+}*/
 
-static int load_elf(file_handle* file, dynamic_object* object, bool user, const std::string_view& dir_path)
+int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_handle* lib_dir)
 {
 	ELF_ident file_identifer;
 	ELF_header32 file_header;
@@ -245,7 +245,7 @@ static int load_elf(file_handle* file, dynamic_object* object, bool user, const 
 
 			object->entry_point = (void*)(base_adress + file_header.entry_point);
 
-			elf_process_dynamic_section((ELF_linker_data*)object->linker_data, dir_path);
+			elf_process_dynamic_section((ELF_linker_data*)object->linker_data, lib_dir);
 		}
 	}
 
@@ -254,7 +254,7 @@ static int load_elf(file_handle* file, dynamic_object* object, bool user, const 
 	return 1;
 }
 
-static int elf_process_dynamic_section(ELF_linker_data* object, const std::string_view& dir_path)
+static int elf_process_dynamic_section(ELF_linker_data* object, const directory_handle* lib_dir)
 {
 	if(object == nullptr)
 	{
@@ -339,16 +339,13 @@ static int elf_process_dynamic_section(ELF_linker_data* object, const std::strin
 					lib.symbol_map = object->symbol_map;
 					lib.glob_data_symbol_map = object->glob_data_symbol_map;
 
-					auto lib_dir = filesystem_open_directory(nullptr, dir_path.data(), dir_path.size(), 0);
-
 					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name.data(), lib_name.size()))
 					{
-						if(load_elf(lib_handle, &lib, object->userspace, dir_path))
+						if(load_elf(lib_handle, &lib, object->userspace, lib_dir))
 						{
 							lib.lib_set->insert(lib_name, 1);
 						}
 					}
-					filesystem_close_directory(lib_dir);
 				}
 			}
 		}

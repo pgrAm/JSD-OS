@@ -4,3 +4,4 @@ load_driver drivers/fat.drv
 load_driver drivers/vesa.drv
 load_driver drivers/i8042.drv
 load_driver drivers/ps2mouse.drv
+execute shell.elf

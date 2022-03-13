@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include <kernel/filesystem.h>
 
 typedef struct dynamic_object dynamic_object;
 
@@ -232,7 +233,7 @@ enum ELF_program_flags
 	PF_MASKPROC = 0xf0000000
 };
 
-int load_elf(const char* path, size_t path_len, dynamic_object* newTask, bool user);
+int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_handle* lib_dir);
 
 #ifdef __cplusplus
 }

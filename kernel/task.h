@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <kernel/syscall.h>
+#include <kernel/filesystem.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,7 +18,7 @@ typedef struct dynamic_object dynamic_object;
 
 #define WAIT_FOR_PROCESS 0x01
 
-SYSCALL_HANDLER void spawn_process(const char* path, size_t path_len, int flags);
+SYSCALL_HANDLER void spawn_process(const file_handle* file, const directory_handle* cwd, int flags);
 SYSCALL_HANDLER void exit_process(int val);
 void run_next_task();
 void run_background_tasks();

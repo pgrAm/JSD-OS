@@ -64,8 +64,6 @@ void filesystem_read_blocks_from_disk(const filesystem_virtual_drive* d, size_t 
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size);
 int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size);
 
-int filesystem_setup_drives();
-
 struct filesystem_driver
 {
 	int (*mount_disk)(filesystem_virtual_drive* d);

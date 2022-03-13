@@ -29,7 +29,6 @@ struct file_stream
 using fs_drive_list = std::vector<filesystem_virtual_drive*>;
 using fs_part_map = std::vector<fs_drive_list>;
 
-size_t default_drive = 0;
 static std::vector<filesystem_drive*> drives;
 static std::vector<filesystem_virtual_drive*> virtual_drives;
 static std::vector<const filesystem_driver*> fs_drivers;
@@ -78,8 +77,6 @@ static void filesystem_read_drive_partitions(filesystem_drive* drive, filesystem
 {
 	k_assert(!base || base->disk == drive);
 	k_assert(!base || !base->mounted);
-
-	printf("partitioning drive %d\n", drive->index);
 
 	for(size_t i = 0; i < partitioners.size(); i++)
 	{
@@ -162,14 +159,6 @@ filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver
 	return drives.back();
 }
 
-void filesystem_set_default_drive(size_t index)
-{
-	if(index < drives.size())
-	{
-		default_drive = index;
-	}
-}
-
 SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_handle* f, int flags)
 {
 	if (f == nullptr || !(f->data.flags & IS_DIR)) { return nullptr; }
@@ -226,15 +215,10 @@ static file_handle found;
 SYSCALL_HANDLER 
 file_handle* filesystem_find_file_by_path(const directory_handle* d, const char* name, size_t name_len)
 {
-	if(name == nullptr) 
+	if(name == nullptr || d == nullptr)
 	{ 
 		return nullptr; 
 	};
-
-	if (d == nullptr)
-	{
-		d = filesystem_get_root_directory(default_drive);
-	}
 
 	std::string_view path{name, name_len};
 
@@ -308,7 +292,7 @@ file_stream* filesystem_create_stream(const file_data_block* f)
 }
 
 SYSCALL_HANDLER 
-file_stream* filesystem_open_file_handle(file_handle* f, int flags)
+file_stream* filesystem_open_file_handle(const file_handle* f, int flags)
 {	
 	if (f == nullptr || f->data.flags & IS_DIR) { return nullptr; }
 

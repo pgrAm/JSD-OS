@@ -85,16 +85,6 @@ void kernel_main()
 
 	load_drivers();
 
-	printf("driver loading complete\n");
-
-	//printf("%d ticks\n", sysclock_get_ticks(NULL) - init_time);
-
-	//k_assert(false);
-
-	const char shell_name[] = "shell.elf";
-
-	spawn_process(shell_name, sizeof(shell_name)-1, WAIT_FOR_PROCESS);
-
 	for(;;);
 }
 

@@ -281,7 +281,7 @@ int execute_line(std::string_view current_line)
 	else
 	{
 		file_info file;
-		if(find_file_in_dir(current_directory, &file, keyword))
+		if(auto file_h = find_file_in_dir(current_directory, &file, keyword))
 		{
 			std::string_view name = {file.name, file.name_len};
 
@@ -291,7 +291,7 @@ int execute_line(std::string_view current_line)
 
 				if(filesystem_names_identical("elf", extension))
 				{
-					spawn_process(file.name, file.name_len, WAIT_FOR_PROCESS);
+					spawn_process(file_h, current_directory, WAIT_FOR_PROCESS);
 					return 0;
 				}
 

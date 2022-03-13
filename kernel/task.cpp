@@ -171,12 +171,8 @@ SYSCALL_HANDLER void exit_process(int val)
 	switch_to_task(next_pid);
 }
 
-SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
+extern "C" SYSCALL_HANDLER void spawn_process(const file_handle* file, const directory_handle* cwd, int flags)
 {
-	//we need to copy the path into a kernel space object
-	//or else we won't be able to access it from another address space
-	std::string path{p, path_len};
-
 	uint32_t oldcr3 = (uint32_t)get_page_directory();
 	
 	auto parent_pid = current_task_TCB->pid;
@@ -196,7 +192,7 @@ SYSCALL_HANDLER void spawn_process(const char* p, size_t path_len, int flags)
 
 	newTask->objects.push_back(d);
 
-	if(!load_elf(path.data(), path.size(), newTask->objects[0], true))
+	if(!load_elf(file, newTask->objects[0], true, cwd))
 	{
 		delete newTask;
 		set_page_directory((uintptr_t*)oldcr3);

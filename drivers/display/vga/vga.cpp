@@ -22,6 +22,8 @@ To do:
 
 #include <drivers/portio.h>
 
+directory_handle* parent_dir = nullptr;
+
 #define	VGA_AC_INDEX		0x3C0
 #define	VGA_AC_WRITE		0x3C0
 #define	VGA_AC_READ			0x3C1
@@ -206,7 +208,7 @@ static uint8_t* loadpsf(std::string_view file)
 		uint8_t charsize;	// Character size
 	} __attribute__((packed)) PSF_font;
 
-	file_stream* f = filesystem_open_file(nullptr, file.data(), file.size(), 0);
+	file_stream* f = filesystem_open_file(parent_dir, file.data(), file.size(), 0);
 
 	if (!f) return nullptr;
 
@@ -318,8 +320,10 @@ static display_driver vga_driver =
 	NUM_GRAPHICS_MODES
 };
 
-extern "C" void vga_init(void)
+extern "C" void vga_init(directory_handle* cwd)
 {
+	parent_dir = cwd;
+
 	uintptr_t begin = 0xA0000;
 	uintptr_t memory_size = 256 * 1024; //256k
 
