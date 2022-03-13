@@ -7,8 +7,10 @@
 #include <kernel/sys/syscalls.h>
 #endif
 
-#define IS_LEAP_YEAR(a) ((a % 4 == 0) && ((a % 100) || (a % 400 == 0)))
-#define DAYS_IN_YEAR(n) (IS_LEAP_YEAR(n) ? 366 : 365)
+static inline int is_leap_year(int a) 
+{
+	return (a % 4 == 0) && ((a % 100) || (a % 400 == 0)) ? 1 : 0;
+}
 
 #define THE_BEGINNING_OF_TIME 1970 	//throughout this file "the beginning of time" will refer to:
 #define THE_MOMENT_OF_CREATION 0 	//January 1, 1970
@@ -16,8 +18,9 @@
 #define YEARS_PER_CYCLE 400
 #define LEAP_DAYS_PER_CYCLE 97
 #define LEAP_DAYS_BEFORE_EPOCH 477
-#define DAYS_BEFORE_EPOCH (365 * THE_BEGINNING_OF_TIME + LEAP_DAYS_BEFORE_EPOCH)
-#define DAYS_PER_4_YEARS (365 * 4 + 1)
+#define DAYS_PER_YEAR 365
+#define DAYS_BEFORE_EPOCH (DAYS_PER_YEAR * THE_BEGINNING_OF_TIME + LEAP_DAYS_BEFORE_EPOCH)
+#define DAYS_PER_4_YEARS (DAYS_PER_YEAR * 4 + 1)
 #define DAYS_PER_100_YEARS (DAYS_PER_4_YEARS * 25 - 1)
 
 static struct tm date_ret;
@@ -97,7 +100,7 @@ time_t mktime(struct tm* timeptr)
 	unix_time += timeptr->tm_hour * 3600; //3600 seconds in an hour
 	unix_time += (timeptr->tm_mday - 1) * 86400; //86400 seconds in a day, subtract one to put it in the range 0-30 instead of 1-31
 
-	unix_time += ordinal_date[IS_LEAP_YEAR(actual_year)][timeptr->tm_mon] * 86400;
+	unix_time += ordinal_date[is_leap_year(actual_year)][timeptr->tm_mon] * 86400;
 	
 	uint32_t last_year = actual_year - 1;
 
@@ -127,34 +130,37 @@ struct tm* gmtime(const time_t* timer)
 	date_ret.tm_hour += (date_ret.tm_hour < 0) ? (days--, 24) : 0; //correct for dates before the beginning of time
 	date_ret.tm_wday += (date_ret.tm_wday < 0) ? 7 : 0; //correct for dates before the beginning of time
 
-	time_t days_since_1bc = DAYS_BEFORE_EPOCH + days + 1;
+	time_t days_since_1bc = DAYS_BEFORE_EPOCH + days;
 
-	int year = YEARS_PER_CYCLE * (days_since_1bc / GREGORIAN_CYCLE);
-	int days_since_cycle = days_since_1bc %= GREGORIAN_CYCLE;
+	const int year_of_last_cycle = YEARS_PER_CYCLE * (days_since_1bc / GREGORIAN_CYCLE);
+	const int days_since_cycle = days_since_1bc % GREGORIAN_CYCLE;
 
-	year += 100 * (days_since_cycle / DAYS_PER_100_YEARS);
-	days_since_cycle %= DAYS_PER_100_YEARS;
+	const int last_centennial	= year_of_last_cycle 
+								+ 100 * (days_since_cycle / DAYS_PER_100_YEARS);
+	const int days_since_centennial = days_since_cycle % DAYS_PER_100_YEARS;
 
-	year += 4 * (days_since_cycle / DAYS_PER_4_YEARS);
-	days_since_cycle %= DAYS_PER_4_YEARS;
+	const int last_leap_year	= last_centennial 
+								+ 4 * (days_since_centennial / DAYS_PER_4_YEARS);
+	const int days_since_leap = days_since_centennial % DAYS_PER_4_YEARS;
 
-	year += (days_since_cycle / 365);
-	days_since_cycle %= 365;
+	const int current_year		= last_leap_year 
+								+ (days_since_leap / DAYS_PER_YEAR);
+	int day_of_year = days_since_leap % DAYS_PER_YEAR;
 
-	date_ret.tm_yday = (int)days_since_cycle;
+	date_ret.tm_yday = day_of_year;
 
 	uint32_t month = 0; //the current month
 	time_t dpm; //number of days in the current month
 		
-	while(days_since_cycle >= (dpm = (time_t)days_per_month[IS_LEAP_YEAR(year)][month])) //this has a constant running time but it still sucks
+	while(day_of_year >= (dpm = (time_t)days_per_month[is_leap_year(current_year)][month])) //this has a constant running time but it still sucks
 	{
-		days_since_cycle -= dpm;
+		day_of_year -= dpm;
 		month++;
 	}
 
-	date_ret.tm_mday = (int)days_since_cycle + 1;
+	date_ret.tm_mday = (int)day_of_year + 1;
 	date_ret.tm_mon = month;
-	date_ret.tm_year = year - 1900;
+	date_ret.tm_year = current_year - 1900;
 	
 	return &date_ret;
 }
