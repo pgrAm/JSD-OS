@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <kernel/fs_driver.h>
+#include <kernel/kassert.h>
 
 #define FAT12_EOF 0xFF8
 #define FAT16_EOF 0xFFF8
@@ -231,7 +232,7 @@ static time_t fat_time_to_time_t(uint16_t date, uint16_t time)
 
 static std::string_view read_field(const char* field, size_t size)
 {
-	std::string_view f(field, size);
+	const std::string_view f(field, size);
 	if(auto pos = f.find(' '); pos != std::string_view::npos)
 	{
 		return f.substr(0, pos);
@@ -239,14 +240,14 @@ static std::string_view read_field(const char* field, size_t size)
 	return f;
 }
 
-static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* entry, size_t disk_id)
+static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& entry, size_t disk_id)
 {
-	if(entry->name[0] == 0) {
+	if(entry.name[0] == 0) {
 		return false;
 	} //end of directory
 
-	dest.name = read_field(entry->name, 8);
-	dest.type = read_field(entry->extension, 3);
+	dest.name = read_field(entry.name, 8);
+	dest.type = read_field(entry.extension, 3);
 
 	dest.full_name = dest.name;
 	if(!dest.type.empty())
@@ -255,26 +256,26 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry* ent
 		dest.full_name += dest.type;
 	}
 
-	dest.time_created = fat_time_to_time_t(entry->created_date, entry->created_time);
-	dest.time_modified = fat_time_to_time_t(entry->modified_date, entry->modified_time);
+	dest.time_created = fat_time_to_time_t(entry.created_date, entry.created_time);
+	dest.time_modified = fat_time_to_time_t(entry.modified_date, entry.modified_time);
 
 	uint32_t flags = 0;
-	if(entry->attributes & DIRECTORY)
+	if(entry.attributes & DIRECTORY)
 	{
 		flags |= IS_DIR;
 	}
 
 	dest.data = {
-		.location_on_disk = entry->first_cluster,
+		.location_on_disk = entry.first_cluster,
 		.disk_id = disk_id,
-		.size = entry->file_size,
+		.size = entry.file_size,
 		.flags = flags
 	};
 
 	return true;
 }
 
-static void fill_dir_from_vector(std::vector<file_handle>& files, directory_handle* dest, size_t disk_id)
+static void fill_dir_from_vector(const std::vector<file_handle>& files, directory_handle* dest, size_t disk_id)
 {
 	dest->name = "";
 	dest->disk_id = disk_id;
@@ -285,7 +286,7 @@ static void fill_dir_from_vector(std::vector<file_handle>& files, directory_hand
 
 static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_drive* fd)
 {
-	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+	const fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
 	if(d->type == exFAT || d->type == FAT_32)
 	{
@@ -294,8 +295,8 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 		return;
 	}
 
-	size_t max_num_files = d->root_entries;
-	size_t buffer_size = d->root_size * d->bytes_per_sector;
+	const size_t max_num_files = d->root_entries;
+	const size_t buffer_size = d->root_size * d->bytes_per_sector;
 
 	filesystem_buffer dir_buf{fd->disk, buffer_size};
 
@@ -303,7 +304,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 									 dir_buf.data(),
 									 d->root_size* d->blocks_per_sector);
 
-	fat_directory_entry* root_directory = (fat_directory_entry*)dir_buf.data();
+	const fat_directory_entry* root_directory = (fat_directory_entry*)dir_buf.data();
 
 	std::vector<file_handle> files;
 	for(size_t i = 0; i < max_num_files; i++)
@@ -314,8 +315,7 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 		}
 
 		file_handle out;
-		if(!fat_read_dir_entry(out,
-							   &root_directory[i], fd->id))
+		if(!fat_read_dir_entry(out, root_directory[i], fd->id))
 		{
 			break;
 		} //end of directory
@@ -323,12 +323,14 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 		files.push_back(out);
 	}
 
+
 	fill_dir_from_vector(files, dest, fd->id);
 }
 
 static void fat_read_dir(directory_handle* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
 {
 	file_stream* dir_stream = filesystem_create_stream(dir);
+	k_assert(dir_stream);
 
 	std::vector<file_handle> files;
 	while(true)
@@ -346,7 +348,7 @@ static void fat_read_dir(directory_handle* dest, const file_data_block* dir, con
 		}
 
 		file_handle out;
-		if (!fat_read_dir_entry(out, &entry, fd->id))
+		if (!fat_read_dir_entry(out, entry, fd->id))
 		{
 			break; 
 		}
@@ -432,6 +434,8 @@ static size_t fat_get_next_cluster(size_t cluster, const filesystem_virtual_driv
 	case exFAT:
 	case FAT_32:
 		return fat_get_next_cluster_32(cluster, fd);
+	case FAT_UNKNOWN:
+		k_assert(false);
 	}
 	return d->eof_value;
 }
@@ -511,6 +515,8 @@ static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t buffer_siz
 	size_t num_clusters = buffer_size / f->cluster_size;
 	while(num_clusters--)
 	{
+		k_assert(dest + f->cluster_size <= dest + buffer_size);
+
 		//printf("Reading from cluster %d to %X\n", cluster, dest);
 		//printf("lba %d\n", fat_cluster_to_lba(f, cluster));
 		filesystem_read_blocks_from_disk(d, fat_cluster_to_lba(f, cluster), dest, f->sectors_per_cluster * f->blocks_per_sector);

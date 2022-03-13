@@ -58,6 +58,8 @@ typedef struct
 }
 filesystem_virtual_drive;
 
+typedef int (*partition_func)(filesystem_drive*, filesystem_virtual_drive*);
+
 void filesystem_read_blocks_from_disk(const filesystem_virtual_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks);
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size);
 int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size);
@@ -78,8 +80,6 @@ struct disk_driver
 	uint8_t* (*allocate_buffer)(size_t size);
 	int (*free_buffer)(uint8_t* buffer, size_t size);
 };
-
-typedef int (*partition_func)(filesystem_drive*);
 
 void filesystem_add_driver(const filesystem_driver* fs_drv);
 filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver_data, size_t block_size, size_t num_blocks);

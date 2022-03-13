@@ -19,6 +19,8 @@ typedef struct file_stream file_stream;
 typedef struct directory_handle directory_handle;
 #endif
 
+size_t filesystem_get_num_drives();
+
 SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t drive);
 
 void filesystem_seek_file(file_stream* f, size_t pos);

@@ -137,6 +137,7 @@ public:
 		m_end = m_begin + v.size();
 		
 		std::copy(v.cbegin(), v.cend(), begin());
+		return *this;
 	}
 
 	vector& operator=(vector&& v) noexcept

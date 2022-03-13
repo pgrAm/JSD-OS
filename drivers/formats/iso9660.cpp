@@ -251,16 +251,16 @@ static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t num
 
 static void iso9660_read_dir(directory_handle* dest, const file_data_block* file, const filesystem_virtual_drive* fd)
 {
-	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
+	const iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
-	size_t num_sectors = (file->size + (f->sector_size - 1)) / f->sector_size;
-	size_t buffer_size = num_sectors * f->sector_size;
+	const size_t num_sectors = (file->size + (f->sector_size - 1)) / f->sector_size;
+	const size_t buffer_size = num_sectors * f->sector_size;
 
 	filesystem_buffer dir_data{fd->disk, buffer_size};
 
 	iso9660_read_chunks(&dir_data[0], file->location_on_disk, buffer_size, fd);
 
-	uint8_t* dir_ptr = &dir_data[0];
+	const uint8_t* dir_ptr = &dir_data[0];
 
 	std::vector<file_handle> files;
 	while((size_t)(dir_ptr - &dir_data[0]) < file->size)
@@ -278,9 +278,10 @@ static void iso9660_read_dir(directory_handle* dest, const file_data_block* file
 		}	
 	}
 
+	dest->disk_id = fd->id;
+	dest->num_files = files.size();
 	dest->file_list = new file_handle[files.size()];
 	std::copy(files.cbegin(), files.cend(), dest->file_list);
-	dest->num_files = files.size();
 }
 
 static int iso9660_mount_disk(filesystem_virtual_drive* fd)

@@ -107,24 +107,8 @@ static constexpr func_info func_list[] = {
 
 };
 
-extern "C" void load_drivers()
+static void process_init_file(file_stream* f)
 {
-	const auto num_funcs = sizeof(func_list) / sizeof(func_info);
-	for(size_t i = 0; i < num_funcs; i++)
-	{
-		driver_symbol_map.insert(func_list[i].name, (uintptr_t)func_list[i].address);
-	}
-
-	std::string_view init_path = "init.sys";
-
-	file_stream* f = filesystem_open_file(nullptr, init_path.data(), init_path.size(), 0);
-
-	if(!f)
-	{
-		printf("Cannot find init.sys!\n");
-		while(true);
-	}
-
 	std::string buffer;
 	bool eof = false;
 	while(!eof)
@@ -159,7 +143,7 @@ extern "C" void load_drivers()
 				auto dot = filename.find_first_of('.');
 				std::string init_func = std::string{filename.substr(slash, dot - slash)};
 				init_func += "_init";
-				
+
 				printf("loading driver ");
 				print_string_len(filename.data(), filename.size());
 				printf(", calling ");
@@ -168,11 +152,37 @@ extern "C" void load_drivers()
 
 				load_driver(filename, init_func);
 			}
-			else if(token == "set_drive")
+			else if(token == "load_file")
 			{
-				auto filename = buffer.substr(space + 1);
+				auto filename = line.substr(space + 1);
 
-				filesystem_set_default_drive(atoi(filename.c_str()));
+				size_t num_drives = filesystem_get_num_drives();
+
+				for(size_t drive = 0; drive < num_drives; drive++)
+				{
+					auto dir = filesystem_get_root_directory(drive);
+
+					if(dir)
+					{
+						auto file = filesystem_find_file_by_path(dir, filename.data(), filename.size());
+
+						if(file)
+						{
+							printf("processing file ");
+							print_string_len(filename.data(), filename.size());
+							printf(", set init drive\n");
+
+							filesystem_set_default_drive(drive);
+
+							auto stream = filesystem_open_file_handle(file, 0);
+
+							process_init_file(stream);
+
+							filesystem_close_file(stream);
+							break;
+						}
+					}
+				}
 			}
 
 			buffer.clear();
@@ -182,6 +192,27 @@ extern "C" void load_drivers()
 			buffer += c;
 		}
 	}
+}
+
+extern "C" void load_drivers()
+{
+	const auto num_funcs = sizeof(func_list) / sizeof(func_info);
+	for(size_t i = 0; i < num_funcs; i++)
+	{
+		driver_symbol_map.insert(func_list[i].name, (uintptr_t)func_list[i].address);
+	}
+
+	std::string_view init_path = "init.sys";
+
+	file_stream* f = filesystem_open_file(nullptr, init_path.data(), init_path.size(), 0);
+
+	if(!f)
+	{
+		printf("Cannot find init.sys!\n");
+		while(true);
+	}
+
+	process_init_file(f);
 
 	filesystem_close_file(f);
 }

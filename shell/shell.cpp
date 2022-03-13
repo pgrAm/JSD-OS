@@ -273,7 +273,7 @@ int execute_line(std::string_view current_line)
 				return 0;
 			}
 		}
-		printf("Could not open file");
+		printf("Could not open file ");
 		print_string(arg.data(), arg.size());
 		putchar('\n');
 		return -1;

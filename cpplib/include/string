@@ -572,6 +572,15 @@ private:
 };
 
 template <typename C>
+inline std::basic_string<C> operator+(	const std::basic_string<C>& lhs,
+										const std::basic_string<C>& rhs)
+{
+	auto r = lhs;
+	r += rhs;
+	return r;
+}
+
+template <typename C>
 inline bool operator==(const std::basic_string<C>& lhs,
 					   const std::basic_string<C>& rhs)
 {

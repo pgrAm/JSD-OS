@@ -8,10 +8,12 @@
 #include <kernel/memorymanager.h>
 #include <kernel/filesystem.h>
 #include <kernel/fs_driver.h>
+#include <kernel/kassert.h>
 
 #include <vector>
 #include <string>
 #include <string_view>
+#include <algorithm>
 
 #define DEFAULT_CHUNK_READ_SIZE 1024
 
@@ -24,15 +26,96 @@ struct file_stream
 	uint8_t* buffer;
 };
 
+using fs_drive_list = std::vector<filesystem_virtual_drive*>;
+using fs_part_map = std::vector<fs_drive_list>;
+
 size_t default_drive = 0;
 static std::vector<filesystem_drive*> drives;
 static std::vector<filesystem_virtual_drive*> virtual_drives;
 static std::vector<const filesystem_driver*> fs_drivers;
 static std::vector<partition_func> partitioners;
 
+static fs_part_map partition_map;
+
+size_t filesystem_get_num_drives()
+{
+	return virtual_drives.size();
+}
+
+static bool filesystem_mount_drive(filesystem_virtual_drive* drive)
+{
+	k_assert(drive);
+
+	if(!drive->mounted)
+	{
+		if(drive->fs_driver == nullptr)
+		{
+			for(auto& driver : fs_drivers)
+			{
+				drive->fs_driver = driver;
+				int mount_result = driver->mount_disk(drive);
+
+				if(mount_result != UNKNOWN_FILESYSTEM && mount_result != DRIVE_NOT_SUPPORTED)
+				{
+					drive->mounted = (mount_result == MOUNT_SUCCESS);
+					break;
+				}
+				drive->fs_driver = nullptr;
+				drive->fs_impl_data = nullptr;
+			}
+		}
+		else
+		{
+			k_assert(drive->fs_driver);
+			drive->mounted = drive->fs_driver->mount_disk(drive);
+		}
+	}
+
+	return drive->mounted;
+}
+
+static void filesystem_read_drive_partitions(filesystem_drive* drive, filesystem_virtual_drive* base)
+{
+	k_assert(!base || base->disk == drive);
+	k_assert(!base || !base->mounted);
+
+	printf("partitioning drive %d\n", drive->index);
+
+	for(size_t i = 0; i < partitioners.size(); i++)
+	{
+		if(partitioners[i](drive, base) == 0)
+			return;
+	}
+
+	if(!base)
+	{
+		//no known partitioning on drive
+		filesystem_add_virtual_drive(drive, 0, drive->num_blocks);
+	}
+}
+
 extern "C" void filesystem_add_partitioner(partition_func p)
 {
 	partitioners.push_back(p);
+
+	for(auto drive : drives)
+	{
+		auto& partitions = partition_map[drive->index];
+		if(partitions.size() > 1)
+		{
+			continue;
+		}
+		if(partitions.size() == 1)
+		{
+			if(!partitions[0]->mounted)
+			{
+				filesystem_read_drive_partitions(drive, partitions[0]);
+			}
+			continue;
+		}
+
+		filesystem_read_drive_partitions(drive, nullptr);
+	}
 }
 
 extern "C" void filesystem_add_virtual_drive(filesystem_drive* disk, fs_index begin, size_t size)
@@ -50,23 +133,14 @@ extern "C" void filesystem_add_virtual_drive(filesystem_drive* disk, fs_index be
 	};
 
 	virtual_drives.push_back(drive);
+
+	k_assert(disk->index < partition_map.size());
+	partition_map[disk->index].push_back(drive);
 }
 
 extern "C" void filesystem_add_driver(const filesystem_driver* fs_drv)
 {
 	fs_drivers.push_back(fs_drv);
-}
-
-static void filesystem_read_drive_partitions(filesystem_drive* drive)
-{
-	for(size_t i = 0; i < partitioners.size(); i++)
-	{
-		if(partitioners[i](drive) == 0)
-			return;
-	}
-
-	//no known partitioning on drive
-	filesystem_add_virtual_drive(drive, 0, drive->num_blocks);
 }
 
 filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver_data, size_t block_size, size_t num_blocks)
@@ -81,8 +155,9 @@ filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver
 	};
 
 	drives.push_back(drive);
+	partition_map.push_back(fs_drive_list{});
 
-	filesystem_read_drive_partitions(drive);
+	filesystem_read_drive_partitions(drive, nullptr);
 
 	return drives.back();
 }
@@ -119,32 +194,8 @@ directory_handle* filesystem_get_root_directory(size_t drive_number)
 	if(drive_number < virtual_drives.size())
 	{
 		auto drive = virtual_drives[drive_number];
-	
-		if(!drive->mounted)
-		{
-			if(drive->fs_driver == nullptr)
-			{
-				for(auto& driver : fs_drivers)
-				{
-					drive->fs_driver = driver;
-					int mount_result = driver->mount_disk(drive);
-
-					if(mount_result != UNKNOWN_FILESYSTEM && mount_result != DRIVE_NOT_SUPPORTED)
-					{
-						drive->mounted = (mount_result == MOUNT_SUCCESS);
-						break;
-					}
-					drive->fs_driver = nullptr;
-					drive->fs_impl_data = nullptr;
-				}
-			}
-			else
-			{
-				drive->mounted = drive->fs_driver->mount_disk(drive);
-			}
-		}
 		
-		if(drive->mounted)
+		if(filesystem_mount_drive(drive))
 		{
 			return &drive->root;
 		}
@@ -159,6 +210,7 @@ static file_handle* filesystem_find_file_in_dir(const directory_handle* d, std::
 	{
 		for(size_t i = 0; i < d->num_files; i++)
 		{
+			//printf("%s\n", std::string(d->file_list[i].full_name).c_str());
 			if(filesystem_names_identical(d->file_list[i].full_name, name))
 			{		
 				return &d->file_list[i];

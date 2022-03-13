@@ -1,4 +1,5 @@
 #include <kernel/fs_driver.h>
+#include <kernel/kassert.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -21,8 +22,10 @@ struct __attribute__((packed)) mbr
 	uint8_t			signature[2];
 };
 
-static int mbr_read_partitions(filesystem_drive* d)
+static int mbr_read_partitions(filesystem_drive* d, filesystem_virtual_drive* base)
 {
+	//printf("reading MBR of disk %d\n", d->index);
+
 	size_t num_sectors = (MBR_SIZE + (d->minimum_block_size - 1)) / d->minimum_block_size;
 	size_t buffer_size = num_sectors * d->minimum_block_size;
 
@@ -48,7 +51,16 @@ static int mbr_read_partitions(filesystem_drive* d)
 			mbr_partition* p = &master_boot_record->entries[i];
 			if(p->sector_count != 0)
 			{
-				filesystem_add_virtual_drive(d, p->lba_first_sector, p->sector_count);
+				if(base)
+				{
+					base->first_block = p->lba_first_sector;
+					base->num_blocks = p->sector_count;
+					base = nullptr;
+				}
+				else
+				{
+					filesystem_add_virtual_drive(d, p->lba_first_sector, p->sector_count);
+				}
 			}
 		}
 	}

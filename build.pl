@@ -147,7 +147,7 @@ system("$builddir/tools/rdfs", "configs/cdboot/init.sys", $drv_lib, $iso_drv, $a
 mkpath("$builddir/cdboot");
 system("$builddir/tools/rdfs", "configs/fdboot/init.sys", $drv_lib, $fat_drv, $floppy_drv, $kb_drv, $isa_dma, "-o", "$builddir/fdboot/init.rfs");
 mkpath("$builddir/netboot");
-system("$builddir/tools/rdfs", "configs/netboot/init.sys", $listmode, $vesa_drv, $drv_lib, $kb_drv, $shell, $graphicstest, $clib, $graphics, "-o", "$builddir/netboot/init.rfs");
+system("$builddir/tools/rdfs", "configs/netboot/init.sys", $ps2mouse_drv, $i8042_drv, $listmode, $vesa_drv, $drv_lib, $kb_drv, $shell, $graphicstest, $clib, $graphics, "-o", "$builddir/netboot/init.rfs");
 
 
 system("nasm boot/boot_sect.asm -i boot -f bin -o $builddir/boot_sect.bin");
@@ -156,6 +156,7 @@ build_fdimage(
 	name => "os.vfd",
 	boot_file => "$builddir/boot_sect.bin", 
 	files => [
+		"configs/fdboot/fdboot.sys",
 		"$builddir/fdboot/init.rfs",
 		"$builddir/kernal.sys",
 		$shell,
@@ -187,6 +188,7 @@ build_fdimage(
 	]
 );
 
+copy("configs/cdboot/cdboot.sys", "$builddir/iso/cdboot.sys");
 copy($graphicstest, "$builddir/iso/graphic.elf");
 copy($graphics, 	"$builddir/iso/graphics.lib");
 copy($clib, 		"$builddir/iso/clib.lib");
