@@ -14,6 +14,12 @@ typedef struct filesystem_driver filesystem_driver;
 struct disk_driver;
 typedef struct disk_driver disk_driver;
 
+struct directory_stream;
+typedef struct directory_stream directory_stream;
+
+struct filesystem_virtual_drive;
+typedef struct filesystem_virtual_drive filesystem_virtual_drive;
+
 typedef struct
 {
 	fs_index location_on_disk;
@@ -22,15 +28,6 @@ typedef struct
 	uint32_t flags;
 }
 file_data_block;
-
-//information about a directory on disk
-struct directory_handle
-{
-	const char* name;
-	file_handle* file_list;
-	size_t num_files;
-	size_t disk_id;
-};
 
 typedef struct
 {
@@ -41,22 +38,6 @@ typedef struct
 	size_t num_blocks;
 }
 filesystem_drive;
-
-//represents a partition on a drive
-typedef struct
-{
-	filesystem_drive* disk;
-	void* fs_impl_data;
-	const filesystem_driver* fs_driver;
-	size_t id;
-	fs_index first_block;
-	size_t num_blocks;
-	size_t chunk_read_size;
-
-	directory_handle root;
-	bool mounted;
-}
-filesystem_virtual_drive;
 
 typedef int (*partition_func)(filesystem_drive*, filesystem_virtual_drive*);
 
@@ -69,7 +50,7 @@ struct filesystem_driver
 	int (*mount_disk)(filesystem_virtual_drive* d);
 	fs_index(*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd);
 	fs_index(*read_chunks)(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd);
-	void (*read_dir)(directory_handle* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
+	void (*read_dir)(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
 };
 
 struct disk_driver
@@ -90,18 +71,40 @@ file_stream* filesystem_create_stream(const file_data_block* f);
 }
 
 #include <string>
+#include <vector>
 
 //information about a file on disk
 struct file_handle
 {
 	std::string name;
 	std::string type;
-	std::string full_name;
 
 	file_data_block data;
 
 	time_t time_created;
 	time_t time_modified;
+};
+
+//information about a directory on disk
+struct directory_stream
+{
+	std::vector<file_handle> file_list;
+};
+
+//represents a partition on a drive
+struct filesystem_virtual_drive
+{
+	filesystem_drive* disk;
+	void* fs_impl_data;
+	const filesystem_driver* fs_driver;
+	size_t id;
+	fs_index first_block;
+	size_t num_blocks;
+	size_t chunk_read_size;
+
+	file_handle root_dir;
+
+	bool mounted;
 };
 
 #include<stdio.h>

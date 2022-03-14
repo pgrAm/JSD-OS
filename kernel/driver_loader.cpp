@@ -34,14 +34,14 @@ static dynamic_object::sym_map driver_lib_set{32};
 static dynamic_object::sym_map driver_symbol_map{32};
 static dynamic_object::sym_map driver_glob_data_symbol_map{};
 
-static void load_driver(directory_handle* cwd, const std::string_view filename, const std::string_view func_name)
+static void load_driver(directory_stream* cwd, const std::string_view filename, const std::string_view func_name)
 {
 	dynamic_object ob{};
 	ob.lib_set = &driver_symbol_map;
 	ob.symbol_map = &driver_symbol_map;
 	ob.glob_data_symbol_map = &driver_glob_data_symbol_map;
 
-	file_handle* f = filesystem_find_file_by_path(cwd, filename.data(), filename.size());
+	auto f = filesystem_find_file_by_path(cwd, filename.data(), filename.size());
 	if(f == nullptr)
 	{
 		printf("could not find driver %s\n", std::string(filename).c_str());
@@ -121,11 +121,10 @@ static constexpr func_info func_list[] = {
 	{"irq_enable",			(void*)&irq_enable},
 	{"add_realtime_device",	(void*)&add_realtime_device},
 	{"find_realtime_device",(void*)&find_realtime_device},
-	{"handle_input_event",	(void*)&handle_input_event},
-
+	{"handle_input_event",	(void*)&handle_input_event}
 };
 
-static void process_init_file(directory_handle* cwd, file_stream* f)
+static void process_init_file(directory_stream* cwd, file_stream* f)
 {
 	std::string buffer;
 	bool eof = false;
@@ -178,7 +177,7 @@ static void process_init_file(directory_handle* cwd, file_stream* f)
 
 				for(size_t drive = 0; drive < num_drives; drive++)
 				{
-					auto dir = filesystem_get_root_directory(drive);
+					auto dir = filesystem_open_directory_handle(filesystem_get_root_directory(drive), 0);
 
 					if(dir)
 					{
@@ -197,6 +196,8 @@ static void process_init_file(directory_handle* cwd, file_stream* f)
 							filesystem_close_file(stream);
 							break;
 						}
+
+						filesystem_close_directory(dir);
 					}
 				}
 			}
@@ -227,7 +228,7 @@ extern "C" void load_drivers()
 
 	std::string_view init_path = "init.sys";
 
-	auto cwd = filesystem_get_root_directory(0);
+	auto cwd = filesystem_open_directory_handle(filesystem_get_root_directory(0), 0);
 
 	file_stream* f = filesystem_open_file(cwd, init_path.data(), init_path.size(), 0);
 
@@ -240,6 +241,7 @@ extern "C" void load_drivers()
 	process_init_file(cwd, f);
 
 	filesystem_close_file(f);
+	filesystem_close_directory(cwd);
 }
 
 #include <stddef.h>

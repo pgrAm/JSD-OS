@@ -8,7 +8,7 @@
 static int rdfs_mount_disk(filesystem_virtual_drive* d);
 static fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd);
 static fs_index rdfs_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd);
-static void rdfs_read_dir(directory_handle* dest, const file_data_block* f, const filesystem_virtual_drive* fd);
+static void rdfs_read_dir(directory_stream* dest, const file_data_block* f, const filesystem_virtual_drive* fd);
 
 static filesystem_driver rdfs_driver = {
 	rdfs_mount_disk,
@@ -34,8 +34,14 @@ static int rdfs_mount_disk(filesystem_virtual_drive* fd)
 
 	if(memcmp(magic, "RDSK", 4) == 0)
 	{
-		file_data_block dir = {sizeof(magic), fd->id, 0, IS_DIR};
-		rdfs_read_dir(&fd->root, &dir, fd);
+		fd->root_dir = {
+			.name = {},
+			.type = {},
+			.data = {sizeof(magic), fd->id, 0, IS_DIR},
+			.time_created = 0,
+			.time_modified = 0,
+		};
+
 		return MOUNT_SUCCESS;
 	}
 	return UNKNOWN_FILESYSTEM;
@@ -73,16 +79,12 @@ static std::string_view read_field(const char* field, size_t size)
 	return f;
 }
 
-static void rdfs_read_dir(directory_handle* dest, const file_data_block* f, const filesystem_virtual_drive* fd)
+static void rdfs_read_dir(directory_stream* dest, const file_data_block* f, const filesystem_virtual_drive* fd)
 {
 	fs_index location = f->location_on_disk;
 
 	uint32_t num_files;
 	filesystem_read_blocks_from_disk(fd, location, (uint8_t*)&num_files, sizeof(uint32_t));
-
-	dest->name = "";
-	dest->file_list = new file_handle[num_files];
-	dest->disk_id = fd->id;
 
 	fs_index disk_location = location + sizeof(uint32_t);
 	for(size_t i = 0; i < num_files; i++)
@@ -91,17 +93,10 @@ static void rdfs_read_dir(directory_handle* dest, const file_data_block* f, cons
 		filesystem_read_blocks_from_disk(fd, disk_location, (uint8_t*)&entry, sizeof(rdfs_dir_entry));
 		disk_location += sizeof(rdfs_dir_entry);
 
-		auto& file = dest->file_list[i];
+		file_handle file;
 
 		file.name = read_field(entry.name, 8);
 		file.type = read_field(entry.extension, 3);
-
-		file.full_name = file.name;
-		if(!file.type.empty())
-		{
-			file.full_name += '.';
-			file.full_name += file.type;
-		}
 
 		file.time_created = entry.created;
 		file.time_modified = entry.modified;
@@ -118,7 +113,8 @@ static void rdfs_read_dir(directory_handle* dest, const file_data_block* f, cons
 			.size = entry.size,
 			.flags = flags
 		};
+
+		dest->file_list.push_back(file);
 	}
 
-	dest->num_files = num_files;
 }

@@ -233,7 +233,7 @@ enum ELF_program_flags
 	PF_MASKPROC = 0xf0000000
 };
 
-int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_handle* lib_dir);
+int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_stream* lib_dir);
 
 #ifdef __cplusplus
 }

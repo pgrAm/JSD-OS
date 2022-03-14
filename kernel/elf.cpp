@@ -120,8 +120,8 @@ static span elf_get_size(ELF_header32* file_header, file_stream* f)
 
 static int elf_read_symbols(ELF_linker_data* object);
 static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
-static int elf_process_dynamic_section(ELF_linker_data* object, const directory_handle* lib_dir);
-int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_handle* lib_dir);
+static int elf_process_dynamic_section(ELF_linker_data* object, const directory_stream* lib_dir);
+int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_stream* lib_dir);
 
 /*int load_elf(const char* path, size_t path_len, dynamic_object* object, bool user)
 {
@@ -143,7 +143,7 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, const d
 	return load_elf(f, object, user, lib_dir);
 }*/
 
-int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_handle* lib_dir)
+int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_stream* lib_dir)
 {
 	ELF_ident file_identifer;
 	ELF_header32 file_header;
@@ -254,7 +254,7 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, const d
 	return 1;
 }
 
-static int elf_process_dynamic_section(ELF_linker_data* object, const directory_handle* lib_dir)
+static int elf_process_dynamic_section(ELF_linker_data* object, const directory_stream* lib_dir)
 {
 	if(object == nullptr)
 	{

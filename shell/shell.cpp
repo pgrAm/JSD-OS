@@ -19,7 +19,7 @@ char prompt_char = ']';
 #define MAX_HISTORY_SIZE 4
 std::vector<std::string> command_history;
 
-directory_handle* current_directory = nullptr;
+directory_stream* current_directory = nullptr;
 
 size_t drive_index = 0;
 
@@ -33,7 +33,7 @@ void select_drive(size_t index)
 	}
 	drive_index = index;
 	current_path.clear();
-	current_directory = get_root_directory(drive_index);
+	current_directory = open_dir_handle(get_root_directory(drive_index), 0);
 }
 
 void list_directory()
@@ -87,7 +87,7 @@ void list_directory()
 	printf("\n %5u Files   %5u Bytes\n\n", i - 1, total_bytes);
 }
 
-file_handle* find_file_in_dir(const directory_handle* dir, file_info* f, const std::string_view name)
+file_handle* find_file_in_dir(const directory_stream* dir, file_info* f, const std::string_view name)
 {
 	file_handle* f_handle = find_path(dir, name.data(), name.size());
 	if(f_handle != nullptr)
@@ -466,7 +466,7 @@ int main(int argc, char** argv)
 
 	printf("EST Time: %s\n", ctime(&t_time));
 
-	current_directory = get_root_directory(drive_index);
+	current_directory = open_dir_handle(get_root_directory(drive_index), 0);
 
 	if(current_directory == nullptr)
 	{

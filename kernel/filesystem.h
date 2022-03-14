@@ -3,7 +3,7 @@
 
 struct file_handle;
 struct file_stream;
-struct directory_handle;
+struct directory_stream;
 
 #include <time.h>
 #include <stdbool.h>
@@ -16,26 +16,26 @@ extern "C" {
 #else
 typedef struct file_handle file_handle;
 typedef struct file_stream file_stream;
-typedef struct directory_handle directory_handle;
+typedef struct directory_stream directory_stream;
 #endif
 
 size_t filesystem_get_num_drives();
 
-SYSCALL_HANDLER directory_handle* filesystem_get_root_directory(size_t drive);
+SYSCALL_HANDLER const file_handle* filesystem_get_root_directory(size_t drive);
 
 void filesystem_seek_file(file_stream* f, size_t pos);
 
-SYSCALL_HANDLER file_handle* filesystem_get_file_in_dir(const directory_handle* d, size_t index);
-SYSCALL_HANDLER file_handle* filesystem_find_file_by_path(const directory_handle* rel, const char* path, size_t path_len);
+SYSCALL_HANDLER const file_handle* filesystem_get_file_in_dir(const directory_stream* d, size_t index);
+SYSCALL_HANDLER const file_handle* filesystem_find_file_by_path(const directory_stream* rel, const char* path, size_t path_len);
 
 SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
-SYSCALL_HANDLER directory_handle* filesystem_open_directory_handle(const file_handle* f, int flags);
-directory_handle* filesystem_open_directory(const directory_handle* rel, const char* path, size_t path_len, int flags);
-SYSCALL_HANDLER int filesystem_close_directory(directory_handle* dir);
+SYSCALL_HANDLER directory_stream* filesystem_open_directory_handle(const file_handle* f, int flags);
+directory_stream* filesystem_open_directory(const directory_stream* rel, const char* path, size_t path_len, int flags);
+SYSCALL_HANDLER int filesystem_close_directory(directory_stream* dir);
 
 SYSCALL_HANDLER file_stream* filesystem_open_file_handle(const file_handle* f, int flags);
-SYSCALL_HANDLER file_stream* filesystem_open_file(const directory_handle* rel, const char* path, size_t path_len, int flags);
+SYSCALL_HANDLER file_stream* filesystem_open_file(const directory_stream* rel, const char* path, size_t path_len, int flags);
 SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int filesystem_close_file(file_stream* f);
 

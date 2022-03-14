@@ -187,18 +187,14 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 
 	if(full_name.empty() || full_name[0] == '\0')
 	{
-		dest.full_name = ".";
-		dest.name = dest.full_name;
+		dest.name = ".";
 	}
 	else if(full_name == "\1")
 	{
-		dest.full_name = "..";
-		dest.name = dest.full_name;
+		dest.name = "..";
 	}
 	else
 	{
-		dest.full_name = full_name;
-
 		auto dot_pos = full_name.find('.');
 		dest.name = full_name.substr(0, dot_pos);
 
@@ -249,7 +245,7 @@ static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t num
 	return location + num_sectors;
 }
 
-static void iso9660_read_dir(directory_handle* dest, const file_data_block* file, const filesystem_virtual_drive* fd)
+static void iso9660_read_dir(directory_stream* dest, const file_data_block* file, const filesystem_virtual_drive* fd)
 {
 	const iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
@@ -262,7 +258,6 @@ static void iso9660_read_dir(directory_handle* dest, const file_data_block* file
 
 	const uint8_t* dir_ptr = &dir_data[0];
 
-	std::vector<file_handle> files;
 	while((size_t)(dir_ptr - &dir_data[0]) < file->size)
 	{
 		file_handle out;
@@ -273,15 +268,10 @@ static void iso9660_read_dir(directory_handle* dest, const file_data_block* file
 		}
 		else
 		{
-			files.push_back(out);
+			dest->file_list.push_back(out);
 			dir_ptr += length;
 		}	
 	}
-
-	dest->disk_id = fd->id;
-	dest->num_files = files.size();
-	dest->file_list = new file_handle[files.size()];
-	std::copy(files.cbegin(), files.cend(), dest->file_list);
 }
 
 static int iso9660_mount_disk(filesystem_virtual_drive* fd)
@@ -313,9 +303,7 @@ static int iso9660_mount_disk(filesystem_virtual_drive* fd)
 		return DRIVE_NOT_SUPPORTED;
 	}
 
-	file_handle root_handle;
-	iso9660_read_dir_entry(root_handle, (uint8_t*)&(volume_descriptor->root), fd->id);
-	iso9660_read_dir(&fd->root, &root_handle.data, fd);
+	iso9660_read_dir_entry(fd->root_dir, (uint8_t*)&(volume_descriptor->root), fd->id);
 
 	return MOUNT_SUCCESS;
 }

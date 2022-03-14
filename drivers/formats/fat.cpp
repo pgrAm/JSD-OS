@@ -17,10 +17,12 @@
 
 #define DEFAULT_SECTOR_SIZE 512
 
+#define FAT_ROOT_DIR_FLAG 0x80000000
+
 static int fat_mount_disk(filesystem_virtual_drive* d);
 static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes, const filesystem_virtual_drive* d);
 static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_virtual_drive* fd);
-static void fat_read_dir(directory_handle* dest, const file_data_block* location, const filesystem_virtual_drive* fd);
+static void fat_read_dir(directory_stream* dest, const file_data_block* location, const filesystem_virtual_drive* fd);
 
 enum fat_type
 {
@@ -249,13 +251,6 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 	dest.name = read_field(entry.name, 8);
 	dest.type = read_field(entry.extension, 3);
 
-	dest.full_name = dest.name;
-	if(!dest.type.empty())
-	{
-		dest.full_name += '.';
-		dest.full_name += dest.type;
-	}
-
 	dest.time_created = fat_time_to_time_t(entry.created_date, entry.created_time);
 	dest.time_modified = fat_time_to_time_t(entry.modified_date, entry.modified_time);
 
@@ -275,25 +270,9 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 	return true;
 }
 
-static void fill_dir_from_vector(const std::vector<file_handle>& files, directory_handle* dest, size_t disk_id)
-{
-	dest->name = "";
-	dest->disk_id = disk_id;
-	dest->file_list = new file_handle[files.size()];
-	dest->num_files = files.size();
-	std::copy(files.cbegin(), files.cend(), dest->file_list);
-}
-
-static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_drive* fd)
+static void fat_read_root_dir(directory_stream* dest, const filesystem_virtual_drive* fd)
 {
 	const fat_drive* d = (fat_drive*)fd->fs_impl_data;
-
-	if(d->type == exFAT || d->type == FAT_32)
-	{
-		file_data_block f = { d->root_location, fd->id, 0, IS_DIR };
-		fat_read_dir(dest, &f, fd);
-		return;
-	}
 
 	const size_t max_num_files = d->root_entries;
 	const size_t buffer_size = d->root_size * d->bytes_per_sector;
@@ -320,19 +299,22 @@ static void fat_read_root_dir(directory_handle* dest, const filesystem_virtual_d
 			break;
 		} //end of directory
 
-		files.push_back(out);
+		dest->file_list.push_back(out);
 	}
-
-
-	fill_dir_from_vector(files, dest, fd->id);
 }
 
-static void fat_read_dir(directory_handle* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
+static void fat_read_dir(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
 {
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+	if((d->type == FAT_12 || d->type == FAT_16) && (dir->flags & FAT_ROOT_DIR_FLAG))
+	{
+		fat_read_root_dir(dest, fd);
+		return;
+	}
+
 	file_stream* dir_stream = filesystem_create_stream(dir);
 	k_assert(dir_stream);
 
-	std::vector<file_handle> files;
 	while(true)
 	{
 		fat_directory_entry entry;
@@ -353,11 +335,9 @@ static void fat_read_dir(directory_handle* dest, const file_data_block* dir, con
 			break; 
 		}
 
-		files.push_back(out);
+		dest->file_list.push_back(out);
 	}
 	
-	fill_dir_from_vector(files, dest, fd->id);
-
 	filesystem_close_file(dir_stream);
 }
 
@@ -497,7 +477,13 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 
 	f->cached_fat_sector = 0;
 	
-	fat_read_root_dir(&d->root, d);
+	d->root_dir = {
+		.name = {},
+		.type = {},
+		.data = {f->root_location, d->id, 0, IS_DIR | FAT_ROOT_DIR_FLAG},
+		.time_created = 0,
+		.time_modified = 0,
+	};
 
 	return MOUNT_SUCCESS;
 }

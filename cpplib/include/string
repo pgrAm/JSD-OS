@@ -368,7 +368,7 @@ public:
 		return 0;
 	}
 
-	bool empty() noexcept
+	bool empty() const noexcept
 	{
 		return size() == 0;
 	}

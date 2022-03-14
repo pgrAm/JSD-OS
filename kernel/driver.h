@@ -1,9 +1,9 @@
 #ifndef DRIVER_H
 #define DRIVER_H
 
-struct directory_handle;
-typedef struct directory_handle directory_handle;
+struct directory_stream;
+typedef struct directory_stream directory_stream;
 
-typedef int (*driver_init_func)(directory_handle* cwd);
+typedef int (*driver_init_func)(directory_stream* cwd);
 
 #endif
