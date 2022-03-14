@@ -22,7 +22,7 @@ To do:
 
 #include <drivers/portio.h>
 
-directory_handle* parent_dir = nullptr;
+directory_stream* parent_dir = nullptr;
 
 #define	VGA_AC_INDEX		0x3C0
 #define	VGA_AC_WRITE		0x3C0
@@ -320,7 +320,7 @@ static display_driver vga_driver =
 	NUM_GRAPHICS_MODES
 };
 
-extern "C" void vga_init(directory_handle* cwd)
+extern "C" void vga_init(directory_stream* cwd)
 {
 	parent_dir = cwd;
 
