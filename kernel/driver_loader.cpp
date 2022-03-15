@@ -36,12 +36,14 @@ static dynamic_object::sym_map driver_glob_data_symbol_map{};
 
 static void load_driver(directory_stream* cwd, const std::string_view filename, const std::string_view func_name)
 {
+	k_assert(cwd);
+
 	dynamic_object ob{};
 	ob.lib_set = &driver_symbol_map;
 	ob.symbol_map = &driver_symbol_map;
 	ob.glob_data_symbol_map = &driver_glob_data_symbol_map;
 
-	auto f = filesystem_find_file_by_path(cwd, filename.data(), filename.size());
+	auto f = filesystem_find_file_by_path(cwd, filename);
 	if(f == nullptr)
 	{
 		printf("could not find driver %s\n", std::string(filename).c_str());
@@ -54,7 +56,7 @@ static void load_driver(directory_stream* cwd, const std::string_view filename, 
 		lib_path = filename.substr(0, slash);
 	}
 
-	auto lib_dir = filesystem_open_directory(cwd, lib_path.data(), lib_path.size(), 0);
+	auto lib_dir = filesystem_open_directory(cwd, lib_path, 0);
 
 	if(load_elf(f, &ob, false, lib_dir ? lib_dir : cwd))
 	{
@@ -98,9 +100,9 @@ static constexpr func_info func_list[] = {
 	{"filesystem_free_buffer",		(void*)&filesystem_free_buffer},
 	{"filesystem_read_blocks_from_disk",	(void*)&filesystem_read_blocks_from_disk},
 	{"filesystem_create_stream",			(void*)&filesystem_create_stream},
-	{"__regcall3__filesystem_open_file",	(void*)&filesystem_open_file},
-	{"__regcall3__filesystem_read_file",	(void*)&filesystem_read_file},
-	{"__regcall3__filesystem_close_file",	(void*)&filesystem_close_file},
+	{"filesystem_open_file",	(void*)&filesystem_open_file},
+	{"filesystem_close_file",	(void*)&filesystem_close_file},
+	{"filesystem_read_file",	(void*)&filesystem_read_file},
 	{"irq_install_handler",			(void*)&irq_install_handler},
 	{"sysclock_sleep",				(void*)&sysclock_sleep},
 	{"__regcall3__sysclock_get_ticks", (void*)(clock_func)sysclock_get_ticks},
@@ -124,14 +126,16 @@ static constexpr func_info func_list[] = {
 	{"handle_input_event",	(void*)&handle_input_event}
 };
 
-static void process_init_file(directory_stream* cwd, file_stream* f)
+static void process_init_file(directory_stream* cwd, fs::stream_ref f)
 {
+	k_assert(cwd);
+
 	std::string buffer;
 	bool eof = false;
 	while(!eof)
 	{
 		char c;
-		if(filesystem_read_file(&c, sizeof(char), f) == -1)
+		if(f.read(&c, sizeof(char)) == -1)
 		{
 			eof = true;
 			c = '\n';
@@ -177,34 +181,38 @@ static void process_init_file(directory_stream* cwd, file_stream* f)
 
 				for(size_t drive = 0; drive < num_drives; drive++)
 				{
-					auto dir = filesystem_open_directory_handle(filesystem_get_root_directory(drive), 0);
+					auto root = filesystem_get_root_directory(drive);
 
-					if(dir)
+					if(!root)
+						continue;
+
+					auto dir = filesystem_open_directory_handle(root, 0);
+					
+					if(!dir)
+						continue;
+
+					auto file = filesystem_find_file_by_path(dir, filename);
+
+					if(file)
 					{
-						auto file = filesystem_find_file_by_path(dir, filename.data(), filename.size());
+						printf("processing file ");
+						print_string_len(filename.data(), filename.size());
+						printf(", set init drive\n");
 
-						if(file)
+						if(fs::stream stream{file, 0}; !!stream)
 						{
-							printf("processing file ");
-							print_string_len(filename.data(), filename.size());
-							printf(", set init drive\n");
-
-							auto stream = filesystem_open_file_handle(file, 0);
-
 							process_init_file(dir, stream);
-
-							filesystem_close_file(stream);
-							break;
 						}
-
-						filesystem_close_directory(dir);
+						break;
 					}
+
+					filesystem_close_directory(dir);
 				}
 			}
 			else if(token == "execute")
 			{
 				auto filename = line.substr(space + 1);
-				auto f = filesystem_find_file_by_path(cwd, filename.data(), filename.size());
+				auto f = filesystem_find_file_by_path(cwd, filename);
 
 				spawn_process(f, cwd, WAIT_FOR_PROCESS);
 			}
@@ -230,7 +238,13 @@ extern "C" void load_drivers()
 
 	auto cwd = filesystem_open_directory_handle(filesystem_get_root_directory(0), 0);
 
-	file_stream* f = filesystem_open_file(cwd, init_path.data(), init_path.size(), 0);
+	if(!cwd)
+	{
+		printf("Corrupted boot drive!\n");
+		while(true);
+	}
+
+	fs::stream f{cwd, init_path, 0};
 
 	if(!f)
 	{
@@ -240,7 +254,6 @@ extern "C" void load_drivers()
 
 	process_init_file(cwd, f);
 
-	filesystem_close_file(f);
 	filesystem_close_directory(cwd);
 }
 

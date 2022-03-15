@@ -208,12 +208,12 @@ static uint8_t* loadpsf(std::string_view file)
 		uint8_t charsize;	// Character size
 	} __attribute__((packed)) PSF_font;
 
-	file_stream* f = filesystem_open_file(parent_dir, file.data(), file.size(), 0);
+	fs::stream f{parent_dir, file, 0};
 
 	if (!f) return nullptr;
 
 	PSF_font font;
-	filesystem_read_file(&font, sizeof(PSF_font), f);
+	f.read(&font, sizeof(PSF_font));
 
 	size_t size = 256 * font.charsize;
 	
@@ -222,10 +222,8 @@ static uint8_t* loadpsf(std::string_view file)
 	if (font.magic == PSF_MAGIC)
 	{
 		buffer = (uint8_t*)malloc(size);
-		filesystem_read_file(buffer, size, f);
+		f.read(buffer, size);
 	}
-
-	filesystem_close_file(f);
 
 	return buffer;
 }

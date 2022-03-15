@@ -12,32 +12,42 @@ struct directory_stream;
 #include <api/files.h>
 
 #ifdef __cplusplus
+
+#include <string_view>
+
 extern "C" {
+
+size_t filesystem_get_num_drives();
+const file_handle* filesystem_get_root_directory(size_t drive);
+const file_handle* filesystem_find_file_by_path(const directory_stream* rel, std::string_view path);
+int filesystem_get_file_info(file_info* dst, const file_handle* src);
+
+file_stream* filesystem_open_file_handle(const file_handle* f, int flags);
+file_stream* filesystem_open_file(const directory_stream* rel, std::string_view path, int flags);
+int filesystem_read_file(void* dst, size_t len, file_stream* f);
+void filesystem_seek_file(file_stream* f, size_t pos);
+int filesystem_close_file(file_stream* f);
+
+directory_stream* filesystem_open_directory_handle(const file_handle* f, int flags);
+directory_stream* filesystem_open_directory(const directory_stream* rel, std::string_view path, int flags);
+int filesystem_close_directory(directory_stream* dir);
+
 #else
 typedef struct file_handle file_handle;
 typedef struct file_stream file_stream;
 typedef struct directory_stream directory_stream;
 #endif
 
-size_t filesystem_get_num_drives();
-
-SYSCALL_HANDLER const file_handle* filesystem_get_root_directory(size_t drive);
-
-void filesystem_seek_file(file_stream* f, size_t pos);
-
-SYSCALL_HANDLER const file_handle* filesystem_get_file_in_dir(const directory_stream* d, size_t index);
-SYSCALL_HANDLER const file_handle* filesystem_find_file_by_path(const directory_stream* rel, const char* path, size_t path_len);
-
-SYSCALL_HANDLER int filesystem_get_file_info(file_info* dst, const file_handle* src);
-
-SYSCALL_HANDLER directory_stream* filesystem_open_directory_handle(const file_handle* f, int flags);
-directory_stream* filesystem_open_directory(const directory_stream* rel, const char* path, size_t path_len, int flags);
-SYSCALL_HANDLER int filesystem_close_directory(directory_stream* dir);
-
-SYSCALL_HANDLER file_stream* filesystem_open_file_handle(const file_handle* f, int flags);
-SYSCALL_HANDLER file_stream* filesystem_open_file(const directory_stream* rel, const char* path, size_t path_len, int flags);
-SYSCALL_HANDLER int filesystem_read_file(void* dst, size_t len, file_stream* f);
-SYSCALL_HANDLER int filesystem_close_file(file_stream* f);
+SYSCALL_HANDLER const file_handle* syscall_get_root_directory(size_t drive);
+SYSCALL_HANDLER const file_handle* syscall_get_file_in_dir(const directory_stream* d, size_t index);
+SYSCALL_HANDLER const file_handle* syscall_find_file_by_path(const directory_stream* rel, const char* path, size_t path_len);
+SYSCALL_HANDLER int syscall_get_file_info(file_info* dst, const file_handle* src);
+SYSCALL_HANDLER directory_stream* syscall_open_directory_handle(const file_handle* f, int flags);
+SYSCALL_HANDLER int syscall_close_directory(directory_stream* dir);
+SYSCALL_HANDLER file_stream* syscall_open_file_handle(const file_handle* f, int flags);
+SYSCALL_HANDLER file_stream* syscall_open_file(const directory_stream* rel, const char* path, size_t path_len, int flags);
+SYSCALL_HANDLER int syscall_read_file(void* dst, size_t len, file_stream* f);
+SYSCALL_HANDLER int syscall_close_file(file_stream* f);
 
 typedef enum {
 	MOUNT_SUCCESS = 0,
@@ -54,6 +64,73 @@ typedef enum {
 
 #ifdef __cplusplus
 }
+
+namespace fs 
+{
+	namespace {
+		class stream_base {
+		public:
+			int read(void* dst, size_t len)
+			{
+				return filesystem_read_file(dst, len, get_ptr());
+			}
+
+			void seek(size_t pos)
+			{
+				filesystem_seek_file(get_ptr(), pos);
+			}
+
+			operator bool()
+			{
+				return !!get_ptr();
+			}
+
+		protected:
+			explicit stream_base(file_stream* f)
+				: m_stream{f}
+			{}
+
+			file_stream* get_ptr() { return m_stream; }
+
+		private:
+			file_stream* m_stream;
+		};
+	}
+
+	class stream : public stream_base
+	{
+		friend class stream_ref;
+
+	public:
+		stream(const file_handle* f, int flags)
+			: stream_base{filesystem_open_file_handle(f, flags)}
+		{}
+		stream(const directory_stream* rel, std::string_view path, int flags)
+			: stream_base{filesystem_open_file(rel, path, flags)}
+		{}
+		explicit stream(file_stream* f)
+			: stream_base{f}
+		{}
+
+		stream(const stream&) = delete;
+		stream& operator=(const stream&) = delete;
+
+		~stream()
+		{
+			filesystem_close_file(get_ptr());
+		}
+	};
+
+	class stream_ref : public stream_base
+	{
+	public:
+		stream_ref(stream& s)
+			: stream_base{s.get_ptr()}
+		{}
+	};
+}
+
+
 #endif
 
 #endif

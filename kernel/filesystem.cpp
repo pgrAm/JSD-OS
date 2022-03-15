@@ -17,6 +17,14 @@
 
 #define DEFAULT_CHUNK_READ_SIZE 1024
 
+using fs_drive_list = std::vector<filesystem_virtual_drive*>;
+using fs_part_map = std::vector<fs_drive_list>;
+
+static std::vector<filesystem_drive*> drives;
+static std::vector<filesystem_virtual_drive*> virtual_drives;
+static std::vector<const filesystem_driver*> fs_drivers;
+static std::vector<partition_func> partitioners;
+
 //an instance of an open file
 struct file_stream
 {
@@ -25,14 +33,6 @@ struct file_stream
 	fs_index location_on_disk;
 	uint8_t* buffer;
 };
-
-using fs_drive_list = std::vector<filesystem_virtual_drive*>;
-using fs_part_map = std::vector<fs_drive_list>;
-
-static std::vector<filesystem_drive*> drives;
-static std::vector<filesystem_virtual_drive*> virtual_drives;
-static std::vector<const filesystem_driver*> fs_drivers;
-static std::vector<partition_func> partitioners;
 
 static fs_part_map partition_map;
 
@@ -160,12 +160,14 @@ filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver
 	return drives.back();
 }
 
-SYSCALL_HANDLER directory_stream* filesystem_open_directory_handle(const file_handle* f, int flags)
+directory_stream* filesystem_open_directory_handle(const file_handle* f, int flags)
 {
-	if(f == nullptr || !(f->data.flags & IS_DIR)) { return nullptr; }
+	k_assert(f);
+
+	if(!(f->data.flags & IS_DIR)) { return nullptr; }
 
 	directory_stream* d = new directory_stream{
-		.file_list = {}	
+		.file_list = {}
 	};
 
 	auto drive = virtual_drives[f->data.disk_id];
@@ -175,41 +177,37 @@ SYSCALL_HANDLER directory_stream* filesystem_open_directory_handle(const file_ha
 	return d;
 }
 
-SYSCALL_HANDLER const file_handle* filesystem_get_root_directory(size_t drive_number)
+const file_handle* filesystem_get_root_directory(size_t drive_number)
 {
-	if(drive_number < virtual_drives.size())
-	{
-		auto drive = virtual_drives[drive_number];
+	k_assert(drive_number < virtual_drives.size());
 
-		if(filesystem_mount_drive(drive))
-		{
-			return &drive->root_dir;
-		}
+	auto drive = virtual_drives[drive_number];
+
+	if(filesystem_mount_drive(drive))
+	{
+		return &drive->root_dir;
 	}
 
 	return nullptr;
 }
 
-static const file_handle* filesystem_find_file_in_dir(const directory_stream* d, std::string_view fname)
+static const file_handle* filesystem_find_file_in_dir(const directory_stream& d, std::string_view fname)
 {
-	if(d != nullptr)
+	auto dot_pos = fname.find('.');
+	auto name = fname.substr(0, dot_pos);
+
+	std::string_view type{};
+	if(dot_pos != std::string_view::npos)
 	{
-		auto dot_pos = fname.find('.');
-		auto name = fname.substr(0, dot_pos);
+		type = fname.substr(dot_pos + 1);
+	}
 
-		std::string_view type{};
-		if(dot_pos != std::string_view::npos)
+	for(size_t i = 0; i < d.file_list.size(); i++)
+	{
+		//printf("%s\n", std::string(d->file_list[i].full_name).c_str());
+		if(filesystem_names_identical(d.file_list[i].name, name) && filesystem_names_identical(d.file_list[i].type, type))
 		{
-			type = fname.substr(dot_pos + 1);
-		}
-
-		for(size_t i = 0; i < d->file_list.size(); i++)
-		{
-			//printf("%s\n", std::string(d->file_list[i].full_name).c_str());
-			if(filesystem_names_identical(d->file_list[i].name, name) && filesystem_names_identical(d->file_list[i].type, type))
-			{
-				return &d->file_list[i];
-			}
+			return &d.file_list[i];
 		}
 	}
 
@@ -218,15 +216,9 @@ static const file_handle* filesystem_find_file_in_dir(const directory_stream* d,
 
 static file_handle found;
 
-SYSCALL_HANDLER
-const file_handle* filesystem_find_file_by_path(const directory_stream* d, const char* name, size_t name_len)
+const file_handle* filesystem_find_file_by_path(const directory_stream* d, std::string_view path)
 {
-	if(name == nullptr || d == nullptr)
-	{
-		return nullptr;
-	};
-
-	std::string_view path{name, name_len};
+	k_assert(d);
 
 	size_t name_begin = 0;
 	size_t path_begin = path.find('/');
@@ -241,7 +233,7 @@ const file_handle* filesystem_find_file_by_path(const directory_stream* d, const
 	{
 		auto dirname = path.substr(name_begin, path_begin - name_begin);
 
-		const file_handle* fd = filesystem_find_file_in_dir(d, dirname);
+		const file_handle* fd = filesystem_find_file_in_dir(*d, dirname);
 
 		if(fd == nullptr || !(fd->data.flags & IS_DIR))
 		{
@@ -254,11 +246,15 @@ const file_handle* filesystem_find_file_by_path(const directory_stream* d, const
 		}
 
 		directory_stream* dir = filesystem_open_directory_handle(fd, 0);
+		if(!dir)
+		{
+			return nullptr;
+		}
 
 		auto remaining_path = path.substr(path_begin);
 
 		file_handle fh;
-		auto f = filesystem_find_file_by_path(dir, remaining_path.data(), remaining_path.size());
+		auto f = filesystem_find_file_by_path(dir, remaining_path);
 
 		if(f) fh = *f;
 
@@ -274,16 +270,14 @@ const file_handle* filesystem_find_file_by_path(const directory_stream* d, const
 	else
 	{
 		auto remaining_path = path.substr(name_begin);
-		return filesystem_find_file_in_dir(d, remaining_path);
+		return filesystem_find_file_in_dir(*d, remaining_path);
 	}
 }
 
 file_stream* filesystem_create_stream(const file_data_block* f)
 {
-	if(f->disk_id >= virtual_drives.size())
-	{
-		return nullptr;
-	}
+	k_assert(f);
+	k_assert(f->disk_id < virtual_drives.size())
 
 	auto drive = virtual_drives[f->disk_id];
 
@@ -294,20 +288,19 @@ file_stream* filesystem_create_stream(const file_data_block* f)
 	};
 }
 
-SYSCALL_HANDLER
 file_stream* filesystem_open_file_handle(const file_handle* f, int flags)
 {
-	if(f == nullptr || f->data.flags & IS_DIR) { return nullptr; }
+	k_assert(f);
+
+	if(f->data.flags & IS_DIR) { return nullptr; }
 
 	return filesystem_create_stream(&f->data);
 }
 
-SYSCALL_HANDLER
 int filesystem_get_file_info(file_info* dst, const file_handle* src)
 {
-	if(src == nullptr || dst == nullptr) return -1;
-	//we should also check that these adresses are mapped properly
-	//maybe do a checksum too?
+	k_assert(dst);
+	k_assert(src);
 
 	auto full_name = src->name;
 	if(!src->type.empty())
@@ -326,40 +319,25 @@ int filesystem_get_file_info(file_info* dst, const file_handle* src)
 	return 0;
 }
 
-SYSCALL_HANDLER
-const file_handle* filesystem_get_file_in_dir(const directory_stream* d, size_t index)
-{
-	if(d != nullptr && index < d->file_list.size())
-	{
-		return &(d->file_list[index]);
-	}
-
-	return nullptr;
-}
-
-SYSCALL_HANDLER
 int filesystem_close_directory(directory_stream* stream)
 {
-	if(stream == nullptr)
-	{
-		return -1;
-	}
-
 	delete stream;
 	return 0;
 }
 
-SYSCALL_HANDLER
 file_stream* filesystem_open_file(const directory_stream* rel,
-								  const char* path,
-								  size_t path_len,
+								  std::string_view path,
 								  int flags)
 {
-	const file_handle* f = filesystem_find_file_by_path(rel, path, path_len);
-	return filesystem_open_file_handle(f, flags);
+	k_assert(rel);
+
+	if(const file_handle* f = filesystem_find_file_by_path(rel, path))
+		return filesystem_open_file_handle(f, flags);
+	else
+		return nullptr;
 }
 
-SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
+int filesystem_close_file(file_stream* stream)
 {
 	if(stream == nullptr)
 	{
@@ -378,12 +356,15 @@ SYSCALL_HANDLER int filesystem_close_file(file_stream* stream)
 }
 
 directory_stream* filesystem_open_directory(const directory_stream* rel,
-											const char* path,
-											size_t path_len,
+											std::string_view path,
 											int flags)
 {
-	const file_handle* f = filesystem_find_file_by_path(rel, path, path_len);
-	return filesystem_open_directory_handle(f, flags);
+	k_assert(rel);
+
+	if(const file_handle* f = filesystem_find_file_by_path(rel, path))
+		return filesystem_open_directory_handle(f, flags);
+	else
+		return nullptr;
 }
 
 //finds the fs_index for the next chunk after an offset from the original
@@ -423,12 +404,10 @@ static fs_index filesystem_read_chunk(file_stream* f, fs_index chunk_index)
 										 drive->chunk_read_size, drive);
 }
 
-SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream* f)
+int filesystem_read_file(void* dst_buf, size_t len, file_stream* f)
 {
-	if(f == nullptr)
-	{
-		return 0;
-	}
+	k_assert(dst_buf);
+	k_assert(f);
 
 	if(!(f->file.flags & IS_DIR))
 	{
@@ -505,6 +484,8 @@ SYSCALL_HANDLER int filesystem_read_file(void* dst_buf, size_t len, file_stream*
 
 void filesystem_seek_file(file_stream* f, size_t pos)
 {
+	k_assert(f);
+
 	f->seekpos = pos;
 }
 
@@ -533,4 +514,104 @@ int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t si
 	}
 	free(buffer);
 	return 0;
+}
+
+SYSCALL_HANDLER directory_stream* syscall_open_directory_handle(const file_handle* f, int flags)
+{
+	if(f == nullptr) { return nullptr; }
+
+	return filesystem_open_directory_handle(f, flags);
+}
+
+SYSCALL_HANDLER const file_handle* syscall_get_root_directory(size_t drive_number)
+{
+	if(drive_number >= virtual_drives.size())
+	{
+		return nullptr;
+	}
+
+	return filesystem_get_root_directory(drive_number);
+}
+
+SYSCALL_HANDLER int syscall_read_file(void* dst_buf, size_t len, file_stream* f)
+{
+	if(f == nullptr || dst_buf == nullptr)
+	{
+		return 0;
+	}
+	return filesystem_read_file(dst_buf, len, f);
+}
+
+SYSCALL_HANDLER
+file_stream* syscall_open_file(const directory_stream* rel,
+							   const char* path,
+							   size_t path_len,
+							   int flags)
+{
+	if(!rel || !path)
+		return nullptr;
+	else
+		return filesystem_open_file(rel, {path, path_len}, flags);
+}
+
+SYSCALL_HANDLER int syscall_close_file(file_stream* stream)
+{
+	if(stream == nullptr)
+	{
+		return -1;
+	}
+
+	delete stream;
+	return 0;
+}
+
+SYSCALL_HANDLER
+int syscall_close_directory(directory_stream* stream)
+{
+	if(stream == nullptr)
+	{
+		return -1;
+	}
+
+	return filesystem_close_directory(stream);
+}
+
+SYSCALL_HANDLER
+int syscall_get_file_info(file_info* dst, const file_handle* src)
+{
+	if(src == nullptr || dst == nullptr) return -1;
+	//we should also check that these adresses are mapped properly
+	//maybe do a checksum too?
+
+	return filesystem_get_file_info(dst, src);
+}
+
+SYSCALL_HANDLER
+const file_handle* syscall_get_file_in_dir(const directory_stream* d, size_t index)
+{
+	if(d != nullptr && index < d->file_list.size())
+	{
+		return &(d->file_list[index]);
+	}
+
+	return nullptr;
+}
+
+SYSCALL_HANDLER
+file_stream* syscall_open_file_handle(const file_handle* f, int flags)
+{
+	if(f == nullptr) { return nullptr; }
+
+	return filesystem_open_file_handle(f, flags);
+}
+
+SYSCALL_HANDLER
+const file_handle* syscall_find_file_by_path(const directory_stream* d, const char* name, size_t name_len)
+{
+	if(name == nullptr || d == nullptr)
+	{
+		return nullptr;
+	};
+
+	return filesystem_find_file_by_path(d, std::string_view{name, name_len});
 }

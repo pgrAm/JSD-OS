@@ -93,7 +93,7 @@ typedef struct span
 	size_t size;
 } span;
 
-static span elf_get_size(ELF_header32* file_header, file_stream* f)
+static span elf_get_size(ELF_header32* file_header, fs::stream_ref f)
 {
 	uintptr_t min_address = ~(uintptr_t)0;
 	uintptr_t max_address = 0;
@@ -101,10 +101,10 @@ static span elf_get_size(ELF_header32* file_header, file_stream* f)
 	for(size_t i = 0; i < file_header->pgh_entries; i++)
 	{
 		//seek ahead to the program header table
-		filesystem_seek_file(f, file_header->pgh_offset + i * sizeof(ELF_program_header32));
+		f.seek(file_header->pgh_offset + i * sizeof(ELF_program_header32));
 		//read the program header
 		ELF_program_header32 pg_header;
-		filesystem_read_file(&pg_header, sizeof(ELF_program_header32), f);
+		f.read(&pg_header, sizeof(ELF_program_header32));
 
 		if(pg_header.type == ELF_PTYPE_LOAD)
 		{
@@ -145,24 +145,29 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, const d
 
 int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_stream* lib_dir)
 {
+	k_assert(file);
+	k_assert(object);
+	k_assert(lib_dir);
+
 	ELF_ident file_identifer;
 	ELF_header32 file_header;
 
-	file_stream* f = filesystem_open_file_handle(file, 0);
+	fs::stream f{file, 0};
+
 	file_info info;
 	filesystem_get_file_info(&info, file);
 
-	if(f == nullptr)
+	if(!f)
 	{
 		printf("could not open elf file %s\n", info.name);
 		return 0;
 	}
 
-	filesystem_read_file(&file_identifer, sizeof(ELF_ident), f);
+	f.read(&file_identifer, sizeof(ELF_ident));
 
 	if(elf_is_readable(&file_identifer))
 	{
-		filesystem_read_file(&file_header, sizeof(ELF_header32), f);
+		f.read(&file_header, sizeof(ELF_header32));
 
 		if(elf_is_compatible(&file_header))
 		{
@@ -188,10 +193,10 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, const d
 			for(int i = 0; i < file_header.pgh_entries; i++)
 			{
 				//seek ahead to the program header table
-				filesystem_seek_file(f, file_header.pgh_offset + i * sizeof(ELF_program_header32));
+				f.seek(file_header.pgh_offset + i * sizeof(ELF_program_header32));
 				//read the program header
 				ELF_program_header32 pg_header;
-				filesystem_read_file(&pg_header, sizeof(ELF_program_header32), f);
+				f.read(&pg_header, sizeof(ELF_program_header32));
 
 				switch(pg_header.type)
 				{
@@ -234,8 +239,8 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, const d
 					*/
 
 					//copy file_size bytes from offset to virtual_address
-					filesystem_seek_file(f, pg_header.offset);
-					filesystem_read_file((void*)virtual_address, pg_header.file_size, f);
+					f.seek(pg_header.offset);
+					f.read((void*)virtual_address, pg_header.file_size);
 				}
 				break;
 				default:
@@ -248,8 +253,6 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, const d
 			elf_process_dynamic_section((ELF_linker_data*)object->linker_data, lib_dir);
 		}
 	}
-
-	filesystem_close_file(f);
 
 	return 1;
 }
@@ -339,7 +342,7 @@ static int elf_process_dynamic_section(ELF_linker_data* object, const directory_
 					lib.symbol_map = object->symbol_map;
 					lib.glob_data_symbol_map = object->glob_data_symbol_map;
 
-					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name.data(), lib_name.size()))
+					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name))
 					{
 						if(load_elf(lib_handle, &lib, object->userspace, lib_dir))
 						{
