@@ -166,6 +166,7 @@ build_fdimage(
 		"fonts/font16.psf",
 		"test.bat",
 		"readme.txt",
+		"LICENSE.txt",
 		$primes,
 		$ata_drv,
 		$vga_drv,
@@ -190,6 +191,7 @@ build_fdimage(
 	]
 );
 
+copy("LICENSE.txt", "$builddir/iso/LICENSE.txt");
 copy("configs/cdboot/cdboot.sys", "$builddir/iso/cdboot.sys");
 copy($graphicstest, "$builddir/iso/graphic.elf");
 copy($graphics, 	"$builddir/iso/graphics.lib");
