@@ -132,7 +132,7 @@ static inline int read(void* dst, size_t len, file_stream* file)
 
 static inline void spawn_process(const file_handle* file, const directory_stream* cwd, int flags)
 {
-	do_syscall_3(SYSCALL_SPAWN, (uint32_t)cwd, (uint32_t)file, (uint32_t)flags);
+	do_syscall_3(SYSCALL_SPAWN, (uint32_t)file, (uint32_t)cwd, (uint32_t)flags);
 }
 
 static inline time_t master_time()
