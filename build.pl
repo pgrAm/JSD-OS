@@ -210,10 +210,8 @@ copy($mbr_drv, 		"$builddir/iso/drivers/mbr.drv");
 copy($i8042_drv, 	"$builddir/iso/drivers/i8042.drv");
 copy($ps2mouse_drv, "$builddir/iso/drivers/ps2mouse.drv");
 
-
-mkpath("$builddir/iso/fonts");
-copy("fonts/font08.psf", "$builddir/iso/font08.psf");
-copy("fonts/font16.psf", "$builddir/iso/font16.psf");
+copy("fonts/font08.psf", "$builddir/iso/drivers/font08.psf");
+copy("fonts/font16.psf", "$builddir/iso/drivers/font16.psf");
 
 system("tools/mkisofs -U -b isoboot.img -hide isoboot.img -V \"JSD-OS\" -iso-level 3 -o $builddir/boot.iso \"$builddir/iso\"");
 
