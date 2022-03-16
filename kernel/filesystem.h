@@ -65,7 +65,7 @@ typedef enum {
 #ifdef __cplusplus
 }
 
-namespace fs 
+namespace fs
 {
 	namespace {
 		class stream_base {
@@ -80,7 +80,7 @@ namespace fs
 				filesystem_seek_file(get_ptr(), pos);
 			}
 
-			operator bool()
+			operator bool() const
 			{
 				return !!get_ptr();
 			}
@@ -91,17 +91,48 @@ namespace fs
 			{}
 
 			file_stream* get_ptr() { return m_stream; }
+			const file_stream* get_ptr() const { return m_stream; }
 
 		private:
 			file_stream* m_stream;
+		};
+
+		class dir_stream_base {
+		public:
+			const file_handle* find_file_by_path(std::string_view path)
+			{
+				return filesystem_find_file_by_path(get_ptr(), path);
+			}
+
+			operator bool() const
+			{
+				return !!get_ptr();
+			}
+
+			directory_stream* get_ptr() { return m_stream; }
+			const directory_stream* get_ptr() const { return m_stream; }
+
+		protected:
+			explicit dir_stream_base(directory_stream* f)
+				: m_stream{f}
+			{}
+
+		private:
+			directory_stream* m_stream;
 		};
 	}
 
 	class stream : public stream_base
 	{
-		friend class stream_ref;
-
 	public:
+		class ref : public stream_base
+		{
+		public:
+			ref(stream& s)
+				: stream_base{s.get_ptr()}
+			{}
+		};
+
 		stream(const file_handle* f, int flags)
 			: stream_base{filesystem_open_file_handle(f, flags)}
 		{}
@@ -121,13 +152,41 @@ namespace fs
 		}
 	};
 
-	class stream_ref : public stream_base
+	class dir_stream : public dir_stream_base
 	{
 	public:
-		stream_ref(stream& s)
-			: stream_base{s.get_ptr()}
+		class ref : public dir_stream_base
+		{
+		public:
+			ref(dir_stream& s)
+				: dir_stream_base{s.get_ptr()}
+			{}
+		};
+
+		dir_stream(const file_handle* f, int flags)
+			: dir_stream_base{filesystem_open_directory_handle(f, flags)}
 		{}
+		dir_stream(const ref rel, std::string_view path, int flags)
+			: dir_stream_base{filesystem_open_directory(rel.get_ptr(), path, flags)}
+		{}
+		dir_stream(const directory_stream* rel, std::string_view path, int flags)
+			: dir_stream_base{filesystem_open_directory(rel, path, flags)}
+		{}
+		explicit dir_stream(directory_stream* f)
+			: dir_stream_base{f}
+		{}
+
+		dir_stream(const dir_stream&) = delete;
+		dir_stream& operator=(const dir_stream&) = delete;
+
+		~dir_stream()
+		{
+			filesystem_close_directory(get_ptr());
+		}
 	};
+
+	using stream_ref = stream::ref;
+	using dir_stream_ref = dir_stream::ref;
 }
 
 

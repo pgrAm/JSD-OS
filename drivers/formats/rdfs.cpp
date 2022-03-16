@@ -36,7 +36,6 @@ static int rdfs_mount_disk(filesystem_virtual_drive* fd)
 	{
 		fd->root_dir = {
 			.name = {},
-			.type = {},
 			.data = {sizeof(magic), fd->id, 0, IS_DIR},
 			.time_created = 0,
 			.time_modified = 0,
@@ -96,7 +95,11 @@ static void rdfs_read_dir(directory_stream* dest, const file_data_block* f, cons
 		file_handle file;
 
 		file.name = read_field(entry.name, 8);
-		file.type = read_field(entry.extension, 3);
+		if(auto ext = read_field(entry.extension, 3); !ext.empty())
+		{
+			file.name += '.';
+			file.name += ext;
+		}
 
 		file.time_created = entry.created;
 		file.time_modified = entry.modified;

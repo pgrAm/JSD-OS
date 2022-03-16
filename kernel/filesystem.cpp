@@ -193,19 +193,10 @@ const file_handle* filesystem_get_root_directory(size_t drive_number)
 
 static const file_handle* filesystem_find_file_in_dir(const directory_stream& d, std::string_view fname)
 {
-	auto dot_pos = fname.find('.');
-	auto name = fname.substr(0, dot_pos);
-
-	std::string_view type{};
-	if(dot_pos != std::string_view::npos)
-	{
-		type = fname.substr(dot_pos + 1);
-	}
-
 	for(size_t i = 0; i < d.file_list.size(); i++)
 	{
 		//printf("%s\n", std::string(d->file_list[i].full_name).c_str());
-		if(filesystem_names_identical(d.file_list[i].name, name) && filesystem_names_identical(d.file_list[i].type, type))
+		if(filesystem_names_identical(d.file_list[i].name, fname))
 		{
 			return &d.file_list[i];
 		}
@@ -220,64 +211,52 @@ const file_handle* filesystem_find_file_by_path(const directory_stream* d, std::
 {
 	k_assert(d);
 
-	size_t name_begin = 0;
-	size_t path_begin = path.find('/');
-	while(path_begin == name_begin) //name begins with a '/'
+	if(size_t begin = path.find_first_not_of('/'); begin != std::string_view::npos)
 	{
-		name_begin++;
-		path_begin = path.find('/', name_begin);
+		path = path.substr(begin);
+	}
+	else
+	{
+		return nullptr; //our path is only made of '/'s
 	}
 
 	//if there are still '/'s in the path
-	if(path_begin != std::string_view::npos)
+	if(size_t dir_end = path.find('/'); dir_end != std::string_view::npos)
 	{
-		auto dirname = path.substr(name_begin, path_begin - name_begin);
+		const file_handle* dh = filesystem_find_file_in_dir(*d, path.substr(0, dir_end));
 
-		const file_handle* fd = filesystem_find_file_in_dir(*d, dirname);
-
-		if(fd == nullptr || !(fd->data.flags & IS_DIR))
+		if(dh && (dh->data.flags & IS_DIR))
 		{
-			return nullptr;
+			const auto remaining_path = path.substr(dir_end + 1);
+
+			if(remaining_path.empty()) //nothing follows the last '/'
+			{
+				return dh; //just return the dir
+			}
+
+			fs::dir_stream dir{dh, 0};
+			if(dir)
+			{
+				if(auto f = dir.find_file_by_path(remaining_path); !!f)
+				{
+					found = *f;
+					return &found;// new file_handle{*f};
+				}
+			}
 		}
 
-		if(path_begin + 1 >= path.size()) //nothing follows the last '/'
-		{
-			return fd; //just return the dir
-		}
-
-		directory_stream* dir = filesystem_open_directory_handle(fd, 0);
-		if(!dir)
-		{
-			return nullptr;
-		}
-
-		auto remaining_path = path.substr(path_begin);
-
-		file_handle fh;
-		auto f = filesystem_find_file_by_path(dir, remaining_path);
-
-		if(f) fh = *f;
-
-		filesystem_close_directory(dir);
-
-		if(f)
-		{
-			found = fh;
-			return &found;
-		}
 		return nullptr;
 	}
 	else
 	{
-		auto remaining_path = path.substr(name_begin);
-		return filesystem_find_file_in_dir(*d, remaining_path);
+		return filesystem_find_file_in_dir(*d, path);
 	}
 }
 
 file_stream* filesystem_create_stream(const file_data_block* f)
 {
 	k_assert(f);
-	k_assert(f->disk_id < virtual_drives.size())
+	k_assert(f->disk_id < virtual_drives.size());
 
 	auto drive = virtual_drives[f->disk_id];
 
@@ -291,7 +270,7 @@ file_stream* filesystem_create_stream(const file_data_block* f)
 file_stream* filesystem_open_file_handle(const file_handle* f, int flags)
 {
 	k_assert(f);
-
+	
 	if(f->data.flags & IS_DIR) { return nullptr; }
 
 	return filesystem_create_stream(&f->data);
@@ -302,19 +281,13 @@ int filesystem_get_file_info(file_info* dst, const file_handle* src)
 	k_assert(dst);
 	k_assert(src);
 
-	auto full_name = src->name;
-	if(!src->type.empty())
-	{
-		full_name += '.';
-		full_name += src->type;
-	}
+	memcpy(dst->name, src->name.c_str(), src->name.size() + 1);
+	dst->name_len = src->name.size();
 
-	memcpy(dst->name, full_name.c_str(), full_name.size() + 1);
 	dst->size = src->data.size;
 	dst->flags = src->data.flags;
 	dst->time_created = src->time_created;
 	dst->time_modified = src->time_modified;
-	dst->name_len = full_name.size();
 
 	return 0;
 }

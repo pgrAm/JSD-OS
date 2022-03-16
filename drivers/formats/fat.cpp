@@ -249,7 +249,11 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 	} //end of directory
 
 	dest.name = read_field(entry.name, 8);
-	dest.type = read_field(entry.extension, 3);
+	if(auto ext = read_field(entry.extension, 3); !ext.empty())
+	{
+		dest.name += '.';
+		dest.name += ext;
+	}
 
 	dest.time_created = fat_time_to_time_t(entry.created_date, entry.created_time);
 	dest.time_modified = fat_time_to_time_t(entry.modified_date, entry.modified_time);
@@ -479,7 +483,6 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 	
 	d->root_dir = {
 		.name = {},
-		.type = {},
 		.data = {f->root_location, d->id, 0, IS_DIR | FAT_ROOT_DIR_FLAG},
 		.time_created = 0,
 		.time_modified = 0,

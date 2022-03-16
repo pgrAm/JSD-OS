@@ -77,7 +77,6 @@ file_stream* filesystem_create_stream(const file_data_block* f);
 struct file_handle
 {
 	std::string name;
-	std::string type;
 
 	file_data_block data;
 

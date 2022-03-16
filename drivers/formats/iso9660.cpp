@@ -195,13 +195,7 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 	}
 	else
 	{
-		auto dot_pos = full_name.find('.');
-		dest.name = full_name.substr(0, dot_pos);
-
-		if(dot_pos != std::string_view::npos)
-		{
-			dest.type = full_name.substr(dot_pos + 1);
-		}
+		dest.name = full_name;
 	}
 
 	dest.time_created = iso9660_time_to_time_t(entry->record_date);

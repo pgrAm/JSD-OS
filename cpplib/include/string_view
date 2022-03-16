@@ -140,6 +140,17 @@ public:
 		return npos;
 	}
 
+	constexpr size_t find_first_not_of(value_type c, size_type pos = 0) const noexcept
+	{
+		for(auto it = cbegin() + pos; it < cend(); it++)
+		{
+			if(c != *it)
+				return it - cbegin();
+		}
+
+		return npos;
+	}
+
 	constexpr size_t find_first_of(value_type c, size_t pos = 0) const noexcept
 	{
 		return find(c, pos);

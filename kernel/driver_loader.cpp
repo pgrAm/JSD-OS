@@ -34,7 +34,7 @@ static dynamic_object::sym_map driver_lib_set{32};
 static dynamic_object::sym_map driver_symbol_map{32};
 static dynamic_object::sym_map driver_glob_data_symbol_map{};
 
-static void load_driver(directory_stream* cwd, const std::string_view filename, const std::string_view func_name)
+static void load_driver(fs::dir_stream_ref cwd, const std::string_view filename, const std::string_view func_name)
 {
 	k_assert(cwd);
 
@@ -43,7 +43,7 @@ static void load_driver(directory_stream* cwd, const std::string_view filename, 
 	ob.symbol_map = &driver_symbol_map;
 	ob.glob_data_symbol_map = &driver_glob_data_symbol_map;
 
-	auto f = filesystem_find_file_by_path(cwd, filename);
+	auto f = cwd.find_file_by_path(filename);
 	if(f == nullptr)
 	{
 		printf("could not find driver %s\n", std::string(filename).c_str());
@@ -56,14 +56,14 @@ static void load_driver(directory_stream* cwd, const std::string_view filename, 
 		lib_path = filename.substr(0, slash);
 	}
 
-	auto lib_dir = filesystem_open_directory(cwd, lib_path, 0);
+	fs::dir_stream lib_dir{cwd, lib_path, 0};
 
-	if(load_elf(f, &ob, false, lib_dir ? lib_dir : cwd))
+	if(load_elf(f, &ob, false, lib_dir ? lib_dir.get_ptr() : cwd.get_ptr()))
 	{
 		uint32_t func_address;
 		if(ob.symbol_map->lookup(func_name, &func_address))
 		{
-			((driver_init_func)func_address)(cwd);
+			((driver_init_func)func_address)(cwd.get_ptr());
 		}
 		else
 		{
@@ -76,8 +76,6 @@ static void load_driver(directory_stream* cwd, const std::string_view filename, 
 		print_string_len(filename.data(), filename.size());
 		putchar('\n');
 	}
-
-	filesystem_close_directory(lib_dir);
 }
 
 typedef SYSCALL_HANDLER clock_t (*clock_func)(size_t*);
@@ -126,7 +124,7 @@ static constexpr func_info func_list[] = {
 	{"handle_input_event",	(void*)&handle_input_event}
 };
 
-static void process_init_file(directory_stream* cwd, fs::stream_ref f)
+static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
 {
 	k_assert(cwd);
 
@@ -186,12 +184,12 @@ static void process_init_file(directory_stream* cwd, fs::stream_ref f)
 					if(!root)
 						continue;
 
-					auto dir = filesystem_open_directory_handle(root, 0);
+					fs::dir_stream dir{root, 0};
 					
 					if(!dir)
 						continue;
 
-					auto file = filesystem_find_file_by_path(dir, filename);
+					auto file = dir.find_file_by_path(filename);
 
 					if(file)
 					{
@@ -205,16 +203,14 @@ static void process_init_file(directory_stream* cwd, fs::stream_ref f)
 						}
 						break;
 					}
-
-					filesystem_close_directory(dir);
 				}
 			}
 			else if(token == "execute")
 			{
 				auto filename = line.substr(space + 1);
-				auto f = filesystem_find_file_by_path(cwd, filename);
+				auto f = cwd.find_file_by_path(filename);
 
-				spawn_process(f, cwd, WAIT_FOR_PROCESS);
+				spawn_process(f, cwd.get_ptr(), WAIT_FOR_PROCESS);
 			}
 
 			buffer.clear();
@@ -236,7 +232,7 @@ extern "C" void load_drivers()
 
 	std::string_view init_path = "init.sys";
 
-	auto cwd = filesystem_open_directory_handle(filesystem_get_root_directory(0), 0);
+	fs::dir_stream cwd{filesystem_get_root_directory(0), 0};
 
 	if(!cwd)
 	{
@@ -244,7 +240,7 @@ extern "C" void load_drivers()
 		while(true);
 	}
 
-	fs::stream f{cwd, init_path, 0};
+	fs::stream f{cwd.get_ptr(), init_path, 0};
 
 	if(!f)
 	{
@@ -253,8 +249,6 @@ extern "C" void load_drivers()
 	}
 
 	process_init_file(cwd, f);
-
-	filesystem_close_directory(cwd);
 }
 
 #include <stddef.h>

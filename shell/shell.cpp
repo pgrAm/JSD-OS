@@ -291,6 +291,9 @@ int execute_line(std::string_view current_line)
 
 				if(filesystem_names_identical("elf", extension))
 				{
+					file_info fi;
+					get_file_info(&fi, file_h);
+
 					spawn_process(file_h, current_directory, WAIT_FOR_PROCESS);
 					return 0;
 				}

@@ -349,6 +349,12 @@ public:
 		return *this;
 	}
 
+	template <class StringViewLike>
+	constexpr basic_string& operator+=(const StringViewLike& str)
+	{
+		return append(str.data(), str.size());
+	}
+
 	int compare(const value_type* s) const noexcept
 	{
 		return strcmp(c_str(), s);
