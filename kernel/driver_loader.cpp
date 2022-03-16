@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <kernel/fs_driver.h>
+#include <kernel/filesystem/fs_driver.h>
 #include <kernel/util/hash.h>
 #include <kernel/dynamic_object.h>
 #include <kernel/driver.h>

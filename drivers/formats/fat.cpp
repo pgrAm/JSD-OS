@@ -7,7 +7,7 @@
 
 #include <string>
 #include <vector>
-#include <kernel/fs_driver.h>
+#include <kernel/filesystem/fs_driver.h>
 #include <kernel/kassert.h>
 
 #define FAT12_EOF 0xFF8

@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include <kernel/locks.h>
-#include <kernel/fs_driver.h>
+#include <kernel/filesystem/fs_driver.h>
 #include <kernel/interrupt.h>
 #include <kernel/sysclock.h>
 #include <kernel/kassert.h>

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <kernel/fs_driver.h>
+#include <kernel/filesystem/fs_driver.h>
 #include "rdfs.h"
 
 static int rdfs_mount_disk(filesystem_virtual_drive* d);

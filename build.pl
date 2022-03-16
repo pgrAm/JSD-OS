@@ -42,7 +42,9 @@ my @kernel_src = qw(
 	kernel/kernel.c
 	kernel/memorymanager.cpp
 	kernel/physical_manager.c
-	kernel/filesystem.cpp
+	kernel/filesystem/drives.cpp
+	kernel/filesystem/directory.cpp
+	kernel/filesystem/streams.cpp
 	kernel/elf.cpp
 	kernel/interrupt.cpp
 	kernel/syscall.c
