@@ -12,6 +12,7 @@ extern "C" {
 enum file_flags
 {
 	IS_DIR = 0x01,
+	IS_READONLY = 0x02,
 	DRIVER_RESERVED = 0xFFFF0000
 };
 

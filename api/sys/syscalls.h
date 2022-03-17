@@ -44,7 +44,8 @@ enum syscall_indices
 	SYSCALL_GET_FREE_MEM = 24,
 	SYSCALL_IOPL = 25,
 	SYSCALL_SET_DISPLAY_OFFSET = 26,
-	SYSCALL_GET_INPUT_EVENT = 27
+	SYSCALL_GET_INPUT_EVENT = 27,
+	SYSCALL_WRITE = 28,
 };
 
 struct file_handle;
@@ -128,6 +129,11 @@ static inline int close(file_stream* file)
 static inline int read(void* dst, size_t len, file_stream* file)
 {
 	return (int)do_syscall_3(SYSCALL_READ, (uint32_t)dst, (uint32_t)len, (uint32_t)file);
+}
+
+static inline int write(const void* dst, size_t len, file_stream* file)
+{
+	return (int)do_syscall_3(SYSCALL_WRITE, (uint32_t)dst, (uint32_t)len, (uint32_t)file);
 }
 
 static inline void spawn_process(const file_handle* file, const directory_stream* cwd, int flags)

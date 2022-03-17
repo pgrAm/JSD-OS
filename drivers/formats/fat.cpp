@@ -21,6 +21,7 @@
 
 static int fat_mount_disk(filesystem_virtual_drive* d);
 static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes, const filesystem_virtual_drive* d);
+static size_t fat_write_clusters(const uint8_t* dest, size_t cluster, size_t buffer_size, const filesystem_virtual_drive* d);
 static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_virtual_drive* fd);
 static void fat_read_dir(directory_stream* dest, const file_data_block* location, const filesystem_virtual_drive* fd);
 
@@ -138,6 +139,7 @@ static filesystem_driver fat_driver = {
 	fat_mount_disk,
 	fat_get_relative_cluster,
 	fat_read_clusters,
+	fat_write_clusters,
 	fat_read_dir
 };
 
@@ -491,13 +493,19 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 	return MOUNT_SUCCESS;
 }
 
+static size_t fat_write_clusters(const uint8_t* dest, size_t cluster, size_t buffer_size, const filesystem_virtual_drive* d)
+{
+	// TODO
+	k_assert(false);
+	return cluster;
+}
+
 static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t buffer_size, const filesystem_virtual_drive*d)
 {
 	fat_drive* f = (fat_drive*)d->fs_impl_data;
 
 	if (cluster >= f->eof_value)
 	{
-		//puts("read attempted, but eof reached");
 		return cluster;
 	}
 
@@ -506,11 +514,7 @@ static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t buffer_siz
 	{
 		k_assert(dest + f->cluster_size <= dest + buffer_size);
 
-		//printf("Reading from cluster %d to %X\n", cluster, dest);
-		//printf("lba %d\n", fat_cluster_to_lba(f, cluster));
 		filesystem_read_blocks_from_disk(d, fat_cluster_to_lba(f, cluster), dest, f->sectors_per_cluster * f->blocks_per_sector);
-
-		//printf("value = %X\n", *((uint32_t*)dest));
 
 		dest += f->cluster_size;
 		

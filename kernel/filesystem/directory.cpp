@@ -21,9 +21,7 @@ directory_stream* filesystem_open_directory_handle(const file_handle* f, int fla
 
 	if(!(f->data.flags & IS_DIR)) { return nullptr; }
 
-	directory_stream* d = new directory_stream{
-		.file_list = {}
-	};
+	directory_stream* d = new directory_stream{};
 
 	auto drive = filesystem_get_drive(f->data.disk_id);
 

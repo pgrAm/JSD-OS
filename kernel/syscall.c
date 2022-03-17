@@ -53,7 +53,8 @@ const void* syscall_table[] =
 	physical_num_bytes_free,
 	iopl,
 	set_display_offset,
-	get_input_event
+	get_input_event,
+	syscall_write_file
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

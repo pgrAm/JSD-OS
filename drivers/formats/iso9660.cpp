@@ -306,6 +306,7 @@ static filesystem_driver iso9660_driver = {
 	iso9660_mount_disk,
 	iso9660_get_relative_location,
 	iso9660_read_chunks,
+	nullptr,
 	iso9660_read_dir
 };
 

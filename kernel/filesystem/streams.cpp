@@ -13,7 +13,10 @@ struct file_stream
 	size_t seekpos;
 	fs_index location_on_disk;
 	uint8_t* buffer;
+	bool is_dirty;
 };
+
+static void filesystem_flush_buffer(file_stream* s);
 
 file_stream* filesystem_create_stream(const file_data_block* f)
 {
@@ -22,13 +25,16 @@ file_stream* filesystem_create_stream(const file_data_block* f)
 	return new file_stream
 	{
 		*f, 0, 0,
-		filesystem_allocate_buffer(drive->disk, drive->chunk_read_size)
+		filesystem_allocate_buffer(drive->disk, drive->chunk_read_size),
+		false
 	};
 }
 
 file_stream* filesystem_open_file_handle(const file_handle* f, int flags)
 {
 	k_assert(f);
+
+	//TODO prevent writing to readonly files 
 
 	if(f->data.flags & IS_DIR) { return nullptr; }
 
@@ -53,6 +59,8 @@ int filesystem_close_file(file_stream* s)
 	{
 		return -1;
 	}
+
+	filesystem_flush_buffer(s);
 
 	auto drive = filesystem_get_drive(s->file.disk_id);
 
@@ -85,6 +93,18 @@ static fs_index filesystem_resolve_location_on_disk(const file_stream* s)
 												s->file.location_on_disk);
 }
 
+static void filesystem_flush_buffer(file_stream* s)
+{
+	if(s->is_dirty)
+	{
+		auto drive = filesystem_get_drive(s->file.disk_id);
+		k_assert(drive->fs_driver->write_chunks);
+		drive->fs_driver->write_chunks(	s->buffer, s->location_on_disk,
+										drive->chunk_read_size, drive);
+		s->is_dirty = false;
+	}
+}
+
 static fs_index filesystem_read_chunk(file_stream* s, fs_index chunk_index)
 {
 	//printf("filesystem_read_chunk from cluster %d\n", chunk_index);
@@ -96,10 +116,41 @@ static fs_index filesystem_read_chunk(file_stream* s, fs_index chunk_index)
 		return filesystem_get_next_location_on_disk(s, drive->chunk_read_size, chunk_index);
 	}
 
+	filesystem_flush_buffer(s);
+
 	s->location_on_disk = chunk_index;
 
 	return drive->fs_driver->read_chunks(s->buffer, chunk_index,
 										 drive->chunk_read_size, drive);
+}
+
+struct fs_chunks
+{
+	size_t start_offset;	//offset to start in the first chunk
+	size_t start_size;		//size of the first chunk
+
+	size_t num_full_chunks;	//number of complete chunks
+
+	size_t end_size;		//size of the last chunk
+};
+
+static fs_chunks filesystem_chunkify(size_t offset, size_t length, size_t chunk_size)
+{
+	size_t first_chunk = offset / chunk_size;
+	size_t start_offset = offset % chunk_size;
+
+	size_t last_chunk = (offset + length) / chunk_size;
+	size_t end_size = (offset + length) % chunk_size;
+
+	if(first_chunk == last_chunk)
+	{
+		end_size = 0; //start and end are in the same chunk
+	}
+
+	size_t start_size = ((length - end_size) % chunk_size);
+	size_t num_chunks = (length - (start_size + end_size)) / chunk_size;
+
+	return {start_offset, start_size, num_chunks, end_size};
 }
 
 int filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
@@ -126,40 +177,29 @@ int filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
 	fs_index location = filesystem_resolve_location_on_disk(s);
 	//printf("seekpos %X starts at cluster %d\n", f->seekpos, location);
 
-	size_t startchunk = s->seekpos / drive->chunk_read_size;
-	size_t endchunk = (s->seekpos + len) / drive->chunk_read_size;
-
-	size_t buf_start = s->seekpos % drive->chunk_read_size;
-	size_t buf_end_size = (s->seekpos + len) % drive->chunk_read_size;
-
-	if(startchunk == endchunk)
-	{
-		buf_end_size = 0; //start and end are in the same chunk
-	}
-
-	size_t buf_start_size = ((len - buf_end_size) % drive->chunk_read_size);
-	size_t num_chunks = (len - (buf_start_size + buf_end_size)) / drive->chunk_read_size;
+	auto chunks = filesystem_chunkify(s->seekpos, len, drive->chunk_read_size);
 
 	uint8_t* dst_ptr = (uint8_t*)dst_buf;
 
-	if(buf_start_size != 0)
+	if(chunks.start_size != 0)
 	{
 		location = filesystem_read_chunk(s, location);
-		memcpy(dst_ptr, s->buffer + buf_start, buf_start_size);
-		dst_ptr += buf_start_size;
+		memcpy(dst_ptr, s->buffer + chunks.start_offset, chunks.start_size);
+		dst_ptr += chunks.start_size;
 	}
 
-	if(num_chunks)
+	if(chunks.num_full_chunks)
 	{
 		if(drive->disk->driver->allocate_buffer == nullptr)
 		{
-			auto size = drive->chunk_read_size * num_chunks;
+			auto size = drive->chunk_read_size * chunks.num_full_chunks;
 
 			location = drive->fs_driver->read_chunks(dst_ptr, location, size, drive);
 			dst_ptr += size;
 		}
 		else
 		{
+			auto num_chunks = chunks.num_full_chunks;
 			while(num_chunks--)
 			{
 				location = filesystem_read_chunk(s, location);
@@ -169,13 +209,77 @@ int filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
 		}
 	}
 
-	if(buf_end_size != 0)
+	if(chunks.end_size != 0)
 	{
 		filesystem_read_chunk(s, location);
-		memcpy(dst_ptr, s->buffer, buf_end_size);
+		memcpy(dst_ptr, s->buffer, chunks.end_size);
 	}
 
 	s->seekpos += len;
+
+	return len;
+}
+
+int filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
+{
+	k_assert(dst_buf);
+	k_assert(s);
+	k_assert(!(s->file.flags & IS_READONLY));
+
+	auto drive = filesystem_get_drive(s->file.disk_id);
+
+	k_assert(drive->fs_driver->write_chunks);
+
+	fs_index location = filesystem_resolve_location_on_disk(s);
+
+	auto chunks = filesystem_chunkify(s->seekpos, len, drive->chunk_read_size);
+
+	const uint8_t* dst_ptr = (uint8_t*)dst_buf;
+
+	if(chunks.start_size != 0)
+	{
+		location = filesystem_read_chunk(s, location);
+		memcpy(s->buffer + chunks.start_offset, dst_ptr, chunks.start_size);
+		s->is_dirty = true;
+		dst_ptr += chunks.start_size;
+	}
+
+	if(chunks.num_full_chunks)
+	{
+		if(drive->disk->driver->allocate_buffer == nullptr)
+		{
+			auto size = drive->chunk_read_size * chunks.num_full_chunks;
+
+			location = drive->fs_driver->write_chunks(dst_ptr, location, size, drive);
+			dst_ptr += size;
+		}
+		else
+		{
+			auto num_chunks = chunks.num_full_chunks;
+			while(num_chunks--)
+			{
+				filesystem_flush_buffer(s);
+				memcpy(s->buffer, dst_ptr, drive->chunk_read_size);
+				s->is_dirty = true;
+				dst_ptr += drive->chunk_read_size;
+			}
+		}
+	}
+
+	if(chunks.end_size != 0)
+	{
+		filesystem_read_chunk(s, location);
+		memcpy(s->buffer, dst_ptr, chunks.end_size);
+		s->is_dirty = true;
+	}
+
+	s->seekpos += len;
+
+	if(s->seekpos > s->file.size)
+	{
+		//resize the file
+		s->file.size = s->seekpos;
+	}
 
 	return len;
 }
@@ -187,16 +291,34 @@ void filesystem_seek_file(file_stream* f, size_t pos)
 	f->seekpos = pos;
 }
 
+void filesystem_write_blocks_to_disk(const filesystem_virtual_drive* d, 
+									 size_t block_number, 
+									 const uint8_t* buf, 
+									 size_t num_blocks)
+{
+	k_assert(d);
+	k_assert(d->disk);
+	k_assert(d->disk->driver);
+	k_assert(d->disk->driver->write_blocks);
+	d->disk->driver->write_blocks(d->disk, d->first_block + block_number, buf, num_blocks);
+}
+
 void filesystem_read_blocks_from_disk(const filesystem_virtual_drive* d,
 									  size_t block_number,
 									  uint8_t* buf,
 									  size_t num_blocks)
 {
+	k_assert(d);
+	k_assert(d->disk);
+	k_assert(d->disk->driver);
+	k_assert(d->disk->driver->read_blocks);
 	d->disk->driver->read_blocks(d->disk, d->first_block + block_number, buf, num_blocks);
 }
 
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)
 {
+	k_assert(d);
+	k_assert(d->driver);
 	if(d->driver->allocate_buffer != nullptr)
 	{
 		return d->driver->allocate_buffer(size);
@@ -206,21 +328,32 @@ uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)
 
 int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size)
 {
+	k_assert(d);
+	k_assert(d->driver);
 	if(d->driver->free_buffer != nullptr)
 	{
-		return d->driver->free_buffer(buffer, size);;
+		return d->driver->free_buffer(buffer, size);
 	}
 	free(buffer);
 	return 0;
 }
 
-SYSCALL_HANDLER int syscall_read_file(void* dst_buf, size_t len, file_stream* f)
+SYSCALL_HANDLER int syscall_read_file(void* dst, size_t len, file_stream* f)
 {
-	if(f == nullptr || dst_buf == nullptr)
+	if(f == nullptr || dst == nullptr)
 	{
 		return 0;
 	}
-	return filesystem_read_file(dst_buf, len, f);
+	return filesystem_read_file(dst, len, f);
+}
+
+SYSCALL_HANDLER int syscall_write_file(const void* dst, size_t len, file_stream* f)
+{
+	if(f == nullptr || dst == nullptr || (f->file.flags & IS_READONLY))
+	{
+		return 0;
+	}
+	return filesystem_write_file(dst, len, f);
 }
 
 SYSCALL_HANDLER
@@ -242,6 +375,6 @@ SYSCALL_HANDLER int syscall_close_file(file_stream* stream)
 		return -1;
 	}
 
-	delete stream;
+	filesystem_close_file(stream);
 	return 0;
 }

@@ -41,6 +41,8 @@
 #define      ATA_PRIMARY      0x00
 #define      ATA_SECONDARY    0x01
 
+#define WORDS_PER_SECTOR 256
+
 struct ata_capability {
 	enum {
 		LBA = 0x200
@@ -211,13 +213,10 @@ static ata_error ata_print_error(const ata_drive& drive, ata_error err)
 
 	return err;
 }
-
-static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_t lba,
-							uint8_t numsects, uint8_t* buffer)
+static ata_addressing_mode ata_setup_transfer(ata_drive& drive, size_t lba, uint8_t numsects)
 {
 	uint8_t		lba_io[6];
 	uint32_t	channel = drive.channel;
-	uint32_t	words = 256; // Almost every ATA drive has a sector-size of 512-byte.
 
 	uint16_t base_port = channels[channel].base;
 	uint16_t crtl_port = channels[channel].ctrl;
@@ -266,9 +265,6 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 		head = (lba + 1 - sect) % (16 * 63) / (63);
 	}
 
-	//TODO implement DMA transfers
-	bool dma = false;
-
 	// wait for the drive to be ready
 	while(inb(base_port + ATA_REG_STATUS) & ATA_SR_BSY);
 
@@ -289,55 +285,69 @@ static ata_error ata_access(ata_access_type access_type, ata_drive& drive, size_
 	outb(base_port + ATA_REG_LBA1, lba_io[1]);
 	outb(base_port + ATA_REG_LBA2, lba_io[2]);
 
-	if(dma)
+	//TODO implement DMA transfers
+
+	return adress_mode;
+}
+
+static ata_error ata_do_read(ata_drive& drive, uint8_t num_sectors, uint32_t lba, uint8_t* buffer)
+{
+	k_assert(buffer);
+
+	auto adress_mode = ata_setup_transfer(drive, lba, num_sectors);
+
+	uint8_t read_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
+		ATA_CMD_READ_PIO_EXT : ATA_CMD_READ_PIO;
+
+	auto channel = drive.channel;
+	uint16_t base_port = channels[channel].base;
+
+	outb(base_port + ATA_REG_COMMAND, read_cmd);
+	ata_delay400(channel);
+
+	for(size_t i = 0; i < num_sectors; i++)
 	{
-		//TODO implement DMA transfers
+		ata_wait_irq(channel);
+		if(auto err = ata_poll(channel, true); err != ata_error::NONE)
+		{
+			return err;
+		}
+		insw(base_port, (uint16_t*)buffer, WORDS_PER_SECTOR);
+		buffer += (WORDS_PER_SECTOR * sizeof(uint16_t));
 	}
-	else
+
+	return ata_error::NONE;
+}
+
+static ata_error ata_do_write(ata_drive& drive, uint8_t num_sectors, uint32_t lba, const uint8_t* buffer)
+{
+	k_assert(buffer);
+
+	auto adress_mode = ata_setup_transfer(drive, lba, num_sectors);
+
+	uint8_t write_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
+		ATA_CMD_WRITE_PIO_EXT : ATA_CMD_WRITE_PIO;
+
+	auto channel = drive.channel;
+	uint16_t base_port = channels[channel].base;
+
+	outb(base_port + ATA_REG_COMMAND, write_cmd);
+	ata_delay400(channel);
+
+	for(size_t i = 0; i < num_sectors; i++)
 	{
-		if(access_type == ata_access_type::READ)
-		{
-			uint8_t read_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
-				ATA_CMD_READ_PIO_EXT : ATA_CMD_READ_PIO;
-
-			outb(base_port + ATA_REG_COMMAND, read_cmd);
-			ata_delay400(channel);
-
-			for(size_t i = 0; i < numsects; i++)
-			{
-				ata_wait_irq(channel);
-				if(auto err = ata_poll(channel, true); err != ata_error::NONE)
-				{
-					return err; // Polling, set error and exit if there is.
-				}
-				insw(base_port, (uint16_t*)buffer, words);
-				buffer += (words * sizeof(uint16_t));
-			}
-		}
-		else
-		{
-			uint8_t write_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
-				ATA_CMD_WRITE_PIO_EXT : ATA_CMD_WRITE_PIO;
-
-			outb(base_port + ATA_REG_COMMAND, write_cmd);
-			ata_delay400(channel);
-
-			for(size_t i = 0; i < numsects; i++)
-			{
-				ata_wait_irq(channel);
-				ata_poll(channel);
-				outsw(base_port, (uint16_t*)buffer, words);
-				buffer += (words * sizeof(uint16_t));
-			}
-
-			uint8_t flush_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
-				ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
-
-			outb(base_port + ATA_REG_COMMAND, flush_cmd);
-			ata_delay400(channel);
-			ata_poll(channel);
-		}
+		ata_wait_irq(channel);
+		ata_poll(channel);
+		outsw(base_port, (uint16_t*)buffer, WORDS_PER_SECTOR);
+		buffer += (WORDS_PER_SECTOR * sizeof(uint16_t));
 	}
+
+	uint8_t flush_cmd = (adress_mode == ata_addressing_mode::LBA48) ?
+		ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
+
+	outb(base_port + ATA_REG_COMMAND, flush_cmd);
+	ata_delay400(channel);
+	ata_poll(channel);
 
 	return ata_error::NONE;
 }
@@ -448,7 +458,7 @@ static ata_error ata_read_sectors(ata_drive& drive, uint8_t num_sectors, uint32_
 		auto err = ata_error::NONE;
 		if(drive.type == ata_drive_type::ATA)
 		{
-			err = ata_access(ata_access_type::READ, drive, lba, num_sectors, buffer);
+			err = ata_do_read(drive, num_sectors, lba, buffer);
 		}
 		else if(drive.type == ata_drive_type::ATAPI)
 		{
@@ -461,7 +471,7 @@ static ata_error ata_read_sectors(ata_drive& drive, uint8_t num_sectors, uint32_
 	}
 }
 
-static ata_error ata_write_sectors(ata_drive& drive, uint8_t num_sectors, uint32_t lba, uint8_t* buffer)
+static ata_error ata_write_sectors(ata_drive& drive, uint8_t num_sectors, uint32_t lba, const uint8_t* buffer)
 {
 	if(!drive.exists)
 	{
@@ -476,7 +486,7 @@ static ata_error ata_write_sectors(ata_drive& drive, uint8_t num_sectors, uint32
 		auto err = ata_error::NONE;
 		if(drive.type == ata_drive_type::ATA)
 		{
-			err = ata_access(ata_access_type::WRITE, drive, lba, num_sectors, buffer);
+			err = ata_do_write(drive, num_sectors, lba, buffer);
 		}
 		else if(drive.type == ata_drive_type::ATAPI)
 		{
@@ -486,13 +496,26 @@ static ata_error ata_write_sectors(ata_drive& drive, uint8_t num_sectors, uint32
 	}
 }
 
-static void ata_read_blocks(const filesystem_drive* fd,
+static void ata_write_blocks(const filesystem_drive* fd,
 							size_t block_number,
-							uint8_t* buf,
+							const uint8_t* buffer,
 							size_t num_blocks)
 {
-	ata_drive* d = (ata_drive*)fd->drv_impl_data;
-	if(auto err = ata_read_sectors(*d, num_blocks, block_number, buf);
+	ata_drive* drive = (ata_drive*)fd->drv_impl_data;
+	if(auto err = ata_write_sectors(*drive, num_blocks, block_number, buffer);
+	   err != ata_error::NONE)
+	{
+		printf("error code %d\n", err);
+	}
+}
+
+static void ata_read_blocks(const filesystem_drive* fd,
+							size_t block_number,
+							uint8_t* buffer,
+							size_t num_blocks)
+{
+	ata_drive* drive = (ata_drive*)fd->drv_impl_data;
+	if(auto err = ata_read_sectors(*drive, num_blocks, block_number, buffer);
 	   err != ata_error::NONE)
 	{
 		printf("error code %d\n", err);
@@ -501,6 +524,7 @@ static void ata_read_blocks(const filesystem_drive* fd,
 
 static disk_driver ata_driver = {
 	ata_read_blocks,
+	ata_write_blocks,
 	nullptr,
 	nullptr
 };

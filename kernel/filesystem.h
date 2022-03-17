@@ -47,6 +47,7 @@ SYSCALL_HANDLER int syscall_close_directory(directory_stream* dir);
 SYSCALL_HANDLER file_stream* syscall_open_file_handle(const file_handle* f, int flags);
 SYSCALL_HANDLER file_stream* syscall_open_file(const directory_stream* rel, const char* path, size_t path_len, int flags);
 SYSCALL_HANDLER int syscall_read_file(void* dst, size_t len, file_stream* f);
+SYSCALL_HANDLER int syscall_write_file(const void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_close_file(file_stream* f);
 
 typedef enum {

@@ -6,6 +6,7 @@
 #include <kernel/interrupt.h>
 #include <kernel/locks.h>
 #include <kernel/sysclock.h>
+#include <kernel/kassert.h>
 
 #include <drivers/portio.h>
 #include <drivers/isa_dma.h>
@@ -77,11 +78,13 @@ static bool motor_is_ready[2] = {false, false};
 static kernel_cv irq6_condition = {-1, 1};
 
 static void floppy_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
+static void floppy_write_blocks(const filesystem_drive* d, size_t block_number, const uint8_t* buf, size_t num_bytes);
 //static uint8_t* floppy_allocate_buffer(size_t size);
 //static int floppy_free_buffer(uint8_t* buffer, size_t size);
 
 static disk_driver floppy_driver = {
 	floppy_read_blocks,
+	floppy_write_blocks,
 	isa_dma_allocate_buffer,
 	isa_dma_free_buffer
 };
@@ -281,6 +284,17 @@ static void floppy_read_blocks(const filesystem_drive* d, size_t block_number, u
 	scoped_lock l{&disk->mutex};
 
 	floppy_read_sectors(disk, block_number, buf, num_blocks);
+}
+
+void floppy_write_blocks(const filesystem_drive* d, size_t block_number, const uint8_t* buf, size_t num_bytes)
+{
+	floppy_drive* disk = (floppy_drive*)d->drv_impl_data;
+
+	scoped_lock l{&disk->mutex};
+
+	// TODO
+	k_assert(false);
+	//floppy_write_sectors(disk, block_number, buf, num_blocks);
 }
 
 //sendbyte() routine from intel manual

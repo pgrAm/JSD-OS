@@ -23,12 +23,22 @@ size_t filesystem_get_num_drives()
 filesystem_virtual_drive* filesystem_get_drive(size_t index)
 {
 	k_assert(index < virtual_drives.size());
-	return virtual_drives[index];
+	auto drive = virtual_drives[index];
+
+	k_assert(drive->mounted);
+	k_assert(drive->fs_driver);
+	k_assert(drive->fs_driver->read_chunks);
+	k_assert(drive->disk);
+	k_assert(drive->disk->driver);
+	k_assert(drive->disk->driver->read_blocks);
+
+	return drive;
 }
 
 static bool filesystem_mount_drive(filesystem_virtual_drive* drive)
 {
 	k_assert(drive);
+	k_assert(drive->disk);
 
 	if(!drive->mounted)
 	{

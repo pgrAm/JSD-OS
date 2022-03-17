@@ -41,6 +41,7 @@ filesystem_drive;
 
 typedef int (*partition_func)(filesystem_drive*, filesystem_virtual_drive*);
 
+void filesystem_write_blocks_to_disk(const filesystem_virtual_drive* d, size_t block_number, const uint8_t* buf, size_t num_blocks);
 void filesystem_read_blocks_from_disk(const filesystem_virtual_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks);
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size);
 int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size);
@@ -50,12 +51,14 @@ struct filesystem_driver
 	int (*mount_disk)(filesystem_virtual_drive* d);
 	fs_index(*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd);
 	fs_index(*read_chunks)(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd);
+	fs_index(*write_chunks)(const uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd);
 	void (*read_dir)(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
 };
 
 struct disk_driver
 {
 	void (*read_blocks)(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
+	void (*write_blocks)(const filesystem_drive* d, size_t block_number, const uint8_t* buf, size_t num_bytes);
 	uint8_t* (*allocate_buffer)(size_t size);
 	int (*free_buffer)(uint8_t* buffer, size_t size);
 };

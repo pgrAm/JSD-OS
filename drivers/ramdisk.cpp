@@ -20,6 +20,7 @@ static ramdisk_drive* ramdisk_get_drive(size_t index);
 static disk_driver ramdisk_driver = {
 	ramdisk_read_blocks,
 	nullptr,
+	nullptr,
 	nullptr
 };
 
