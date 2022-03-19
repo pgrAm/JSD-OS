@@ -13,8 +13,11 @@ void memmanager_init(void);
 uintptr_t memmanager_get_physical(uintptr_t virtual_address);
 
 typedef uintptr_t page_flags_t;
-SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages);
-SYSCALL_HANDLER void* memmanager_virtual_alloc(void* virtual_address, size_t n, page_flags_t flags);
+int memmanager_free_pages(void* page, size_t num_pages);
+void* memmanager_virtual_alloc(void* virtual_address, size_t n, page_flags_t flags);
+
+SYSCALL_HANDLER int syscall_free_pages(void* page, size_t num_pages);
+SYSCALL_HANDLER void* syscall_virtual_alloc(void* virtual_address, size_t n, page_flags_t flags);
 
 int memmanager_unmap_pages(void* page, size_t num_pages);
 

@@ -267,7 +267,7 @@ static void* memmanager_alloc_page(page_flags_t flags)
 	return (void*)virtual_address;
 }
 
-SYSCALL_HANDLER void* memmanager_virtual_alloc(void* v_address, size_t n, page_flags_t flags)
+void* memmanager_virtual_alloc(void* v_address, size_t n, page_flags_t flags)
 {
 	scoped_lock l{&kernel_addr_mutex};
 
@@ -310,6 +310,11 @@ SYSCALL_HANDLER void* memmanager_virtual_alloc(void* v_address, size_t n, page_f
 	return (void*)virtual_address;
 }
 
+SYSCALL_HANDLER void* syscall_virtual_alloc(void* v_address, size_t n, page_flags_t flags)
+{
+	return memmanager_virtual_alloc(v_address, n, flags);
+}
+
 int memmanager_unmap_pages(void* page, size_t num_pages)
 {
 	uintptr_t virtual_address = (uintptr_t)page;
@@ -322,7 +327,7 @@ int memmanager_unmap_pages(void* page, size_t num_pages)
 	return 0;
 }
 
-SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages)
+int memmanager_free_pages(void* page, size_t num_pages)
 {
 	//printf("\tFreeing %d pages\n", num_pages);
 
@@ -348,6 +353,14 @@ SYSCALL_HANDLER int memmanager_free_pages(void* page, size_t num_pages)
 	}
 
 	return 0;
+}
+
+SYSCALL_HANDLER int syscall_free_pages(void* page, size_t num_pages)
+{
+	if(!page) 
+		return -1;
+
+	return memmanager_free_pages(page, num_pages);
 }
 
 void memmanager_init_page_dir(__attribute__((nonnull)) uintptr_t* page_dir, uintptr_t physaddr)
