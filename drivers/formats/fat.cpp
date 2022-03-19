@@ -24,6 +24,7 @@ static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes,
 static size_t fat_write_clusters(const uint8_t* dest, size_t cluster, size_t buffer_size, const filesystem_virtual_drive* d);
 static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_virtual_drive* fd);
 static void fat_read_dir(directory_stream* dest, const file_data_block* location, const filesystem_virtual_drive* fd);
+static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, const filesystem_virtual_drive* d);
 
 enum fat_type
 {
@@ -34,7 +35,36 @@ enum fat_type
 	exFAT
 };
 
-typedef enum fat_type fat_type;
+template<fat_type T> 
+static constexpr size_t fat_entry_mask = 0;
+
+template<> 
+static constexpr size_t fat_entry_mask<FAT_12>	= 0xFFF;
+
+template<> 
+static constexpr size_t fat_entry_mask<FAT_16> = 0xFFFF;
+
+template<> 
+static constexpr size_t fat_entry_mask<FAT_32> = 0xFFFFFFF;
+
+template<> 
+static constexpr size_t fat_entry_mask<exFAT> = 0xFFFFFFFF;
+
+template<fat_type T> struct fat_entry_type { typedef void type; };
+
+template<> struct fat_entry_type<FAT_12> { typedef uint16_t type; };
+template<> struct fat_entry_type<FAT_16> { typedef uint16_t type; };
+template<> struct fat_entry_type<FAT_32> { typedef uint32_t type; };
+template<> struct fat_entry_type<exFAT> { typedef uint32_t type; };
+
+template<fat_type T>
+using fat_entry_type_t = typename fat_entry_type<T>::type;
+
+struct cluster_span
+{
+	size_t first_cluster;
+	size_t num_clusters;
+};
 
 struct fat_drive
 {
@@ -47,15 +77,20 @@ struct fat_drive
 	size_t bytes_per_sector;
 	size_t root_entries;
 	size_t reserved_sectors;
+	size_t num_clusters;
 
 	size_t blocks_per_sector;
 
 	size_t cached_fat_sector; //the sector index of the cached fat data
 	uint8_t* fat; //the file allocation table
 
+	bool fat_dirty = false;
+
 	size_t eof_value;
 
 	fat_type type;
+
+	std::vector<cluster_span> free_clusters;
 };
 
 typedef struct fat_drive fat_drive;
@@ -140,6 +175,7 @@ static filesystem_driver fat_driver = {
 	fat_get_relative_cluster,
 	fat_read_clusters,
 	fat_write_clusters,
+	fat_allocate_clusters,
 	fat_read_dir
 };
 
@@ -183,6 +219,8 @@ static int fat_read_bios_block(const uint8_t* buffer, fat_drive* d, size_t minim
 
 	size_t data_sectors = total_sectors - d->datasector;
 	size_t total_clusters = data_sectors / bios_block->sectors_per_cluster;
+
+	d->num_clusters = total_clusters;
 
 	if(d->bytes_per_sector == 0)
 	{
@@ -353,58 +391,72 @@ static void read_from_fat(size_t fat_sector, const filesystem_virtual_drive* fd)
 
 	if(d->cached_fat_sector != fat_sector)
 	{
+		if(d->fat_dirty)
+		{
+			filesystem_write_blocks_to_disk(fd, d->cached_fat_sector, d->fat, d->blocks_per_sector);
+			d->fat_dirty = false;
+		}
+
 		filesystem_read_blocks_from_disk(fd, fat_sector, d->fat, d->blocks_per_sector);
 
 		d->cached_fat_sector = fat_sector;
 	}
 }
 
-static size_t fat_get_next_cluster_32(size_t cluster, const filesystem_virtual_drive* fd)
+static size_t load_fat_sector(size_t offset, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
-	size_t fat_offset = cluster * 2;
-	size_t fat_sector = d->reserved_sectors + (fat_offset / d->bytes_per_sector);
-	size_t ent_offset = fat_offset % d->bytes_per_sector;
+	size_t fat_sector = d->reserved_sectors + (offset / d->bytes_per_sector);
+	size_t ent_offset = offset % d->bytes_per_sector;
 
 	read_from_fat(fat_sector, fd);
 
-	uint32_t table_value = *(uint32_t*)&d->fat[ent_offset];
-
-	if(d->type == exFAT)
-		return table_value;
-
-	return table_value & 0x0FFFFFFF;
+	return ent_offset;
 }
 
-static size_t fat_get_next_cluster_16(size_t cluster, const filesystem_virtual_drive* fd)
+template<fat_type T>
+static size_t fat_get_next_cluster(size_t cluster, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
-
-	size_t fat_offset = cluster * 2;
-	size_t fat_sector = d->reserved_sectors + (fat_offset / d->bytes_per_sector);
-	size_t ent_offset = fat_offset % d->bytes_per_sector;
-
-	read_from_fat(fat_sector, fd);
-
-	return *(uint16_t*)&d->fat[ent_offset];
+	return (*(fat_entry_type_t<T>*) & d->fat[load_fat_sector(cluster * sizeof(fat_entry_type_t<T>), fd)]) & fat_entry_mask<T>;
 }
 
-static size_t fat_get_next_cluster_12(size_t cluster, const filesystem_virtual_drive* fd)
+template<>
+size_t fat_get_next_cluster<FAT_12>(size_t cluster, const filesystem_virtual_drive* fd)
 {
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
-	size_t fat_offset = cluster + (cluster / 2);
-	size_t fat_sector = d->reserved_sectors + (fat_offset / d->bytes_per_sector);
-	size_t ent_offset = fat_offset % d->bytes_per_sector;
+	uint16_t table_value = *(uint16_t*)&d->fat[load_fat_sector(cluster + (cluster / 2), fd)];
+	return (cluster & 0x01) ? table_value >> 4 : table_value & 0x0FFF;
+}
 
-	read_from_fat(fat_sector, fd);
+template<fat_type T>
+static void fat_set_next_cluster(size_t cluster, size_t next, const filesystem_virtual_drive* fd);
 
-	uint16_t table_value = *(uint16_t*)&d->fat[ent_offset];
+template<fat_type T>
+void fat_set_next_cluster(size_t cluster, size_t next, const filesystem_virtual_drive* fd)
+{
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+	*((fat_entry_type_t<T>*) & d->fat[load_fat_sector(cluster * sizeof(fat_entry_type_t<T>), fd)]) = next & fat_entry_mask<T>;
+	d->fat_dirty = true;
+}
 
-	table_value = (cluster & 0x0001) ? table_value >> 4 : table_value & 0x0FFF;
+template<>
+void fat_set_next_cluster<FAT_12>(size_t cluster, size_t next, const filesystem_virtual_drive* fd)
+{
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+	uint16_t* table_ptr = (uint16_t*)&d->fat[load_fat_sector(cluster + (cluster / 2), fd)];
 
-	return table_value;
+	if(cluster & 0x01)
+	{
+		*table_ptr = (*table_ptr & 0x000F) | (next << 4);
+	}
+	else
+	{
+		*table_ptr = (*table_ptr & 0xF000) | (next & 0x0FFF);
+	}
+	d->fat_dirty = true;
 }
 
 static size_t fat_get_next_cluster(size_t cluster, const filesystem_virtual_drive* fd)
@@ -414,12 +466,13 @@ static size_t fat_get_next_cluster(size_t cluster, const filesystem_virtual_driv
 	switch(d->type)
 	{
 	case FAT_12:
-		return fat_get_next_cluster_12(cluster, fd);
+		return fat_get_next_cluster<FAT_12>(cluster, fd);
 	case FAT_16:
-		return fat_get_next_cluster_16(cluster, fd);
-	case exFAT:
+		return fat_get_next_cluster<FAT_16>(cluster, fd);
 	case FAT_32:
-		return fat_get_next_cluster_32(cluster, fd);
+		return fat_get_next_cluster<FAT_32>(cluster, fd);
+	case exFAT:
+		return fat_get_next_cluster<exFAT>(cluster, fd);
 	case FAT_UNKNOWN:
 		k_assert(false);
 	}
@@ -495,8 +548,30 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 
 static size_t fat_write_clusters(const uint8_t* dest, size_t cluster, size_t buffer_size, const filesystem_virtual_drive* d)
 {
-	// TODO
-	k_assert(false);
+	fat_drive* f = (fat_drive*)d->fs_impl_data;
+
+	if(cluster >= f->eof_value)
+	{
+		return cluster;
+	}
+
+	size_t num_clusters = buffer_size / f->cluster_size;
+	while(num_clusters--)
+	{
+		k_assert(dest + f->cluster_size <= dest + buffer_size);
+
+		filesystem_write_blocks_to_disk(d, fat_cluster_to_lba(f, cluster), dest, f->sectors_per_cluster * f->blocks_per_sector);
+
+		dest += f->cluster_size;
+
+		cluster = fat_get_next_cluster(cluster, d);
+
+		if(cluster >= f->eof_value)
+		{
+			break;
+		}
+	}
+
 	return cluster;
 }
 
@@ -519,13 +594,120 @@ static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t buffer_siz
 		dest += f->cluster_size;
 		
 		cluster = fat_get_next_cluster(cluster, d);
-		
+
 		if(cluster >= f->eof_value)
 		{
-			//puts("eof reached");
 			break;
 		}			
 	}
 	
 	return cluster;
+}
+
+template<fat_type T> static size_t do_write_to_fat(size_t previous, size_t first_cluster, size_t num_clusters, const filesystem_virtual_drive* fd)
+{
+	fat_set_next_cluster<T>(previous, first_cluster, fd);
+	for(size_t i = 0; i < (num_clusters - 1); i++)
+	{
+		fat_set_next_cluster<T>(first_cluster + i, first_cluster + i + 1, fd);
+	}
+
+	return first_cluster + num_clusters - 1;
+}
+
+static size_t write_to_fat(size_t previous, size_t first_cluster, size_t num_clusters, const filesystem_virtual_drive* fd)
+{
+	fat_drive* d = (fat_drive*)fd->fs_impl_data;
+
+	switch(d->type)
+	{
+	case FAT_12:
+		return do_write_to_fat<FAT_12>(previous, first_cluster, num_clusters, fd);
+	case FAT_16:
+		return do_write_to_fat<FAT_16>(previous, first_cluster, num_clusters, fd);
+	case FAT_32:
+		return do_write_to_fat<FAT_32>(previous, first_cluster, num_clusters, fd);
+	case exFAT:
+		return do_write_to_fat<exFAT>(previous, first_cluster, num_clusters, fd);
+	case FAT_UNKNOWN:
+		k_assert(false);
+	}
+
+	k_assert(false);
+	return 0;
+}
+
+static bool fat_cluster_free(size_t cluster, const filesystem_virtual_drive* f)
+{
+	return fat_get_next_cluster(cluster, f) == 0;
+}
+
+static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, const filesystem_virtual_drive* d)
+{
+	fat_drive* f = (fat_drive*)d->fs_impl_data;
+
+	const size_t needed_clusters = (size_in_bytes + (f->cluster_size - 1)) / f->cluster_size;
+	size_t num_clusters = needed_clusters;
+	size_t last_cluster = start_cluster;
+
+	//skip any cluster which may already be allocated
+	while(num_clusters)
+	{
+		size_t cluster = fat_get_next_cluster(last_cluster, d);
+		if(cluster == f->eof_value)
+			break;
+
+		last_cluster = cluster;
+		num_clusters--;
+	}
+
+	if(num_clusters == 0)
+	{
+		return size_in_bytes;
+	}
+
+	size_t free_cluster = f->free_clusters.size();
+	while(free_cluster--)
+	{
+		auto span = f->free_clusters.back();
+		f->free_clusters.pop_back();
+
+		last_cluster = write_to_fat(last_cluster, span.first_cluster, span.num_clusters, d);
+		num_clusters -= span.num_clusters;
+
+		if(num_clusters == 0)
+		{
+			write_to_fat(last_cluster, f->eof_value, 1, d);
+			return size_in_bytes;
+		}
+	}
+
+	for(size_t cluster = 0; cluster < f->num_clusters; cluster++)
+	{
+		if(!fat_cluster_free(cluster, d))
+			continue;
+
+		cluster_span span{cluster, 1};
+
+		while(span.num_clusters < num_clusters)
+		{
+			if(!fat_cluster_free(++cluster, d))
+			{
+				break;
+			}
+			span.num_clusters++;
+		}
+
+		last_cluster = write_to_fat(last_cluster, span.first_cluster, span.num_clusters, d);
+		num_clusters -= span.num_clusters;
+
+		if(num_clusters == 0)
+		{
+			write_to_fat(last_cluster, f->eof_value, 1, d);
+			return size_in_bytes;
+		}
+	}
+
+	write_to_fat(last_cluster, f->eof_value, 1, d);
+	return needed_clusters - num_clusters;
 }

@@ -336,7 +336,7 @@ static ata_error ata_do_write(ata_drive& drive, uint8_t num_sectors, uint32_t lb
 
 	for(size_t i = 0; i < num_sectors; i++)
 	{
-		ata_wait_irq(channel);
+		//ata_wait_irq(channel);
 		ata_poll(channel);
 		outsw(base_port, (uint16_t*)buffer, WORDS_PER_SECTOR);
 		buffer += (WORDS_PER_SECTOR * sizeof(uint16_t));

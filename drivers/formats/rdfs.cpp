@@ -15,6 +15,7 @@ static filesystem_driver rdfs_driver = {
 	rdfs_get_relative_location,
 	rdfs_read_chunks,
 	nullptr,
+	nullptr,
 	rdfs_read_dir
 };
 

@@ -30,25 +30,47 @@ file_stream* filesystem_create_stream(const file_data_block* f)
 	};
 }
 
-file_stream* filesystem_open_file_handle(const file_handle* f, int flags)
+file_stream* filesystem_open_file_handle(const file_handle* f, int mode)
 {
 	k_assert(f);
 
-	//TODO prevent writing to readonly files 
+	file_data_block data = f->data;
 
-	if(f->data.flags & IS_DIR) { return nullptr; }
+	if(mode & FILE_WRITE)
+	{
+		if(data.flags & IS_READONLY)
+			return nullptr;
 
-	return filesystem_create_stream(&f->data);
+		auto drive = filesystem_get_drive(data.disk_id);
+
+		if(drive->read_only)
+			return nullptr;
+	}
+	else
+	{
+		data.flags |= IS_READONLY;
+	}
+
+	if(data.flags & IS_DIR) { return nullptr; }
+
+	auto stream = filesystem_create_stream(&data);
+
+	if(mode & FILE_APPEND)
+	{
+		stream->seekpos = data.size;
+	}
+
+	return stream;
 }
 
 file_stream* filesystem_open_file(const directory_stream* rel,
 								  std::string_view path,
-								  int flags)
+								  int mode)
 {
 	k_assert(rel);
 
 	if(const file_handle* f = filesystem_find_file_by_path(rel, path))
-		return filesystem_open_file_handle(f, flags);
+		return filesystem_open_file_handle(f, mode);
 	else
 		return nullptr;
 }
@@ -97,11 +119,15 @@ static void filesystem_flush_buffer(file_stream* s)
 {
 	if(s->is_dirty)
 	{
+		printf("flushing...\n");
+
 		auto drive = filesystem_get_drive(s->file.disk_id);
 		k_assert(drive->fs_driver->write_chunks);
 		drive->fs_driver->write_chunks(	s->buffer, s->location_on_disk,
 										drive->chunk_read_size, drive);
 		s->is_dirty = false;
+
+		printf("flushed\n");
 	}
 }
 
@@ -220,6 +246,19 @@ int filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
 	return len;
 }
 
+void filesystem_allocate_space(file_stream* s, fs_index location, size_t requested_size)
+{
+	auto drive = filesystem_get_drive(s->file.disk_id);
+
+	size_t allocated = drive->fs_driver->allocate_chunks(location,
+														 requested_size,
+														 drive);
+
+	size_t allocated_bytes = drive->chunk_read_size * allocated;
+
+	s->file.size = std::min(allocated_bytes, requested_size);
+}
+
 int filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
 {
 	k_assert(dst_buf);
@@ -231,6 +270,16 @@ int filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
 	k_assert(drive->fs_driver->write_chunks);
 
 	fs_index location = filesystem_resolve_location_on_disk(s);
+
+	if(s->seekpos + len >= s->file.size)
+	{
+		printf("allocating file\n");
+		filesystem_allocate_space(s, location, s->seekpos + len);
+
+		len = s->file.size - s->seekpos;
+	}
+
+	printf("writing %d bytes\n", len);
 
 	auto chunks = filesystem_chunkify(s->seekpos, len, drive->chunk_read_size);
 
@@ -275,11 +324,7 @@ int filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
 
 	s->seekpos += len;
 
-	if(s->seekpos > s->file.size)
-	{
-		//resize the file
-		s->file.size = s->seekpos;
-	}
+	printf("file written\n");
 
 	return len;
 }
@@ -296,6 +341,7 @@ void filesystem_write_blocks_to_disk(const filesystem_virtual_drive* d,
 									 const uint8_t* buf, 
 									 size_t num_blocks)
 {
+	printf("FS: writing %d blocks...\n", num_blocks);
 	k_assert(d);
 	k_assert(d->disk);
 	k_assert(d->disk->driver);
@@ -360,12 +406,20 @@ SYSCALL_HANDLER
 file_stream* syscall_open_file(const directory_stream* rel,
 							   const char* path,
 							   size_t path_len,
-							   int flags)
+							   int mode)
 {
 	if(!rel || !path)
 		return nullptr;
 	else
-		return filesystem_open_file(rel, {path, path_len}, flags);
+		return filesystem_open_file(rel, {path, path_len}, mode);
+}
+
+SYSCALL_HANDLER
+file_stream* syscall_open_file_handle(const file_handle* f, int mode)
+{
+	if(f == nullptr) { return nullptr; }
+
+	return filesystem_open_file_handle(f, mode);
 }
 
 SYSCALL_HANDLER int syscall_close_file(file_stream* stream)

@@ -97,6 +97,7 @@ static constexpr func_info func_list[] = {
 	{"filesystem_allocate_buffer",	(void*)&filesystem_allocate_buffer},
 	{"filesystem_free_buffer",		(void*)&filesystem_free_buffer},
 	{"filesystem_read_blocks_from_disk",	(void*)&filesystem_read_blocks_from_disk},
+	{"filesystem_write_blocks_to_disk",	(void*)&filesystem_write_blocks_to_disk},
 	{"filesystem_create_stream",			(void*)&filesystem_create_stream},
 	{"filesystem_open_file",	(void*)&filesystem_open_file},
 	{"filesystem_close_file",	(void*)&filesystem_close_file},

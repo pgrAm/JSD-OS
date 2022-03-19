@@ -49,14 +49,19 @@ static bool filesystem_mount_drive(filesystem_virtual_drive* drive)
 				drive->fs_driver = driver;
 				int mount_result = driver->mount_disk(drive);
 
-				if(mount_result != UNKNOWN_FILESYSTEM && mount_result != DRIVE_NOT_SUPPORTED)
+				if(mount_result != UNKNOWN_FILESYSTEM && 
+				   mount_result != DRIVE_NOT_SUPPORTED)
 				{
-					drive->mounted = (mount_result == MOUNT_SUCCESS);
+					if(mount_result == MOUNT_SUCCESS)
+					{
+						drive->mounted = true;
+						drive->read_only = !driver->write_chunks
+										|| !drive->disk->driver->write_blocks;
+					}
 					break;
 				}
 				drive->fs_driver = nullptr;
-				drive->fs_impl_data = nullptr;
-			}
+				drive->fs_impl_data = nullptr;			}
 		}
 		else
 		{
@@ -122,7 +127,8 @@ extern "C" void filesystem_add_virtual_drive(filesystem_drive * disk, fs_index b
 		.chunk_read_size = disk->minimum_block_size > DEFAULT_CHUNK_READ_SIZE ?
 							disk->minimum_block_size : DEFAULT_CHUNK_READ_SIZE,
 		.root_dir = {},
-		.mounted = false
+		.mounted = false,
+		.read_only = false
 	};
 
 	virtual_drives.push_back(drive);

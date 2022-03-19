@@ -144,6 +144,8 @@ my $listmode = build(name => "listmode.elf", src => ["api/crt0.c", "api/crti.asm
 
 my $graphicstest = build(name => "graphic.elf", src => ["api/crt0.c", "api/crti.asm", "apps/graphic.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($graphics), $kb, $cppr]);
 
+my $fwritetest = build(name => "fwrite.elf", src => ["api/crt0.c", "api/crti.asm", "apps/fwrite.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), $cppr]);
+
 mkpath("$builddir/fdboot");
 system("$builddir/tools/rdfs", "configs/cdboot/init.sys", $drv_lib, $iso_drv, $ata_drv, $kb_drv, $pci_drv, "-o", "$builddir/cdboot/init.rfs");
 mkpath("$builddir/cdboot");
@@ -199,6 +201,7 @@ copy($clib, 		"$builddir/iso/clib.lib");
 copy($shell, 		"$builddir/iso/shell.elf");
 copy($primes, 		"$builddir/iso/primes.elf");
 copy($listmode, 	"$builddir/iso/listmode.elf");
+copy($fwritetest, 	"$builddir/iso/fwrite.elf");
 
 mkpath("$builddir/iso/drivers");
 copy($fat_drv, 		"$builddir/iso/drivers/fat.drv");

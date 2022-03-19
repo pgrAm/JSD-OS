@@ -166,14 +166,6 @@ const file_handle* syscall_get_file_in_dir(const directory_stream* d, size_t ind
 }
 
 SYSCALL_HANDLER
-file_stream* syscall_open_file_handle(const file_handle* f, int flags)
-{
-	if(f == nullptr) { return nullptr; }
-
-	return filesystem_open_file_handle(f, flags);
-}
-
-SYSCALL_HANDLER
 const file_handle* syscall_find_file_by_path(const directory_stream* d, const char* name, size_t name_len)
 {
 	if(name == nullptr || d == nullptr)

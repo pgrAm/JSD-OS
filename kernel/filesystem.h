@@ -22,8 +22,8 @@ const file_handle* filesystem_get_root_directory(size_t drive);
 const file_handle* filesystem_find_file_by_path(const directory_stream* rel, std::string_view path);
 int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
-file_stream* filesystem_open_file_handle(const file_handle* f, int flags);
-file_stream* filesystem_open_file(const directory_stream* rel, std::string_view path, int flags);
+file_stream* filesystem_open_file_handle(const file_handle* f, int mode);
+file_stream* filesystem_open_file(const directory_stream* rel, std::string_view path, int mode);
 int filesystem_read_file(void* dst, size_t len, file_stream* f);
 void filesystem_seek_file(file_stream* f, size_t pos);
 int filesystem_close_file(file_stream* f);
@@ -44,8 +44,8 @@ SYSCALL_HANDLER const file_handle* syscall_find_file_by_path(const directory_str
 SYSCALL_HANDLER int syscall_get_file_info(file_info* dst, const file_handle* src);
 SYSCALL_HANDLER directory_stream* syscall_open_directory_handle(const file_handle* f, int flags);
 SYSCALL_HANDLER int syscall_close_directory(directory_stream* dir);
-SYSCALL_HANDLER file_stream* syscall_open_file_handle(const file_handle* f, int flags);
-SYSCALL_HANDLER file_stream* syscall_open_file(const directory_stream* rel, const char* path, size_t path_len, int flags);
+SYSCALL_HANDLER file_stream* syscall_open_file_handle(const file_handle* f, int mode);
+SYSCALL_HANDLER file_stream* syscall_open_file(const directory_stream* rel, const char* path, size_t path_len, int mode);
 SYSCALL_HANDLER int syscall_read_file(void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_write_file(const void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_close_file(file_stream* f);

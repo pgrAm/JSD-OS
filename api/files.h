@@ -16,6 +16,14 @@ enum file_flags
 	DRIVER_RESERVED = 0xFFFF0000
 };
 
+enum file_mode
+{
+	FILE_READ = 0x01,
+	FILE_WRITE = 0x02,
+	FILE_APPEND = 0x04,
+	FILE_CREATE = 0x08
+};
+
 typedef struct
 {
 	size_t size;
