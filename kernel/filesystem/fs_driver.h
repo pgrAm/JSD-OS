@@ -41,8 +41,8 @@ filesystem_drive;
 
 typedef int (*partition_func)(filesystem_drive*, filesystem_virtual_drive*);
 
-void filesystem_write_blocks_to_disk(const filesystem_virtual_drive* d, size_t block_number, const uint8_t* buf, size_t num_blocks);
-void filesystem_read_blocks_from_disk(const filesystem_virtual_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks);
+void filesystem_write_to_disk(const filesystem_virtual_drive* d, size_t block, size_t offset, const uint8_t* buf, size_t num_bytes);
+void filesystem_read_from_disk(const filesystem_virtual_drive* d, size_t block, size_t offset, uint8_t* buf, size_t num_bytes);
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size);
 int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size);
 
@@ -58,8 +58,8 @@ struct filesystem_driver
 
 struct disk_driver
 {
-	void (*read_blocks)(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
-	void (*write_blocks)(const filesystem_drive* d, size_t block_number, const uint8_t* buf, size_t num_bytes);
+	void (*read_blocks)(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks);
+	void (*write_blocks)(const filesystem_drive* d, size_t block_number, const uint8_t* buf, size_t num_blocks);
 	uint8_t* (*allocate_buffer)(size_t size);
 	int (*free_buffer)(uint8_t* buffer, size_t size);
 };
@@ -97,6 +97,8 @@ struct directory_stream
 //represents a partition on a drive
 struct filesystem_virtual_drive
 {
+	filesystem_virtual_drive(filesystem_drive* disk, fs_index begin, size_t size);
+
 	filesystem_drive* disk;
 	void* fs_impl_data;
 	const filesystem_driver* fs_driver;
@@ -109,6 +111,28 @@ struct filesystem_virtual_drive
 
 	bool mounted;
 	bool read_only;
+
+	void write_block(size_t block,
+					 size_t offset,
+					 const uint8_t* buf,
+					 size_t num_bytes) const;
+
+	void read_block(size_t block,
+					size_t offset,
+					uint8_t* buf,
+					size_t num_bytes) const;
+private:
+
+	struct cached_block {
+		size_t index;
+		uint8_t* data;
+		bool dirty;
+	};
+
+	cached_block& block_rw(size_t block) const;
+
+	mutable std::vector<cached_block> block_cache;
+	size_t max_cached_blocks;
 };
 
 #include<stdio.h>

@@ -169,7 +169,18 @@ public:
 
 	void pop_back()
 	{
+		back().~T();
 		--m_end;
+	}
+
+	const T& front() const
+	{
+		return *m_begin;
+	}
+
+	T& front()
+	{
+		return *m_begin;
 	}
 
 	const T& back() const
@@ -185,6 +196,13 @@ public:
 	void clear()
 	{
 		m_end = m_begin;
+	}
+
+	constexpr iterator erase(const_iterator pos)
+	{
+		std::copy(pos+1, cend(), begin() + (pos-cbegin()));
+		pop_back();
+		return end();
 	}
 
 private:

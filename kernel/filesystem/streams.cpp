@@ -133,7 +133,7 @@ static void filesystem_flush_buffer(file_stream* s)
 
 static fs_index filesystem_read_chunk(file_stream* s, fs_index chunk_index)
 {
-	//printf("filesystem_read_chunk from cluster %d\n", chunk_index);
+	//printf("read chunk %d\n", chunk_index);
 
 	auto drive = filesystem_get_drive(s->file.disk_id);
 	if(s->location_on_disk == chunk_index)
@@ -191,7 +191,7 @@ int filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
 			return -1; // EOF
 		}
 
-		if(s->seekpos + len >= s->file.size)
+		if(s->seekpos + len > s->file.size)
 		{
 			//only read what is available
 			len = s->file.size - s->seekpos;
@@ -201,7 +201,6 @@ int filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
 	auto drive = filesystem_get_drive(s->file.disk_id);
 
 	fs_index location = filesystem_resolve_location_on_disk(s);
-	//printf("seekpos %X starts at cluster %d\n", f->seekpos, location);
 
 	auto chunks = filesystem_chunkify(s->seekpos, len, drive->chunk_read_size);
 
@@ -334,31 +333,6 @@ void filesystem_seek_file(file_stream* f, size_t pos)
 	k_assert(f);
 
 	f->seekpos = pos;
-}
-
-void filesystem_write_blocks_to_disk(const filesystem_virtual_drive* d, 
-									 size_t block_number, 
-									 const uint8_t* buf, 
-									 size_t num_blocks)
-{
-	printf("FS: writing %d blocks...\n", num_blocks);
-	k_assert(d);
-	k_assert(d->disk);
-	k_assert(d->disk->driver);
-	k_assert(d->disk->driver->write_blocks);
-	d->disk->driver->write_blocks(d->disk, d->first_block + block_number, buf, num_blocks);
-}
-
-void filesystem_read_blocks_from_disk(const filesystem_virtual_drive* d,
-									  size_t block_number,
-									  uint8_t* buf,
-									  size_t num_blocks)
-{
-	k_assert(d);
-	k_assert(d->disk);
-	k_assert(d->disk->driver);
-	k_assert(d->disk->driver->read_blocks);
-	d->disk->driver->read_blocks(d->disk, d->first_block + block_number, buf, num_blocks);
 }
 
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)

@@ -234,7 +234,7 @@ static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t num
 
 	size_t num_sectors = num_bytes / f->sector_size;
 
-	filesystem_read_blocks_from_disk(fd, location * f->blocks_per_sector, dest, num_sectors * f->blocks_per_sector);
+	filesystem_read_from_disk(fd, location * f->blocks_per_sector, 0, dest, num_bytes);
 
 	return location + num_sectors;
 }
@@ -280,7 +280,7 @@ static int iso9660_mount_disk(filesystem_virtual_drive* fd)
 	size_t sector = 0x10;
 	do
 	{
-		filesystem_read_blocks_from_disk(fd, sector++ * blocks_per_sector, &buffer[0], blocks_per_sector);
+		filesystem_read_from_disk(fd, sector++ * blocks_per_sector, 0, &buffer[0], ISO_DEFAULT_SECTOR_SIZE);
 		if(memcmp(&buffer[1], "CD001", 5 * sizeof(char)) != 0)
 		{
 			return UNKNOWN_FILESYSTEM;

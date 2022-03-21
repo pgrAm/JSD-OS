@@ -96,9 +96,9 @@ static constexpr func_info func_list[] = {
 	{"filesystem_add_driver",		(void*)&filesystem_add_driver},
 	{"filesystem_allocate_buffer",	(void*)&filesystem_allocate_buffer},
 	{"filesystem_free_buffer",		(void*)&filesystem_free_buffer},
-	{"filesystem_read_blocks_from_disk",	(void*)&filesystem_read_blocks_from_disk},
-	{"filesystem_write_blocks_to_disk",	(void*)&filesystem_write_blocks_to_disk},
-	{"filesystem_create_stream",			(void*)&filesystem_create_stream},
+	{"filesystem_read_from_disk",	(void*)&filesystem_read_from_disk},
+	{"filesystem_write_to_disk",	(void*)&filesystem_write_to_disk},
+	{"filesystem_create_stream",	(void*)&filesystem_create_stream},
 	{"filesystem_open_file",	(void*)&filesystem_open_file},
 	{"filesystem_close_file",	(void*)&filesystem_close_file},
 	{"filesystem_read_file",	(void*)&filesystem_read_file},
@@ -208,10 +208,24 @@ static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
 			}
 			else if(token == "execute")
 			{
+
 				auto filename = line.substr(space + 1);
 				auto f = cwd.find_file_by_path(filename);
 
-				spawn_process(f, cwd.get_ptr(), WAIT_FOR_PROCESS);
+				if(!f)
+				{
+					printf("can't find ");
+					print_string_len(filename.data(), filename.size());
+					printf("\n");
+				}
+				else
+				{
+					printf("executing ");
+					print_string_len(filename.data(), filename.size());
+					printf("\n");
+
+					spawn_process(f, cwd.get_ptr(), WAIT_FOR_PROCESS);
+				}
 			}
 
 			buffer.clear();
@@ -225,6 +239,8 @@ static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
 
 extern "C" void load_drivers()
 {
+	printf("loading drivers\n");
+
 	const auto num_funcs = sizeof(func_list) / sizeof(func_info);
 	for(size_t i = 0; i < num_funcs; i++)
 	{
