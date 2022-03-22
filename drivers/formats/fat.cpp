@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <kernel/filesystem/fs_driver.h>
+#include <kernel/filesystem/util.h>
 #include <kernel/kassert.h>
 
 #define FAT12_EOF 0xFF8
@@ -20,8 +21,8 @@
 #define FAT_ROOT_DIR_FLAG 0x80000000
 
 static int fat_mount_disk(filesystem_virtual_drive* d);
-static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t num_bytes, const filesystem_virtual_drive* d);
-static size_t fat_write_clusters(const uint8_t* dest, size_t cluster, size_t buffer_size, const filesystem_virtual_drive* d);
+static size_t fat_read(uint8_t* dest, size_t cluster, size_t offset, size_t num_bytes, const filesystem_virtual_drive* d);
+static size_t fat_write(const uint8_t* dest, size_t cluster, size_t offset, size_t num_bytes, const filesystem_virtual_drive* d);
 static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_virtual_drive* fd);
 static void fat_read_dir(directory_stream* dest, const file_data_block* location, const filesystem_virtual_drive* fd);
 static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, const filesystem_virtual_drive* d);
@@ -171,9 +172,9 @@ typedef struct
 
 static filesystem_driver fat_driver = {
 	fat_mount_disk,
-	fat_get_relative_cluster,
-	fat_read_clusters,
-	fat_write_clusters,
+	//fat_get_relative_cluster,
+	fat_read,
+	fat_write,
 	fat_allocate_clusters,
 	fat_read_dir
 };
@@ -347,14 +348,8 @@ static void fat_read_root_dir(directory_stream* dest, const filesystem_virtual_d
 			break;
 		} //end of directory
 
-		printf("%s %d\n", out.name.c_str(), entry.first_cluster);
-
-		//k_assert(memcmp(out.name.c_str(), "VGA.DRV", 8) || entry.first_cluster != 349);
-
 		dest->file_list.push_back(out);
 	}
-
-	//while(true);
 }
 
 static void fat_read_dir(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
@@ -481,11 +476,9 @@ static size_t fat_get_next_cluster(size_t cluster, const filesystem_virtual_driv
 	return d->eof_value;
 }
 
-static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_virtual_drive* fd)
+static size_t fat_get_relative_cluster(size_t cluster, size_t num_clusters, const filesystem_virtual_drive* fd)
 {
 	fat_drive* f = (fat_drive*)fd->fs_impl_data;
-
-	size_t num_clusters = byte_offset / f->cluster_size;
 
 	while (num_clusters--)
 	{
@@ -533,63 +526,91 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 	return MOUNT_SUCCESS;
 }
 
-static size_t fat_write_clusters(const uint8_t* dest, size_t cluster, size_t buffer_size, const filesystem_virtual_drive* d)
+
+
+static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset, size_t size, const filesystem_virtual_drive* d)
 {
 	fat_drive* f = (fat_drive*)d->fs_impl_data;
 
-	if(cluster >= f->eof_value)
+	if(start_cluster >= f->eof_value)
 	{
-		return cluster;
+		return start_cluster;
 	}
 
-	size_t num_clusters = buffer_size / f->cluster_size;
-	while(num_clusters--)
+	auto chunks = filesystem_chunkify(offset, size, f->cluster_size);
+	auto cluster = fat_get_relative_cluster(start_cluster, chunks.start_chunk, d);
+
+	if(chunks.start_size != 0)
 	{
-		k_assert(dest + f->cluster_size <= dest + buffer_size);
-
-		filesystem_write_to_disk(d, fat_cluster_to_lba(f, cluster), 0, dest, f->sectors_per_cluster * f->bytes_per_sector);
-
-		dest += f->cluster_size;
+		auto lba = fat_cluster_to_lba(f, cluster);
+		filesystem_write_to_disk(d, lba, chunks.start_offset, buf, chunks.start_size);
 
 		cluster = fat_get_next_cluster(cluster, d);
+		buf += chunks.start_size;
+	}
 
-		if(cluster >= f->eof_value)
+	if(chunks.num_full_chunks)
+	{
+		size_t num_clusters = chunks.num_full_chunks;
+		while(num_clusters-- && cluster < f->eof_value)
 		{
-			break;
+			auto lba = fat_cluster_to_lba(f, cluster);
+			filesystem_write_to_disk(d, lba, 0, buf, f->cluster_size);
+
+			cluster = fat_get_next_cluster(cluster, d);
+			buf += f->cluster_size;
 		}
+	}
+
+	if(chunks.end_size != 0 && cluster < f->eof_value)
+	{
+		auto lba = fat_cluster_to_lba(f, cluster);
+		filesystem_write_to_disk(d, lba, 0, buf, chunks.end_size);
 	}
 
 	return cluster;
 }
 
-static size_t fat_read_clusters(uint8_t* dest, size_t cluster, size_t buffer_size, const filesystem_virtual_drive*d)
+static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t size, const filesystem_virtual_drive*d)
 {
 	fat_drive* f = (fat_drive*)d->fs_impl_data;
 
-	if (cluster >= f->eof_value)
+	if(start_cluster >= f->eof_value)
 	{
-		return cluster;
+		return start_cluster;
 	}
 
-	size_t num_clusters = buffer_size / f->cluster_size;
-	while(num_clusters--)
+	auto chunks = filesystem_chunkify(offset, size, f->cluster_size);
+	auto cluster = fat_get_relative_cluster(start_cluster, chunks.start_chunk, d);
+
+	if(chunks.start_size != 0)
 	{
-		k_assert(dest + f->cluster_size <= dest + buffer_size);
+		auto lba = fat_cluster_to_lba(f, cluster);
+		filesystem_read_from_disk(d, lba, chunks.start_offset, buf, chunks.start_size);
 
-		//printf(" %d ->", cluster);
-
-		filesystem_read_from_disk(d, fat_cluster_to_lba(f, cluster), 0, dest, f->cluster_size);
-
-		dest += f->cluster_size;
-		
 		cluster = fat_get_next_cluster(cluster, d);
-
-		if(cluster >= f->eof_value)
-		{
-			break;
-		}			
+		buf += chunks.start_size;
 	}
-	
+
+	if(chunks.num_full_chunks)
+	{
+		size_t num_clusters = chunks.num_full_chunks;
+		while(num_clusters-- && cluster < f->eof_value)
+		{
+			auto lba = fat_cluster_to_lba(f, cluster);
+			filesystem_read_from_disk(d, lba, 0, buf, f->cluster_size);
+
+			cluster = fat_get_next_cluster(cluster, d);
+			buf += f->cluster_size;
+		}
+	}
+
+	if(chunks.end_size != 0 && cluster < f->eof_value)
+	{
+		auto lba = fat_cluster_to_lba(f, cluster);
+		filesystem_read_from_disk(d, lba, 0, buf, chunks.end_size);
+	}
+
 	return cluster;
 }
 

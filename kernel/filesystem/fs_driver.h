@@ -49,9 +49,9 @@ int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t si
 struct filesystem_driver
 {
 	int (*mount_disk)(filesystem_virtual_drive* d);
-	fs_index(*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd);
-	fs_index(*read_chunks)(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd);
-	fs_index(*write_chunks)(const uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd);
+	//fs_index(*get_relative_location)(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd);
+	fs_index(*read_chunks)(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const filesystem_virtual_drive* fd);
+	fs_index(*write_chunks)(const uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const filesystem_virtual_drive* fd);
 	size_t(*allocate_chunks)(fs_index location, size_t num_bytes, const filesystem_virtual_drive* d);
 	void (*read_dir)(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
 };

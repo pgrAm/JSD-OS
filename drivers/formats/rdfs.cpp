@@ -6,14 +6,12 @@
 #include "rdfs.h"
 
 static int rdfs_mount_disk(filesystem_virtual_drive* d);
-static fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd);
-static fs_index rdfs_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd);
+static fs_index rdfs_read(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const filesystem_virtual_drive* fd);
 static void rdfs_read_dir(directory_stream* dest, const file_data_block* f, const filesystem_virtual_drive* fd);
 
 static filesystem_driver rdfs_driver = {
 	rdfs_mount_disk,
-	rdfs_get_relative_location,
-	rdfs_read_chunks,
+	rdfs_read,
 	nullptr,
 	nullptr,
 	rdfs_read_dir
@@ -48,15 +46,10 @@ static int rdfs_mount_disk(filesystem_virtual_drive* fd)
 	return UNKNOWN_FILESYSTEM;
 }
 
-static fs_index rdfs_get_relative_location(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd)
+static fs_index rdfs_read(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const filesystem_virtual_drive* fd)
 {
-	return location + byte_offset;
-}
-
-static fs_index rdfs_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd)
-{
-	filesystem_read_from_disk(fd, location, 0, dest, num_bytes);
-	return location + num_bytes;
+	filesystem_read_from_disk(fd, location, offset, dest, num_bytes);
+	return location + offset + num_bytes;
 }
 
 typedef struct

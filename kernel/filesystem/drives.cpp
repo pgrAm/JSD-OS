@@ -1,6 +1,8 @@
 #include <kernel/filesystem.h>
 #include <kernel/filesystem/fs_driver.h>
+#include <kernel/filesystem/util.h>
 #include <kernel/kassert.h>
+#include <stdlib.h>
 #include "drives.h"
 
 #define DEFAULT_CHUNK_READ_SIZE 1024
@@ -149,38 +151,6 @@ filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver
 
 	return drives.back();
 }
-
-struct fs_chunks
-{
-	size_t start_chunk;
-
-	size_t start_offset;	//offset to start in the first chunk
-	size_t start_size;		//size of the first chunk
-
-	size_t num_full_chunks;	//number of complete chunks
-
-	size_t end_size;		//size of the last chunk
-};
-
-static fs_chunks filesystem_chunkify(size_t offset, size_t length, size_t chunk_size)
-{
-	size_t first_chunk = offset / chunk_size;
-	size_t start_offset = offset % chunk_size;
-
-	size_t last_chunk = (offset + length) / chunk_size;
-	size_t end_size = (offset + length) % chunk_size;
-
-	if(first_chunk == last_chunk)
-	{
-		end_size = 0; //start and end are in the same chunk
-	}
-
-	size_t start_size = ((length - end_size) % chunk_size);
-	size_t num_chunks = (length - (start_size + end_size)) / chunk_size;
-
-	return {first_chunk, start_offset, start_size, num_chunks, end_size};
-}
-
 
 filesystem_virtual_drive::cached_block& 
 filesystem_virtual_drive::block_rw(size_t block) const
@@ -344,6 +314,29 @@ void filesystem_read_from_disk(const filesystem_virtual_drive* d,
 	{
 		d->read_block( block, 0, buf, blocks.end_size);
 	}
+}
+
+uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)
+{
+	k_assert(d);
+	k_assert(d->driver);
+	if(d->driver->allocate_buffer != nullptr)
+	{
+		return d->driver->allocate_buffer(size);
+	}
+	return (uint8_t*)malloc(size);
+}
+
+int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size)
+{
+	k_assert(d);
+	k_assert(d->driver);
+	if(d->driver->free_buffer != nullptr)
+	{
+		return d->driver->free_buffer(buffer, size);
+	}
+	free(buffer);
+	return 0;
 }
 
 const file_handle* filesystem_get_root_directory(size_t drive_number)

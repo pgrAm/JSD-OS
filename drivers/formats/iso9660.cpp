@@ -219,24 +219,13 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 
 #define ISO_DEFAULT_SECTOR_SIZE 0x800
 
-static fs_index iso9660_get_relative_location(fs_index location, size_t byte_offset, const filesystem_virtual_drive* fd)
+static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const filesystem_virtual_drive* fd)
 {
 	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
-	size_t num_sectors = byte_offset / f->sector_size;
+	filesystem_read_from_disk(fd, location * f->blocks_per_sector, offset, dest, num_bytes);
 
-	return location + num_sectors;
-}
-
-static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t num_bytes, const filesystem_virtual_drive* fd)
-{
-	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
-
-	size_t num_sectors = num_bytes / f->sector_size;
-
-	filesystem_read_from_disk(fd, location * f->blocks_per_sector, 0, dest, num_bytes);
-
-	return location + num_sectors;
+	return location + ((offset + num_bytes) / f->sector_size);
 }
 
 static void iso9660_read_dir(directory_stream* dest, const file_data_block* file, const filesystem_virtual_drive* fd)
@@ -248,7 +237,7 @@ static void iso9660_read_dir(directory_stream* dest, const file_data_block* file
 
 	filesystem_buffer dir_data{fd->disk, buffer_size};
 
-	iso9660_read_chunks(&dir_data[0], file->location_on_disk, buffer_size, fd);
+	iso9660_read_chunks(&dir_data[0], file->location_on_disk, 0, buffer_size, fd);
 
 	const uint8_t* dir_ptr = &dir_data[0];
 
@@ -304,7 +293,6 @@ static int iso9660_mount_disk(filesystem_virtual_drive* fd)
 
 static filesystem_driver iso9660_driver = {
 	iso9660_mount_disk,
-	iso9660_get_relative_location,
 	iso9660_read_chunks,
 	nullptr,
 	nullptr,
