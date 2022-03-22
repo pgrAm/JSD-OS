@@ -80,7 +80,8 @@ struct fat_drive
 	size_t reserved_sectors;
 	size_t num_clusters;
 
-	//size_t blocks_per_sector;
+	size_t blocks_per_sector;
+	size_t fat_block;
 
 	size_t cached_fat_sector; //the sector index of the cached fat data
 
@@ -184,12 +185,12 @@ extern "C" void fat_init()
 	filesystem_add_driver(&fat_driver);
 }
 
-static inline size_t fat_cluster_to_lba(const fat_drive* d, size_t cluster)
+static inline size_t fat_cluster_to_block(const fat_drive* d, size_t cluster)
 {
-	return (cluster - 2) * d->sectors_per_cluster + d->datasector;
+	return ((cluster - 2) * d->sectors_per_cluster + d->datasector) * d->blocks_per_sector;
 }
 
-static int fat_read_bios_block(const uint8_t* buffer, fat_drive* d, size_t minimum_block_size)
+static int fat_read_bios_block(const uint8_t* buffer, fat_drive* d, size_t block_size)
 {
 	bpb* bios_block = (bpb*)buffer;
 
@@ -198,7 +199,8 @@ static int fat_read_bios_block(const uint8_t* buffer, fat_drive* d, size_t minim
 		return UNKNOWN_FILESYSTEM;
 	}
 
-	if(bios_block->bytes_per_sector < minimum_block_size)
+	if(bios_block->bytes_per_sector < block_size || 
+	   bios_block->bytes_per_sector % block_size != 0)
 	{
 		return DRIVE_NOT_SUPPORTED;
 	}
@@ -212,7 +214,9 @@ static int fat_read_bios_block(const uint8_t* buffer, fat_drive* d, size_t minim
 	d->bytes_per_sector 	= bios_block->bytes_per_sector;
 	d->root_entries 		= bios_block->root_entries;
 	d->reserved_sectors		= bios_block->reserved_sectors;
-	//d->blocks_per_sector	= d->bytes_per_sector / minimum_block_size;
+	d->blocks_per_sector	= d->bytes_per_sector / block_size;
+
+	d->fat_block = d->reserved_sectors * d->blocks_per_sector;
 
 	size_t total_sectors = (bios_block->total_sectors == 0) ?
 		bios_block->total_sectors_big : bios_block->total_sectors;
@@ -396,11 +400,10 @@ static size_t fat_get_next_cluster(size_t cluster, const filesystem_virtual_driv
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
 	size_t offset = cluster * sizeof(fat_entry_type_t<T>);
-	size_t fat_sector = d->reserved_sectors;// +(offset / d->bytes_per_sector);
 
 	fat_entry_type_t<T> value;
-	filesystem_read_from_disk(fd, fat_sector, offset,
-							  (uint8_t*)&value,
+	filesystem_read_from_disk(fd, d->fat_block, 
+							  offset, (uint8_t*)&value, 
 							  sizeof(fat_entry_type_t<T>));
 	return value & fat_entry_mask<T>;
 }
@@ -411,10 +414,9 @@ size_t fat_get_next_cluster<FAT_12>(size_t cluster, const filesystem_virtual_dri
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
 	size_t offset = cluster + (cluster / 2);
-	size_t fat_sector = d->reserved_sectors;
 
 	uint16_t value;
-	filesystem_read_from_disk(fd, fat_sector, offset, (uint8_t*)&value, sizeof(uint16_t));
+	filesystem_read_from_disk(fd, d->fat_block, offset, (uint8_t*)&value, sizeof(uint16_t));
 
 	return (cluster & 1) ? value >> 4 : value & fat_entry_mask<FAT_12>;
 }
@@ -425,11 +427,10 @@ static void fat_set_next_cluster(size_t cluster, size_t next, const filesystem_v
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
 	size_t offset = cluster * sizeof(fat_entry_type_t<T>);
-	size_t fat_sector = d->reserved_sectors + (offset / d->bytes_per_sector);
 
 	fat_entry_type_t<T> value = next & fat_entry_mask<T>;
-	filesystem_write_to_disk(fd, fat_sector, offset,
-							 (uint8_t*)&value,
+	filesystem_write_to_disk(fd, d->fat_block, 
+							 offset, (uint8_t*)&value,
 							 sizeof(fat_entry_type_t<T>));
 }
 
@@ -439,7 +440,7 @@ void fat_set_next_cluster<FAT_12>(size_t cluster, size_t next, const filesystem_
 	fat_drive* d = (fat_drive*)fd->fs_impl_data;
 
 	size_t offset = cluster + (cluster / 2);
-	size_t fat_sector = d->reserved_sectors + (offset / d->bytes_per_sector);
+	size_t fat_sector = d->reserved_sectors;
 
 	uint16_t value;
 	filesystem_read_from_disk(fd, fat_sector, offset, (uint8_t*)&value, sizeof(uint16_t));
@@ -498,7 +499,7 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 
 	fat_drive* f = new fat_drive{};
 
-	int err = fat_read_bios_block(boot_sector, f, d->disk->minimum_block_size);
+	int err = fat_read_bios_block(boot_sector, f, d->block_size);
 	delete[] boot_sector;
 
 	if(err != MOUNT_SUCCESS)
@@ -508,11 +509,6 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 	}
 
 	d->fs_impl_data = f;
-
-	if(d->chunk_read_size < f->cluster_size)
-	{
-		d->chunk_read_size = f->cluster_size;
-	}
 
 	f->cached_fat_sector = 0;
 	
@@ -542,7 +538,7 @@ static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset,
 
 	if(chunks.start_size != 0)
 	{
-		auto lba = fat_cluster_to_lba(f, cluster);
+		auto lba = fat_cluster_to_block(f, cluster);
 		filesystem_write_to_disk(d, lba, chunks.start_offset, buf, chunks.start_size);
 
 		cluster = fat_get_next_cluster(cluster, d);
@@ -554,7 +550,7 @@ static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset,
 		size_t num_clusters = chunks.num_full_chunks;
 		while(num_clusters-- && cluster < f->eof_value)
 		{
-			auto lba = fat_cluster_to_lba(f, cluster);
+			auto lba = fat_cluster_to_block(f, cluster);
 			filesystem_write_to_disk(d, lba, 0, buf, f->cluster_size);
 
 			cluster = fat_get_next_cluster(cluster, d);
@@ -564,7 +560,7 @@ static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset,
 
 	if(chunks.end_size != 0 && cluster < f->eof_value)
 	{
-		auto lba = fat_cluster_to_lba(f, cluster);
+		auto lba = fat_cluster_to_block(f, cluster);
 		filesystem_write_to_disk(d, lba, 0, buf, chunks.end_size);
 	}
 
@@ -585,7 +581,7 @@ static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t
 
 	if(chunks.start_size != 0)
 	{
-		auto lba = fat_cluster_to_lba(f, cluster);
+		auto lba = fat_cluster_to_block(f, cluster);
 		filesystem_read_from_disk(d, lba, chunks.start_offset, buf, chunks.start_size);
 
 		cluster = fat_get_next_cluster(cluster, d);
@@ -597,7 +593,7 @@ static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t
 		size_t num_clusters = chunks.num_full_chunks;
 		while(num_clusters-- && cluster < f->eof_value)
 		{
-			auto lba = fat_cluster_to_lba(f, cluster);
+			auto lba = fat_cluster_to_block(f, cluster);
 			filesystem_read_from_disk(d, lba, 0, buf, f->cluster_size);
 
 			cluster = fat_get_next_cluster(cluster, d);
@@ -607,7 +603,7 @@ static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t
 
 	if(chunks.end_size != 0 && cluster < f->eof_value)
 	{
-		auto lba = fat_cluster_to_lba(f, cluster);
+		auto lba = fat_cluster_to_block(f, cluster);
 		filesystem_read_from_disk(d, lba, 0, buf, chunks.end_size);
 	}
 
@@ -719,5 +715,5 @@ static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, 
 	}
 
 	write_to_fat(last_cluster, f->eof_value, 1, d);
-	return needed_clusters - num_clusters;
+	return (needed_clusters - num_clusters) * f->cluster_size;
 }

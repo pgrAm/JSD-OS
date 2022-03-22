@@ -24,7 +24,7 @@ extern "C" void rdfs_init(void)
 
 static int rdfs_mount_disk(filesystem_virtual_drive* fd)
 {
-	if(fd->disk->minimum_block_size > 1 || fd->disk->driver->allocate_buffer != NULL)
+	if(fd->block_size > 1)
 	{
 		return DRIVE_NOT_SUPPORTED;
 	}

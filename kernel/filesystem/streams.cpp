@@ -106,13 +106,10 @@ void filesystem_allocate_space(file_stream* s, fs_index location, size_t request
 {
 	auto drive = filesystem_get_drive(s->file.disk_id);
 
-	size_t allocated = drive->fs_driver->allocate_chunks(location,
-														 requested_size,
-														 drive);
+	size_t allocated_size = 
+		drive->fs_driver->allocate_chunks(location, requested_size, drive);
 
-	size_t allocated_bytes = drive->chunk_read_size * allocated;
-
-	s->file.size = std::min(allocated_bytes, requested_size);
+	s->file.size = std::min(allocated_size, requested_size);
 }
 
 int filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)

@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include "drives.h"
 
-#define DEFAULT_CHUNK_READ_SIZE 1024
-
 using fs_drive_list = std::vector<filesystem_virtual_drive*>;
 using fs_part_map = std::vector<fs_drive_list>;
 
@@ -173,7 +171,7 @@ filesystem_virtual_drive::block_rw(size_t block) const
 		}
 		else
 		{
-			disk_buf = filesystem_allocate_buffer(disk, disk->minimum_block_size);
+			disk_buf = filesystem_allocate_buffer(disk, block_size);
 		}
 		block_cache.push_back({block, disk_buf, false});
 
@@ -195,8 +193,7 @@ filesystem_virtual_drive::filesystem_virtual_drive(filesystem_drive* disk_,
 	, id(virtual_drives.size())
 	, first_block(begin)
 	, num_blocks(size)
-	, chunk_read_size(disk->minimum_block_size > DEFAULT_CHUNK_READ_SIZE ?
-					  disk->minimum_block_size : DEFAULT_CHUNK_READ_SIZE)
+	, block_size(disk->minimum_block_size)
 	, root_dir{}
 	, mounted(false)
 	, read_only(false)
@@ -234,8 +231,7 @@ void filesystem_write_to_disk(const filesystem_virtual_drive* d,
 	k_assert(d->disk->driver->write_blocks);
 
 	auto* disk = d->disk;
-	auto block_size = disk->minimum_block_size;
-	auto blocks = filesystem_chunkify(offset, num_bytes, block_size);
+	auto blocks = filesystem_chunkify(offset, num_bytes, d->block_size);
 	auto block = block_num + blocks.start_chunk;
 
 	if(blocks.start_size != 0)
@@ -249,7 +245,7 @@ void filesystem_write_to_disk(const filesystem_virtual_drive* d,
 		if(disk->driver->allocate_buffer == nullptr)
 		{
 			disk->driver->write_blocks(disk, d->first_block + block, buf, blocks.num_full_chunks);
-			buf += blocks.num_full_chunks * block_size;
+			buf += blocks.num_full_chunks * d->block_size;
 			block += blocks.num_full_chunks;
 		}
 		else
@@ -257,8 +253,8 @@ void filesystem_write_to_disk(const filesystem_virtual_drive* d,
 			auto num_chunks = blocks.num_full_chunks;
 			while(num_chunks--)
 			{
-				d->write_block(block++, 0, buf, block_size);
-				buf += block_size;
+				d->write_block(block++, 0, buf, d->block_size);
+				buf += d->block_size;
 			}
 		}
 	}
@@ -281,8 +277,7 @@ void filesystem_read_from_disk(const filesystem_virtual_drive* d,
 	k_assert(d->disk->driver->read_blocks);
 
 	auto* disk = d->disk;
-	auto block_size = disk->minimum_block_size;
-	auto blocks = filesystem_chunkify(offset, num_bytes, block_size);
+	auto blocks = filesystem_chunkify(offset, num_bytes, d->block_size);
 	auto block = block_num + blocks.start_chunk;
 
 	if(blocks.start_size != 0)
@@ -296,7 +291,7 @@ void filesystem_read_from_disk(const filesystem_virtual_drive* d,
 		if(disk->driver->allocate_buffer == nullptr)
 		{
 			disk->driver->read_blocks(disk, d->first_block + block, buf, blocks.num_full_chunks);
-			buf += blocks.num_full_chunks * block_size;
+			buf += blocks.num_full_chunks * d->block_size;
 			block += blocks.num_full_chunks;
 		}
 		else
@@ -304,8 +299,8 @@ void filesystem_read_from_disk(const filesystem_virtual_drive* d,
 			auto num_chunks = blocks.num_full_chunks;
 			while(num_chunks--)
 			{
-				d->read_block(block, 0, buf, block_size);
-				buf += block_size;
+				d->read_block(block, 0, buf, d->block_size);
+				buf += d->block_size;
 			}
 		}
 	}
