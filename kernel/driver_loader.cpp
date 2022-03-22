@@ -99,6 +99,7 @@ static constexpr func_info func_list[] = {
 	{"filesystem_read_from_disk",	(void*)&filesystem_read_from_disk},
 	{"filesystem_write_to_disk",	(void*)&filesystem_write_to_disk},
 	{"filesystem_create_stream",	(void*)&filesystem_create_stream},
+	{"filesystem_raw_block_read",	(void*)&filesystem_raw_block_read},
 	{"filesystem_open_file",	(void*)&filesystem_open_file},
 	{"filesystem_close_file",	(void*)&filesystem_close_file},
 	{"filesystem_read_file",	(void*)&filesystem_read_file},

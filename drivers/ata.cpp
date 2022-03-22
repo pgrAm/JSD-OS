@@ -496,12 +496,12 @@ static ata_error ata_write_sectors(ata_drive& drive, uint8_t num_sectors, uint32
 	}
 }
 
-static void ata_write_blocks(const filesystem_drive* fd,
-							size_t block_number,
-							const uint8_t* buffer,
-							size_t num_blocks)
+static void ata_write_blocks(void* drv_data,
+							 size_t block_number,
+							 const uint8_t* buffer,
+							 size_t num_blocks)
 {
-	ata_drive* drive = (ata_drive*)fd->drv_impl_data;
+	ata_drive* drive = (ata_drive*)drv_data;
 	if(auto err = ata_write_sectors(*drive, num_blocks, block_number, buffer);
 	   err != ata_error::NONE)
 	{
@@ -509,12 +509,12 @@ static void ata_write_blocks(const filesystem_drive* fd,
 	}
 }
 
-static void ata_read_blocks(const filesystem_drive* fd,
+static void ata_read_blocks(void* drv_data,
 							size_t block_number,
 							uint8_t* buffer,
 							size_t num_blocks)
 {
-	ata_drive* drive = (ata_drive*)fd->drv_impl_data;
+	ata_drive* drive = (ata_drive*)drv_data;
 	if(auto err = ata_read_sectors(*drive, num_blocks, block_number, buffer);
 	   err != ata_error::NONE)
 	{

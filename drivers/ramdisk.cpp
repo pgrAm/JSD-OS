@@ -14,7 +14,7 @@ typedef struct ramdisk_drive
 
 static ramdisk_drive init_disk = {nullptr, 0};
 
-static void ramdisk_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
+static void ramdisk_read_blocks(void* d, size_t block_number, uint8_t* buf, size_t num_bytes);
 static ramdisk_drive* ramdisk_get_drive(size_t index);
 
 static disk_driver ramdisk_driver = {
@@ -24,9 +24,9 @@ static disk_driver ramdisk_driver = {
 	nullptr
 };
 
-static void ramdisk_read_blocks(const filesystem_drive* d, size_t offset, uint8_t* buf, size_t num_bytes)
+static void ramdisk_read_blocks(void* drv_data, size_t offset, uint8_t* buf, size_t num_bytes)
 {
-	ramdisk_drive* rd = (ramdisk_drive*)d->drv_impl_data;
+	ramdisk_drive* rd = (ramdisk_drive*)drv_data;
 
 	if(offset < rd->size)
 	{

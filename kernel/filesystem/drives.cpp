@@ -5,6 +5,78 @@
 #include <stdlib.h>
 #include "drives.h"
 
+struct filesystem_drive
+{
+	filesystem_drive(const disk_driver& disk_drv, void* driver_data, size_t block_size, size_t num_blocks, size_t index) :
+
+		m_drv_impl_data(driver_data),
+		m_driver(disk_drv),
+		m_index(index),
+		m_minimum_block_size(block_size),
+		m_num_blocks(num_blocks)
+	{
+		//must have allocate & free or neither
+		k_assert(!!disk_drv.allocate_buffer == !!disk_drv.free_buffer);
+	};
+
+	void write_blocks(size_t lba, const uint8_t* buf, size_t num_sectors) const
+	{
+		k_assert(m_driver.write_blocks);
+		m_driver.write_blocks(m_drv_impl_data, lba, buf, num_sectors);
+	}
+
+	void read_blocks(size_t lba, uint8_t* buf, size_t num_sectors) const
+	{
+		k_assert(m_driver.read_blocks);
+		m_driver.read_blocks(m_drv_impl_data, lba, buf, num_sectors);
+	}
+
+	uint8_t* allocate_buffer(size_t size) const
+	{
+		k_assert(m_driver.allocate_buffer);
+		return m_driver.allocate_buffer(size);
+	}
+
+	int free_buffer(uint8_t* buffer, size_t size) const
+	{
+		k_assert(m_driver.free_buffer);
+		return m_driver.free_buffer(buffer, size);
+	}
+
+	bool read_only() const
+	{
+		return !(m_driver.write_blocks);
+	}
+
+	bool needs_buffer() const
+	{
+		return !!(m_driver.allocate_buffer);
+	}
+
+	size_t index()
+	{
+		return m_index;
+	}
+
+	size_t num_blocks()
+	{
+		return m_num_blocks;
+	}
+
+	size_t block_size()
+	{
+		return m_minimum_block_size;
+	}
+
+private:
+
+	void* m_drv_impl_data;
+	const disk_driver& m_driver;
+	size_t m_index;
+	size_t m_minimum_block_size;
+	size_t m_num_blocks;
+};
+
 using fs_drive_list = std::vector<filesystem_virtual_drive*>;
 using fs_part_map = std::vector<fs_drive_list>;
 
@@ -29,8 +101,6 @@ filesystem_virtual_drive* filesystem_get_drive(size_t index)
 	k_assert(drive->fs_driver);
 	k_assert(drive->fs_driver->read_chunks);
 	k_assert(drive->disk);
-	k_assert(drive->disk->driver);
-	k_assert(drive->disk->driver->read_blocks);
 
 	return drive;
 }
@@ -56,7 +126,7 @@ static bool filesystem_mount_drive(filesystem_virtual_drive* drive)
 					{
 						drive->mounted = true;
 						drive->read_only = !driver->write_chunks
-							|| !drive->disk->driver->write_blocks;
+							|| drive->disk->read_only();
 					}
 					break;
 				}
@@ -81,14 +151,14 @@ static void filesystem_read_drive_partitions(filesystem_drive* drive, filesystem
 
 	for(size_t i = 0; i < partitioners.size(); i++)
 	{
-		if(partitioners[i](drive, base) == 0)
+		if(partitioners[i](drive, base, drive->block_size()) == 0)
 			return;
 	}
 
 	if(!base)
 	{
 		//no known partitioning on drive
-		filesystem_add_virtual_drive(drive, 0, drive->num_blocks);
+		filesystem_add_virtual_drive(drive, 0, drive->num_blocks());
 	}
 }
 
@@ -98,7 +168,7 @@ extern "C" void filesystem_add_partitioner(partition_func p)
 
 	for(auto drive : drives)
 	{
-		auto& partitions = partition_map[drive->index];
+		auto& partitions = partition_map[drive->index()];
 		if(partitions.size() > 1)
 		{
 			continue;
@@ -122,8 +192,8 @@ extern "C" void filesystem_add_virtual_drive(filesystem_drive * disk, fs_index b
 
 	virtual_drives.push_back(drive);
 
-	k_assert(disk->index < partition_map.size());
-	partition_map[disk->index].push_back(drive);
+	k_assert(disk->index() < partition_map.size());
+	partition_map[disk->index()].push_back(drive);
 }
 
 extern "C" void filesystem_add_driver(const filesystem_driver * fs_drv)
@@ -133,14 +203,11 @@ extern "C" void filesystem_add_driver(const filesystem_driver * fs_drv)
 
 filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver_data, size_t block_size, size_t num_blocks)
 {
-	auto drive = new filesystem_drive
-	{
-		.drv_impl_data = driver_data,
-		.driver = disk_drv,
-		.index = drives.size(),
-		.minimum_block_size = block_size,
-		.num_blocks = num_blocks
-	};
+	k_assert(disk_drv);
+
+	auto drive = new filesystem_drive(*disk_drv, driver_data,
+									  block_size, num_blocks,
+									  drives.size());
 
 	drives.push_back(drive);
 	partition_map.push_back(fs_drive_list{});
@@ -165,7 +232,7 @@ filesystem_virtual_drive::block_rw(size_t block) const
 			disk_buf = block_cache.front().data;
 			if(block_cache.front().dirty)
 			{
-				disk->driver->write_blocks(disk, first_block + block, disk_buf, 1);
+				disk->write_blocks(first_block + block, disk_buf, 1);
 			}
 			block_cache.erase(block_cache.begin());
 		}
@@ -177,7 +244,7 @@ filesystem_virtual_drive::block_rw(size_t block) const
 
 		k_assert(disk_buf);
 
-		disk->driver->read_blocks(disk, first_block + block, disk_buf, 1);
+		disk->read_blocks(first_block + block, disk_buf, 1);
 
 		return block_cache.back();
 	}
@@ -193,7 +260,7 @@ filesystem_virtual_drive::filesystem_virtual_drive(filesystem_drive* disk_,
 	, id(virtual_drives.size())
 	, first_block(begin)
 	, num_blocks(size)
-	, block_size(disk->minimum_block_size)
+	, block_size(disk->block_size())
 	, root_dir{}
 	, mounted(false)
 	, read_only(false)
@@ -227,8 +294,7 @@ void filesystem_write_to_disk(const filesystem_virtual_drive* d,
 {
 	k_assert(d);
 	k_assert(d->disk);
-	k_assert(d->disk->driver);
-	k_assert(d->disk->driver->write_blocks);
+	k_assert(!d->disk->read_only());
 
 	auto* disk = d->disk;
 	auto blocks = filesystem_chunkify(offset, num_bytes, d->block_size);
@@ -242,9 +308,9 @@ void filesystem_write_to_disk(const filesystem_virtual_drive* d,
 
 	if(blocks.num_full_chunks)
 	{
-		if(disk->driver->allocate_buffer == nullptr)
+		if(!disk->needs_buffer())
 		{
-			disk->driver->write_blocks(disk, d->first_block + block, buf, blocks.num_full_chunks);
+			disk->write_blocks(d->first_block + block, buf, blocks.num_full_chunks);
 			buf += blocks.num_full_chunks * d->block_size;
 			block += blocks.num_full_chunks;
 		}
@@ -273,8 +339,6 @@ void filesystem_read_from_disk(const filesystem_virtual_drive* d,
 {
 	k_assert(d);
 	k_assert(d->disk);
-	k_assert(d->disk->driver);
-	k_assert(d->disk->driver->read_blocks);
 
 	auto* disk = d->disk;
 	auto blocks = filesystem_chunkify(offset, num_bytes, d->block_size);
@@ -288,9 +352,9 @@ void filesystem_read_from_disk(const filesystem_virtual_drive* d,
 
 	if(blocks.num_full_chunks)
 	{
-		if(disk->driver->allocate_buffer == nullptr)
+		if(!disk->needs_buffer())
 		{
-			disk->driver->read_blocks(disk, d->first_block + block, buf, blocks.num_full_chunks);
+			disk->read_blocks(d->first_block + block, buf, blocks.num_full_chunks);
 			buf += blocks.num_full_chunks * d->block_size;
 			block += blocks.num_full_chunks;
 		}
@@ -314,10 +378,9 @@ void filesystem_read_from_disk(const filesystem_virtual_drive* d,
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)
 {
 	k_assert(d);
-	k_assert(d->driver);
-	if(d->driver->allocate_buffer != nullptr)
+	if(d->needs_buffer())
 	{
-		return d->driver->allocate_buffer(size);
+		return d->allocate_buffer(size);
 	}
 	return (uint8_t*)malloc(size);
 }
@@ -325,13 +388,17 @@ uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size)
 int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size)
 {
 	k_assert(d);
-	k_assert(d->driver);
-	if(d->driver->free_buffer != nullptr)
+	if(d->needs_buffer())
 	{
-		return d->driver->free_buffer(buffer, size);
+		return d->free_buffer(buffer, size);
 	}
 	free(buffer);
 	return 0;
+}
+
+void filesystem_raw_block_read(const filesystem_drive* d, size_t block, uint8_t* buf, size_t num_blocks)
+{
+	d->read_blocks(block, buf, num_blocks);
 }
 
 const file_handle* filesystem_get_root_directory(size_t drive_number)

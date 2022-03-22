@@ -82,8 +82,8 @@ enum floppy_commands
 static bool motor_is_ready[2] = {false, false};
 static kernel_cv irq6_condition = {-1, 1};
 
-static void floppy_read_blocks(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_bytes);
-static void floppy_write_blocks(const filesystem_drive* d, size_t block_number, const uint8_t* buf, size_t num_bytes);
+static void floppy_read_blocks(void* drv_data, size_t block_number, uint8_t* buf, size_t num_bytes);
+static void floppy_write_blocks(void* drv_data, size_t block_number, const uint8_t* buf, size_t num_bytes);
 //static uint8_t* floppy_allocate_buffer(size_t size);
 //static int floppy_free_buffer(uint8_t* buffer, size_t size);
 
@@ -275,9 +275,9 @@ static bool floppy_do_rw(const floppy_drive* d, floppy_commands cmd, chs_locatio
 	return false;
 }
 
-static void floppy_read_blocks(const filesystem_drive* fd, size_t lba, uint8_t* buf, size_t num_sectors)
+static void floppy_read_blocks(void* drv_data, size_t lba, uint8_t* buf, size_t num_sectors)
 {
-	floppy_drive* d = (floppy_drive*)fd->drv_impl_data;
+	floppy_drive* d = (floppy_drive*)drv_data;
 
 	scoped_lock l{&d->mutex};
 
@@ -308,11 +308,11 @@ static void floppy_read_blocks(const filesystem_drive* fd, size_t lba, uint8_t* 
 	printf("Catastrophic read failure at sector %d\n", lba);
 }
 
-static void floppy_write_blocks(const filesystem_drive* fd, size_t lba, const uint8_t* buf, size_t num_sectors)
+static void floppy_write_blocks(void* drv_data, size_t lba, const uint8_t* buf, size_t num_sectors)
 {
 	//k_assert(false);
 
-	floppy_drive* d = (floppy_drive*)fd->drv_impl_data;
+	floppy_drive* d = (floppy_drive*)drv_data;
 
 	scoped_lock l{&d->mutex};
 

@@ -20,6 +20,9 @@ typedef struct directory_stream directory_stream;
 struct filesystem_virtual_drive;
 typedef struct filesystem_virtual_drive filesystem_virtual_drive;
 
+struct filesystem_drive;
+typedef struct filesystem_drive filesystem_drive;
+
 typedef struct
 {
 	fs_index location_on_disk;
@@ -29,23 +32,14 @@ typedef struct
 }
 file_data_block;
 
-//TODO make this opaque
-typedef struct
-{
-	void* drv_impl_data;
-	const disk_driver* driver;
-	size_t index;
-	size_t minimum_block_size;
-	size_t num_blocks;
-}
-filesystem_drive;
-
-typedef int (*partition_func)(filesystem_drive*, filesystem_virtual_drive*);
+typedef int (*partition_func)(filesystem_drive*, filesystem_virtual_drive*, size_t block_size);
 
 void filesystem_write_to_disk(const filesystem_virtual_drive* d, size_t block, size_t offset, const uint8_t* buf, size_t num_bytes);
 void filesystem_read_from_disk(const filesystem_virtual_drive* d, size_t block, size_t offset, uint8_t* buf, size_t num_bytes);
 uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size);
 int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size);
+
+void filesystem_raw_block_read(const filesystem_drive* d, size_t block, uint8_t* buf, size_t num_blocks);
 
 struct filesystem_driver
 {
@@ -58,8 +52,8 @@ struct filesystem_driver
 
 struct disk_driver
 {
-	void (*read_blocks)(const filesystem_drive* d, size_t block_number, uint8_t* buf, size_t num_blocks);
-	void (*write_blocks)(const filesystem_drive* d, size_t block_number, const uint8_t* buf, size_t num_blocks);
+	void (*read_blocks)(void* driver_data, size_t block_number, uint8_t* buf, size_t num_blocks);
+	void (*write_blocks)(void* driver_data, size_t block_number, const uint8_t* buf, size_t num_blocks);
 	uint8_t* (*allocate_buffer)(size_t size);
 	int (*free_buffer)(uint8_t* buffer, size_t size);
 };
