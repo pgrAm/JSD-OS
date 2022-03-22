@@ -60,25 +60,14 @@ uint8_t* isa_dma_allocate_buffer(size_t size)
 	return nullptr;
 }
 
-__attribute__((noinline))
-//SYSCALL_HANDLER
-int dummy(uint8_t* buffer, size_t num_pages)
-{
-	//printf("DMA freeing %d pages\n", num_pages);
-
-	return memmanager_free_pages(buffer, num_pages);
-}
-
 int isa_dma_free_buffer(uint8_t* buffer, size_t size)
 {
 	size_t num_pages = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 
-	//dummy();
-
-	return dummy(buffer, num_pages);
+	return memmanager_free_pages(buffer, num_pages);
 }
 
-void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, uint8_t* buf, size_t size)
+void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, const uint8_t* buf, size_t size)
 {
 	//dma don't know wtf virtual adresses are, it needs the real deal (physical address)
 	uint32_t physbuf = memmanager_get_physical((uint32_t)buf);
