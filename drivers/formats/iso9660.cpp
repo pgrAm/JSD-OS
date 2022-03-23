@@ -223,7 +223,7 @@ static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t off
 {
 	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
-	filesystem_read_from_disk(fd, location * f->blocks_per_sector, offset, dest, num_bytes);
+	filesystem_read(fd, location * f->blocks_per_sector, offset, dest, num_bytes);
 
 	return location + ((offset + num_bytes) / f->sector_size);
 }
@@ -271,11 +271,9 @@ static int iso9660_mount_disk(filesystem_virtual_drive* fd)
 	size_t sector = 0x10;
 	do
 	{
-		filesystem_read_from_disk(fd, 
-								  sector++ * blocks_per_sector, 
-								  0, 
-								  (uint8_t*)&descriptor,
-								  sizeof(iso9660_volume_descriptor));
+		filesystem_read(fd, sector++ * blocks_per_sector,
+						0, (uint8_t*)&descriptor,
+						sizeof(iso9660_volume_descriptor));
 
 		if(memcmp(&descriptor.id, "CD001", 5 * sizeof(char)) != 0)
 		{

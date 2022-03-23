@@ -30,7 +30,7 @@ static int rdfs_mount_disk(filesystem_virtual_drive* fd)
 	}
 
 	uint8_t magic[4];
-	filesystem_read_from_disk(fd, 0, 0, &magic[0], sizeof(magic));
+	filesystem_read(fd, 0, 0, &magic[0], sizeof(magic));
 
 	if(memcmp(magic, "RDSK", 4) == 0)
 	{
@@ -48,7 +48,7 @@ static int rdfs_mount_disk(filesystem_virtual_drive* fd)
 
 static fs_index rdfs_read(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const filesystem_virtual_drive* fd)
 {
-	filesystem_read_from_disk(fd, location, offset, dest, num_bytes);
+	filesystem_read(fd, location, offset, dest, num_bytes);
 	return location + offset + num_bytes;
 }
 
@@ -78,13 +78,13 @@ static void rdfs_read_dir(directory_stream* dest, const file_data_block* f, cons
 	fs_index location = f->location_on_disk;
 
 	uint32_t num_files;
-	filesystem_read_from_disk(fd, location, 0, (uint8_t*)&num_files, sizeof(uint32_t));
+	filesystem_read(fd, location, 0, (uint8_t*)&num_files, sizeof(uint32_t));
 
 	fs_index disk_location = location + sizeof(uint32_t);
 	for(size_t i = 0; i < num_files; i++)
 	{
 		rdfs_dir_entry entry;
-		filesystem_read_from_disk(fd, disk_location, 0, (uint8_t*)&entry, sizeof(rdfs_dir_entry));
+		filesystem_read(fd, disk_location, 0, (uint8_t*)&entry, sizeof(rdfs_dir_entry));
 		disk_location += sizeof(rdfs_dir_entry);
 
 		file_handle file;

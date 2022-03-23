@@ -34,12 +34,8 @@ file_data_block;
 
 typedef int (*partition_func)(filesystem_drive*, filesystem_virtual_drive*, size_t block_size);
 
-void filesystem_write_to_disk(const filesystem_virtual_drive* d, size_t block, size_t offset, const uint8_t* buf, size_t num_bytes);
-void filesystem_read_from_disk(const filesystem_virtual_drive* d, size_t block, size_t offset, uint8_t* buf, size_t num_bytes);
-uint8_t* filesystem_allocate_buffer(const filesystem_drive* d, size_t size);
-int filesystem_free_buffer(const filesystem_drive* d, uint8_t* buffer, size_t size);
-
-void filesystem_raw_block_read(const filesystem_drive* d, size_t block, uint8_t* buf, size_t num_blocks);
+void filesystem_write_to_disk(const filesystem_drive* d, size_t block, size_t offset, const uint8_t* buf, size_t num_bytes);
+void filesystem_read_from_disk(const filesystem_drive* d, size_t block, size_t offset, uint8_t* buf, size_t num_bytes);
 
 struct filesystem_driver
 {
@@ -105,72 +101,16 @@ struct filesystem_virtual_drive
 
 	bool mounted;
 	bool read_only;
-
-	void write_block(size_t block,
-					 size_t offset,
-					 const uint8_t* buf,
-					 size_t num_bytes) const;
-
-	void read_block(size_t block,
-					size_t offset,
-					uint8_t* buf,
-					size_t num_bytes) const;
-private:
-
-	struct cached_block {
-		size_t index;
-		uint8_t* data;
-		bool dirty;
-	};
-
-	cached_block& block_rw(size_t block) const;
-
-	mutable std::vector<cached_block> block_cache;
-	size_t max_cached_blocks;
 };
 
-#include<stdio.h>
-
-class filesystem_buffer
+inline void filesystem_write(const filesystem_virtual_drive* d, size_t block, size_t offset, const uint8_t* buf, size_t num_bytes)
 {
-public:
-	filesystem_buffer(const filesystem_drive* d, size_t s) :
-		m_drive(d),
-		m_buffer(filesystem_allocate_buffer(d, s)),
-		m_size(s)
-	{
-	}
-	
-	~filesystem_buffer()
-	{
-		filesystem_free_buffer(m_drive, m_buffer, m_size);
-	}
-
-	uint8_t& operator[](size_t n)
-	{
-		return m_buffer[n];
-	}
-
-	uint8_t operator[](size_t n) const
-	{
-		return m_buffer[n];
-	}
-
-	uint8_t* data()
-	{
-		return m_buffer;
-	}
-
-	size_t size() const
-	{
-		return m_size;
-	}
-
-private:
-	const filesystem_drive* m_drive;
-	uint8_t* const m_buffer;
-	size_t m_size;
-};
+	filesystem_write_to_disk(d->disk, block + d->first_block, offset, buf, num_bytes);
+}
+inline void filesystem_read(const filesystem_virtual_drive* d, size_t block, size_t offset, uint8_t* buf, size_t num_bytes)
+{
+	filesystem_read_from_disk(d->disk, block + d->first_block, offset, buf, num_bytes);
+}
 
 
 #endif

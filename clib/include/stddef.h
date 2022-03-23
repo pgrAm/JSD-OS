@@ -6,7 +6,7 @@ extern "C" {
 
 #include <stdint.h>
 
-#define offsetof(st, m) ((size_t)(&((st *)0)->m))
+#define offsetof(st, m) __builtin_offsetof(st, m)
 
 #ifndef NULL
 #define NULL (void*)0
