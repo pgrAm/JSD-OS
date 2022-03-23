@@ -16,7 +16,6 @@ void splash_text(int w);
 std::string current_path{};
 char prompt_char = ']';
 
-#define MAX_HISTORY_SIZE 4
 std::vector<std::string> command_history;
 
 directory_stream* current_directory = nullptr;
@@ -382,15 +381,18 @@ int get_command(char* input)
 		key_type k = getkey();
 		if((k == VK_UP || k == VK_DOWN) && get_keystate(k))
 		{
-			video_erase_chars(command_buffer.size());
+			if(!command_history.empty())
+			{
+				video_erase_chars(command_buffer.size());
 
-			history_index %= command_history.size();
+				history_index %= command_history.size();
 
-			command_buffer = command_history[history_index];
+				command_buffer = command_history[history_index];
 
-			history_index = (k == VK_UP) ? history_index + 1 : history_index - 1;
+				history_index = (k == VK_UP) ? history_index + 1 : history_index - 1;
 
-			printf("%s", command_buffer.c_str());
+				printf("%s", command_buffer.c_str());
+			}
 		}
 		else
 		{
