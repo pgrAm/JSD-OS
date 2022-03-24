@@ -33,7 +33,7 @@ const void* syscall_table[] =
 	exit_process,
 	spawn_process,
 	sysclock_get_master_time,
-	sysclock_get_ticks,
+	syscall_get_ticks,
 	sysclock_get_utc_offset,
 	syscall_virtual_alloc,
 	syscall_free_pages,

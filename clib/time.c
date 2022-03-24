@@ -5,6 +5,7 @@
 #include <sys/syscalls.h>
 #else
 #include <kernel/sys/syscalls.h>
+#include <kernel/sysclock.h>
 #endif
 
 static inline int is_leap_year(int a) 
@@ -69,14 +70,22 @@ time_t time(time_t* timer)
 
 size_t __c_get_clock_tick_rate()
 {
+#ifndef __KERNEL
 	size_t rate;
 	clock_ticks(&rate);
 	return rate;
+#else
+	return sysclock_get_rate();
+#endif
 }
 
 clock_t clock(void)
 {
+#ifndef __KERNEL
 	return clock_ticks(NULL);
+#else
+	return sysclock_get_ticks();
+#endif
 }
 
 static const int8_t days_per_month[2][12] = {

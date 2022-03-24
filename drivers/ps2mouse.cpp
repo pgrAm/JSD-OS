@@ -24,7 +24,7 @@ ps2_mouse mouse;
 
 static void handle_mouse_packet(ps2_mouse& mouse, rt_device* device)
 {
-	auto time = sysclock_get_ticks(nullptr);
+	auto time = sysclock_get_ticks();
 
 	mouse.buf_index = 0;
 

@@ -20,14 +20,14 @@ typedef uint64_t tick_t;
 
 void sysclock_sleep(size_t time, clock_unit unit);
 
+clock_t sysclock_get_ticks();
 size_t sysclock_get_rate();
 SYSCALL_HANDLER time_t sysclock_get_master_time(void);
-SYSCALL_HANDLER clock_t sysclock_get_ticks(size_t* rate); //return the ticks since the system booted
+
+SYSCALL_HANDLER clock_t syscall_get_ticks(size_t* rate); //return the ticks since the system booted
 SYSCALL_HANDLER int sysclock_get_utc_offset(void); //returns the UTC offset in seconds
 
 #ifdef __cplusplus
 }
-
-clock_t sysclock_get_ticks();
 #endif
 #endif

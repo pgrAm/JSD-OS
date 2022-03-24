@@ -78,8 +78,6 @@ static void load_driver(fs::dir_stream_ref cwd, const std::string_view filename,
 	}
 }
 
-typedef SYSCALL_HANDLER clock_t (*clock_func)(size_t*);
-
 static constexpr func_info func_list[] = {
 	{"printf",	(void*)&printf},
 	{"time",	(void*)&time},
@@ -97,15 +95,15 @@ static constexpr func_info func_list[] = {
 	{"filesystem_read_from_disk",	(void*)&filesystem_read_from_disk},
 	{"filesystem_write_to_disk",	(void*)&filesystem_write_to_disk},
 	{"filesystem_create_stream",	(void*)&filesystem_create_stream},
-	{"filesystem_open_file",	(void*)&filesystem_open_file},
-	{"filesystem_close_file",	(void*)&filesystem_close_file},
-	{"filesystem_read_file",	(void*)&filesystem_read_file},
+	{"filesystem_open_file",		(void*)&filesystem_open_file},
+	{"filesystem_close_file",		(void*)&filesystem_close_file},
+	{"filesystem_read_file",		(void*)&filesystem_read_file},
 	{"irq_install_handler",			(void*)&irq_install_handler},
 	{"sysclock_sleep",				(void*)&sysclock_sleep},
-	{"__regcall3__sysclock_get_ticks", (void*)(clock_func)sysclock_get_ticks},
-	{"memmanager_virtual_alloc", (void*)&memmanager_virtual_alloc},
+	{"sysclock_get_ticks",			(void*)&sysclock_get_ticks},
 	{"physical_memory_allocate_in_range", (void*)&physical_memory_allocate_in_range},
 	{"physical_memory_allocate",	(void*)&physical_memory_allocate},
+	{"memmanager_virtual_alloc",	(void*)&memmanager_virtual_alloc},
 	{"memmanager_map_to_new_pages", (void*)&memmanager_map_to_new_pages},
 	{"memmanager_get_physical",		(void*)&memmanager_get_physical},
 	{"memmanager_unmap_pages",		(void*)&memmanager_unmap_pages},

@@ -36,14 +36,14 @@ SYSCALL_HANDLER time_t sysclock_get_master_time(void)
 	return sysclock_begin_time + (pit_get_ticks() / pit_get_tick_rate());
 }
 
-SYSCALL_HANDLER clock_t sysclock_get_ticks(size_t* rate)
+SYSCALL_HANDLER clock_t syscall_get_ticks(size_t* rate)
 {
 	if(rate != NULL)
 	{
 		*rate = sysclock_get_rate();
 	}
 
-	return pit_get_ticks();
+	return sysclock_get_ticks();
 }
 
 void sysclock_set_utc_offset(int offset)

@@ -36,8 +36,6 @@ void kernel_main()
 {
 	parse_boot_info();
 
-	//printf("got here\n");
-
 	interrupts_init();
 
 	physical_memory_init();
@@ -61,8 +59,6 @@ void kernel_main()
 
 	sysclock_init();
 
-	clock_t init_time = sysclock_get_ticks(NULL);
-
 	setup_syscalls();
 
 	setup_first_task(); //we are now running as a kernel level task
@@ -71,18 +67,11 @@ void kernel_main()
 
 	rdfs_init();
 
-	//memmanager_map_page(0x30000, 0, PAGE_PRESENT);
-	//memmanager_reserve_physical_memory(0x30000, 0x60000);
-	//memmanager_reserve_physical_memory(0x90000, 0x1000);
 	keyboard_init();
 
-	//memmanager_print_free_map();
-
-	/*while(true) {
-		printf("%d\n", sysclock_get_ticks(NULL));
-	}*/
-
 	load_drivers();
+
+	printf("oops\n");
 
 	for(;;);
 }
