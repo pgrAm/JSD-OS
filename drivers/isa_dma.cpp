@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
+#include <vector>
 #include "portio.h"
 
 #include <kernel/memorymanager.h>
@@ -38,33 +39,148 @@ static bool check_continuity(uintptr_t v, size_t size)
 	return true;
 }
 
+struct dma_buffer {
+	struct block {
+		size_t offset;
+		size_t size;
+	};
+	std::vector<block> free_blocks;
+	std::vector<block> used_blocks;
+	uint8_t* buffer;
+
+	dma_buffer() : buffer(nullptr) {}
+
+	dma_buffer(uint8_t* buf, size_t size) : buffer(buf)
+	{
+		free_blocks.push_back({0, size});
+	}
+
+	dma_buffer(uint8_t* buf, size_t size, size_t used) : buffer(buf)
+	{
+		free_blocks.push_back({used, size});
+		used_blocks.push_back({0, used});
+	}
+
+	uint8_t* allocate(size_t size)
+	{
+		auto it = std::find_if(free_blocks.begin(), free_blocks.end(), 
+							   [size](const block& other) { return other.size >= size; });
+
+		if(it == free_blocks.end())
+			return nullptr;
+
+		size_t offset = it->offset;
+
+		if(it->size - size == 0)
+		{
+			free_blocks.erase(it);
+		}
+		else
+		{
+			it->size -= size;
+			it->offset += size;
+		}
+
+		used_blocks.push_back({offset, size});
+
+		return buffer + offset;
+	}
+
+	int deallocate(uint8_t* ptr)
+	{
+		auto offset = ptr - buffer;
+
+		auto it = std::find_if(used_blocks.begin(), used_blocks.end(),
+							   [offset](const block& other) { return other.offset == offset; });
+
+		if(it == used_blocks.end())
+			return -1;
+
+		if(used_blocks.size() == 1)
+			return 0;
+
+		for(auto blk_it = free_blocks.begin(); blk_it != free_blocks.begin(); blk_it++)
+		{
+			if(blk_it->offset + blk_it->size < it->offset)
+			{
+				continue;
+			}
+			else if(blk_it->offset == it->offset + it->size)
+			{
+				blk_it->offset -= it->size;
+				return 1;
+			}
+			else if(blk_it->offset + blk_it->size == it->offset)
+			{
+				blk_it->size += it->size;
+				return 1;
+			}
+			else if(blk_it->offset + blk_it->size > it->offset)
+			{
+				free_blocks.insert(blk_it, *it);
+				return 1;
+			}
+		}
+
+		free_blocks.push_back(*it);
+		return 1;
+	}
+};
+
+std::vector<dma_buffer>* buffers;
+
 uint8_t* isa_dma_allocate_buffer(size_t size)
 {
-	size_t size_in_pages = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
+	if(!buffers)
+	{
+		buffers = new std::vector<dma_buffer>;
+	}
 
-	//printf("DMA allocating %d pages\n", size_in_pages);
+	for(auto&& buffer : *buffers)
+	{
+		if(uint8_t* ptr = buffer.allocate(size); ptr != nullptr)
+		{
+			return ptr;
+		}
+	}
+
+	size_t size_in_pages = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
+	size_t buffer_size = size_in_pages * PAGE_SIZE;
 
 	for(uintptr_t address = 0; address < 0xFFFFFF; address += 0x10000)
 	{
 		uintptr_t physical = physical_memory_allocate_in_range(address,
 															   address + 0x10000,
-															   size_in_pages * PAGE_SIZE,
+															   buffer_size,
 															   PAGE_SIZE);
 		if(physical != (uintptr_t)NULL)
 		{
-			return (uint8_t*)memmanager_map_to_new_pages(physical, size_in_pages,
-														 PAGE_PRESENT | PAGE_RW);
+			auto virt = (uint8_t*)memmanager_map_to_new_pages(physical, size_in_pages,
+															  PAGE_PRESENT | PAGE_RW);
+			buffers->push_back(dma_buffer{virt, buffer_size, size});
+			return virt;
 		}
 	}
 
 	return nullptr;
 }
 
-int isa_dma_free_buffer(uint8_t* buffer, size_t size)
+int isa_dma_free_buffer(uint8_t* buf, size_t size)
 {
-	size_t num_pages = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
+	for(auto&& buffer : *buffers)
+	{
+		if(auto r = buffer.deallocate(buf); r != -1)
+		{
+			if(r == 0)
+			{
+				size_t num_pages = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 
-	return memmanager_free_pages(buffer, num_pages);
+				return memmanager_free_pages(buffer.buffer, num_pages);
+			}
+			return 0;
+		}
+	}
+	return -1;
 }
 
 void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, const uint8_t* buf, size_t size)
