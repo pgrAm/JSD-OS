@@ -116,25 +116,31 @@ void physical_memory_free(uintptr_t physical_address, size_t size)
 {
 	for(size_t i = 0; i < num_memory_blocks; i++)
 	{
+		if(memory_map[i].offset + memory_map[i].length < physical_address)
+		{
+			continue;
+		}
 		if(memory_map[i].offset + memory_map[i].length == physical_address) //we have an adjacent block
 		{
 			//physical_address = memory_map[i].offset;
 			memory_map[i].length += size;
-			break;
+			return;
 		}
 		else if(memory_map[i].offset == physical_address + size) //we have an adjacent block
 		{
 			memory_map[i].offset = physical_address;
 			memory_map[i].length += size;
-			break;
+			return;
 		}
 		else if(memory_map[i].offset + memory_map[i].length > physical_address)
 		{
 			//otherwise we need to add a new block
 			physical_memory_add_block(i, physical_address, size);
-			break;
+			return;
 		}
 	}
+
+	physical_memory_add_block(num_memory_blocks, physical_address, size);
 }
 
 uintptr_t physical_memory_allocate(size_t size, size_t align)
