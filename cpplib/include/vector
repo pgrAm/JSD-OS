@@ -6,6 +6,7 @@ extern "C" {
 }
 
 #include <algorithm>
+#include <new>
 
 namespace std {
 	template<class T> class vector;
@@ -153,13 +154,13 @@ public:
 		std::swap(m_end, v.m_end);
 	}
 
-	void push_back(T c)
+	void push_back(const T& c)
 	{
 		if(size() + 1 > capacity())
 		{
 			reserve((m_capacity + 1) * 2);
 		}
-		*m_end++ = c;
+		new(m_end++) T{c};
 	}
 
 	bool empty()
@@ -200,10 +201,27 @@ public:
 
 	constexpr iterator erase(const_iterator pos)
 	{
-		std::copy(pos+1, cend(), begin() + (pos-cbegin()));
+		auto index = (pos - cbegin());
+
+		std::move(pos + 1, cend(), begin() + index);
 		pop_back();
 		return end();
 	}
+
+	constexpr iterator insert(const_iterator pos, const T& value)
+	{
+		reserve(size() + 1);
+		std::move_backward(pos, cend(), end() + 1);
+		++m_end;
+
+		auto index = (pos - cbegin());
+		auto it = begin() + index;
+
+		*it = value;
+
+		return it;
+	}
+
 
 private:
 	T* m_begin;
