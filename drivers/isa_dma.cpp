@@ -6,6 +6,7 @@
 
 #include <kernel/memorymanager.h>
 #include <kernel/physical_manager.h>
+#include <kernel/kassert.h>
 
 #include "isa_dma.h" 
 
@@ -57,7 +58,7 @@ struct dma_buffer {
 
 	dma_buffer(uint8_t* buf, size_t size, size_t used) : buffer(buf)
 	{
-		free_blocks.push_back({used, size});
+		free_blocks.push_back({used, (size - used)});
 		used_blocks.push_back({0, used});
 	}
 
@@ -71,7 +72,9 @@ struct dma_buffer {
 
 		size_t offset = it->offset;
 
-		if(it->size - size == 0)
+		k_assert(it->size >= size);
+
+		if(it->size == size)
 		{
 			free_blocks.erase(it);
 		}
@@ -174,7 +177,7 @@ int isa_dma_free_buffer(uint8_t* buf, size_t size)
 			if(r == 0)
 			{
 				size_t num_pages = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
-
+	
 				return memmanager_free_pages(buffer.buffer, num_pages);
 			}
 			return 0;
