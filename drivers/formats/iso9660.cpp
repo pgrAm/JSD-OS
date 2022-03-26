@@ -2,12 +2,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <bit>
 #include <string_view>
 
 struct iso9660_drive
 {
 	size_t sector_size; //almost always 2KiB
+	size_t sector_size_log2; //almost always 11
+
 	size_t blocks_per_sector;
+	size_t blocks_per_sector_log2;
 };
 
 struct flags {
@@ -223,17 +227,17 @@ static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t off
 {
 	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
-	filesystem_read(fd, location * f->blocks_per_sector, offset, dest, num_bytes);
+	filesystem_read(fd, location << f->blocks_per_sector_log2, offset, dest, num_bytes);
 
-	return location + ((offset + num_bytes) / f->sector_size);
+	return location + ((offset + num_bytes) >> f->sector_size_log2);
 }
 
 static void iso9660_read_dir(directory_stream* dest, const file_data_block* file, const filesystem_virtual_drive* fd)
 {
 	const iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
-	const size_t num_sectors = (file->size + (f->sector_size - 1)) / f->sector_size;
-	const size_t buffer_size = num_sectors * f->sector_size;
+	const size_t num_sectors = (file->size + (f->sector_size - 1)) >> f->sector_size_log2;
+	const size_t buffer_size = num_sectors << f->sector_size_log2;
 
 	uint8_t* dir_data = new uint8_t[buffer_size];
 
@@ -281,11 +285,17 @@ static int iso9660_mount_disk(filesystem_virtual_drive* fd)
 		}
 	} while(descriptor.type != 0x01);
 
-	f->sector_size = descriptor.logical_block_size.get();
-	f->blocks_per_sector = f->sector_size / fd->block_size;
+	if(!std::has_single_bit(descriptor.logical_block_size.get()))
+	{
+		return MOUNT_FAILURE;
+	}
 
-	if(f->sector_size < fd->block_size ||
-	   f->sector_size % fd->block_size != 0)
+	f->sector_size = descriptor.logical_block_size.get();
+	f->sector_size_log2 = std::countr_zero(f->sector_size);
+	f->blocks_per_sector = f->sector_size / fd->block_size;
+	f->blocks_per_sector_log2 = std::countr_zero(f->blocks_per_sector);
+
+	if(f->sector_size < fd->block_size)
 	{
 		return DRIVE_NOT_SUPPORTED;
 	}
