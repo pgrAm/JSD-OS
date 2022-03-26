@@ -12,6 +12,24 @@ namespace std {
         constexpr _ToType bit_cast(_FromType const& __from) noexcept {
         return __builtin_bit_cast(_ToType, __from);
     }
+
+	template<typename T>
+	constexpr int countl_zero(T x) noexcept
+	{
+		return __builtin_clz(x);
+	}
+
+	template<typename T>
+	constexpr int countr_zero(T x) noexcept
+	{
+		return __builtin_ctz(x);
+	}
+
+	template <typename T>
+	constexpr bool has_single_bit(T x) noexcept
+	{
+		return x != 0 && (x & (x - 1)) == 0;
+	}
 }
 
 #endif
