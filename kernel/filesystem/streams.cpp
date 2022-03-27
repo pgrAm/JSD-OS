@@ -106,7 +106,7 @@ int filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
 
 	uint8_t* dst_ptr = (uint8_t*)dst_buf;
 
-	drive->fs_driver->read_chunks(dst_ptr, s->file.location_on_disk, s->seekpos, len, drive);
+	drive->fs_driver->read_chunks(dst_ptr, s->file.location_on_disk, s->seekpos, len, &s->file, drive);
 
 	s->seekpos += len;
 
@@ -118,7 +118,7 @@ void filesystem_allocate_space(file_stream* s, fs_index location, size_t request
 	auto drive = filesystem_get_drive(s->file.disk_id);
 
 	size_t allocated_size = 
-		drive->fs_driver->allocate_chunks(location, requested_size, drive);
+		drive->fs_driver->allocate_chunks(location, requested_size, &s->file, drive);
 
 	s->file.size = std::min(allocated_size, requested_size);
 }
@@ -142,7 +142,7 @@ int filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
 
 	const uint8_t* dst_ptr = (const uint8_t*)dst_buf;
 
-	drive->fs_driver->write_chunks(dst_ptr, s->file.location_on_disk, s->seekpos, len, drive);
+	drive->fs_driver->write_chunks(dst_ptr, s->file.location_on_disk, s->seekpos, len, &s->file, drive);
 
 	s->seekpos += len;
 	s->modified = true;

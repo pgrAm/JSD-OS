@@ -22,12 +22,11 @@
 #define FAT_ROOT_DIR_FLAG 0x80000000
 
 static int fat_mount_disk(filesystem_virtual_drive* d);
-static size_t fat_read(uint8_t* dest, size_t cluster, size_t offset, size_t num_bytes, const filesystem_virtual_drive* d);
-static size_t fat_write(const uint8_t* dest, size_t cluster, size_t offset, size_t num_bytes, const filesystem_virtual_drive* d);
-static size_t fat_get_relative_cluster(size_t cluster, size_t byte_offset, const filesystem_virtual_drive* fd);
+static size_t fat_read(uint8_t* dest, size_t cluster, size_t offset, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* d);
+static size_t fat_write(const uint8_t* dest, size_t cluster, size_t offset, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* d);
 static void fat_read_dir(directory_stream* dest, const file_data_block* location, const filesystem_virtual_drive* fd);
 static void fat_write_dir(directory_stream* dest, const file_data_block* location, const filesystem_virtual_drive* fd);
-static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, const filesystem_virtual_drive* d);
+static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, const file_data_block* file, const filesystem_virtual_drive* d);
 static void fat_update_file(const file_data_block* file, const filesystem_virtual_drive* fd);
 
 enum fat_type
@@ -72,7 +71,6 @@ struct cluster_span
 
 struct fat_drive
 {
-	size_t root_size;
 	size_t fats_size;
 	size_t root_location;
 	size_t datasector;
@@ -190,7 +188,6 @@ static_assert(sizeof(file_data_block::format_data) == sizeof(fat_format_data));
 
 static const filesystem_driver fat_driver = {
 	fat_mount_disk,
-	//fat_get_relative_cluster,
 	fat_read,
 	fat_write,
 	fat_allocate_clusters,
@@ -228,10 +225,12 @@ static int fat_read_bios_block(const uint8_t* buffer, fat_drive* d, size_t block
 		return DRIVE_NOT_SUPPORTED;
 	}
 
-	d->root_size 			= (sizeof(fat_directory_entry) * bios_block->root_entries) / bios_block->bytes_per_sector; //number of sectors in root dir
+	auto root_size 			= (sizeof(fat_directory_entry) * bios_block->root_entries) 
+							/ bios_block->bytes_per_sector; //number of sectors in root dir
+
 	d->fats_size 			= bios_block->number_of_FATs * bios_block->sectors_per_FAT;
 	d->root_location 		= d->fats_size + bios_block->reserved_sectors;
-	d->datasector 			= d->root_location + d->root_size;
+	d->datasector 			= d->root_location + root_size;
 	d->cluster_size 		= bios_block->sectors_per_cluster * bios_block->bytes_per_sector;
 	d->sectors_per_cluster 	= bios_block->sectors_per_cluster;
 	d->bytes_per_sector 	= bios_block->bytes_per_sector;
@@ -415,46 +414,8 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 	return true;
 }
 
-static void fat_read_root_dir(directory_stream* dest, const filesystem_virtual_drive* fd)
-{
-	const fat_drive* d = (fat_drive*)fd->fs_impl_data;
-
-	const size_t max_num_files = d->root_entries;
-
-	std::vector<file_handle> files;
-	for(size_t i = 0; i < max_num_files; i++)
-	{
-		fat_directory_entry entry;
-		filesystem_read(fd, d->root_location, i * sizeof(fat_directory_entry),
-						(uint8_t*)&entry, sizeof(fat_directory_entry));
-
-		if(entry.attributes & LFN)
-		{
-			continue;
-		}
-
-		file_handle out{};
-		if(!fat_read_dir_entry(out, entry, fd->id))
-		{
-			break;
-		} //end of directory
-
-		fat_format_data fdata{d->root_location, IS_DIR | FAT_ROOT_DIR_FLAG};
-		memcpy(&out.data.format_data[0], &fdata, sizeof(fat_format_data));
-
-		dest->file_list.push_back(out);
-	}
-}
-
 static void fat_read_dir(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
 {
-	fat_drive* d = (fat_drive*)fd->fs_impl_data;
-	if((d->type == FAT_12 || d->type == FAT_16) && (dir->flags & FAT_ROOT_DIR_FLAG))
-	{
-		fat_read_root_dir(dest, fd);
-		return;
-	}
-
 	file_stream* dir_stream = filesystem_create_stream(dir);
 	k_assert(dir_stream);
 
@@ -487,34 +448,8 @@ static void fat_read_dir(directory_stream* dest, const file_data_block* dir, con
 	filesystem_close_file(dir_stream);
 }
 
-static void fat_write_root_dir(directory_stream* dest, const filesystem_virtual_drive* fd)
-{
-	const fat_drive* d = (fat_drive*)fd->fs_impl_data;
-
-	const size_t max_num_files = d->root_entries;
-
-	size_t index = 0;
-	for(auto&& entry : dest->file_list)
-	{
-		if(index > max_num_files)
-			break;
-
-		fat_directory_entry f = fat_create_dir_entry(entry);
-		filesystem_write(fd, d->root_location, 
-						 index++ * sizeof(fat_directory_entry), 
-						 (uint8_t*)&f, sizeof(fat_directory_entry));
-	}
-}
-
 void fat_write_dir(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
 {
-	fat_drive* d = (fat_drive*)fd->fs_impl_data;
-	if((d->type == FAT_12 || d->type == FAT_16) && (dir->flags & FAT_ROOT_DIR_FLAG))
-	{
-		fat_write_root_dir(dest, fd);
-		return;
-	}
-
 	file_stream* dir_stream = filesystem_create_stream(dir);
 	k_assert(dir_stream);
 
@@ -654,9 +589,15 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 	return MOUNT_SUCCESS;
 }
 
-static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset, size_t size, const filesystem_virtual_drive* d)
+static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset, size_t size, const file_data_block* file, const filesystem_virtual_drive* d)
 {
 	fat_drive* f = (fat_drive*)d->fs_impl_data;
+
+	if((f->type == FAT_12 || f->type == FAT_16) && (file->flags & FAT_ROOT_DIR_FLAG))
+	{
+		filesystem_write(d, start_cluster, offset, buf, size);
+		return offset & (f->bytes_per_sector - 1);
+	}
 
 	if(start_cluster >= f->eof_value)
 	{
@@ -697,9 +638,15 @@ static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset,
 	return cluster;
 }
 
-static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t size, const filesystem_virtual_drive* d)
+static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t size, const file_data_block* file, const filesystem_virtual_drive* d)
 {
 	fat_drive* f = (fat_drive*)d->fs_impl_data;
+
+	if((f->type == FAT_12 || f->type == FAT_16) && (file->flags & FAT_ROOT_DIR_FLAG))
+	{
+		filesystem_read(d, start_cluster, offset, buf, size);
+		return offset & (f->bytes_per_sector - 1);
+	}
 
 	if(start_cluster >= f->eof_value)
 	{
@@ -778,9 +725,14 @@ static bool fat_cluster_free(size_t cluster, const filesystem_virtual_drive* f)
 	return fat_get_next_cluster(cluster, f) == 0;
 }
 
-static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, const filesystem_virtual_drive* d)
+static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, const file_data_block* file, const filesystem_virtual_drive* d)
 {
 	fat_drive* f = (fat_drive*)d->fs_impl_data;
+
+	if((f->type == FAT_12 || f->type == FAT_16) && (file->flags & FAT_ROOT_DIR_FLAG))
+	{
+		return f->root_entries * sizeof(fat_directory_entry);
+	}
 
 	const size_t needed_clusters = (size_in_bytes + (f->cluster_size - 1)) / f->cluster_size;
 	size_t num_clusters = needed_clusters;
@@ -851,39 +803,7 @@ static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, 
 //updates the directory entry after modifying a file
 void fat_update_file(const file_data_block* file, const filesystem_virtual_drive* fd)
 {
-	const fat_drive* d = (fat_drive*)fd->fs_impl_data;
-
 	auto fdata = std::bit_cast<fat_format_data>(file->format_data);
-
-	if((d->type == FAT_12 || d->type == FAT_16) && (fdata.dir_flags & FAT_ROOT_DIR_FLAG))
-	{
-		const size_t max_num_files = d->root_entries;
-		for(size_t i = 0; i < max_num_files; i++)
-		{
-			auto offset = i * sizeof(fat_directory_entry);
-
-			fat_directory_entry entry;
-			filesystem_read(fd, d->root_location, offset,
-							(uint8_t*)&entry, sizeof(fat_directory_entry));
-
-			if(entry.attributes & LFN)
-				continue;
-
-			if(entry.name[0] == 0)
-				return;
-
-			auto loc = (fs_index)entry.first_cluster | ((fs_index)entry.first_cluster_hi << 16);
-
-			if(loc == file->location_on_disk)
-			{
-				entry.file_size = file->size;
-
-				filesystem_write(fd, d->root_location, offset,
-								(uint8_t*)&entry, sizeof(fat_directory_entry));
-				return;
-			}
-		}
-	}
 
 	file_data_block dir_block{fdata.parent_dir, fd->id, 0, fdata.dir_flags};
 	file_stream* dir_stream = filesystem_create_stream(&dir_block);

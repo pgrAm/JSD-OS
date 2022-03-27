@@ -5,25 +5,6 @@
 #include <kernel/filesystem/fs_driver.h>
 #include "rdfs.h"
 
-static int rdfs_mount_disk(filesystem_virtual_drive* d);
-static fs_index rdfs_read(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const filesystem_virtual_drive* fd);
-static void rdfs_read_dir(directory_stream* dest, const file_data_block* f, const filesystem_virtual_drive* fd);
-
-static filesystem_driver rdfs_driver = {
-	rdfs_mount_disk,
-	rdfs_read,
-	nullptr,
-	nullptr,
-	rdfs_read_dir,
-	nullptr,
-	nullptr
-};
-
-extern "C" void rdfs_init(void)
-{
-	filesystem_add_driver(&rdfs_driver);
-}
-
 static int rdfs_mount_disk(filesystem_virtual_drive* fd)
 {
 	if(fd->block_size > 1)
@@ -48,7 +29,7 @@ static int rdfs_mount_disk(filesystem_virtual_drive* fd)
 	return UNKNOWN_FILESYSTEM;
 }
 
-static fs_index rdfs_read(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const filesystem_virtual_drive* fd)
+static fs_index rdfs_read(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* fd)
 {
 	filesystem_read(fd, location, offset, dest, num_bytes);
 	return location + offset + num_bytes;
@@ -116,4 +97,19 @@ static void rdfs_read_dir(directory_stream* dest, const file_data_block* f, cons
 
 		dest->file_list.push_back(file);
 	}
+}
+
+static filesystem_driver rdfs_driver = {
+	rdfs_mount_disk,
+	rdfs_read,
+	nullptr,
+	nullptr,
+	rdfs_read_dir,
+	nullptr,
+	nullptr
+};
+
+extern "C" void rdfs_init(void)
+{
+	filesystem_add_driver(&rdfs_driver);
 }

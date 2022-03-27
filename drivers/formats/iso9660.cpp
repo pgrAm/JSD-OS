@@ -223,7 +223,7 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 
 #define ISO_DEFAULT_SECTOR_SIZE 0x800
 
-static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const filesystem_virtual_drive* fd)
+static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* fd)
 {
 	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
@@ -241,7 +241,7 @@ static void iso9660_read_dir(directory_stream* dest, const file_data_block* file
 
 	uint8_t* dir_data = new uint8_t[buffer_size];
 
-	iso9660_read_chunks(&dir_data[0], file->location_on_disk, 0, buffer_size, fd);
+	iso9660_read_chunks(&dir_data[0], file->location_on_disk, 0, buffer_size, file, fd);
 
 	const uint8_t* dir_ptr = &dir_data[0];
 
