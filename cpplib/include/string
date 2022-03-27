@@ -5,20 +5,14 @@
 #include <algorithm>
 #include <type_traits>
 #include <string_view>
+#include <assert.h>
 #include <char_traits.h>
 
 namespace std {
-	template<typename C> class basic_string;
+template<typename C> class basic_string;
 
-	using string = basic_string<char>;
-
-	/*#define assert(expression)      \
-				if(!(expression)) { \
-					printf("%s %s %d\n", #expression, __FILE__, (unsigned)(__LINE__)); while(true);}
-	*/
-	#define assert(expression) 
+using string = basic_string<char>;
 };
-
 
 template<typename CharT>
 class std::basic_string
@@ -122,7 +116,7 @@ public:
 	template <class Tp>
 	struct __is_sv_convertible : public integral_constant<bool,
 		is_convertible_v<const Tp&, __self_view> &&
-		!is_convertible_v<const Tp&, const CharT*>> 
+		!is_convertible_v<const Tp&, const CharT*>>
 	{};
 
 	struct __sv_wrapper
@@ -132,11 +126,11 @@ public:
 	};
 
 	explicit basic_string(__sv_wrapper __sv)
-		: basic_string(__sv._sv.data(), __sv._sv.size()) 
+		: basic_string(__sv._sv.data(), __sv._sv.size())
 	{}
 
 	template <class T, class = typename enable_if<__is_sv_convertible<T>::value>::type>
-		explicit basic_string(const T& t) :
+	explicit basic_string(const T& t) :
 		basic_string(__sv_wrapper(t))
 	{}
 
@@ -578,8 +572,8 @@ private:
 };
 
 template <typename C>
-inline std::basic_string<C> operator+(	const std::basic_string<C>& lhs,
-										const std::basic_string<C>& rhs)
+inline std::basic_string<C> operator+(const std::basic_string<C>& lhs,
+									  const std::basic_string<C>& rhs)
 {
 	auto r = lhs;
 	r += rhs;

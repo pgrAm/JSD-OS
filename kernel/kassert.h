@@ -1,8 +1,9 @@
 #ifndef K_ASSERT_H
 #define K_ASSERT_H
 
-
 #ifndef NDEBUG
+
+#include <stdio.h>
 
 #define k_assert(expression)     \
 		if(!(expression)) {		\
