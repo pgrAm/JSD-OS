@@ -299,7 +299,8 @@ void* memmanager_virtual_alloc(void* v_address, size_t n, page_flags_t flags)
 	page_flags_t pf = flags | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
 	for(size_t i = 0; i < n; i++)
 	{
-		k_assert(memmanager_map_page(page_virtual_address, 0, pf));
+		auto r = memmanager_map_page(page_virtual_address, 0, pf);
+		k_assert(r);
 
 		k_assert(memmanager_get_page_flags(page_virtual_address) & PAGE_RESERVED);
 		k_assert(!(memmanager_get_page_flags(page_virtual_address) & PAGE_PRESENT));
