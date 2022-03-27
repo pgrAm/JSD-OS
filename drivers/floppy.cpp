@@ -12,30 +12,21 @@
 #include <drivers/isa_dma.h>
 #include <drivers/cmos.h>
 
-#define FLOPPY_360_SECTORS_PER_TRACK	9
-#define FLOPPY_360_HEADS_PER_CYLINDER	2
-#define FLOPPY_360_NUMBER_OF_TRACKS		40
-#define FLOPPY_360_GAP_LEN				0x2A
+struct floppy_disk_info {
+	uint8_t sectors_per_track;
+	uint8_t heads_per_cylinder;
+	uint8_t num_tracks;
+	uint8_t gap_len;
+};
 
-#define FLOPPY_1_2_SECTORS_PER_TRACK	15
-#define FLOPPY_1_2_HEADS_PER_CYLINDER	2
-#define FLOPPY_1_2_NUMBER_OF_TRACKS		80
-#define FLOPPY_1_2_GAP_LEN				0x1B
-
-#define FLOPPY_720_SECTORS_PER_TRACK	9
-#define FLOPPY_720_HEADS_PER_CYLINDER	2
-#define FLOPPY_720_NUMBER_OF_TRACKS		80
-#define FLOPPY_720_GAP_LEN				0x2A
-
-#define FLOPPY_144_SECTORS_PER_TRACK	18
-#define FLOPPY_144_HEADS_PER_CYLINDER	2
-#define FLOPPY_144_NUMBER_OF_TRACKS		80
-#define FLOPPY_144_GAP_LEN				0x1B
-
-#define FLOPPY_288_SECTORS_PER_TRACK	36
-#define FLOPPY_288_HEADS_PER_CYLINDER	2
-#define FLOPPY_288_NUMBER_OF_TRACKS		80
-#define FLOPPY_288_GAP_LEN				0x1B
+floppy_disk_info floppy_types[] =
+{
+	{9,	 2, 40, 0x2A}, //360K
+	{15, 2, 80, 0x1B}, //1.2M
+	{9,  2, 80, 0x2A}, //720k
+	{18, 2, 80, 0x1B}, //1.44M
+	{36, 2, 80, 0x1B}, //2.88M
+};
 
 #define FLOPPY_BYTES_PER_SECTOR			512
 
@@ -127,39 +118,15 @@ static void floppy_set_drive_params(uint8_t type, floppy_drive* f)
 	f->mutex.tas_lock = 0;
 	f->mutex.ownerPID = -1;
 
-	switch(type)
+	if(type > 1 && type <= 5)
 	{
-	case 1:
-		f->sectors_per_track = FLOPPY_360_SECTORS_PER_TRACK;
-		f->heads_per_cylinder = FLOPPY_360_HEADS_PER_CYLINDER;
-		f->num_tracks = FLOPPY_360_NUMBER_OF_TRACKS;
-		f->gap_len = FLOPPY_360_GAP_LEN;
-		break;
-	case 2:
-		f->sectors_per_track = FLOPPY_1_2_SECTORS_PER_TRACK;
-		f->heads_per_cylinder = FLOPPY_1_2_HEADS_PER_CYLINDER;
-		f->num_tracks = FLOPPY_1_2_NUMBER_OF_TRACKS;
-		f->gap_len = FLOPPY_1_2_GAP_LEN;
-		break;
-	case 3:
-		f->sectors_per_track = FLOPPY_720_SECTORS_PER_TRACK;
-		f->heads_per_cylinder = FLOPPY_720_HEADS_PER_CYLINDER;
-		f->num_tracks = FLOPPY_720_NUMBER_OF_TRACKS;
-		f->gap_len = FLOPPY_720_GAP_LEN;
-		break;
-	case 4:
-		f->sectors_per_track = FLOPPY_144_SECTORS_PER_TRACK;
-		f->heads_per_cylinder = FLOPPY_144_HEADS_PER_CYLINDER;
-		f->num_tracks = FLOPPY_144_NUMBER_OF_TRACKS;
-		f->gap_len = FLOPPY_144_GAP_LEN;
-		break;
-	case 5:
-		f->sectors_per_track = FLOPPY_288_SECTORS_PER_TRACK;
-		f->heads_per_cylinder = FLOPPY_288_HEADS_PER_CYLINDER;
-		f->num_tracks = FLOPPY_288_NUMBER_OF_TRACKS;
-		f->gap_len = FLOPPY_288_GAP_LEN;
-		break;
-	default:
+		f->sectors_per_track = floppy_types[type - 1].sectors_per_track;
+		f->heads_per_cylinder = floppy_types[type - 1].heads_per_cylinder;
+		f->num_tracks = floppy_types[type - 1].num_tracks;
+		f->gap_len = floppy_types[type - 1].gap_len;
+	}
+	else
+	{
 		return;
 	}
 
