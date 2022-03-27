@@ -14,7 +14,9 @@ static filesystem_driver rdfs_driver = {
 	rdfs_read,
 	nullptr,
 	nullptr,
-	rdfs_read_dir
+	rdfs_read_dir,
+	nullptr,
+	nullptr
 };
 
 extern "C" void rdfs_init(void)

@@ -24,8 +24,10 @@ int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
 file_stream* filesystem_open_file_handle(const file_handle* f, int mode);
 file_stream* filesystem_open_file(const directory_stream* rel, std::string_view path, int mode);
-int filesystem_read_file(void* dst, size_t len, file_stream* f);
+int filesystem_read_file(void* buf, size_t len, file_stream* f);
+int filesystem_write_file(const void* buf, size_t len, file_stream* f);
 void filesystem_seek_file(file_stream* f, size_t pos);
+size_t filesystem_get_pos(file_stream* f);
 int filesystem_close_file(file_stream* f);
 
 directory_stream* filesystem_open_directory_handle(const file_handle* f, int flags);

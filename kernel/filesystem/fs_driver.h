@@ -29,6 +29,8 @@ typedef struct
 	size_t disk_id;
 	size_t size;
 	uint32_t flags;
+
+	uint8_t format_data[sizeof(size_t)*2];
 }
 file_data_block;
 
@@ -44,6 +46,8 @@ struct filesystem_driver
 	fs_index(*write_chunks)(const uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const filesystem_virtual_drive* fd);
 	size_t(*allocate_chunks)(fs_index location, size_t num_bytes, const filesystem_virtual_drive* d);
 	void (*read_dir)(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
+	void (*write_dir)(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
+	void (*flush_file)(const file_data_block* file, const filesystem_virtual_drive* fd);
 };
 
 struct disk_driver

@@ -8,12 +8,13 @@ struct file_stream
 {
 	file_data_block file;
 	size_t seekpos;
+	bool modified;
 };
 
 file_stream* filesystem_create_stream(const file_data_block* f)
 {
 	k_assert(f);
-	return new file_stream { *f, 0 };
+	return new file_stream { *f, 0, false };
 }
 
 file_stream* filesystem_open_file_handle(const file_handle* f, int mode)
@@ -66,6 +67,16 @@ int filesystem_close_file(file_stream* s)
 	if(s == nullptr)
 	{
 		return -1;
+	}
+
+	if(s->modified)
+	{
+		k_assert(!(s->file.flags & IS_READONLY));
+
+		auto drive = filesystem_get_drive(s->file.disk_id);
+		k_assert(drive->fs_driver->flush_file);
+
+		drive->fs_driver->flush_file(&s->file, drive);
 	}
 
 	delete s;
@@ -134,14 +145,20 @@ int filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
 	drive->fs_driver->write_chunks(dst_ptr, s->file.location_on_disk, s->seekpos, len, drive);
 
 	s->seekpos += len;
+	s->modified = true;
 
 	return len;
+}
+
+size_t filesystem_get_pos(file_stream* f)
+{
+	k_assert(f);
+	return f->seekpos;
 }
 
 void filesystem_seek_file(file_stream* f, size_t pos)
 {
 	k_assert(f);
-
 	f->seekpos = pos;
 }
 

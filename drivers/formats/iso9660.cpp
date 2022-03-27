@@ -310,7 +310,9 @@ static filesystem_driver iso9660_driver = {
 	iso9660_read_chunks,
 	nullptr,
 	nullptr,
-	iso9660_read_dir
+	iso9660_read_dir,
+	nullptr,
+	nullptr
 };
 
 extern "C" void iso9660_init(void)

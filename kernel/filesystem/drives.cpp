@@ -359,9 +359,6 @@ void filesystem_drive::read_from_block(size_t block,
 	k_assert(blk.index <= block);
 	auto block_offset = blocks_to_bytes(block - blk.index);
 	memcpy(buf, blk.data + block_offset + offset, num_bytes);
-
-	/*if(blk.index != block)
-		printf("%d %d\n", blk.index, block);*/
 }
 
 void filesystem_write_to_disk(const filesystem_drive* disk,

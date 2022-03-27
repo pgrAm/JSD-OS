@@ -86,6 +86,7 @@ static constexpr func_info func_list[] = {
 	{"free",	(void*)&free},
 	{"strlen",	(void*)&strlen},
 	{"mktime",	(void*)&mktime},
+	{"gmtime",	(void*)&gmtime},
 	{"memcmp",	(void*)&memcmp},
 	{"memset",	(void*)&memset},
 	{"filesystem_add_virtual_drive",(void*)&filesystem_add_virtual_drive},
@@ -97,7 +98,10 @@ static constexpr func_info func_list[] = {
 	{"filesystem_create_stream",	(void*)&filesystem_create_stream},
 	{"filesystem_open_file",		(void*)&filesystem_open_file},
 	{"filesystem_close_file",		(void*)&filesystem_close_file},
+	{"filesystem_seek_file",		(void*)&filesystem_seek_file},
+	{"filesystem_get_pos",			(void*)&filesystem_get_pos},
 	{"filesystem_read_file",		(void*)&filesystem_read_file},
+	{"filesystem_write_file",		(void*)&filesystem_write_file},
 	{"irq_install_handler",			(void*)&irq_install_handler},
 	{"sysclock_sleep",				(void*)&sysclock_sleep},
 	{"sysclock_get_ticks",			(void*)&sysclock_get_ticks},
@@ -204,7 +208,6 @@ static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
 			}
 			else if(token == "execute")
 			{
-
 				auto filename = line.substr(space + 1);
 				auto f = cwd.find_file_by_path(filename);
 
