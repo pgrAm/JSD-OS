@@ -1,5 +1,6 @@
 #include <kernel/physical_manager.h>
 #include <kernel/boot_info.h>
+#include <kernel/kassert.h>
 #include <stdio.h>
 
 typedef struct
@@ -30,10 +31,8 @@ void physical_memory_add_block(size_t block_index, size_t address, size_t length
 
 void physical_memory_remove_block(size_t block_index)
 {
-	if(block_index >= MAX_NUM_MEMORY_BLOCKS)
-	{
-		return;
-	}
+	k_assert(block_index < MAX_NUM_MEMORY_BLOCKS);
+
 	if(block_index < (num_memory_blocks - 1))
 	{
 		memmove(&memory_map[block_index], &memory_map[block_index + 1], sizeof(memory_block) * ((num_memory_blocks - 1) - block_index));
@@ -120,14 +119,26 @@ void physical_memory_free(uintptr_t physical_address, size_t size)
 		{
 			continue;
 		}
-		if(memory_map[i].offset + memory_map[i].length == physical_address) //we have an adjacent block
+		else if(memory_map[i].offset + memory_map[i].length == physical_address) //we have an adjacent block
 		{
-			//physical_address = memory_map[i].offset;
+			//we have an adjacent block before
 			memory_map[i].length += size;
+
+			size_t next_index = i + 1;
+
+			if(next_index < num_memory_blocks &&
+			   memory_map[next_index].offset == physical_address + size)
+			{			
+				//we have an adjacent block after too
+				//collapse that block into this one
+				memory_map[i].length += memory_map[next_index].length;
+				physical_memory_remove_block(next_index);
+			}
 			return;
 		}
-		else if(memory_map[i].offset == physical_address + size) //we have an adjacent block
+		else if(memory_map[i].offset == physical_address + size)
 		{
+			//we have an adjacent block after
 			memory_map[i].offset = physical_address;
 			memory_map[i].length += size;
 			return;
@@ -156,53 +167,6 @@ uintptr_t physical_memory_allocate(size_t size, size_t align)
 	}
 
 	printf("could not allocate enough pages\n");
-
-	return 0;
-}
-
-uintptr_t physical_memory_allocate_from(size_t size, size_t align, size_t* block)
-{
-	for(int i = *block; i < num_memory_blocks; i++)
-	{
-		while(memory_map[i].length >= size) //contigous memory large enough
-		{
-			if(memory_map[i].offset % align != 0) //make sure memory is aligned to a page
-			{
-				uintptr_t aligned_addr = align_addr(memory_map[i].offset, align);
-				size_t padding = aligned_addr - memory_map[i].offset;
-
-				if(memory_map[i].length < size + padding)
-				{
-					break;
-				}
-
-				if(padding > 0)
-				{
-					//add a new block to the list
-					physical_memory_add_block(i, memory_map[i].offset, padding);
-					i++;
-				}
-
-				memory_map[i].offset = aligned_addr;
-				memory_map[i].length -= padding;
-			}
-
-			uintptr_t physical_address = memory_map[i].offset;
-
-			memory_map[i].offset += size;
-			memory_map[i].length -= align;
-
-			if(memory_map[i].length == 0)
-			{
-				//remove this block from the list
-				physical_memory_remove_block(i);
-				i--;
-			}
-
-			*block = i;
-			return physical_address;
-		}
-	}
 
 	return 0;
 }
