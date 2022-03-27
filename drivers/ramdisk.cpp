@@ -49,7 +49,7 @@ static ramdisk_drive* ramdisk_get_drive(size_t index)
 		size_t rd_size = rd_end - rd_begin;
 
 		uintptr_t rd_page_begin = rd_begin & ~(PAGE_SIZE - 1);
-		uintptr_t rd_pages = (rd_end - rd_page_begin + PAGE_SIZE - 1) / PAGE_SIZE;
+		uintptr_t rd_pages = memmanager_minimum_pages(rd_end - rd_page_begin);
 
 		size_t rd_offset = rd_begin - rd_page_begin;
 

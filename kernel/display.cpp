@@ -49,10 +49,11 @@ public:
 
 	kernel_terminal(const display_driver* driver, size_t rows, size_t cols) :
 		m_display(driver),
-		m_screen_ptr((text_char*)get_mapped_frame_buffer(driver, rows*cols)),
+		m_screen_ptr((text_char*)get_mapped_frame_buffer(driver, rows* cols)),
 		m_num_rows(rows),
 		m_num_cols(cols),
-		m_total_size(rows*cols),
+		m_total_size(rows* cols),
+		m_last_row_start((rows - 1)* cols),
 		m_cursorpos(driver->get_cursor_offset())
 	{}
 
@@ -107,8 +108,6 @@ public:
 		const char* currentchar = str;
 		const char* lastchar = str + length;
 
-		auto row_start = (m_num_rows - 1) * m_num_cols;
-
 		for(; currentchar < lastchar; currentchar++)
 		{
 			output_position += handle_char(*currentchar, ptr, output_position);
@@ -116,7 +115,7 @@ public:
 			if(output_position >= m_total_size)
 			{
 				scroll_up();
-				output_position = row_start;
+				output_position = m_last_row_start;
 			}
 			ptr = buffer + output_position;
 		}
@@ -181,6 +180,7 @@ private:
 	size_t m_num_rows;
 	size_t m_num_cols;
 	size_t m_total_size;
+	size_t m_last_row_start;
 	volatile size_t m_cursorpos;
 };
 
@@ -188,7 +188,7 @@ uint8_t k_terminal_mem[sizeof(kernel_terminal)];
 kernel_terminal* k_terminal = nullptr;
 
 SYSCALL_HANDLER int set_cursor_offset(int offset)
-{ 
+{
 	default_driver->set_cursor_offset(offset);
 	return 0;
 }
@@ -197,7 +197,7 @@ static void initialize_terminal(int col, int row)
 {
 	//size_t p = 0;
 
-	if(k_terminal) 
+	if(k_terminal)
 	{
 		if(k_terminal->still_valid(default_driver, col, row))
 		{
@@ -301,7 +301,7 @@ SYSCALL_HANDLER int get_display_mode(int index, display_mode* result)
 
 SYSCALL_HANDLER int set_display_mode(const display_mode* requested, display_mode* actual)
 {
-	if (this_task_is_active())
+	if(this_task_is_active())
 	{
 		bool success = display_mode_satisfied(requested, &current_mode);
 
@@ -349,12 +349,12 @@ SYSCALL_HANDLER int set_display_offset(size_t offset, int on_retrace)
 
 SYSCALL_HANDLER uint8_t* map_display_memory(void)
 {
-	if (this_task_is_active())
+	if(this_task_is_active())
 	{
 		auto num_pages = memmanager_minimum_pages(current_mode.buffer_size);
 		auto buf = default_driver->get_framebuffer();
 
-		return (uint8_t*)memmanager_map_to_new_pages((uintptr_t)buf, num_pages, 
+		return (uint8_t*)memmanager_map_to_new_pages((uintptr_t)buf, num_pages,
 													 PAGE_USER | PAGE_PRESENT | PAGE_RW);
 	}
 	return nullptr;
