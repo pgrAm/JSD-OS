@@ -5,16 +5,21 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include <string>
 #include <vector>
+#include <bit>
 
 template <class K, class D>
 class hash_map
 {
 public:
-	constexpr hash_map(size_t num_buckets = 16) noexcept : buckets(num_buckets, nullptr)
-	{}
+	constexpr hash_map(size_t num_buckets = 16) noexcept 
+		: buckets(num_buckets, nullptr)
+	{
+		assert(std::has_single_bit(num_buckets));
+	}
 
 	~hash_map()
 	{
@@ -35,7 +40,7 @@ public:
 
 	template<typename _Ky> bool lookup(const _Ky& key, D* value)
 	{
-		const size_t i = hash(key) % buckets.size();
+		const size_t i = hash(key) & (buckets.size() - 1);
 		hash_node* entry = buckets[i];
 
 		while(entry != nullptr)
@@ -54,7 +59,7 @@ public:
 
 	template<typename _Ky> void insert(const _Ky& key, const D& value)
 	{
-		size_t i = hash(key) % buckets.size();
+		size_t i = hash(key) & (buckets.size() - 1);
 		hash_node* prev = nullptr;
 		hash_node* entry = buckets[i];
 
@@ -85,7 +90,7 @@ public:
 
 	template<typename _Ky> void remove(const _Ky& key)
 	{
-		D i = hash_string(key) % buckets.size();
+		D i = hash_string(key) & (buckets.size() - 1);
 		hash_node* prev = nullptr;
 		hash_node* entry = buckets[i];
 
