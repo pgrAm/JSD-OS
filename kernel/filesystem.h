@@ -19,11 +19,12 @@ extern "C" {
 
 size_t filesystem_get_num_drives();
 const file_handle* filesystem_get_root_directory(size_t drive);
-const file_handle* filesystem_find_file_by_path(const directory_stream* rel, std::string_view path);
+const file_handle* filesystem_find_file_by_path(directory_stream* rel, std::string_view path, int flags);
+const file_handle* filesystem_create_file(directory_stream* d, std::string_view fname);
 int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
 file_stream* filesystem_open_file_handle(const file_handle* f, int mode);
-file_stream* filesystem_open_file(const directory_stream* rel, std::string_view path, int mode);
+file_stream* filesystem_open_file(directory_stream* rel, std::string_view path, int mode);
 int filesystem_read_file(void* buf, size_t len, file_stream* f);
 int filesystem_write_file(const void* buf, size_t len, file_stream* f);
 void filesystem_seek_file(file_stream* f, size_t pos);
@@ -31,7 +32,7 @@ size_t filesystem_get_pos(file_stream* f);
 int filesystem_close_file(file_stream* f);
 
 directory_stream* filesystem_open_directory_handle(const file_handle* f, int flags);
-directory_stream* filesystem_open_directory(const directory_stream* rel, std::string_view path, int flags);
+directory_stream* filesystem_open_directory(directory_stream* rel, std::string_view path, int flags);
 int filesystem_close_directory(directory_stream* dir);
 
 #else
@@ -42,12 +43,12 @@ typedef struct directory_stream directory_stream;
 
 SYSCALL_HANDLER const file_handle* syscall_get_root_directory(size_t drive);
 SYSCALL_HANDLER const file_handle* syscall_get_file_in_dir(const directory_stream* d, size_t index);
-SYSCALL_HANDLER const file_handle* syscall_find_file_by_path(const directory_stream* rel, const char* path, size_t path_len);
+SYSCALL_HANDLER const file_handle* syscall_find_file_by_path(directory_stream* rel, const char* path, size_t path_len);
 SYSCALL_HANDLER int syscall_get_file_info(file_info* dst, const file_handle* src);
 SYSCALL_HANDLER directory_stream* syscall_open_directory_handle(const file_handle* f, int flags);
 SYSCALL_HANDLER int syscall_close_directory(directory_stream* dir);
 SYSCALL_HANDLER file_stream* syscall_open_file_handle(const file_handle* f, int mode);
-SYSCALL_HANDLER file_stream* syscall_open_file(const directory_stream* rel, const char* path, size_t path_len, int mode);
+SYSCALL_HANDLER file_stream* syscall_open_file(directory_stream* rel, const char* path, size_t path_len, int mode);
 SYSCALL_HANDLER int syscall_read_file(void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_write_file(const void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_close_file(file_stream* f);
@@ -102,9 +103,9 @@ namespace fs
 
 		class dir_stream_base {
 		public:
-			const file_handle* find_file_by_path(std::string_view path)
+			const file_handle* find_file_by_path(std::string_view path, int flags = 0)
 			{
-				return filesystem_find_file_by_path(get_ptr(), path);
+				return filesystem_find_file_by_path(get_ptr(), path, flags);
 			}
 
 			operator bool() const
@@ -139,7 +140,7 @@ namespace fs
 		stream(const file_handle* f, int flags)
 			: stream_base{filesystem_open_file_handle(f, flags)}
 		{}
-		stream(const directory_stream* rel, std::string_view path, int flags)
+		stream(directory_stream* rel, std::string_view path, int flags)
 			: stream_base{filesystem_open_file(rel, path, flags)}
 		{}
 		explicit stream(file_stream* f)
@@ -169,10 +170,10 @@ namespace fs
 		dir_stream(const file_handle* f, int flags)
 			: dir_stream_base{filesystem_open_directory_handle(f, flags)}
 		{}
-		dir_stream(const ref rel, std::string_view path, int flags)
+		dir_stream(ref rel, std::string_view path, int flags)
 			: dir_stream_base{filesystem_open_directory(rel.get_ptr(), path, flags)}
 		{}
-		dir_stream(const directory_stream* rel, std::string_view path, int flags)
+		dir_stream(directory_stream* rel, std::string_view path, int flags)
 			: dir_stream_base{filesystem_open_directory(rel, path, flags)}
 		{}
 		explicit dir_stream(directory_stream* f)

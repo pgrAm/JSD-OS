@@ -21,7 +21,7 @@ directory_stream* filesystem_open_directory_handle(const file_handle* f, int fla
 
 	if(!(f->data.flags & IS_DIR)) { return nullptr; }
 
-	directory_stream* d = new directory_stream{};
+	directory_stream* d = new directory_stream{f->data};
 
 	auto drive = filesystem_get_drive(f->data.disk_id);
 
@@ -46,7 +46,17 @@ static const file_handle* filesystem_find_file_in_dir(const directory_stream& d,
 
 static file_handle found;
 
-const file_handle* filesystem_find_file_by_path(const directory_stream* d, std::string_view path)
+const file_handle* filesystem_create_file(directory_stream* d, std::string_view fname)
+{
+	printf("creating file\n");
+
+	auto drive = filesystem_get_drive(d->data.disk_id);
+	drive->fs_driver->create_file(fname.data(), fname.size(), d, drive);
+
+	return &d->file_list.back();
+}
+
+const file_handle* filesystem_find_file_by_path(directory_stream* d, std::string_view path, int flags)
 {
 	k_assert(d);
 
@@ -88,7 +98,16 @@ const file_handle* filesystem_find_file_by_path(const directory_stream* d, std::
 	}
 	else
 	{
-		return filesystem_find_file_in_dir(*d, path);
+		auto f = filesystem_find_file_in_dir(*d, path);
+		if(!f)
+		{
+			if(flags & FILE_CREATE)
+			{
+				return filesystem_create_file(d, path);
+			}
+		}
+
+		return f;
 	}
 }
 
@@ -114,13 +133,13 @@ int filesystem_close_directory(directory_stream* stream)
 	return 0;
 }
 
-directory_stream* filesystem_open_directory(const directory_stream* rel,
+directory_stream* filesystem_open_directory(directory_stream* rel,
 											std::string_view path,
 											int flags)
 {
 	k_assert(rel);
 
-	if(const file_handle* f = filesystem_find_file_by_path(rel, path))
+	if(const file_handle* f = filesystem_find_file_by_path(rel, path, flags))
 		return filesystem_open_directory_handle(f, flags);
 	else
 		return nullptr;
@@ -166,12 +185,12 @@ const file_handle* syscall_get_file_in_dir(const directory_stream* d, size_t ind
 }
 
 SYSCALL_HANDLER
-const file_handle* syscall_find_file_by_path(const directory_stream* d, const char* name, size_t name_len)
+const file_handle* syscall_find_file_by_path(directory_stream* d, const char* name, size_t name_len)
 {
 	if(name == nullptr || d == nullptr)
 	{
 		return nullptr;
 	};
 
-	return filesystem_find_file_by_path(d, std::string_view{name, name_len});
+	return filesystem_find_file_by_path(d, std::string_view{name, name_len}, 0);
 }

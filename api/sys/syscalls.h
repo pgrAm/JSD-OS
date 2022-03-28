@@ -136,7 +136,7 @@ static inline int write(const void* dst, size_t len, file_stream* file)
 	return (int)do_syscall_3(SYSCALL_WRITE, (uint32_t)dst, (uint32_t)len, (uint32_t)file);
 }
 
-static inline void spawn_process(const file_handle* file, const directory_stream* cwd, int flags)
+static inline void spawn_process(const file_handle* file, directory_stream* cwd, int flags)
 {
 	do_syscall_3(SYSCALL_SPAWN, (uint32_t)file, (uint32_t)cwd, (uint32_t)flags);
 }
@@ -225,7 +225,7 @@ static inline int close_dir(directory_stream* dir)
 	return (int)do_syscall_1(SYSCALL_CLOSE_DIR, (uint32_t)dir);
 }
 
-static inline file_handle* find_path(const directory_stream* rel, const char* name, size_t path_len)
+static inline file_handle* find_path(directory_stream* rel, const char* name, size_t path_len)
 {
 	return (file_handle*)do_syscall_3(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name, (uint32_t)path_len);
 }

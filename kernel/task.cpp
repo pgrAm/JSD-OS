@@ -171,7 +171,7 @@ SYSCALL_HANDLER void exit_process(int val)
 	switch_to_task(next_pid);
 }
 
-extern "C" SYSCALL_HANDLER void spawn_process(const file_handle* file, const directory_stream* cwd, int flags)
+extern "C" SYSCALL_HANDLER void spawn_process(const file_handle* file, directory_stream* cwd, int flags)
 {
 	if(!file || !cwd)
 		return;

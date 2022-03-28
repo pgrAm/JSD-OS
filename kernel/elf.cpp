@@ -120,30 +120,10 @@ static span elf_get_size(ELF_header32* file_header, fs::stream_ref f)
 
 static int elf_read_symbols(ELF_linker_data* object);
 static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
-static int elf_process_dynamic_section(ELF_linker_data* object, const directory_stream* lib_dir);
-int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_stream* lib_dir);
+static int elf_process_dynamic_section(ELF_linker_data* object, directory_stream* lib_dir);
+int load_elf(const file_handle* file, dynamic_object* object, bool user, directory_stream* lib_dir);
 
-/*int load_elf(const char* path, size_t path_len, dynamic_object* object, bool user)
-{
-	std::string_view elf_path{path, path_len};
-
-	file_handle* f = filesystem_find_file_by_path(nullptr, path, path_len);
-	if(f == nullptr)
-	{
-		printf("could not find elf file %s\n", std::string(elf_path).c_str());
-		return 0;
-	}
-
-	std::string_view dir_path{};
-	if(auto slash = elf_path.find_last_of('/'); slash != std::string_view::npos)
-	{
-		dir_path = elf_path.substr(0, slash);
-	}
-	
-	return load_elf(f, object, user, lib_dir);
-}*/
-
-int load_elf(const file_handle* file, dynamic_object* object, bool user, const directory_stream* lib_dir)
+int load_elf(const file_handle* file, dynamic_object* object, bool user, directory_stream* lib_dir)
 {
 	k_assert(file);
 	k_assert(object);
@@ -257,7 +237,7 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, const d
 	return 1;
 }
 
-static int elf_process_dynamic_section(ELF_linker_data* object, const directory_stream* lib_dir)
+static int elf_process_dynamic_section(ELF_linker_data* object, directory_stream* lib_dir)
 {
 	if(object == nullptr)
 	{
@@ -342,7 +322,7 @@ static int elf_process_dynamic_section(ELF_linker_data* object, const directory_
 					lib.symbol_map = object->symbol_map;
 					lib.glob_data_symbol_map = object->glob_data_symbol_map;
 
-					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name))
+					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name, 0))
 					{
 						if(load_elf(lib_handle, &lib, object->userspace, lib_dir))
 						{

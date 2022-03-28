@@ -50,13 +50,13 @@ file_stream* filesystem_open_file_handle(const file_handle* f, int mode)
 	return stream;
 }
 
-file_stream* filesystem_open_file(const directory_stream* rel,
+file_stream* filesystem_open_file(directory_stream* rel,
 								  std::string_view path,
 								  int mode)
 {
 	k_assert(rel);
 
-	if(const file_handle* f = filesystem_find_file_by_path(rel, path))
+	if(const file_handle* f = filesystem_find_file_by_path(rel, path, mode))
 		return filesystem_open_file_handle(f, mode);
 	else
 		return nullptr;
@@ -133,9 +133,8 @@ int filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
 
 	k_assert(drive->fs_driver->write_chunks);
 
-	if(s->seekpos + len >= s->file.size)
+	if(!(s->file.flags & IS_DIR) && s->seekpos + len >= s->file.size)
 	{
-		printf("allocating file\n");
 		filesystem_allocate_space(s, s->file.location_on_disk, s->seekpos + len);
 		len = s->file.size - s->seekpos;
 	}
@@ -181,7 +180,7 @@ SYSCALL_HANDLER int syscall_write_file(const void* dst, size_t len, file_stream*
 }
 
 SYSCALL_HANDLER
-file_stream* syscall_open_file(const directory_stream* rel,
+file_stream* syscall_open_file(directory_stream* rel,
 							   const char* path,
 							   size_t path_len,
 							   int mode)

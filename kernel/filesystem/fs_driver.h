@@ -48,6 +48,7 @@ struct filesystem_driver
 	void (*read_dir)(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
 	void (*write_dir)(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
 	void (*flush_file)(const file_data_block* file, const filesystem_virtual_drive* fd);
+	void (*create_file)(const char* name, size_t name_len, directory_stream* dir, const filesystem_virtual_drive* fd);
 };
 
 struct disk_driver
@@ -85,6 +86,7 @@ struct file_handle
 //information about a directory on disk
 struct directory_stream
 {
+	file_data_block data;
 	std::vector<file_handle> file_list;
 };
 

@@ -9,7 +9,7 @@ int main(int argc, char** argv)
 
 	std::string_view name = "time.txt";
 
-	auto file = open(root, name.data(), name.size(), FILE_WRITE);
+	auto file = open(root, name.data(), name.size(), FILE_WRITE | FILE_CREATE);
 
 	auto tm = time(nullptr);
 
