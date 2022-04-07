@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <charconv>
+#include <memory>
 
 void splash_text(int w);
 
@@ -18,7 +19,7 @@ char prompt_char = ']';
 
 std::vector<std::string> command_history;
 
-directory_stream* current_directory = nullptr;
+file_handle* current_directory = nullptr;
 
 size_t drive_index = 0;
 
@@ -26,14 +27,22 @@ int cursor_x = 0, cursor_y = 0;
 
 void select_drive(size_t index)
 {
-	if(current_directory != nullptr)
-	{
-		close_dir(current_directory);
-	}
 	drive_index = index;
 	current_path.clear();
-	current_directory = open_dir_handle(get_root_directory(drive_index), 0);
+	current_directory = get_root_directory(drive_index);
 }
+
+struct dir_deleter {
+	void operator()(directory_stream* b) { close_dir(b); }
+};
+
+using directory_ptr = std::unique_ptr <directory_stream, dir_deleter>;
+
+struct file_deleter {
+	void operator()(file_stream* b) { close(b); }
+};
+
+using file_ptr = std::unique_ptr <file_stream, file_deleter>;
 
 void list_directory()
 {
@@ -43,13 +52,15 @@ void list_directory()
 		return;
 	}
 
+	auto dir = directory_ptr{open_dir_handle(current_directory, 0)};
+
 	printf("\n Name     Type  Size   Created     Modified\n\n");
 
 	size_t total_bytes = 0;
 	size_t i = 0;
 	file_handle* f_handle = nullptr;
 
-	while((f_handle = get_file_in_dir(current_directory, i++)))
+	while((f_handle = get_file_in_dir(dir.get(), i++)))
 	{
 		file_info f;
 		if(get_file_info(&f, f_handle) != 0)
@@ -132,16 +143,28 @@ void clear_console()
 std::vector<std::string_view> tokenize(std::string_view input, char delim)
 {
 	std::vector<std::string_view> keywords;
-
-	auto pos = input.find_first_of(delim);
-	keywords.push_back(input.substr(0, pos));
-	while(pos++ != std::string_view::npos)
+	size_t first = 0;
+	while(first < input.size())
 	{
-		auto n = input.find_first_of(delim, pos);
-		keywords.push_back(input.substr(pos, n));
-		pos = n;
+		const auto second = input.find_first_of(delim, first);
+		if(first != second)
+		{
+			keywords.emplace_back(input.substr(first, second - first));
+		}
+		if(second == std::string_view::npos)
+		{
+			break;
+		}
+		first = second + 1;
 	}
 	return keywords;
+}
+
+void file_error(std::string_view error, std::string_view file)
+{
+	print_string(error.data(), error.size());
+	print_string(file.data(), file.size());
+	putchar('\n');
 }
 
 int execute_line(std::string_view current_line)
@@ -152,6 +175,8 @@ int execute_line(std::string_view current_line)
 	{
 		return 0;
 	}
+
+	auto dir = directory_ptr{open_dir_handle(current_directory, 0)};
 
 	const auto& keyword = keywords[0];
 
@@ -192,42 +217,32 @@ int execute_line(std::string_view current_line)
 	}
 	else if("cd" == keyword)
 	{
-		if(keywords.size() > 1)
+		if(keywords.size() < 2)
 		{
-			const auto& path = keywords[1];
-
-			file_info file;
-			file_handle* f_handle = find_path(current_directory, path.data(), path.size());
-
-			if(f_handle == nullptr)
-			{
-				printf("Could not find path ");
-				print_string(path.data(), path.size());
-				putchar('\n');
-				return -1;
-			}
-
-			if(get_file_info(&file, f_handle) != 0 || !(file.flags & IS_DIR))
-			{
-				print_string(path.data(), path.size());
-				printf(" is not a valid directory\n");
-				return -1;
-			}
-
-			auto d = open_dir_handle(f_handle, 0);
-
-			if(d == nullptr)
-			{
-				printf("Could not open directory ");
-				print_string(path.data(), path.size());
-				putchar('\n');
-				return -1;
-			}
-
-			current_path.assign(file.name, file.size);
-			current_directory = d;
-			return 1;
+			printf("Not enough arguments\n");
 		}
+
+		const auto& path = keywords[1];
+
+		file_info file;
+		file_handle* f_handle = find_path(dir.get(), path.data(), path.size());
+
+		if(f_handle == nullptr)
+		{
+			file_error("Could not find path ", path);
+			return -1;
+		}
+
+		if(get_file_info(&file, f_handle) != 0 || !(file.flags & IS_DIR))
+		{
+			print_string(path.data(), path.size());
+			printf(" is not a valid directory\n");
+			return -1;
+		}
+
+		current_path.assign(file.name, file.size);
+		current_directory = f_handle;
+		return 1;
 	}
 	else if("mode" == keyword)
 	{
@@ -253,34 +268,71 @@ int execute_line(std::string_view current_line)
 	{
 		const auto& arg = keywords[1];
 		file_info file;
-		file_handle* f_handle = find_file_in_dir(current_directory, &file, arg);
-		if(f_handle)
+
+		if(auto f_handle = find_file_in_dir(dir.get(), &file, arg))
 		{
-			file_stream* fs = open_file_handle(f_handle, 0);
+			auto fs = file_ptr{open_file_handle(f_handle, 0)};
 			if(fs)
 			{
-				//printf("malloc'ing %d bytes\n", file.size);
-				char* dataBuf = new char[file.size];
-				read(dataBuf, file.size, fs);
+				auto dataBuf = std::make_unique<char[]>(file.size);
 
-				print_string(dataBuf, file.size);
+				read(&dataBuf[0], file.size, fs.get());
 
-				delete[] dataBuf;
-				close(fs);
+				print_string(&dataBuf[0], file.size);
+
 				putchar('\n');
 
 				return 0;
 			}
 		}
-		printf("Could not open file ");
-		print_string(arg.data(), arg.size());
-		putchar('\n');
+		file_error("Could not open file ", arg);
 		return -1;
+	}
+	else if("copy" == keyword)
+	{
+		if(keywords.size() < 3)
+		{
+			printf("Incorrect number of arguments\n");
+			return -1;
+		}
+
+		const auto& src = keywords[1];
+		const auto& dst = keywords[2];
+		file_info file;
+		auto src_handle = find_file_in_dir(dir.get(), &file, src);
+		if(!src_handle)
+		{
+			file_error("Could not find source file ", src);
+			return -1;
+		}
+
+		auto src_stream = file_ptr{open_file_handle(src_handle, 0)};
+		if(!src_stream)
+		{
+			file_error("Could not find open source file ", src);
+			return -1;
+		}
+
+		auto dst_stream = file_ptr{open(dir.get(),
+							   dst.data(), dst.size(),
+							   FILE_WRITE | FILE_CREATE)};
+		if(!dst_stream)
+		{
+			file_error("Could not create destination file ", dst);
+			return -1;
+		}
+
+		auto dataBuf = std::make_unique<char[]>(file.size);
+
+		read(&dataBuf[0], file.size, src_stream.get());
+		write(&dataBuf[0], file.size, dst_stream.get());
+
+		return 0;
 	}
 	else
 	{
 		file_info file;
-		if(auto file_h = find_file_in_dir(current_directory, &file, keyword))
+		if(auto file_h = find_file_in_dir(dir.get(), &file, keyword))
 		{
 			std::string_view name = {file.name, file.name_len};
 
@@ -293,30 +345,31 @@ int execute_line(std::string_view current_line)
 					file_info fi;
 					get_file_info(&fi, file_h);
 
-					spawn_process(file_h, current_directory, WAIT_FOR_PROCESS);
+					spawn_process(file_h, dir.get(), WAIT_FOR_PROCESS);
 					return 0;
 				}
 
 				if(filesystem_names_identical("bat", extension))
 				{
-					file_stream* f = open(current_directory,
-										  keyword.data(), keyword.size(), 0);
-					if(f)
+					auto f = file_ptr{open(dir.get(),
+										  keyword.data(), keyword.size(), 0)};
+					if(!f)
 					{
-						uint8_t* dataBuf = new uint8_t[file.size];
-
-						read(dataBuf, file.size, f);
-						close(f);
-
-						auto lines = tokenize(std::string_view((char*)dataBuf, file.size), '\n');
-						for(auto ln : lines)
-						{
-							execute_line(ln);
-						}
-						delete[] dataBuf;
-
-						return 0;
+						file_error("Could not open file ", keyword);
+						return -1;
 					}
+
+					auto dataBuf = std::make_unique<char[]>(file.size);
+
+					read(&dataBuf[0], file.size, f.get());
+
+					auto lines = tokenize(std::string_view(&dataBuf[0], file.size), '\n');
+					for(auto ln : lines)
+					{
+						execute_line(ln);
+					}
+
+					return 0;
 				}
 			}
 		}
@@ -473,7 +526,7 @@ int main(int argc, char** argv)
 
 	printf("t=%d\n", clock_ticks(nullptr));
 
-	current_directory = open_dir_handle(get_root_directory(drive_index), 0);
+	current_directory = get_root_directory(drive_index);
 
 	if(current_directory == nullptr)
 	{
