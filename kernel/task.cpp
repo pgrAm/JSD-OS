@@ -14,9 +14,12 @@ extern "C" {
 #include <kernel/tss.h>
 
 #include <vector>
+#include <memory>
+
+using dynamic_object_ptr = std::unique_ptr<dynamic_object>;
 
 //Thread control block
-typedef struct
+struct __attribute__((packed)) TCB //tcb man, tcb...
 {
 	uintptr_t esp;
 	uintptr_t esp0;
@@ -24,14 +27,14 @@ typedef struct
 	tss* tss_ptr;
 	size_t pid;
 	process* p_data;
-} __attribute__((packed)) TCB; //tcb man, tcb...
+};
 
 struct process
 {
 	void* kernel_stack_top = nullptr;
 	void* user_stack_top = nullptr;
 	uintptr_t address_space = 0;
-	std::vector<dynamic_object*> objects;
+	std::vector<dynamic_object_ptr> objects;
 	int parent_pid = INVALID_PID;
 	TCB tc_block;
 };
@@ -122,17 +125,16 @@ void start_user_process(process* t)
 	__asm__ volatile ("hlt");
 }
 
-enum stackitems
+struct __attribute__((packed)) stack_items
 {
-	EBP_REGISTER = 0,
-	EDI_REGISTER,
-	ESI_REGISTER,
-	EBX_REGISTER,
-	FLAGS_REGISTER,
-	EIP_REGISTER,
-	CS_REGISTER,
-	NEW_PROCESS_PTR,
-	RESERVED_STACK_WORDS
+	uint32_t ebp;
+	uint32_t edi;
+	uint32_t esi;
+	uint32_t ebx;
+	uint32_t flags;
+	uint32_t eip;
+	uint32_t cs;
+	process* process_ptr;
 };
 
 SYSCALL_HANDLER void exit_process(int val)
@@ -150,16 +152,12 @@ SYSCALL_HANDLER void exit_process(int val)
 		active_process = next_pid;
 	}
 
-	for (size_t object_index = 0; object_index < current_process->objects.size(); object_index++)
+	for(auto&& object : current_process->objects)
 	{
-		dynamic_object* o = current_process->objects[object_index];
-
-		for (size_t i = 0; i < o->segments.size(); i++)
+		for(size_t i = 0; i < object->segments.size(); i++)
 		{
-			memmanager_free_pages(o->segments[i].pointer, o->segments[i].num_pages);
+			memmanager_free_pages(object->segments[i].pointer, object->segments[i].num_pages);
 		}
-
-		delete o;
 	}
 
 	//we need to clean up before reenabline interupts or else we might never get it done
@@ -187,15 +185,13 @@ extern "C" SYSCALL_HANDLER void spawn_process(const file_handle* file, directory
 
 	newTask->parent_pid = parent_pid;
 	newTask->address_space = address_space;
+	newTask->objects.emplace_back(std::make_unique<dynamic_object>(
+			new dynamic_object::sym_map(),
+			new dynamic_object::sym_map(),
+			new dynamic_object::sym_map()
+		));
 
-	dynamic_object* d = new dynamic_object();
-	d->symbol_map = new dynamic_object::sym_map();
-	d->glob_data_symbol_map = new dynamic_object::sym_map();
-	d->lib_set = new dynamic_object::sym_map();
-
-	newTask->objects.push_back(d);
-
-	if(!load_elf(file, newTask->objects[0], true, cwd))
+	if(!load_elf(file, newTask->objects[0].get(), true, cwd))
 	{
 		delete newTask;
 		set_page_directory((uintptr_t*)oldcr3);
@@ -206,19 +202,21 @@ extern "C" SYSCALL_HANDLER void spawn_process(const file_handle* file, directory
 	newTask->user_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_USER | PAGE_RW);
 	newTask->kernel_stack_top = memmanager_virtual_alloc(NULL, 1, PAGE_RW);
 
-	newTask->tc_block.esp0 = (uint32_t)newTask->kernel_stack_top + PAGE_SIZE;
-	newTask->tc_block.esp = newTask->tc_block.esp0 - (RESERVED_STACK_WORDS * sizeof(uint32_t));
-	newTask->tc_block.cr3 = (uint32_t)get_page_directory();
-	newTask->tc_block.tss_ptr = current_TSS;
-	newTask->tc_block.pid = running_tasks.size();
-	newTask->tc_block.p_data = newTask;
+	newTask->tc_block = {
+		.esp = (uint32_t)newTask->kernel_stack_top + PAGE_SIZE - sizeof(stack_items),
+		.esp0 = (uint32_t)newTask->kernel_stack_top + PAGE_SIZE,
+		.cr3 = (uint32_t)get_page_directory(),
+		.tss_ptr = current_TSS,
+		.pid = running_tasks.size(),
+		.p_data = newTask
+	};
 
 	//we are setting up the stack of the new process
 	//these will be pop'ed into registers later
-	uint32_t* stack_ptr = ((uint32_t*)newTask->tc_block.esp);
-	stack_ptr[NEW_PROCESS_PTR] = (uint32_t)newTask;
-	stack_ptr[EIP_REGISTER] = (uint32_t)start_user_process; //this is where the new process will start executing
-	stack_ptr[FLAGS_REGISTER] = (uint32_t)0x0200; //flags are all off, except interrupt
+	auto* stack_ptr = ((stack_items*)newTask->tc_block.esp);
+	stack_ptr->process_ptr = newTask;
+	stack_ptr->eip = (uint32_t)start_user_process; //this is where the new process will start executing
+	stack_ptr->flags = (uint32_t)0x0200; //flags are all off, except interrupt
 
 	size_t new_process = newTask->tc_block.pid;
 

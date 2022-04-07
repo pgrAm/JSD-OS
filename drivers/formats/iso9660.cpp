@@ -4,6 +4,7 @@
 #include <vector>
 #include <bit>
 #include <string_view>
+#include <memory>
 
 struct iso9660_drive
 {
@@ -239,7 +240,7 @@ static void iso9660_read_dir(directory_stream* dest, const file_data_block* file
 	const size_t num_sectors = (file->size + (f->sector_size - 1)) >> f->sector_size_log2;
 	const size_t buffer_size = num_sectors << f->sector_size_log2;
 
-	uint8_t* dir_data = new uint8_t[buffer_size];
+	auto dir_data = std::make_unique<uint8_t[]>(buffer_size);
 
 	iso9660_read_chunks(&dir_data[0], file->location_on_disk, 0, buffer_size, file, fd);
 
@@ -259,8 +260,6 @@ static void iso9660_read_dir(directory_stream* dest, const file_data_block* file
 			dir_ptr += length;
 		}	
 	}
-
-	delete[] dir_data;
 }
 
 static int iso9660_mount_disk(filesystem_virtual_drive* fd)

@@ -38,10 +38,11 @@ static void load_driver(fs::dir_stream_ref cwd, const std::string_view filename,
 {
 	k_assert(cwd);
 
-	dynamic_object ob{};
-	ob.lib_set = &driver_symbol_map;
-	ob.symbol_map = &driver_symbol_map;
-	ob.glob_data_symbol_map = &driver_glob_data_symbol_map;
+	dynamic_object ob {	
+		&driver_lib_set, 
+		&driver_symbol_map, 
+		&driver_glob_data_symbol_map
+	};
 
 	auto f = cwd.find_file_by_path(filename);
 	if(f == nullptr)

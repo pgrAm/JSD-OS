@@ -7,6 +7,7 @@
 
 #include <bit>
 #include <string>
+#include <memory>
 #include <vector>
 #include <kernel/filesystem/fs_driver.h>
 #include <kernel/filesystem/util.h>
@@ -555,14 +556,13 @@ static size_t fat_get_relative_cluster(size_t cluster, size_t num_clusters, cons
 
 static int fat_mount_disk(filesystem_virtual_drive* d)
 {
-	uint8_t* boot_sector = new uint8_t[DEFAULT_SECTOR_SIZE];
+	auto boot_sector = std::make_unique<uint8_t[]>(DEFAULT_SECTOR_SIZE);
 
-	filesystem_read(d, 0, 0, boot_sector, DEFAULT_SECTOR_SIZE);
+	filesystem_read(d, 0, 0, boot_sector.get(), DEFAULT_SECTOR_SIZE);
 
 	fat_drive* f = new fat_drive{};
 
-	int err = fat_read_bios_block(boot_sector, f, d->block_size);
-	delete[] boot_sector;
+	int err = fat_read_bios_block(boot_sector.get(), f, d->block_size);
 
 	if(err != MOUNT_SUCCESS)
 	{

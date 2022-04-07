@@ -317,10 +317,11 @@ static int elf_process_dynamic_section(ELF_linker_data* object, directory_stream
 				uint32_t val;
 				if(!object->lib_set->lookup(lib_name, &val))
 				{
-					dynamic_object lib{};
-					lib.lib_set = object->lib_set;
-					lib.symbol_map = object->symbol_map;
-					lib.glob_data_symbol_map = object->glob_data_symbol_map;
+					dynamic_object lib {
+						object->lib_set, 
+						object->symbol_map, 
+						object->glob_data_symbol_map
+					};
 
 					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name, 0))
 					{

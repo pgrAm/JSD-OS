@@ -8,8 +8,8 @@
 #include <assert.h>
 
 #include <string>
-#include <vector>
 #include <bit>
+#include <vector>
 
 template <class K, class D>
 class hash_map
