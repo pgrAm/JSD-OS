@@ -3,16 +3,34 @@
 
 #include <type_traits>
 
-namespace std {
+namespace std 
+{
 	template< class T >
 	constexpr remove_reference_t<T>&& move(T&& t) noexcept {
 		return static_cast<typename std::remove_reference<T>::type&&>(t);
 	}
 
-	template<typename T> void swap(T& t1, T& t2) {
+	template <typename T>
+	inline constexpr enable_if_t<is_move_constructible_v<T> && is_move_assignable_v<T>>
+		swap(T& t1, T& t2) noexcept(is_nothrow_move_constructible_v<T>&&
+									is_nothrow_move_assignable_v<T>)
+	{
 		T temp = std::move(t1);
 		t1 = std::move(t2);
 		t2 = std::move(temp);
+	}
+
+	template <class T>
+	inline constexpr T&& forward(typename remove_reference<T>::type& t) noexcept 
+	{
+		return static_cast<T&&>(t);
+	}
+
+	template <class T>
+	inline constexpr T&& forward(typename remove_reference<T>::type&& t) noexcept 
+	{
+		static_assert(!is_lvalue_reference<T>::value, "cannot forward an rvalue as an lvalue");
+		return static_cast<T&&>(t);
 	}
 }
 #endif

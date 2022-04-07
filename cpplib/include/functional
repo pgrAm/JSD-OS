@@ -1,0 +1,17 @@
+#ifndef STD_FUNCTIONAL_H
+#define STD_FUNCTIONAL_H
+
+namespace std 
+{
+
+template<typename T = void>
+struct less
+{
+    constexpr bool operator()(const T& lhs, const T& rhs) const
+    {
+        return lhs < rhs;
+    }
+};
+
+};
+#endif

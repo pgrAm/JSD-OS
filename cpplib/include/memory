@@ -1,8 +1,704 @@
 #ifndef STD_MEMORY_H
 #define STD_MEMORY_H
 
+#include <type_traits>
+#include <functional>
+
+namespace __pvt
+{
+template <typename T, bool>
+struct dependent_type : public T {};
+
+struct default_init_tag {};
+struct value_init_tag {};
+
+template <typename T, int Index, bool EmptyBase = std::is_empty_v<T> && !std::is_final_v<T>>
+struct compressed_pair_element
+{
+	using reference = T&;
+	using const_reference = const T&;
+
+	constexpr explicit compressed_pair_element(default_init_tag) {}
+	constexpr explicit compressed_pair_element(value_init_tag) : value() {}
+
+	template <typename U, typename = std::enable_if_t<!std::is_same_v<compressed_pair_element, std::decay_t<U>>>>
+	constexpr explicit compressed_pair_element(U&& u)
+		: value(std::forward<U>(u)) {}
+
+	constexpr reference get() noexcept { return value; }
+	constexpr const_reference get() const noexcept { return value; }
+
+private:
+	T value;
+};
+
+template <typename T, int Idx>
+struct compressed_pair_element<T, Idx, true> : private T {
+	using reference = T&;
+	using const_reference = const T&;
+	using value_type = T;
+
+	constexpr explicit compressed_pair_element() = default;
+	constexpr explicit compressed_pair_element(default_init_tag) {}
+	constexpr explicit compressed_pair_element(value_init_tag) : value_type() {}
+
+	template <typename U, std::enable_if_t<!std::is_same_v<compressed_pair_element, std::decay_t<U>>>>
+	constexpr explicit compressed_pair_element(U&& u) : value_type(std::forward<U>(u)) {}
+
+	constexpr reference get() noexcept { return *this; }
+	constexpr const_reference get() const noexcept { return *this; }
+};
+
+template <typename T1, typename T2>
+class compressed_pair 
+	: private compressed_pair_element<T1, 0>
+	, private compressed_pair_element<T2, 1>
+{
+public:
+	static_assert(!std::is_same_v<T1, T2>);
+
+	using elem0_t = compressed_pair_element<T1, 0>;
+	using elem1_t = compressed_pair_element<T2, 1>;
+
+	template <typename = std::enable_if_t<
+		std::is_default_constructible_v<T1> &&
+		std::is_default_constructible_v<T2>>>
+	constexpr explicit compressed_pair()
+		: elem0_t(value_init_tag()), elem1_t(value_init_tag()) 
+	{}
+
+	template <typename U1, typename U2>
+	constexpr explicit compressed_pair(U1&& t1, U2&& t2) : elem0_t(std::forward<U1>(t1)), elem1_t(std::forward<U2>(t2)) {}
+
+	template <typename U>
+	constexpr explicit compressed_pair(U&& t1) : elem0_t(std::forward<U>(t1)), elem1_t(value_init_tag()) {}
+
+	constexpr  typename elem0_t::reference first() noexcept
+	{
+		return static_cast<elem0_t&>(*this).get();
+	}
+
+	constexpr typename elem0_t::const_reference first() const noexcept
+	{
+		return static_cast<elem0_t const&>(*this).get();
+	}
+
+	constexpr typename elem1_t::reference second() noexcept
+	{
+		return static_cast<elem1_t&>(*this).get();
+	}
+
+	constexpr typename elem1_t::const_reference second() const noexcept
+	{
+		return static_cast<elem1_t const&>(*this).get();
+	}
+
+	constexpr void swap(compressed_pair& x)
+		noexcept(std::is_nothrow_swappable_v<T1> && std::is_nothrow_swappable_v<T2>)
+	{
+		using std::swap;
+		swap(first(), x.first());
+		swap(second(), x.second());
+	}
+};
+
+template <typename T1, typename T2>
+inline constexpr void swap(compressed_pair<T1, T2>& x, compressed_pair<T1, T2>& y)
+	noexcept(std::is_nothrow_swappable_v<T1> && std::is_nothrow_swappable_v<T2>)
+{
+	x.swap(y);
+}
+}
+
+namespace __pvt {
+template <typename D>
+struct unique_ptr_deleter_sfinae
+{
+	static_assert(!std::is_reference_v<D>);
+	using lval_ref_t = const D&;
+	using good_rval_ref_t = D&&;
+};
+
+template <typename D>
+struct unique_ptr_deleter_sfinae<D const&>
+{
+	using lval_ref_t = const D&;
+	using bad_rval_ref_t = const D&&;
+};
+
+template <typename D>
+struct unique_ptr_deleter_sfinae<D&>
+{
+	using lval_ref_t = D&;
+	using bad_rval_ref_t = D&&;
+};
+}
+
 namespace std {
-	class unique_ptr;
+
+using nullptr_t = decltype(nullptr);
+
+template <typename T>
+struct default_delete
+{
+	static_assert(!is_function_v<T>);
+
+	constexpr default_delete() noexcept = default;
+
+	template <typename U>
+	default_delete(const default_delete<U>&,
+				   enable_if_t<is_convertible_v<U*, T*>>* = 0) noexcept
+	{}
+
+	void operator()(T* ptr) const noexcept
+	{
+		static_assert(sizeof(T) >= 0 && !is_void_v<T>);
+		delete ptr;
+	}
+};
+
+template <typename T>
+struct default_delete<T[]>
+{
+private:
+	template <typename U>
+	inline static constexpr bool convertible = is_convertible_v<U(*)[], T(*)[]>;
+
+public:
+	constexpr default_delete() noexcept = default;
+
+	template <typename U>
+	default_delete(const default_delete<U[]>&,
+				   enable_if_t<convertible<U>>* = 0) noexcept
+	{}
+
+	template <typename U>
+	enable_if_t<convertible<U>> operator()(U* ptr) const noexcept
+	{
+		static_assert(sizeof(U) >= 0);
+		delete[] ptr;
+	}
+};
+
+template <typename T, typename D = default_delete<T>>
+class unique_ptr 
+{
+
+public:
+	using element_type = T;
+	using deleter_type = D;
+	using pointer = T*;
+
+	static_assert(!is_rvalue_reference_v<deleter_type>);
+
+private:
+	__pvt::compressed_pair<pointer, deleter_type> m_ptr;
+
+	using d_traits = __pvt::unique_ptr_deleter_sfinae<D> ;
+
+	template <bool Dm>
+	using lval_ref_t = typename __pvt::dependent_type<d_traits, Dm>::lval_ref_t;
+	
+	template <bool Dm>
+	using good_rval_ref_t = typename __pvt::dependent_type<d_traits, Dm>::good_rval_ref_t;
+
+	template <bool Dm>
+	using bad_rval_ref_t = typename __pvt::dependent_type<d_traits, Dm>::bad_rval_ref_t;
+
+	template <bool Dm, typename Del = deleter_type>
+	inline static constexpr bool deleter_default_constructible =
+		is_default_constructible_v<Del> && !is_pointer_v<Del>;
+
+	template <typename From>
+	inline static constexpr bool deleter_constructible = is_constructible_v<deleter_type, From>;
+
+	template <typename Uq, typename U>
+	inline static constexpr bool move_convertible =
+		is_convertible_v<typename Uq::pointer, pointer> && !is_array_v<U>;
+
+	template <typename Od>
+	inline static constexpr bool deleter_convertible =
+		(is_reference_v<D> && is_same_v<D, Od>) ||
+		(!is_reference_v<D> && is_convertible_v<Od, D>);
+
+	template <typename Od>
+	inline static constexpr bool deleter_assignable = is_assignable_v<D&, Od&&>;
+
+public:
+	template <bool Dm = true, typename = enable_if_t<
+		deleter_default_constructible<Dm>>>
+	constexpr unique_ptr() noexcept 
+		: m_ptr()
+	{}
+
+	template <bool Dm = true, typename = enable_if_t<
+		deleter_default_constructible<Dm>>>
+	constexpr unique_ptr(nullptr_t) noexcept 
+		: m_ptr()
+	{}
+
+	template <bool Dm = true, typename = enable_if_t<
+		deleter_default_constructible<Dm>>>
+	explicit unique_ptr(pointer p) noexcept 
+		: m_ptr(p)
+	{}
+
+	template <bool Dm = true, typename = enable_if_t<
+		deleter_constructible<lval_ref_t<Dm>>>>
+	unique_ptr(pointer p, lval_ref_t<Dm> d) noexcept
+		: m_ptr(p, d) 
+	{}
+
+	template <bool Dm = true, typename = enable_if_t<
+		deleter_constructible<good_rval_ref_t<Dm>>>>
+	unique_ptr(pointer p, good_rval_ref_t<Dm> d) noexcept
+		: m_ptr(p, std::move(d))
+	{
+		static_assert(!is_reference_v<deleter_type>);
+	}
+
+	template <bool Dm = true, typename = enable_if_t<
+		deleter_constructible<bad_rval_ref_t<Dm>>>>
+	unique_ptr(pointer p, bad_rval_ref_t<Dm> d) = delete;
+
+	unique_ptr(unique_ptr&& u) noexcept
+		: m_ptr(u.release(), std::forward<deleter_type>(u.get_deleter())) 
+	{}
+
+	template <typename U, typename Od, typename = enable_if_t<
+		move_convertible<unique_ptr<U, Od>, U> && 
+		deleter_convertible<Od>>>
+		unique_ptr(unique_ptr<U, Od>&& other) noexcept
+		: m_ptr(other.release(), std::forward<Od>(other.get_deleter()))
+	{}
+
+	unique_ptr& operator=(unique_ptr&& u) noexcept
+	{
+		reset(u.release());
+		m_ptr.second() = std::forward<deleter_type>(u.get_deleter());
+		return *this;
+	}
+
+	template <typename U, typename Od, typename = enable_if_t<
+		move_convertible<unique_ptr<U, Od>, U> && 
+		deleter_assignable<Od>>>
+		unique_ptr& operator=(unique_ptr<U, Od>&& other) noexcept
+	{
+		reset(other.release());
+		m_ptr.second() = std::forward<Od>(other.get_deleter());
+		return *this;
+	}
+
+	~unique_ptr() { reset(); }
+
+	unique_ptr& operator=(nullptr_t) noexcept 
+	{
+		reset();
+		return *this;
+	}
+
+	pointer operator->() const noexcept 
+	{
+		return m_ptr.first();
+	}
+
+	add_lvalue_reference_t<T> operator*() const
+	{
+		return *m_ptr.first();
+	}
+
+	pointer get() const noexcept 
+	{
+		return m_ptr.first();
+	}
+
+	deleter_type& get_deleter() noexcept 
+	{
+		return m_ptr.second();
+	}
+
+	const deleter_type& get_deleter() const noexcept 
+	{
+		return m_ptr.second();
+	}
+
+	explicit operator bool() const noexcept 
+	{
+		return m_ptr.first() != nullptr;
+	}
+
+	pointer release() noexcept 
+	{
+		auto t = m_ptr.first();
+		m_ptr.first() = pointer();
+		return t;
+	}
+
+	void reset(pointer p = pointer()) noexcept 
+	{
+		auto t = m_ptr.first();
+		m_ptr.first() = p;
+		if(t)
+			m_ptr.second()(t);
+	}
+
+	void swap(unique_ptr& other) noexcept 
+	{
+		m_ptr.swap(other.m_ptr);
+	}
+};
+
+template <typename T, typename D>
+class unique_ptr<T[], D> {
+public:
+	using element_type = T;
+	using deleter_type = D;
+	using pointer = T*;
+
+private:
+	__pvt::compressed_pair<pointer, deleter_type> m_ptr;
+
+	template <typename From>
+	inline static constexpr bool pointer_convertible = is_same_v<From, pointer>;
+
+	template <typename FromElem>
+	inline static constexpr bool pointer_convertible<FromElem*> =
+		is_same_v<FromElem*, pointer> ||
+		(is_same_v<pointer, element_type*> && is_convertible_v<FromElem(*)[], element_type(*)[]>);
+
+	using d_traits = __pvt::unique_ptr_deleter_sfinae<D>;
+
+	template <bool Dm>
+	using lval_ref_t = 
+		typename __pvt::dependent_type<d_traits, Dm>::lval_ref_t;
+
+	template <bool Dm>
+	using good_rval_ref_t =	
+		typename __pvt::dependent_type<d_traits, Dm>::good_rval_ref_t;
+
+	template <bool Dm>
+	using bad_rval_ref_t = 
+		typename __pvt::dependent_type<d_traits, Dm>::bad_rval_ref_t;
+
+	template <bool Dm, typename Del = deleter_type>
+	inline static constexpr bool deleter_default_constructible = 
+		is_default_constructible_v<Del> && !is_pointer_v<Del>;
+
+	template <typename From>
+	inline static constexpr bool deleter_constructible = is_constructible_v<deleter_type, From>;
+
+	template <typename Uq, typename U, typename ElemT = typename Uq::element_type>
+	inline static constexpr bool move_convertible = 
+		is_array_v<U> && is_same_v<pointer, element_type*> &&
+		is_same_v<typename Uq::pointer, ElemT*> && is_convertible_v<ElemT(*)[], element_type(*)[]>;
+
+	template <typename UDel>
+	inline static constexpr bool deleter_convertible =
+		(is_reference_v<D> && is_same_v<D, UDel>) ||
+		(!is_reference_v<D> && is_convertible_v<UDel, D>);
+
+	template <typename UDel>
+	inline static constexpr bool deleter_assignable = is_assignable_v<D&, UDel&&>;
+
+public:
+	template <bool Dm = true, typename = enable_if_t<
+		deleter_default_constructible<Dm>>>
+	unique_ptr() noexcept 
+		: m_ptr() 
+	{}
+
+	template <bool Dm = true, typename = enable_if_t<
+		deleter_default_constructible<Dm>>>
+	unique_ptr(nullptr_t) noexcept
+		: m_ptr() 
+	{}
+
+	template <typename P, bool Dm = true, typename = enable_if_t<
+		deleter_default_constructible<Dm> && 
+		pointer_convertible<P>>>
+	explicit unique_ptr(P p) noexcept 
+		: m_ptr(p) 
+	{}
+
+	template <typename P, bool Dm = true, typename = enable_if_t<
+		deleter_constructible<lval_ref_t<Dm>> && 
+		pointer_convertible<P>>>
+	unique_ptr(P p, lval_ref_t<Dm> d) noexcept
+		: m_ptr(p, d) 
+	{}
+
+	template <bool Dm = true, typename = enable_if_t<
+		deleter_constructible<lval_ref_t<Dm>>>>
+	unique_ptr(nullptr_t, lval_ref_t<Dm> d) noexcept
+		: m_ptr(nullptr, d) 
+	{}
+
+	template <typename P, bool Dm = true, typename = enable_if_t<
+		deleter_constructible<good_rval_ref_t<Dm>> && 
+		pointer_convertible<P>>>
+	unique_ptr(P p, good_rval_ref_t<Dm> d) noexcept
+		: m_ptr(p, std::move(d)) 
+	{
+		static_assert(!is_reference_v<deleter_type>);
+	}
+
+	template <bool Dm = true,
+		typename = enable_if_t<deleter_constructible<good_rval_ref_t<Dm>>>>
+	unique_ptr(nullptr_t, good_rval_ref_t<Dm> d) noexcept
+		: m_ptr(nullptr, std::move(d)) 
+	{
+		static_assert(!is_reference_v<deleter_type>);
+	}
+
+	template <typename P, bool Dm = true, typename = enable_if_t<
+		deleter_constructible<bad_rval_ref_t<Dm>> && 
+		pointer_convertible<P>>>
+	unique_ptr(P ptr, bad_rval_ref_t<Dm> __d) = delete;
+
+
+	unique_ptr(unique_ptr&& other) noexcept
+		: m_ptr(other.release(), std::forward<deleter_type>(other.get_deleter())) 
+	{}
+
+	unique_ptr& operator=(unique_ptr&& other) noexcept 
+	{
+		reset(other.release());
+		m_ptr.second() = std::forward<deleter_type>(other.get_deleter());
+		return *this;
+	}
+
+	template <typename U, typename E, typename = enable_if_t<
+		move_convertible<unique_ptr<U, E>, U> && 
+		deleter_convertible<E>>>
+	unique_ptr(unique_ptr<U, E>&& other) noexcept
+		: m_ptr(other.release(), std::forward<E>(other.get_deleter())) 
+	{}
+
+	template <typename U, typename E, typename = enable_if_t<
+		move_convertible<unique_ptr<U, E>, U> && 
+		deleter_assignable<E>>>
+	unique_ptr& operator=(unique_ptr<U, E>&& other) noexcept 
+	{
+		reset(other.release());
+		m_ptr.second() = std::forward<E>(other.get_deleter());
+		return *this;
+	}
+
+public:
+
+	~unique_ptr() 
+	{ 
+		reset(); 
+	}
+
+	unique_ptr& operator=(nullptr_t) noexcept 
+	{		
+		reset();
+		return *this;
+	}
+
+	add_lvalue_reference_t<T> operator[](size_t i) const
+	{
+		return m_ptr.first()[i];
+	}
+
+	pointer get() const noexcept 
+	{
+		return m_ptr.first();
+	}
+
+	deleter_type& get_deleter() noexcept
+	{
+		return m_ptr.second();
+	}
+
+	const deleter_type& get_deleter() const noexcept 
+	{
+		return m_ptr.second();
+	}
+
+	explicit operator bool() const noexcept 
+	{
+		return m_ptr.first() != nullptr;
+	}
+
+	pointer release() noexcept 
+	{
+		auto t = m_ptr.first();
+		m_ptr.first() = pointer();
+		return t;
+	}
+
+	template <typename P>
+	enable_if_t<pointer_convertible<P>> reset(P p) noexcept
+	{
+		auto tmp = m_ptr.first();
+		m_ptr.first() = p;
+		if(tmp)
+			m_ptr.second()(tmp);
+	}
+
+	void reset(nullptr_t = nullptr) noexcept 
+	{
+		auto tmp = m_ptr.first();
+		m_ptr.first() = nullptr;
+		if(tmp)
+			m_ptr.second()(tmp);
+	}
+
+	void swap(unique_ptr& other) noexcept 
+	{
+		m_ptr.swap(other.m_ptr);
+	}
+};
+
+template <typename T, typename D>
+inline enable_if_t<std::is_swappable_v<D>, void>
+swap(unique_ptr<T, D>& x, unique_ptr<T, D>& y) noexcept
+{
+	x.swap(y);
+}
+
+template <typename T1, typename D1, typename T2, typename D2>
+inline bool operator==(const unique_ptr<T1, D1>& x, const unique_ptr<T2, D2>& y)
+{
+	return x.get() == y.get();
+}
+
+template <typename T1, typename D1, typename T2, typename D2>
+inline bool operator!=(const unique_ptr<T1, D1>& x, const unique_ptr<T2, D2>& y)
+{
+	return !(x == y);
+}
+
+template <typename T1, typename D1, typename T2, typename D2>
+inline bool operator> (const unique_ptr<T1, D1>& x, const unique_ptr<T2, D2>& y) 
+{ 
+	return y < x; 
+}
+
+template <typename T1, typename D1, typename T2, typename D2>
+inline bool operator<=(const unique_ptr<T1, D1>& x, const unique_ptr<T2, D2>& y) 
+{ 
+	return !(y < x); 
+}
+
+template <typename T1, typename D1, typename T2, typename D2>
+inline bool operator>=(const unique_ptr<T1, D1>& x, const unique_ptr<T2, D2>& y) 
+{ 
+	return !(x < y); 
+}
+
+template <typename T, typename D>
+inline bool operator==(const unique_ptr<T, D>& x, nullptr_t) noexcept
+{
+	return !x;
+}
+
+template <typename T, typename D>
+inline bool operator==(nullptr_t, const unique_ptr<T, D>& x) noexcept
+{
+	return !x;
+}
+
+template <typename T, typename D>
+inline bool operator!=(const unique_ptr<T, D>& x, nullptr_t) noexcept
+{
+	return static_cast<bool>(x);
+}
+
+template <typename T, typename D>
+inline bool operator!=(nullptr_t, const unique_ptr<T, D>& x) noexcept
+{
+	return static_cast<bool>(x);
+}
+
+template <typename T, typename D> 
+inline bool operator<(const unique_ptr<T, D>& x, nullptr_t)
+{
+	return std::less<typename unique_ptr<T, D>::pointer>()(x.get(), nullptr);
+}
+
+template <typename T, typename D> 
+inline bool operator<(nullptr_t, const unique_ptr<T, D>& x)
+{
+	return std::less<typename unique_ptr<T, D>::pointer>()(nullptr, x.get());
+}
+
+template <typename T, typename D>
+inline bool operator>(const unique_ptr<T, D>& x, nullptr_t)
+{
+	return nullptr < x;
+}
+
+template <typename T, typename D>
+inline bool operator>(nullptr_t, const unique_ptr<T, D>& x)
+{
+	return x < nullptr;
+}
+
+template <typename T, typename D>
+inline bool operator<=(const unique_ptr<T, D>& x, nullptr_t)
+{
+	return !(nullptr < x);
+}
+
+template <typename T, typename D>
+inline bool operator<=(nullptr_t, const unique_ptr<T, D>& x)
+{
+	return !(x < nullptr);
+}
+
+template <typename T, typename D>
+inline bool operator>=(const unique_ptr<T, D>& x, nullptr_t)
+{
+	return !(x < nullptr);
+}
+
+template <typename T, typename D>
+inline bool operator>=(nullptr_t, const unique_ptr<T, D>& x)
+{
+	return !(nullptr < x);
+}
+
+namespace __pvt {
+template<typename T>
+struct mk_uniq_impl
+{
+	using single = unique_ptr<T>;
+};
+
+template<typename T>
+struct mk_uniq_impl<T[]>
+{
+	using array = unique_ptr<T[]>;
+};
+
+template<typename T, size_t N>
+struct mk_uniq_impl<T[N]>
+{
+	using invalid = void;
+};
+}
+
+template<typename T, typename... Args>
+inline typename __pvt::mk_uniq_impl<T>::single
+make_unique(Args&&... args)
+{
+	return unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+
+template<typename T>
+inline typename __pvt::mk_uniq_impl<T>::array
+make_unique(size_t n)
+{
+	return unique_ptr<T>(new remove_extent_t<T>[n]());
+}
+
+template<typename T, typename... Args>
+typename __pvt::mk_uniq_impl<T>::invalid
+make_unique(Args&&...) = delete;
+
 };
 
 #endif

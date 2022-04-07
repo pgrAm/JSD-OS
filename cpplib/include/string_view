@@ -107,11 +107,8 @@ public:
 	constexpr basic_string_view substr(size_type pos = 0,
 									   size_type count = npos) const
 	{
-		if(count == npos)
-		{
-			count = size() - pos;
-		}
-		return basic_string_view{cbegin() + pos, count};
+		return basic_string_view{ cbegin() + pos, 
+								  std::min(size() - pos, count) };
 	}
 
 	constexpr size_type find_first_of( basic_string_view str, 

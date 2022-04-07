@@ -388,11 +388,8 @@ public:
 
 	basic_string substr(size_t pos = 0, size_t count = npos) const
 	{
-		if(count == npos)
-		{
-			count = size() - pos;
-		}
-		return basic_string{cbegin() + pos, count};
+		return basic_string{ cbegin() + pos,
+							 std::min(size() - pos, count) };
 	}
 
 	size_t find_first_of(const basic_string& str, size_t pos = 0) const

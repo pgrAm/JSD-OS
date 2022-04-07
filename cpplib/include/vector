@@ -6,6 +6,7 @@ extern "C" {
 }
 
 #include <algorithm>
+#include <utility>
 #include <new>
 
 namespace std {
@@ -156,11 +157,17 @@ public:
 
 	void push_back(const T& c)
 	{
+		emplace_back(c);
+	}
+
+	template <class... Args>
+	void  emplace_back(Args&&... args)
+	{
 		if(size() + 1 > capacity())
 		{
 			reserve((m_capacity + 1) * 2);
 		}
-		new(m_end++) T{c};
+		new(m_end++) T{std::forward<Args>(args)...};
 	}
 
 	bool empty()

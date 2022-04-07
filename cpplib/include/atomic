@@ -1,0 +1,4 @@
+#ifndef STD_ATOMIC_H
+#define STD_ATOMIC_H
+
+#endif
