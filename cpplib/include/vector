@@ -101,7 +101,7 @@ public:
 			auto sz = size();	
 			T* new_ptr = new T[n];
 
-			std::move(cbegin(), cend(), new_ptr);
+			std::move(begin(), end(), new_ptr);
 
 			delete[] m_begin;
 

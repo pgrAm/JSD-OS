@@ -42,7 +42,7 @@ struct compressed_pair_element<T, Idx, true> : private T {
 	constexpr explicit compressed_pair_element(default_init_tag) {}
 	constexpr explicit compressed_pair_element(value_init_tag) : value_type() {}
 
-	template <typename U, std::enable_if_t<!std::is_same_v<compressed_pair_element, std::decay_t<U>>>>
+	template <typename U, typename = std::enable_if_t<!std::is_same_v<compressed_pair_element, std::decay_t<U>>>>
 	constexpr explicit compressed_pair_element(U&& u) : value_type(std::forward<U>(u)) {}
 
 	constexpr reference get() noexcept { return *this; }
@@ -68,7 +68,8 @@ public:
 	{}
 
 	template <typename U1, typename U2>
-	constexpr explicit compressed_pair(U1&& t1, U2&& t2) : elem0_t(std::forward<U1>(t1)), elem1_t(std::forward<U2>(t2)) {}
+	constexpr explicit compressed_pair(U1&& t1, U2&& t2) 
+		: elem0_t(std::forward<U1>(t1)), elem1_t(std::forward<U2>(t2)) {}
 
 	template <typename U>
 	constexpr explicit compressed_pair(U&& t1) : elem0_t(std::forward<U>(t1)), elem1_t(value_init_tag()) {}
