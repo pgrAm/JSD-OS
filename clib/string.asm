@@ -1,7 +1,7 @@
 [bits 32]
 
 ;void* memset(void* ptr, int value, size_t num)
-global memset
+global memset:function
 memset:
 	push edi	
 	mov ecx, 	[esp + 16]
@@ -14,7 +14,7 @@ memset:
 	ret
 	
 ;void* memcpy(void* dest, const void* src, size_t num) 
-global memcpy
+global memcpy:function
 memcpy:
 	push edi
 	push esi
