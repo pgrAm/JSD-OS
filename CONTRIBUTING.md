@@ -13,7 +13,7 @@ Contributions are welcome and encouraged! If you would like to add something to 
 - New code is preferably written in C++, as of right now JSD/OS conforms to the C++17 standard
 - Plain C is used and permitted but the kernel API is geared towards C++
 - Please try to implement any hardware specific functionality as a module in the /drivers directory
-- Please avoid Racist/Homophobic/offensive language in comments
+- Please avoid Racist/Homophobic/offensive language in comments (Fbombs are permitted)
 - Please use English language names and comments and avoid non-ASCII characters
 - Please use tabs not spaces and try to use Allman formatting if possible
 
