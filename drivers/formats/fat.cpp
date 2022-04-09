@@ -354,9 +354,11 @@ static uint8_t to_fat_flags(uint32_t flags)
 
 static fat_directory_entry fat_create_dir_entry(const file_handle& src)
 {
+	using namespace std::literals;
+
 	auto dot = src.name.find_last_of('.');
 	auto name = std::string_view{src.name}.substr(0, std::min(dot, 8u));
-	auto ext = std::string_view{src.name}.substr(dot+1, 3);
+	auto ext = dot == src.name.npos ? "" : std::string_view{src.name}.substr(dot+1, 3);
 
 	auto create = time_t_time_to_fat_time(src.time_created);
 	auto modify = time_t_time_to_fat_time(src.time_modified);
@@ -375,8 +377,21 @@ static fat_directory_entry fat_create_dir_entry(const file_handle& src)
 		.file_size = src.data.size,
 	};
 
-	write_field(&e.name[0], name, 8);
-	write_field(&e.extension[0], ext, 3);
+	if(src.name == "."sv)
+	{
+		write_field(&e.name[0], "\x2e", 8);
+		write_field(&e.extension[0], "", 3);
+	}
+	else if(src.name == ".."sv)
+	{
+		write_field(&e.name[0], "\x2e\x2e", 8);
+		write_field(&e.extension[0], "", 3);
+	}
+	else
+	{
+		write_field(&e.name[0], name, 8);
+		write_field(&e.extension[0], ext, 3);
+	}
 
 	return e;
 }
@@ -387,11 +402,20 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 		return false;
 	} //end of directory
 
-	dest.name = read_field(entry.name, 8);
-	if(auto ext = read_field(entry.extension, 3); !ext.empty())
+	if(entry.name[0] == 0x2E) 
 	{
 		dest.name += '.';
-		dest.name += ext;
+		if(entry.name[1] == 0x2E)
+			dest.name += '.';
+	}
+	else
+	{
+		dest.name = read_field(entry.name, 8);
+		if(auto ext = read_field(entry.extension, 3); !ext.empty())
+		{
+			dest.name += '.';
+			dest.name += ext;
+		}
 	}
 
 	dest.time_created = fat_time_to_time_t({entry.created_date, 
@@ -407,20 +431,30 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 		.flags = fat_convert_flags(entry.attributes)
 	};
 
+	if((dest.data.flags & IS_DIR) && 
+	   dest.data.location_on_disk == 0)
+	{
+		dest.data.flags |= FAT_ROOT_DIR_FLAG;
+	}
+
 	return true;
 }
 
 static void fat_read_dir(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
 {
-	file_stream* dir_stream = filesystem_create_stream(dir);
+	fs::stream dir_stream{filesystem_create_stream(dir)};
 	k_assert(dir_stream);
 
 	while(true)
 	{
 		fat_directory_entry entry;
-		if(filesystem_read_file(&entry, sizeof(fat_directory_entry), dir_stream)
+		if(dir_stream.read(&entry, sizeof(fat_directory_entry))
 		   != sizeof(fat_directory_entry))
 		{
+			break;
+		}
+
+		if(entry.name[0] == 0) {
 			break;
 		}
 
@@ -440,22 +474,18 @@ static void fat_read_dir(directory_stream* dest, const file_data_block* dir, con
 
 		dest->file_list.push_back(out);
 	}
-
-	filesystem_close_file(dir_stream);
 }
 
 void fat_write_dir(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
 {
-	file_stream* dir_stream = filesystem_create_stream(dir);
+	fs::stream dir_stream{filesystem_create_stream(dir)};
 	k_assert(dir_stream);
 
 	for(auto&& entry : dest->file_list)
 	{
 		fat_directory_entry f = fat_create_dir_entry(entry);
-		filesystem_write_file(&f, sizeof(fat_directory_entry), dir_stream);
+		dir_stream.write(&f, sizeof(fat_directory_entry));
 	}
-
-	filesystem_close_file(dir_stream);
 }
 
 template<fat_type T>
@@ -574,9 +604,11 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 
 	f->cached_fat_sector = 0;
 
+	auto loc = (f->type == FAT_12 || f->type == FAT_16) ? 0 : f->root_location;
+
 	d->root_dir = {
 		.name = {},
-		.data = {f->root_location, d->id, 0, IS_DIR | FAT_ROOT_DIR_FLAG},
+		.data = {loc, d->id, 0, IS_DIR | FAT_ROOT_DIR_FLAG},
 		.time_created = 0,
 		.time_modified = 0,
 	};
@@ -590,7 +622,7 @@ static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset,
 
 	if((f->type == FAT_12 || f->type == FAT_16) && (file->flags & FAT_ROOT_DIR_FLAG))
 	{
-		filesystem_write(d, start_cluster, offset, buf, size);
+		filesystem_write(d, f->root_location + start_cluster, offset, buf, size);
 		return offset & (f->bytes_per_sector - 1);
 	}
 
@@ -637,19 +669,23 @@ static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t
 {
 	fat_drive* f = (fat_drive*)d->fs_impl_data;
 
-	if((f->type == FAT_12 || f->type == FAT_16) && (file->flags & FAT_ROOT_DIR_FLAG))
-	{
-		filesystem_read(d, start_cluster, offset, buf, size);
-		return offset & (f->bytes_per_sector - 1);
-	}
-
 	if(start_cluster >= f->eof_value)
 	{
 		return start_cluster;
 	}
 
+	if((f->type == FAT_12 || f->type == FAT_16) && (file->flags & FAT_ROOT_DIR_FLAG))
+	{
+		filesystem_read(d, f->root_location + start_cluster, offset, buf, size);
+		return offset & (f->bytes_per_sector - 1);
+	}
+
 	auto chunks = filesystem_chunkify(offset, size, f->cluster_size - 1, f->cluster_size_log2);
 	auto cluster = fat_get_relative_cluster(start_cluster, chunks.start_chunk, d);
+	if(cluster >= f->eof_value)
+	{
+		return cluster;
+	}
 
 	if(chunks.start_size != 0)
 	{
@@ -684,7 +720,7 @@ static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t
 
 template<fat_type T> static size_t do_write_to_fat(size_t previous, size_t first_cluster, size_t num_clusters, const filesystem_virtual_drive* fd)
 {
-	if(first_cluster != 0)
+	if(previous != 0)
 	{
 		fat_set_next_cluster<T>(previous, first_cluster, fd);
 	}
@@ -815,15 +851,14 @@ static void fat_update_file(const file_data_block* file, const filesystem_virtua
 	auto fdata = std::bit_cast<fat_format_data>(file->format_data);
 
 	file_data_block dir_block{fdata.parent_dir, fd->id, 0, fdata.dir_flags};
-	file_stream* dir_stream = filesystem_create_stream(&dir_block);
-	k_assert(dir_stream);
 
-	printf("flushing %d\n", file->location_on_disk);
+	fs::stream dir_stream{filesystem_create_stream(&dir_block)};
+	k_assert(dir_stream);
 
 	while(true)
 	{
 		fat_directory_entry entry;
-		if(filesystem_read_file(&entry, sizeof(fat_directory_entry), dir_stream)
+		if(dir_stream.read(&entry, sizeof(fat_directory_entry))
 		   != sizeof(fat_directory_entry))
 		{
 			break;
@@ -837,28 +872,29 @@ static void fat_update_file(const file_data_block* file, const filesystem_virtua
 
 		if(fat_file_location(entry) == file->location_on_disk)
 		{
-			filesystem_seek_file(dir_stream, 
-								 filesystem_get_pos(dir_stream) - sizeof(fat_directory_entry));
+			dir_stream.seek(dir_stream.get_pos() - sizeof(fat_directory_entry));
+
+			auto mod = time_t_time_to_fat_time(time(nullptr));
 
 			entry.file_size = file->size;
+			entry.modified_date = mod.date;
+			entry.modified_time = mod.time;
 
-			filesystem_write_file((uint8_t*)&entry, sizeof(fat_directory_entry), dir_stream);
+			dir_stream.write((uint8_t*)&entry, sizeof(fat_directory_entry));
 			break;
 		}
 	}
-
-	filesystem_close_file(dir_stream);
 }
 
-static void fat_create_file(const char* name, size_t name_len, directory_stream* dir, const filesystem_virtual_drive* fd)
+static void fat_create_file(const char* name, size_t name_len, uint32_t flags, directory_stream* dir, const filesystem_virtual_drive* fd)
 {
-	file_stream* dir_stream = filesystem_create_stream(&dir->data);
+	fs::stream dir_stream{filesystem_create_stream(&dir->data)};
 	k_assert(dir_stream);
 
 	while(true)
 	{
 		fat_directory_entry entry;
-		if(filesystem_read_file(&entry, sizeof(fat_directory_entry), dir_stream)
+		if(dir_stream.read(&entry, sizeof(fat_directory_entry))
 		   != sizeof(fat_directory_entry))
 		{
 			break;
@@ -866,10 +902,9 @@ static void fat_create_file(const char* name, size_t name_len, directory_stream*
 
 		if(entry.name[0] == 0)
 		{
-			filesystem_seek_file(dir_stream,
-								 filesystem_get_pos(dir_stream) - sizeof(fat_directory_entry));
+			dir_stream.seek(dir_stream.get_pos() - sizeof(fat_directory_entry));
 			
-			auto time_stamp = time(nullptr);
+			auto ts = time(nullptr);
 
 			file_handle new_file{
 				{name, name_len},
@@ -877,27 +912,34 @@ static void fat_create_file(const char* name, size_t name_len, directory_stream*
 					.location_on_disk = fat_claim_clusters(0, 1, fd),
 					.disk_id = fd->id,
 					.size = 0,
-					.flags = 0,
+					.flags = flags,
 				},
-				time_stamp,
-				time_stamp
+				ts, ts
 			};
 
 			fat_format_data fdata{dir->data.location_on_disk, dir->data.flags};
 			memcpy(&new_file.data.format_data[0], &fdata, sizeof(fat_format_data));
 
 			auto new_file_entry = fat_create_dir_entry(new_file);
-			filesystem_write_file((uint8_t*)&new_file_entry, sizeof(fat_directory_entry), dir_stream);
-
-			uint8_t end_marker = 0;
-			filesystem_write_file((uint8_t*)&end_marker, 1, dir_stream);
+			dir_stream.write((uint8_t*)&new_file_entry, sizeof(fat_directory_entry));
+			dir_stream.write(0);
 
 			dir->file_list.push_back(new_file);
+
+			if(flags & IS_DIR)
+			{
+				fs::stream f{filesystem_create_stream(&new_file.data)};
+				k_assert(f);
+			
+				file_handle up_dir{"..", dir->data, ts, ts};
+			
+				auto up = fat_create_dir_entry(up_dir);
+				f.write((uint8_t*)&up, sizeof(fat_directory_entry));
+				f.write(0);
+			}
 			break;
 		}
 	}
-
-	filesystem_close_file(dir_stream);
 }
 
 static const filesystem_driver fat_driver = {

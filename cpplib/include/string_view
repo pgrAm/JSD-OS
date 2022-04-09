@@ -258,5 +258,16 @@ inline bool operator!=(const typename std::basic_string_view<C>::value_type* lhs
 {
 	return rhs.compare(lhs) != 0;
 }
+namespace std {
+inline namespace literals {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wuser-defined-literals"
+inline constexpr basic_string_view<char> operator "" sv(const char* str, size_t len) noexcept
+{
+	return basic_string_view<char>(str, len);
+}
+#pragma clang diagnostic pop
+};
+}
 #endif
 

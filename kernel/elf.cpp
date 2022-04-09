@@ -323,7 +323,7 @@ static int elf_process_dynamic_section(ELF_linker_data* object, directory_stream
 						object->glob_data_symbol_map
 					};
 
-					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name, 0))
+					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name, 0, 0))
 					{
 						if(load_elf(lib_handle, &lib, object->userspace, lib_dir))
 						{

@@ -56,7 +56,7 @@ file_stream* filesystem_open_file(directory_stream* rel,
 {
 	k_assert(rel);
 
-	if(const file_handle* f = filesystem_find_file_by_path(rel, path, mode))
+	if(const file_handle* f = filesystem_find_file_by_path(rel, path, mode, 0))
 		return filesystem_open_file_handle(f, mode);
 	else
 		return nullptr;

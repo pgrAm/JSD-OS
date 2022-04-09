@@ -45,7 +45,7 @@ enum syscall_indices
 	SYSCALL_IOPL = 25,
 	SYSCALL_SET_DISPLAY_OFFSET = 26,
 	SYSCALL_GET_INPUT_EVENT = 27,
-	SYSCALL_WRITE = 28,
+	SYSCALL_WRITE = 28
 };
 
 struct file_handle;
@@ -54,6 +54,16 @@ struct directory_stream;
 typedef struct directory_stream directory_stream;
 struct file_stream;
 typedef struct file_stream file_stream;
+
+static inline uint32_t do_syscall_5(size_t syscall_index, uint32_t arg0, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4)
+{
+	uint32_t retval;
+	__asm__ volatile("int $0x80"
+					 :"=a"(retval), "+c"(arg1), "+d"(arg2), "+D"(arg3), "+S"(arg4)
+					 : "b"(syscall_index), "a"(arg0)
+					 : "memory");
+	return retval;
+}
 
 static inline uint32_t do_syscall_4(size_t syscall_index, uint32_t arg0, uint32_t arg1, uint32_t arg2, uint32_t arg3)
 {
@@ -225,9 +235,9 @@ static inline int close_dir(directory_stream* dir)
 	return (int)do_syscall_1(SYSCALL_CLOSE_DIR, (uint32_t)dir);
 }
 
-static inline file_handle* find_path(directory_stream* rel, const char* name, size_t path_len)
+static inline file_handle* find_path(directory_stream* rel, const char* name, size_t path_len, int mode, int flags)
 {
-	return (file_handle*)do_syscall_3(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name, (uint32_t)path_len);
+	return (file_handle*)do_syscall_5(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name, (uint32_t)path_len, (uint32_t)mode, (uint32_t)flags);
 }
 
 static inline int set_display_offset(size_t offset, int on_retrace)
@@ -250,10 +260,10 @@ static inline int get_keystate(key_type key)
 	return (int)do_syscall_1(SYSCALL_GET_KEYSTATE, (uint32_t)key);
 }
 
-static inline directory_stream* open_dir(directory_stream* rel, const char* path, size_t path_len, int flags)
+static inline directory_stream* open_dir(directory_stream* rel, const char* path, size_t path_len, int mode)
 {
-	file_handle* f = find_path(rel, path, path_len);
-	return open_dir_handle(f, flags);
+	file_handle* f = find_path(rel, path, path_len, mode, IS_DIR);
+	return open_dir_handle(f, mode);
 }
 
 static inline int get_input_event(input_event* e)

@@ -19,8 +19,8 @@ extern "C" {
 
 size_t filesystem_get_num_drives();
 const file_handle* filesystem_get_root_directory(size_t drive);
-const file_handle* filesystem_find_file_by_path(directory_stream* rel, std::string_view path, int flags);
-const file_handle* filesystem_create_file(directory_stream* d, std::string_view fname);
+const file_handle* filesystem_find_file_by_path(directory_stream* rel, std::string_view path, int mode, int flags);
+const file_handle* filesystem_create_file(directory_stream* d, std::string_view fname, int flags);
 int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
 file_stream* filesystem_open_file_handle(const file_handle* f, int mode);
@@ -43,15 +43,16 @@ typedef struct directory_stream directory_stream;
 
 SYSCALL_HANDLER const file_handle* syscall_get_root_directory(size_t drive);
 SYSCALL_HANDLER const file_handle* syscall_get_file_in_dir(const directory_stream* d, size_t index);
-SYSCALL_HANDLER const file_handle* syscall_find_file_by_path(directory_stream* rel, const char* path, size_t path_len);
+SYSCALL_HANDLER const file_handle* syscall_find_file_by_path(directory_stream* rel, const char* path, size_t path_len, int mode, int flags);
 SYSCALL_HANDLER int syscall_get_file_info(file_info* dst, const file_handle* src);
-SYSCALL_HANDLER directory_stream* syscall_open_directory_handle(const file_handle* f, int flags);
+SYSCALL_HANDLER directory_stream* syscall_open_directory_handle(const file_handle* f, int mode);
 SYSCALL_HANDLER int syscall_close_directory(directory_stream* dir);
 SYSCALL_HANDLER file_stream* syscall_open_file_handle(const file_handle* f, int mode);
 SYSCALL_HANDLER file_stream* syscall_open_file(directory_stream* rel, const char* path, size_t path_len, int mode);
 SYSCALL_HANDLER int syscall_read_file(void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_write_file(const void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_close_file(file_stream* f);
+
 
 typedef enum {
 	MOUNT_SUCCESS = 0,
@@ -79,9 +80,24 @@ namespace fs
 				return filesystem_read_file(dst, len, get_ptr());
 			}
 
+			int write(const void* dst, size_t len)
+			{
+				return filesystem_write_file(dst, len, get_ptr());
+			}
+
+			int write(const uint8_t dst)
+			{
+				return filesystem_write_file(&dst, 1, get_ptr());
+			}
+
 			void seek(size_t pos)
 			{
 				filesystem_seek_file(get_ptr(), pos);
+			}
+
+			size_t get_pos() 
+			{
+				return filesystem_get_pos(get_ptr());
 			}
 
 			operator bool() const
@@ -103,9 +119,9 @@ namespace fs
 
 		class dir_stream_base {
 		public:
-			const file_handle* find_file_by_path(std::string_view path, int flags = 0)
+			const file_handle* find_file_by_path(std::string_view path, int mode = 0, int flags = 0)
 			{
-				return filesystem_find_file_by_path(get_ptr(), path, flags);
+				return filesystem_find_file_by_path(get_ptr(), path, 0, flags);
 			}
 
 			operator bool() const

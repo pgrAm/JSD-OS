@@ -44,15 +44,20 @@ struct file_deleter {
 
 using file_ptr = std::unique_ptr <file_stream, file_deleter>;
 
-void list_directory()
+void list_directory(file_handle* dir_handle)
 {
-	if(current_directory == nullptr)
+	if(dir_handle == nullptr)
 	{
 		printf("Invalid Directory\n");
 		return;
 	}
 
-	auto dir = directory_ptr{open_dir_handle(current_directory, 0)};
+	auto dir = directory_ptr{open_dir_handle(dir_handle, 0)};
+	if(!dir)
+	{
+		printf("Something didn't work\n");
+		return;
+	}
 
 	printf("\n Name     Type  Size   Created     Modified\n\n");
 
@@ -99,7 +104,7 @@ void list_directory()
 
 file_handle* find_file_in_dir(directory_stream* dir, file_info* f, const std::string_view name)
 {
-	file_handle* f_handle = find_path(dir, name.data(), name.size());
+	file_handle* f_handle = find_path(dir, name.data(), name.size(), 0, 0);
 	if(f_handle != nullptr)
 	{
 		if(get_file_info(f, f_handle) == 0 && !(f->flags & IS_DIR))
@@ -213,7 +218,7 @@ int execute_line(std::string_view current_line)
 	}
 	else if("dir" == keyword || "ls" == keyword)
 	{
-		list_directory();
+		list_directory(current_directory);
 	}
 	else if("cd" == keyword)
 	{
@@ -225,7 +230,7 @@ int execute_line(std::string_view current_line)
 		const auto& path = keywords[1];
 
 		file_info file;
-		file_handle* f_handle = find_path(dir.get(), path.data(), path.size());
+		file_handle* f_handle = find_path(dir.get(), path.data(), path.size(), 0, 0);
 
 		if(f_handle == nullptr)
 		{
@@ -287,6 +292,16 @@ int execute_line(std::string_view current_line)
 		}
 		file_error("Could not open file ", arg);
 		return -1;
+	}
+	else if("mkdir" == keyword)
+	{
+		if(keywords.size() < 2)
+		{
+			printf("Incorrect number of arguments\n");
+			return -1;
+		}
+
+		find_path(dir.get(), keywords[1].data(), keywords[1].size(), FILE_CREATE, IS_DIR);
 	}
 	else if("copy" == keyword)
 	{

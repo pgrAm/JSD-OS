@@ -25,6 +25,7 @@ directory_stream* filesystem_open_directory_handle(const file_handle* f, int fla
 
 	auto drive = filesystem_get_drive(f->data.disk_id);
 
+	k_assert(d);
 	drive->fs_driver->read_dir(d, &f->data, drive);
 
 	return d;
@@ -32,31 +33,32 @@ directory_stream* filesystem_open_directory_handle(const file_handle* f, int fla
 
 static const file_handle* filesystem_find_file_in_dir(const directory_stream& d, std::string_view fname)
 {
-	for(size_t i = 0; i < d.file_list.size(); i++)
-	{
-		//printf("%s\n", std::string(d->file_list[i].full_name).c_str());
-		if(filesystem_names_identical(d.file_list[i].name, fname))
-		{
-			return &d.file_list[i];
-		}
-	}
-
-	return nullptr;
+	auto it = std::find_if(d.file_list.cbegin(), d.file_list.cend(), [fname](auto&& a) {
+		return filesystem_names_identical(a.name, fname);
+						   });
+	return it != d.file_list.cend() ? &(*it) : nullptr;
 }
 
-static file_handle found;
-
-const file_handle* filesystem_create_file(directory_stream* d, std::string_view fname)
+const file_handle* filesystem_create_file(directory_stream* d, std::string_view fname, int flags)
 {
-	printf("creating file\n");
+	k_assert(d);
 
 	auto drive = filesystem_get_drive(d->data.disk_id);
-	drive->fs_driver->create_file(fname.data(), fname.size(), d, drive);
+
+	if((d->data.flags & IS_READONLY) || drive->read_only)
+	{
+		return nullptr;
+	}
+
+	k_assert(drive->fs_driver->create_file);
+	drive->fs_driver->create_file(fname.data(), fname.size(), static_cast<uint32_t>(flags), d, drive);
 
 	return &d->file_list.back();
 }
 
-const file_handle* filesystem_find_file_by_path(directory_stream* d, std::string_view path, int flags)
+static file_handle found;
+
+const file_handle* filesystem_find_file_by_path(directory_stream* d, std::string_view path, int mode, int flags)
 {
 	k_assert(d);
 
@@ -101,9 +103,9 @@ const file_handle* filesystem_find_file_by_path(directory_stream* d, std::string
 		auto f = filesystem_find_file_in_dir(*d, path);
 		if(!f)
 		{
-			if(flags & FILE_CREATE)
+			if(mode & FILE_CREATE)
 			{
-				return filesystem_create_file(d, path);
+				return filesystem_create_file(d, path, flags);
 			}
 		}
 
@@ -135,12 +137,12 @@ int filesystem_close_directory(directory_stream* stream)
 
 directory_stream* filesystem_open_directory(directory_stream* rel,
 											std::string_view path,
-											int flags)
+											int mode)
 {
 	k_assert(rel);
 
-	if(const file_handle* f = filesystem_find_file_by_path(rel, path, flags))
-		return filesystem_open_directory_handle(f, flags);
+	if(const file_handle* f = filesystem_find_file_by_path(rel, path, mode, IS_DIR))
+		return filesystem_open_directory_handle(f, IS_DIR);
 	else
 		return nullptr;
 }
@@ -185,12 +187,12 @@ const file_handle* syscall_get_file_in_dir(const directory_stream* d, size_t ind
 }
 
 SYSCALL_HANDLER
-const file_handle* syscall_find_file_by_path(directory_stream* d, const char* name, size_t name_len)
+const file_handle* syscall_find_file_by_path(directory_stream* d, const char* name, size_t name_len, int mode, int flags)
 {
 	if(name == nullptr || d == nullptr)
 	{
 		return nullptr;
 	};
 
-	return filesystem_find_file_by_path(d, std::string_view{name, name_len}, 0);
+	return filesystem_find_file_by_path(d, std::string_view{name, name_len}, mode, flags);
 }
