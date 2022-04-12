@@ -11,9 +11,6 @@
 
 #include <string_view>
 
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
-#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
-
 typedef struct ELF_linker_data
 {
 	ELF_dyn32* dynamic_section;
@@ -108,8 +105,8 @@ static span elf_get_size(ELF_header32* file_header, fs::stream_ref f)
 
 		if(pg_header.type == ELF_PTYPE_LOAD)
 		{
-			min_address = MIN(min_address, pg_header.virtual_address);
-			max_address = MAX(max_address, pg_header.virtual_address + pg_header.mem_size);
+			min_address = std::min(min_address, pg_header.virtual_address);
+			max_address = std::max(max_address, pg_header.virtual_address + pg_header.mem_size);
 		}
 	}
 
@@ -323,9 +320,9 @@ static int elf_process_dynamic_section(ELF_linker_data* object, directory_stream
 						object->glob_data_symbol_map
 					};
 
-					if(auto lib_handle = filesystem_find_file_by_path(lib_dir, lib_name, 0, 0))
+					if(auto lib_handle = find_file_by_path(lib_dir, lib_name, 0, 0))
 					{
-						if(load_elf(lib_handle, &lib, object->userspace, lib_dir))
+						if(load_elf(&(*lib_handle), &lib, object->userspace, lib_dir))
 						{
 							lib.lib_set->insert(lib_name, 1);
 						}

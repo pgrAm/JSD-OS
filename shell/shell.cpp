@@ -19,19 +19,6 @@ char prompt_char = ']';
 
 std::vector<std::string> command_history;
 
-file_handle* current_directory = nullptr;
-
-size_t drive_index = 0;
-
-int cursor_x = 0, cursor_y = 0;
-
-void select_drive(size_t index)
-{
-	drive_index = index;
-	current_path.clear();
-	current_directory = get_root_directory(drive_index);
-}
-
 struct dir_deleter {
 	void operator()(directory_stream* b) { close_dir(b); }
 };
@@ -44,7 +31,26 @@ struct file_deleter {
 
 using file_ptr = std::unique_ptr <file_stream, file_deleter>;
 
-void list_directory(file_handle* dir_handle)
+struct file_handle_deleter {
+	void operator()(const file_handle* f) { dispose_file_handle(f); }
+};
+
+using file_h = std::unique_ptr <const file_handle, file_handle_deleter>;
+
+file_h current_directory = nullptr;
+
+size_t drive_index = 0;
+
+int cursor_x = 0, cursor_y = 0;
+
+void select_drive(size_t index)
+{
+	drive_index = index;
+	current_path.clear();
+	current_directory = file_h{get_root_directory(drive_index)};
+}
+
+void list_directory(const file_handle* dir_handle)
 {
 	if(dir_handle == nullptr)
 	{
@@ -63,12 +69,12 @@ void list_directory(file_handle* dir_handle)
 
 	size_t total_bytes = 0;
 	size_t i = 0;
-	file_handle* f_handle = nullptr;
+	file_h f_handle = nullptr;
 
-	while((f_handle = get_file_in_dir(dir.get(), i++)))
+	while((f_handle = file_h{get_file_in_dir(dir.get(), i++)}))
 	{
 		file_info f;
-		if(get_file_info(&f, f_handle) != 0)
+		if(get_file_info(&f, f_handle.get()) != 0)
 		{
 			continue;
 		}
@@ -102,12 +108,12 @@ void list_directory(file_handle* dir_handle)
 	printf("\n %5u Files   %5u Bytes\n\n", i - 1, total_bytes);
 }
 
-file_handle* find_file_in_dir(directory_stream* dir, file_info* f, const std::string_view name)
+file_h find_file_in_dir(directory_stream* dir, file_info* f, const std::string_view name)
 {
-	file_handle* f_handle = find_path(dir, name.data(), name.size(), 0, 0);
+	file_h f_handle{find_path(dir, name.data(), name.size(), 0, 0)};
 	if(f_handle != nullptr)
 	{
-		if(get_file_info(f, f_handle) == 0 && !(f->flags & IS_DIR))
+		if(get_file_info(f, f_handle.get()) == 0 && !(f->flags & IS_DIR))
 		{
 			return f_handle;
 		}
@@ -174,6 +180,8 @@ void file_error(std::string_view error, std::string_view file)
 
 int execute_line(std::string_view current_line)
 {
+	using namespace std::literals;
+
 	std::vector<std::string_view> keywords = tokenize(current_line, ' ');
 
 	if(keywords.empty())
@@ -181,33 +189,33 @@ int execute_line(std::string_view current_line)
 		return 0;
 	}
 
-	auto dir = directory_ptr{open_dir_handle(current_directory, 0)};
+	auto dir = directory_ptr{open_dir_handle(current_directory.get(), 0)};
 
 	const auto& keyword = keywords[0];
 
-	if("time" == keyword)
+	if("time"sv == keyword)
 	{
 		printf("%d\n", time(nullptr));
 	}
-	else if("rd0:" == keyword)
+	else if("rd0:"sv == keyword)
 	{
 		select_drive(0);
 	}
-	else if("fd0:" == keyword)
+	else if("fd0:"sv == keyword)
 	{
 		select_drive(1);
 	}
-	else if("fd1:" == keyword)
+	else if("fd1:"sv == keyword)
 	{
 		select_drive(2);
 	}
-	else if("drive:" == keyword)
+	else if("drive:"sv == keyword)
 	{
 		size_t drive = 0;
 		std::from_chars(keywords[1].cbegin(), keywords[1].cend(), drive);
 		select_drive(drive);
 	}
-	else if("cls" == keyword || "clear" == keyword)
+	else if("cls"sv == keyword || "clear"sv == keyword)
 	{
 		clear_console();
 	}
@@ -216,11 +224,11 @@ int execute_line(std::string_view current_line)
 		print_string(keywords[1].data(), keywords[1].size());
 		putchar('\n');
 	}
-	else if("dir" == keyword || "ls" == keyword)
+	else if("dir"sv == keyword || "ls"sv == keyword)
 	{
-		list_directory(current_directory);
+		list_directory(current_directory.get());
 	}
-	else if("cd" == keyword)
+	else if("cd"sv == keyword)
 	{
 		if(keywords.size() < 2)
 		{
@@ -230,7 +238,7 @@ int execute_line(std::string_view current_line)
 		const auto& path = keywords[1];
 
 		file_info file;
-		file_handle* f_handle = find_path(dir.get(), path.data(), path.size(), 0, 0);
+		file_h f_handle{find_path(dir.get(), path.data(), path.size(), 0, 0)};
 
 		if(f_handle == nullptr)
 		{
@@ -238,7 +246,7 @@ int execute_line(std::string_view current_line)
 			return -1;
 		}
 
-		if(get_file_info(&file, f_handle) != 0 || !(file.flags & IS_DIR))
+		if(get_file_info(&file, f_handle.get()) != 0 || !(file.flags & IS_DIR))
 		{
 			print_string(path.data(), path.size());
 			printf(" is not a valid directory\n");
@@ -246,10 +254,10 @@ int execute_line(std::string_view current_line)
 		}
 
 		current_path.assign(file.name, file.size);
-		current_directory = f_handle;
+		current_directory = std::move(f_handle);
 		return 1;
 	}
-	else if("mode" == keyword)
+	else if("mode"sv == keyword)
 	{
 		unsigned int width = 0;
 		std::from_chars(keywords[1].cbegin(), keywords[1].cend(), width);
@@ -265,18 +273,18 @@ int execute_line(std::string_view current_line)
 			printf("Unable to set mode\n");
 		}
 	}
-	else if("mem" == keyword)
+	else if("mem"sv == keyword)
 	{
 		print_mem();
 	}
-	else if("cat" == keyword || "type" == keyword)
+	else if("cat"sv == keyword || "type"sv == keyword)
 	{
 		const auto& arg = keywords[1];
 		file_info file;
 
 		if(auto f_handle = find_file_in_dir(dir.get(), &file, arg))
 		{
-			auto fs = file_ptr{open_file_handle(f_handle, 0)};
+			auto fs = file_ptr{open_file_handle(f_handle.get(), 0)};
 			if(fs)
 			{
 				auto dataBuf = std::make_unique<char[]>(file.size);
@@ -293,7 +301,7 @@ int execute_line(std::string_view current_line)
 		file_error("Could not open file ", arg);
 		return -1;
 	}
-	else if("mkdir" == keyword)
+	else if("mkdir"sv == keyword)
 	{
 		if(keywords.size() < 2)
 		{
@@ -303,7 +311,7 @@ int execute_line(std::string_view current_line)
 
 		find_path(dir.get(), keywords[1].data(), keywords[1].size(), FILE_CREATE, IS_DIR);
 	}
-	else if("copy" == keyword)
+	else if("copy"sv == keyword)
 	{
 		if(keywords.size() < 3)
 		{
@@ -321,7 +329,7 @@ int execute_line(std::string_view current_line)
 			return -1;
 		}
 
-		auto src_stream = file_ptr{open_file_handle(src_handle, 0)};
+		auto src_stream = file_ptr{open_file_handle(src_handle.get(), 0)};
 		if(!src_stream)
 		{
 			file_error("Could not find open source file ", src);
@@ -358,9 +366,9 @@ int execute_line(std::string_view current_line)
 				if(filesystem_names_identical("elf", extension))
 				{
 					file_info fi;
-					get_file_info(&fi, file_h);
+					get_file_info(&fi, file_h.get());
 
-					spawn_process(file_h, dir.get(), WAIT_FOR_PROCESS);
+					spawn_process(file_h.get(), dir.get(), WAIT_FOR_PROCESS);
 					return 0;
 				}
 
@@ -541,7 +549,7 @@ int main(int argc, char** argv)
 
 	printf("t=%d\n", clock_ticks(nullptr));
 
-	current_directory = get_root_directory(drive_index);
+	current_directory = file_h{get_root_directory(drive_index)};
 
 	if(current_directory == nullptr)
 	{

@@ -45,7 +45,8 @@ enum syscall_indices
 	SYSCALL_IOPL = 25,
 	SYSCALL_SET_DISPLAY_OFFSET = 26,
 	SYSCALL_GET_INPUT_EVENT = 27,
-	SYSCALL_WRITE = 28
+	SYSCALL_WRITE = 28,
+	SYSCALL_DISPOSE_FILE_HANDLE
 };
 
 struct file_handle;
@@ -195,9 +196,9 @@ static inline key_type wait_and_getkey()
 	return (key_type)do_syscall_0(SYSCALL_WAIT_KEYGET);
 }
 
-static inline file_handle* get_file_in_dir(const directory_stream* d, size_t index)
+static inline const file_handle* get_file_in_dir(const directory_stream* d, size_t index)
 {
-	return (file_handle*)do_syscall_2(SYSCALL_GET_FILE_IN_DIR, (uint32_t)d, (uint32_t)index);
+	return (const file_handle*)do_syscall_2(SYSCALL_GET_FILE_IN_DIR, (uint32_t)d, (uint32_t)index);
 }
 
 static inline int get_file_info(file_info* dst, const file_handle* src)
@@ -205,9 +206,9 @@ static inline int get_file_info(file_info* dst, const file_handle* src)
 	return (int)do_syscall_2(SYSCALL_GET_FILE_INFO, (uint32_t)dst, (uint32_t)src);
 }
 
-static inline file_handle* get_root_directory(size_t drive_index)
+static inline const file_handle* get_root_directory(size_t drive_index)
 {
-	return (file_handle*)do_syscall_1(SYSCALL_GET_ROOT_DIR, (uint32_t)drive_index);
+	return (const file_handle*)do_syscall_1(SYSCALL_GET_ROOT_DIR, (uint32_t)drive_index);
 }
 
 static inline int set_display_mode(const display_mode* requested, display_mode* actual)
@@ -235,9 +236,14 @@ static inline int close_dir(directory_stream* dir)
 	return (int)do_syscall_1(SYSCALL_CLOSE_DIR, (uint32_t)dir);
 }
 
-static inline file_handle* find_path(directory_stream* rel, const char* name, size_t path_len, int mode, int flags)
+static inline int dispose_file_handle(const file_handle *f)
 {
-	return (file_handle*)do_syscall_5(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name, (uint32_t)path_len, (uint32_t)mode, (uint32_t)flags);
+	return (int)do_syscall_1(SYSCALL_DISPOSE_FILE_HANDLE, (uint32_t)f);
+}
+
+static inline const file_handle* find_path(directory_stream* rel, const char* name, size_t path_len, int mode, int flags)
+{
+	return (const file_handle*)do_syscall_5(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name, (uint32_t)path_len, (uint32_t)mode, (uint32_t)flags);
 }
 
 static inline int set_display_offset(size_t offset, int on_retrace)
@@ -250,7 +256,7 @@ static inline directory_stream* open_dir_handle(const file_handle* f, int flags)
 	return (directory_stream*)do_syscall_2(SYSCALL_OPEN_DIR_HANDLE, (uint32_t)f, (uint32_t)flags);
 }
 
-static inline file_stream* open_file_handle(file_handle* f, int flags)
+static inline file_stream* open_file_handle(const file_handle* f, int flags)
 {
 	return (file_stream*)do_syscall_2(SYSCALL_OPEN_FILE_HANDLE, (uint32_t)f, (uint32_t)flags);
 }
@@ -262,8 +268,10 @@ static inline int get_keystate(key_type key)
 
 static inline directory_stream* open_dir(directory_stream* rel, const char* path, size_t path_len, int mode)
 {
-	file_handle* f = find_path(rel, path, path_len, mode, IS_DIR);
-	return open_dir_handle(f, mode);
+	const file_handle* f = find_path(rel, path, path_len, mode, IS_DIR);
+	directory_stream* ds = open_dir_handle(f, mode);
+	dispose_file_handle(f);
+	return ds;
 }
 
 static inline int get_input_event(input_event* e)

@@ -459,7 +459,7 @@ const file_handle* filesystem_get_root_directory(size_t drive_number)
 
 	if(filesystem_mount_drive(drive))
 	{
-		return &drive->root_dir;
+		return new file_handle{drive->root_dir};
 	}
 
 	return nullptr;

@@ -6,8 +6,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef size_t fs_index;
-
 struct filesystem_driver;
 typedef struct filesystem_driver filesystem_driver;
 
@@ -22,17 +20,6 @@ typedef struct filesystem_virtual_drive filesystem_virtual_drive;
 
 struct filesystem_drive;
 typedef struct filesystem_drive filesystem_drive;
-
-typedef struct
-{
-	fs_index location_on_disk;
-	size_t disk_id;
-	size_t size;
-	uint32_t flags;
-
-	uint8_t format_data[sizeof(size_t)*2];
-}
-file_data_block;
 
 typedef int (*partition_func)(filesystem_drive*, filesystem_virtual_drive*, size_t block_size);
 
@@ -71,17 +58,6 @@ file_stream* filesystem_create_stream(const file_data_block* f);
 
 #include <string>
 #include <vector>
-
-//information about a file on disk
-struct file_handle
-{
-	std::string name;
-
-	file_data_block data;
-
-	time_t time_created;
-	time_t time_modified;
-};
 
 //information about a directory on disk
 struct directory_stream

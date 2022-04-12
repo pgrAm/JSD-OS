@@ -45,7 +45,7 @@ static void load_driver(fs::dir_stream_ref cwd, const std::string_view filename,
 	};
 
 	auto f = cwd.find_file_by_path(filename);
-	if(f == nullptr)
+	if(!f)
 	{
 		printf("could not find driver %s\n", std::string(filename).c_str());
 		return;
@@ -59,7 +59,7 @@ static void load_driver(fs::dir_stream_ref cwd, const std::string_view filename,
 
 	fs::dir_stream lib_dir{cwd, lib_path, 0};
 
-	if(load_elf(f, &ob, false, lib_dir ? lib_dir.get_ptr() : cwd.get_ptr()))
+	if(load_elf(&(*f), &ob, false, lib_dir ? lib_dir.get_ptr() : cwd.get_ptr()))
 	{
 		uint32_t func_address;
 		if(ob.symbol_map->lookup(func_name, &func_address))
@@ -85,7 +85,6 @@ static constexpr func_info func_list[] = {
 	{"malloc",	(void*)&malloc},
 	{"calloc",	(void*)&calloc},
 	{"free",	(void*)&free},
-	{"strlen",	(void*)&strlen},
 	{"mktime",	(void*)&mktime},
 	{"gmtime",	(void*)&gmtime},
 	{"memcmp",	(void*)&memcmp},
@@ -112,7 +111,7 @@ static constexpr func_info func_list[] = {
 	{"memmanager_map_to_new_pages", (void*)&memmanager_map_to_new_pages},
 	{"memmanager_get_physical",		(void*)&memmanager_get_physical},
 	{"memmanager_unmap_pages",		(void*)&memmanager_unmap_pages},
-	{"memmanager_free_pages", (void*)&memmanager_free_pages},
+	{"memmanager_free_pages",		(void*)&memmanager_free_pages},
 	{"kernel_lock_mutex",	(void*)&kernel_lock_mutex},
 	{"kernel_unlock_mutex", (void*)&kernel_unlock_mutex},
 	{"handle_keyevent",		(void*)&handle_keyevent},
@@ -191,18 +190,13 @@ static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
 					if(!dir)
 						continue;
 
-					auto file = dir.find_file_by_path(filename);
-
-					if(file)
+					if(fs::stream stream{dir.get_ptr(), filename}; !!stream)
 					{
 						printf("processing file ");
 						print_string_len(filename.data(), filename.size());
 						printf(", set init drive\n");
 
-						if(fs::stream stream{file, 0}; !!stream)
-						{
-							process_init_file(dir, stream);
-						}
+						process_init_file(dir, stream);
 						break;
 					}
 				}
@@ -224,7 +218,7 @@ static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
 					print_string_len(filename.data(), filename.size());
 					printf("\n");
 
-					spawn_process(f, cwd.get_ptr(), WAIT_FOR_PROCESS);
+					spawn_process(&(*f), cwd.get_ptr(), WAIT_FOR_PROCESS);
 				}
 			}
 
@@ -257,15 +251,14 @@ extern "C" void load_drivers()
 		while(true);
 	}
 
-	fs::stream f{cwd.get_ptr(), init_path, 0};
-
-	if(!f)
+	if(fs::stream f{cwd.get_ptr(), init_path, 0}; !!f)
 	{
-		printf("Cannot find init.sys!\n");
-		while(true);
+		process_init_file(cwd, f);
+		return;
 	}
 
-	process_init_file(cwd, f);
+	printf("Cannot find init.sys!\n");
+	while(true);
 }
 
 #include <stddef.h>

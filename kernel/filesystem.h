@@ -17,10 +17,21 @@ struct directory_stream;
 
 extern "C" {
 
+typedef size_t fs_index;
+
+typedef struct
+{
+	fs_index location_on_disk;
+	size_t disk_id;
+	size_t size;
+	uint32_t flags;
+
+	uint8_t format_data[sizeof(size_t) * 2];
+}
+file_data_block;
+
 size_t filesystem_get_num_drives();
 const file_handle* filesystem_get_root_directory(size_t drive);
-const file_handle* filesystem_find_file_by_path(directory_stream* rel, std::string_view path, int mode, int flags);
-const file_handle* filesystem_create_file(directory_stream* d, std::string_view fname, int flags);
 int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
 file_stream* filesystem_open_file_handle(const file_handle* f, int mode);
@@ -52,6 +63,7 @@ SYSCALL_HANDLER file_stream* syscall_open_file(directory_stream* rel, const char
 SYSCALL_HANDLER int syscall_read_file(void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_write_file(const void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_close_file(file_stream* f);
+SYSCALL_HANDLER int syscall_dispose_file_handle(const file_handle* f);
 
 
 typedef enum {
@@ -69,6 +81,22 @@ typedef enum {
 
 #ifdef __cplusplus
 }
+
+#include <optional>
+#include <string>
+
+//information about a file on disk
+struct file_handle
+{
+	std::string name;
+
+	file_data_block data;
+
+	time_t time_created;
+	time_t time_modified;
+};
+
+std::optional<file_handle> find_file_by_path(directory_stream* d, std::string_view path, int mode, int flags);
 
 namespace fs
 {
@@ -100,18 +128,18 @@ namespace fs
 				return filesystem_get_pos(get_ptr());
 			}
 
-			operator bool() const
+			constexpr operator bool() const
 			{
 				return !!get_ptr();
 			}
 
 		protected:
-			explicit stream_base(file_stream* f)
+			constexpr explicit stream_base(file_stream* f)
 				: m_stream{f}
 			{}
 
-			file_stream* get_ptr() { return m_stream; }
-			const file_stream* get_ptr() const { return m_stream; }
+			constexpr file_stream* get_ptr() { return m_stream; }
+			constexpr const file_stream* get_ptr() const { return m_stream; }
 
 		private:
 			file_stream* m_stream;
@@ -119,21 +147,21 @@ namespace fs
 
 		class dir_stream_base {
 		public:
-			const file_handle* find_file_by_path(std::string_view path, int mode = 0, int flags = 0)
+			std::optional<file_handle> find_file_by_path(std::string_view path, int mode = 0, int flags = 0)
 			{
-				return filesystem_find_file_by_path(get_ptr(), path, 0, flags);
+				return ::find_file_by_path(get_ptr(), path, mode, flags);
 			}
 
-			operator bool() const
+			constexpr operator bool() const
 			{
 				return !!get_ptr();
 			}
 
-			directory_stream* get_ptr() { return m_stream; }
-			const directory_stream* get_ptr() const { return m_stream; }
+			constexpr directory_stream* get_ptr() { return m_stream; }
+			constexpr const directory_stream* get_ptr() const { return m_stream; }
 
 		protected:
-			explicit dir_stream_base(directory_stream* f)
+			constexpr explicit dir_stream_base(directory_stream* f)
 				: m_stream{f}
 			{}
 
@@ -153,13 +181,13 @@ namespace fs
 			{}
 		};
 
-		stream(const file_handle* f, int flags)
-			: stream_base{filesystem_open_file_handle(f, flags)}
+		stream(const file_handle* f, int mode)
+			: stream_base{filesystem_open_file_handle(f, mode)}
 		{}
-		stream(directory_stream* rel, std::string_view path, int flags)
-			: stream_base{filesystem_open_file(rel, path, flags)}
+		stream(directory_stream* rel, std::string_view path, int mode = 0)
+			: stream_base{filesystem_open_file(rel, path, mode)}
 		{}
-		explicit stream(file_stream* f)
+		constexpr explicit stream(file_stream* f)
 			: stream_base{f}
 		{}
 
