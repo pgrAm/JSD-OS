@@ -41,7 +41,7 @@ my @kernel_src = qw(
 
 	kernel/kernel.c
 	kernel/memorymanager.cpp
-	kernel/physical_manager.c
+	kernel/physical_manager.cpp
 	kernel/filesystem/drives.cpp
 	kernel/filesystem/directory.cpp
 	kernel/filesystem/streams.cpp
