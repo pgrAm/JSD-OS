@@ -16,12 +16,12 @@ my $builddir = getcwd . "/builddir";
 mkpath($builddir);
 
 my @common_flags = qw(-target i386-elf -Wuninitialized -Wall -fno-asynchronous-unwind-tables -march=i386  -O2 -mno-sse -mno-mmx  -fomit-frame-pointer -fno-builtin -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
-my @cpp_flags = qw(-std=c++17 -fno-rtti -fno-exceptions -I cpplib/include);
+my @cpp_flags = qw(-std=c++20 -fno-rtti -fno-exceptions -I cpplib/include);
 my @c_flags = qw(-std=c99 -Wc++-compat);
 my @asm_flags = qw(-f elf);
 
 my @kernel_flags = qw(-D __KERNEL -mno-implicit-float -ffreestanding);
-my @driver_flags = (@kernel_flags, qw(-fPIC));
+my @driver_flags = (@kernel_flags, qw(-fPIC -fno-function-sections));
 my @shlib_flags = qw(-fPIC);
 my @user_flags = qw(-I api/ -nodefaultlibs);
 
@@ -31,7 +31,7 @@ my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O
 my @kernel_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a --lto-O2 -N -O2 -Ttext=0xF000 -T linker.ld);
 
 mkpath("$builddir/tools");
-system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++17 -O2");
+system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++20 -O2");
 
 my @kernel_src = qw(	
 	kernel/kernel.asm
@@ -178,7 +178,8 @@ build_fdimage(
 		$graphics,
 		$clib,
 		$i8042_drv,
-		$ps2mouse_drv
+		$ps2mouse_drv,
+		$fwritetest
 	]
 );
 
@@ -331,6 +332,11 @@ sub build {
 	}
 		
 	system(@linker_cmd, @$ldflags);
+
+	if(!$static)
+	{
+		system("strip --strip-unneeded $output_file");
+	}
 
 	return $output_file;
 }
