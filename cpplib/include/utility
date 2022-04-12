@@ -32,5 +32,12 @@ namespace std
 		static_assert(!is_lvalue_reference<T>::value, "cannot forward an rvalue as an lvalue");
 		return static_cast<T&&>(t);
 	}
+
+	struct in_place_t 
+	{
+		explicit in_place_t() = default;
+	};
+
+	inline constexpr in_place_t in_place{};
 }
 #endif

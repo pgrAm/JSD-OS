@@ -700,6 +700,15 @@ template<typename T, typename... Args>
 typename __pvt::mk_uniq_impl<T>::invalid
 make_unique(Args&&...) = delete;
 
+
+template <class T>
+inline constexpr T* addressof(T& x) noexcept
+{
+	return __builtin_addressof(x);
+}
+
+template <class T> T* addressof(const T&&) noexcept = delete;
+
 };
 
 #endif

@@ -1,0 +1,791 @@
+#ifndef STD_OPTIONAL_H
+#define STD_OPTIONAL_H
+
+#include <functional>
+#include <new>
+#include <type_traits>
+#include <utility>
+#include <memory>
+#include <assert.h>
+
+namespace std {
+
+struct nullopt_t
+{
+	struct __tag { explicit __tag() = default; };
+	constexpr explicit nullopt_t(__tag) noexcept {}
+};
+
+inline constexpr nullopt_t nullopt{nullopt_t::__tag{}};
+
+namespace __pvt
+{
+template <typename T, bool = is_trivially_destructible_v<T>>
+struct optional_destruct_base;
+
+template <typename T>
+struct optional_destruct_base<T, false>
+{
+	typedef T value_type;
+	static_assert(is_object_v<value_type>);
+	union
+	{
+		char null_state;
+		value_type val;
+	};
+	bool active;
+
+	~optional_destruct_base()
+	{
+		if(active)
+			val.~value_type();
+	}
+
+	constexpr optional_destruct_base() noexcept
+		: null_state()
+		, active(false) {}
+
+	template <typename... Args>
+	constexpr explicit optional_destruct_base(in_place_t, Args&&... args)
+		: val(forward<Args>(args)...)
+		, active(true) {}
+
+	constexpr void reset() noexcept
+	{
+		if(active)
+		{
+			val.~value_type();
+			active = false;
+		}
+	}
+};
+
+template <typename T>
+struct optional_destruct_base<T, true>
+{
+	typedef T value_type;
+	static_assert(is_object_v<value_type>);
+	union
+	{
+		char null_state;
+		value_type val;
+	};
+	bool active;
+
+	constexpr optional_destruct_base() noexcept
+		: null_state()
+		, active(false) {}
+
+	template <typename... Args>
+	constexpr explicit optional_destruct_base(in_place_t, Args&&... args)
+		: val(forward<Args>(args)...)
+		, active(true) {}
+
+	constexpr void reset() noexcept
+	{
+		if(active) active = false;
+	}
+};
+
+template <typename T, bool = is_reference_v<T>>
+struct optional_storage_base : public optional_destruct_base<T>
+{
+	using base = optional_destruct_base<T>;
+	using value_type = T;
+	using base::base;
+
+	constexpr bool has_value() const noexcept
+	{
+		return base::active;
+	}
+
+	constexpr value_type& value() &
+	{
+		return base::val;
+	}
+
+	constexpr const value_type& value() const&
+	{
+		return base::val;
+	}
+
+	constexpr value_type&& value() &&
+	{
+		return move(base::val);
+	}
+
+	constexpr const value_type&& value() const&&
+	{
+		return move(base::val);
+	}
+
+	template <typename... Args>
+	void construct(Args&&... args)
+	{
+		assert(!has_value());
+		::new((void*)addressof(base::val)) value_type(forward<Args>(args)...);
+		base::active = true;
+	}
+
+	template <typename Other>
+	void construct_from(Other&& o)
+	{
+		if(o.has_value())
+			construct(forward<Other>(o).value());
+	}
+
+	template <typename Other>
+	void assign_from(Other&& o)
+	{
+		if(has_value() == o.has_value())
+		{
+			if(has_value())
+				base::val = forward<Other>(o).value();
+		}
+		else
+		{
+			if(has_value())
+				base::reset();
+			else
+				construct(forward<Other>(o).value());
+		}
+	}
+};
+
+template <typename T, bool = is_trivially_copy_constructible_v<T>>
+struct optional_copy_base : optional_storage_base<T>
+{
+	using optional_storage_base<T>::optional_storage_base;
+};
+
+template <typename T>
+struct optional_copy_base<T, false> : optional_storage_base<T>
+{
+	using optional_storage_base<T>::optional_storage_base;
+
+	optional_copy_base() = default;
+	optional_copy_base(const optional_copy_base& o)
+	{
+		optional_storage_base<T>::construct_from(o);
+	}
+
+	optional_copy_base(optional_copy_base&&) = default;
+	optional_copy_base& operator=(const optional_copy_base&) = default;
+	optional_copy_base& operator=(optional_copy_base&&) = default;
+};
+
+template <typename T, bool = is_trivially_move_constructible_v<T>>
+struct optional_move_base : optional_copy_base<T>
+{
+	using optional_copy_base<T>::optional_copy_base;
+};
+
+template <typename T>
+struct optional_move_base<T, false> : optional_copy_base<T>
+{
+	using value_type = T;
+	using optional_copy_base<T>::optional_copy_base;
+
+	optional_move_base() = default;
+	optional_move_base(const optional_move_base&) = default;
+	optional_move_base(optional_move_base&& o)
+		noexcept(is_nothrow_move_constructible_v<value_type>)
+	{
+		optional_storage_base<T>::construct_from(move(o));
+	}
+
+	optional_move_base& operator=(const optional_move_base&) = default;
+	optional_move_base& operator=(optional_move_base&&) = default;
+};
+
+template <typename T, bool =
+	is_trivially_destructible_v<T>&&
+	is_trivially_copy_constructible_v<T>&&
+	is_trivially_copy_assignable_v<T>>
+	struct optional_copy_assign_base : optional_move_base<T>
+{
+	using optional_move_base<T>::optional_move_base;
+};
+
+template <typename T>
+struct optional_copy_assign_base<T, false> : optional_move_base<T>
+{
+	using optional_move_base<T>::optional_move_base;
+
+	optional_copy_assign_base() = default;
+	optional_copy_assign_base(const optional_copy_assign_base&) = default;
+	optional_copy_assign_base(optional_copy_assign_base&&) = default;
+
+	optional_copy_assign_base& operator=(const optional_copy_assign_base& o)
+	{
+		assign_from(o);
+		return *this;
+	}
+
+	optional_copy_assign_base& operator=(optional_copy_assign_base&&) = default;
+};
+
+template <typename T, bool =
+	is_trivially_destructible_v<T> &&
+	is_trivially_move_constructible_v<T> &&
+	is_trivially_move_assignable_v<T>>
+	struct optional_move_assign_base : optional_copy_assign_base<T>
+{
+	using optional_copy_assign_base<T>::optional_copy_assign_base;
+};
+
+template <typename T>
+struct optional_move_assign_base<T, false> : optional_copy_assign_base<T>
+{
+	using value_type = T;
+	using optional_copy_assign_base<T>::optional_copy_assign_base;
+
+	optional_move_assign_base() = default;
+	optional_move_assign_base(const optional_move_assign_base& o) = default;
+	optional_move_assign_base(optional_move_assign_base&&) = default;
+	optional_move_assign_base& operator=(const optional_move_assign_base&) = default;
+
+	optional_move_assign_base& operator=(optional_move_assign_base&& o)
+		noexcept(is_nothrow_move_assignable_v<value_type>&&
+				 is_nothrow_move_constructible_v<value_type>)
+	{
+		assign_from(move(o));
+		return *this;
+	}
+};
+
+template <bool Copyable, bool Movable>
+struct ctor_enable {};
+template <>
+struct ctor_enable<false, false> 
+{
+	ctor_enable() = default;
+	ctor_enable(ctor_enable const&) = default;
+	ctor_enable(ctor_enable&&) = default;
+	ctor_enable& operator=(ctor_enable const&) = delete;
+	ctor_enable& operator=(ctor_enable&&) = delete;
+};
+template <>
+struct ctor_enable<true, false> 
+{
+	ctor_enable() = default;
+	ctor_enable(ctor_enable const&) = default;
+	ctor_enable(ctor_enable&&) = default;
+	ctor_enable& operator=(ctor_enable const&) = default;
+	ctor_enable& operator=(ctor_enable&&) = delete;
+};
+template <>
+struct ctor_enable<false, true> {
+	ctor_enable() = default;
+	ctor_enable(ctor_enable const&) = default;
+	ctor_enable(ctor_enable&&) = default;
+	ctor_enable& operator=(ctor_enable const&) = delete;
+	ctor_enable& operator=(ctor_enable&&) = default;
+};
+
+template <bool Copyable, bool Movable>
+struct assign_enable {};
+template <>
+struct assign_enable<false, false> {
+	assign_enable() = default;
+	assign_enable(const assign_enable&) = default;
+	assign_enable(assign_enable&&) = default;
+	assign_enable& operator=(const assign_enable&) = delete;
+	assign_enable& operator=(assign_enable&&) = delete;
+};
+template <>
+struct assign_enable<true, false> {
+	assign_enable() = default;
+	assign_enable(const assign_enable&) = default;
+	assign_enable(assign_enable&&) = default;
+	assign_enable& operator=(const assign_enable&) = default;
+	assign_enable& operator=(assign_enable&&) = delete;
+};
+template <>
+struct assign_enable<false, true> {
+	assign_enable() = default;
+	assign_enable(const assign_enable&) = default;
+	assign_enable(assign_enable&&) = default;
+	assign_enable& operator=(const assign_enable&) = delete;
+	assign_enable& operator=(assign_enable&&) = default;
+};
+}
+
+template <typename T>
+class optional
+	: private __pvt::optional_move_assign_base<T>
+	, private __pvt::ctor_enable<is_copy_constructible_v<T>, is_move_constructible_v<T>>
+	, private __pvt::assign_enable<	is_copy_constructible_v<T> && is_copy_assignable_v<T>, 
+									is_move_constructible_v<T> && is_move_assignable_v<T>>
+{
+	using base = __pvt::optional_move_assign_base<T>;
+public:
+	using value_type = T;
+
+private:
+	static_assert(!is_same_v<remove_cv_t<remove_reference_t<value_type>>, in_place_t>);
+	static_assert(!is_same_v<remove_cv_t<remove_reference_t<value_type>>, nullopt_t>);
+	static_assert(!is_reference_v<value_type>);
+	static_assert(is_destructible_v<value_type>);
+	static_assert(!is_array_v<value_type>);
+
+	template <typename Opt>
+	inline constexpr static bool constructible_from_opt = (
+		is_constructible_v<T, Opt&> ||
+		is_constructible_v<T, const Opt&> ||
+		is_constructible_v<T, Opt&&> ||
+		is_constructible_v<T, const Opt&&> ||
+		is_convertible_v<Opt&, T> ||
+		is_convertible_v<const Opt&, T> ||
+		is_convertible_v<Opt&&, T> ||
+		is_convertible_v<const Opt&&, T>);
+
+	template <typename Opt>
+	inline constexpr static bool assignable_from_opt = (
+		is_assignable_v<T&, Opt&> ||
+		is_assignable_v<T&, const Opt&> ||
+		is_assignable_v<T&, Opt&&> ||
+		is_assignable_v<T&, const Opt&&>);
+
+public:
+	using base::has_value;
+	using base::value;
+	using base::reset;
+
+	constexpr optional() noexcept {}
+	constexpr optional(nullopt_t) noexcept {}
+
+	constexpr optional(const optional&) = default;
+	constexpr optional(optional&&) = default;
+
+	template <typename U, typename = enable_if_t<
+		!is_same_v<T, U> &&
+		is_constructible_v<T, const U&> &&
+		!constructible_from_opt<U>>>
+	explicit(!is_convertible_v<const U&, T>) optional(const optional<U>& v)
+	{
+		base::construct_from(v);
+	}
+
+	template <typename U, typename = enable_if_t<
+		!is_same_v<T, U> &&
+		is_constructible_v<T, const U&> &&
+		!constructible_from_opt<U>>>
+	explicit(!is_convertible_v<const U&, T>) optional(optional<U>&& v)
+	{
+		base::construct_from(move(v));
+	}
+
+	template< class... Args, typename = enable_if_t<is_constructible_v<T, Args...>>>
+	constexpr explicit optional(in_place_t, Args&&... args)
+		: base(in_place, forward<Args>(args)...) {}
+
+	template <typename U = value_type, typename = enable_if_t<
+		!is_same_v<T, U>&&
+		is_constructible_v<T, U>>>
+	constexpr explicit(!is_convertible_v<U, T>) optional(U&& v)
+		: base(in_place, forward<U>(v))
+	{}
+
+	constexpr optional& operator=(nullopt_t) noexcept
+	{
+		reset();
+		return *this;
+	}
+
+	constexpr optional& operator=(const optional&) = default;
+	constexpr optional& operator=(optional&&) = default;
+
+	template <typename U = value_type, typename = enable_if_t<
+		!is_same_v<remove_cvref_t<U>, optional> &&
+		(!is_same_v<remove_cvref_t<U>, value_type> || !is_scalar_v<value_type>) &&
+		is_constructible_v<value_type, U> &&
+		is_assignable_v<value_type&, U>>>
+	constexpr optional& operator=(U&& v)
+	{
+		if(has_value())
+			value() = forward<U>(v);
+		else
+			construct(forward<U>(v));
+		return *this;
+	}
+
+	template <typename U, typename = enable_if_t<
+		!is_same_v<T, U> &&
+		is_constructible_v<T, const U&> &&
+		is_assignable_v<T&, const U&> &&
+		!constructible_from_opt<U> &&
+		!assignable_from_opt<U>>>
+	optional& operator=(const optional<U>& v)
+	{
+		assign_from(v);
+		return *this;
+	}
+
+	template <typename U, typename = enable_if_t<
+		!is_same_v<T, U>&&
+		is_constructible_v<T, const U&>&&
+		is_assignable_v<T&, const U&> &&
+		!constructible_from_opt<U> &&
+		!assignable_from_opt<U>>>
+	optional& operator=(optional<U>&& v)
+	{
+		assign_from(move(v));
+		return *this;
+	}
+
+	template <typename... Args, typename = enable_if<is_constructible_v<value_type, Args...>>>
+	T& emplace(Args&&... args)
+	{
+		reset();
+		construct(forward<Args>(args)...);
+		return value();
+	}
+
+	void swap(optional& o)
+		noexcept(is_nothrow_move_constructible_v<value_type>&&
+				 is_nothrow_swappable_v<value_type>)
+	{
+		if(has_value() == o.has_value())
+		{
+			if(has_value())
+				std::swap(value(), o.value());
+		}
+		else
+		{
+			if(has_value())
+			{
+				o.construct(move(value()));
+				reset();
+			}
+			else
+			{
+				base::construct(move(o.value()));
+				o.reset();
+			}
+		}
+	}
+
+	constexpr add_pointer_t<value_type const> operator->() const
+	{
+		assert(has_value());
+		return addressof(value());
+	}
+
+	constexpr add_pointer_t<value_type> operator->()
+	{
+		assert(has_value());
+		return addressof(value());
+	}
+
+	constexpr const value_type& operator*() const&
+	{
+		assert(has_value());
+		return value();
+	}
+
+	constexpr value_type& operator*()&
+	{
+		assert(has_value());
+		return value();
+	}
+
+	constexpr value_type&& operator*()&&
+	{
+		assert(has_value());
+		return move(value());
+	}
+
+	constexpr const value_type&& operator*() const&&
+	{
+		assert(has_value());
+		return move(value());
+	}
+
+	constexpr explicit operator bool() const noexcept { return has_value(); }
+
+	template <typename U>
+	constexpr value_type value_or(U&& v) const&
+	{
+		static_assert(is_copy_constructible_v<value_type>);
+		static_assert(is_convertible_v<U, value_type>);
+
+		return has_value() ? value() :
+			static_cast<value_type>(forward<U>(v));
+	}
+
+	template <typename U>
+	constexpr value_type value_or(U&& v)&&
+	{
+		static_assert(is_move_constructible_v<value_type>);
+		static_assert(is_convertible_v<U, value_type>);
+
+		return has_value() ? move(value()) :
+			static_cast<value_type>(forward<U>(v));
+	}
+};
+
+template<typename T>
+optional(T) -> optional<T>;
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() == declval<const U&>()), bool>, bool>
+operator==(const optional<T>& x, const optional<U>& y)
+{
+	if(static_cast<bool>(x) != static_cast<bool>(y))
+		return false;
+	if(!static_cast<bool>(x))
+		return true;
+	return *x == *y;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() != declval<const U&>()), bool>, bool>
+operator!=(const optional<T>& x, const optional<U>& y)
+{
+	if(static_cast<bool>(x) != static_cast<bool>(y))
+		return true;
+	if(!static_cast<bool>(x))
+		return false;
+	return *x != *y;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() < declval<const U&>()), bool>, bool>
+operator<(const optional<T>& x, const optional<U>& y)
+{
+	if(!static_cast<bool>(y))
+		return false;
+	if(!static_cast<bool>(x))
+		return true;
+	return *x < *y;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>()> declval<const U&>()), bool>, bool>
+operator>(const optional<T>& x, const optional<U>& y)
+{
+	if(!static_cast<bool>(x))
+		return false;
+	if(!static_cast<bool>(y))
+		return true;
+	return *x > *y;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() <= declval<const U&>()), bool>, bool>
+operator<=(const optional<T>& x, const optional<U>& y)
+{
+	if(!static_cast<bool>(x))
+		return true;
+	if(!static_cast<bool>(y))
+		return false;
+	return *x <= *y;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() >= declval<const U&>()), bool>, bool>
+operator>=(const optional<T>& x, const optional<U>& y)
+{
+	if(!static_cast<bool>(y))
+		return true;
+	if(!static_cast<bool>(x))
+		return false;
+	return *x >= *y;
+}
+
+template <typename T>
+constexpr bool operator==(const optional<T>& x, nullopt_t) noexcept
+{
+	return !static_cast<bool>(x);
+}
+
+template <typename T>
+constexpr bool operator==(nullopt_t, const optional<T>& x) noexcept
+{
+	return !static_cast<bool>(x);
+}
+
+template <typename T>
+constexpr bool operator!=(const optional<T>& x, nullopt_t) noexcept
+{
+	return static_cast<bool>(x);
+}
+
+template <typename T>
+constexpr bool operator!=(nullopt_t, const optional<T>& x) noexcept
+{
+	return static_cast<bool>(x);
+}
+
+template <typename T>
+constexpr bool operator<(const optional<T>&, nullopt_t) noexcept
+{
+	return false;
+}
+
+template <typename T>
+constexpr bool operator<(nullopt_t, const optional<T>& x) noexcept
+{
+	return static_cast<bool>(x);
+}
+
+template <typename T>
+constexpr bool operator<=(const optional<T>& x, nullopt_t) noexcept
+{
+	return !static_cast<bool>(x);
+}
+
+template <typename T>
+constexpr bool operator<=(nullopt_t, const optional<T>&) noexcept
+{
+	return true;
+}
+
+template <typename T>
+constexpr bool operator>(const optional<T>& x, nullopt_t) noexcept
+{
+	return static_cast<bool>(x);
+}
+
+template <typename T>
+constexpr bool operator>(nullopt_t, const optional<T>&) noexcept
+{
+	return false;
+}
+
+template <typename T>
+constexpr bool operator>=(const optional<T>&, nullopt_t) noexcept
+{
+	return true;
+}
+
+template <typename T>
+constexpr bool operator>=(nullopt_t, const optional<T>& x) noexcept
+{
+	return !static_cast<bool>(x);
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() == declval<const U&>()), bool>, bool>
+operator==(const optional<T>& x, const U& v)
+{
+	return static_cast<bool>(x) ? *x == v : false;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() == declval<const U&>()), bool>, bool>
+operator==(const T& v, const optional<U>& x)
+{
+	return static_cast<bool>(x) ? v == *x : false;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() != declval<const U&>()), bool>, bool>
+operator!=(const optional<T>& x, const U& v)
+{
+	return static_cast<bool>(x) ? *x != v : true;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() != declval<const U&>()), bool>, bool>
+operator!=(const T& v, const optional<U>& x)
+{
+	return static_cast<bool>(x) ? v != *x : true;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() < declval<const U&>()), bool>, bool>
+operator<(const optional<T>& x, const U& v)
+{
+	return static_cast<bool>(x) ? *x < v : true;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() < declval<const U&>()), bool>, bool>
+operator<(const T& v, const optional<U>& x)
+{
+	return static_cast<bool>(x) ? v < *x : false;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() <= declval<const U&>()), bool>, bool>
+operator<=(const optional<T>& x, const U& v)
+{
+	return static_cast<bool>(x) ? *x <= v : true;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() <= declval<const U&>()), bool>, bool>
+operator<=(const T& v, const optional<U>& x)
+{
+	return static_cast<bool>(x) ? v <= *x : false;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() > declval<const U&>()), bool>, bool>
+	operator>(const optional<T>& x, const U& v)
+{
+	return static_cast<bool>(x) ? *x > v : false;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() > declval<const U&>()), bool>, bool>
+operator>(const T& v, const optional<U>& x)
+{
+	return static_cast<bool>(x) ? v > *x : true;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() >= declval<const U&>()), bool>, bool>
+operator>=(const optional<T>& x, const U& v)
+{
+	return static_cast<bool>(x) ? *x >= v : false;
+}
+
+template <typename T, typename U>
+constexpr enable_if_t<is_convertible_v<
+	decltype(declval<const T&>() >= declval<const U&>()), bool>, bool>
+operator>=(const T& v, const optional<U>& x)
+{
+	return static_cast<bool>(x) ? v >= *x : true;
+}
+
+template <typename T>
+inline enable_if_t<is_move_constructible_v<T> && is_swappable_v<T>, void>
+swap(optional<T>& x, optional<T>& y) noexcept(noexcept(x.swap(y)))
+{
+	x.swap(y);
+}
+
+template <typename T>
+constexpr optional<decay_t<T>> make_optional(T&& v)
+{
+	return optional<decay_t<T>>(forward<T>(v));
+}
+
+template <typename T, typename... Args>
+constexpr optional<T> make_optional(Args&&... args)
+{
+	return optional<T>(in_place, forward<Args>(args)...);
+}
+}
+
+#endif
