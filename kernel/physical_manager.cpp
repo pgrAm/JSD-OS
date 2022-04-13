@@ -151,7 +151,7 @@ void physical_memory_reserve(uintptr_t address, size_t size)
 		}
 
 		size_t padding = address - it->offset;
-		if(it->length >= size + padding)
+		if(it->length >= claimed_space + padding)
 		{
 			memory_map.claim_from_block(it, padding, claimed_space);
 
