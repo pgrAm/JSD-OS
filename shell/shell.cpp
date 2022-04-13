@@ -195,7 +195,7 @@ int execute_line(std::string_view current_line)
 
 	if("time"sv == keyword)
 	{
-		printf("%d\n", time(nullptr));
+		printf("%u\n", time(nullptr));
 	}
 	else if("rd0:"sv == keyword)
 	{
@@ -226,7 +226,18 @@ int execute_line(std::string_view current_line)
 	}
 	else if("dir"sv == keyword || "ls"sv == keyword)
 	{
-		list_directory(current_directory.get());
+		if(keywords.size() > 1)
+		{
+			const auto& path = keywords[1];
+
+			file_h list_dir{find_path(dir.get(), path.data(), path.size(), 0, 0)};
+
+			list_directory(list_dir.get());
+		}
+		else
+		{
+			list_directory(current_directory.get());
+		}
 	}
 	else if("cd"sv == keyword)
 	{
@@ -253,7 +264,7 @@ int execute_line(std::string_view current_line)
 			return -1;
 		}
 
-		current_path.assign(file.name, file.size);
+		current_path.assign(file.name, file.name_len);
 		current_directory = std::move(f_handle);
 		return 1;
 	}
@@ -512,7 +523,7 @@ void prompt()
 
 	//printf("\x1b[32;22m");
 	//printf("\x1b[37m@");
-	printf("\x1b[32;22m%s\x1b[37m:/%s%c", drive, current_path.c_str(), prompt_char);
+	printf("\x1b[32;22m%s\x1b[37m %u:/%s%c", drive, drive_index, current_path.c_str(), prompt_char);
 }
 
 void splash_text(int w)
@@ -543,11 +554,11 @@ int main(int argc, char** argv)
 
 	printf("UTC Time: %s\n", asctime(gmtime(&t_time)));
 
-	printf("EPOCH TIME: %d\n", t_time);
+	printf("EPOCH TIME: %u\n", t_time);
 
 	printf("EST Time: %s\n", ctime(&t_time));
 
-	printf("t=%d\n", clock_ticks(nullptr));
+	printf("t=%u\n", clock_ticks(nullptr));
 
 	current_directory = file_h{get_root_directory(drive_index)};
 

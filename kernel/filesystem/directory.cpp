@@ -15,6 +15,7 @@
 #include <string_view>
 #include <algorithm>
 #include <optional>
+#include <charconv>
 
 directory_stream* filesystem_open_directory_handle(const file_handle* f, int flags)
 {
@@ -55,7 +56,7 @@ static std::optional<file_handle> filesystem_create_file(directory_stream& d, st
 	return d.file_list.back();
 }
 
-std::optional<file_handle> find_file_by_path(directory_stream* d, std::string_view path, int mode, int flags)
+static std::optional<file_handle> do_find_file_by_path(directory_stream* d, std::string_view path, int mode, int flags)
 {
 	k_assert(d);
 
@@ -71,7 +72,7 @@ std::optional<file_handle> find_file_by_path(directory_stream* d, std::string_vi
 	//if there are still '/'s in the path
 	if(size_t dir_end = path.find('/'); dir_end != std::string_view::npos)
 	{
-		auto it = find_file(d->file_list.cbegin(), 
+		auto it = find_file(d->file_list.cbegin(),
 							d->file_list.cend(), path.substr(0, dir_end));
 
 		if(it != d->file_list.cend() && it->data.flags & IS_DIR)
@@ -103,6 +104,39 @@ std::optional<file_handle> find_file_by_path(directory_stream* d, std::string_vi
 	}
 
 	return std::nullopt;
+}
+
+std::optional<file_handle> find_file_by_path(directory_stream* d, std::string_view path, int mode, int flags)
+{
+	size_t colon = path.find_first_of(':');
+
+	if(colon != path.npos)
+	{
+		size_t drive = 0;
+		if(auto r = std::from_chars(path.cbegin(), path.cend(), drive);
+		   r.ec == std::errc::invalid_argument)
+		{
+			return std::nullopt;
+		}
+
+		if(auto r_dir = filesystem_get_root_directory(drive); !!r_dir)
+		{
+			if(colon + 1 == path.size() ||
+			   path.find_first_not_of('/', colon + 1) == path.npos)
+			{
+				return *r_dir;
+			}
+
+			fs::dir_stream ds{r_dir, 0};
+
+			return do_find_file_by_path(ds.get_ptr(), path.substr(colon + 1), mode, flags);
+		}
+	}
+
+	if(!d)
+		return std::nullopt;
+	else
+		return do_find_file_by_path(d, path, mode, flags);
 }
 
 int filesystem_get_file_info(file_info* dst, const file_handle* src)
