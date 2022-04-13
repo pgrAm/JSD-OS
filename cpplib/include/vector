@@ -19,14 +19,13 @@ public:
 	using iterator = T*;
 	using const_iterator = const T*;
 
-	vector() :
+	constexpr vector() :
 		m_begin(nullptr),
 		m_end(m_begin),
 		m_capacity(0)
-	{
-	}
+	{}
 
-	vector(const T* s, size_t len)
+	constexpr vector(const T* s, size_t len)
 	{
 		m_capacity = len;
 		m_begin = new T[m_capacity];
@@ -35,7 +34,7 @@ public:
 		std::copy(s, s + len, begin());
 	}
 
-	vector(size_t count, const T& value = {})
+	constexpr vector(size_t count, const T& value = {})
 	{
 		m_capacity = count;
 		m_begin = new T[m_capacity];
@@ -49,52 +48,52 @@ public:
 		delete[] m_begin;
 	}
 
-	iterator begin()
+	constexpr iterator begin()
 	{
 		return m_begin;
 	}
 
-	iterator end()
+	constexpr iterator end()
 	{
 		return m_end;
 	}
 
-	const_iterator cbegin() const noexcept
+	constexpr const_iterator cbegin() const noexcept
 	{
 		return m_begin;
 	}
 
-	const_iterator cend() const noexcept
+	constexpr const_iterator cend() const noexcept
 	{
 		return m_end;
 	}
 
-	size_t size() const
+	constexpr size_t size() const
 	{
 		return cend() - cbegin();
 	}
 
-	size_t length() const
+	constexpr size_t length() const
 	{
 		return size();
 	}
 
-	size_t capacity() const
+	constexpr size_t capacity() const
 	{
 		return m_capacity;
 	}
 
-	T& operator[](size_t n)
+	constexpr T& operator[](size_t n)
 	{
 		return m_begin[n];
 	}
 
-	const T& operator[](size_t n) const
+	constexpr const T& operator[](size_t n) const
 	{
 		return m_begin[n];
 	}
 
-	void reserve(size_t n = 0)
+	constexpr void reserve(size_t n = 0)
 	{
 		if(n > capacity())
 		{
@@ -111,12 +110,12 @@ public:
 		}
 	}
 
-	T* data() const
+	constexpr T* data() const
 	{
 		return m_begin;
 	}
 
-	vector(const vector& v)
+	constexpr vector(const vector& v)
 	{
 		m_capacity = v.size();
 		m_begin = new T[m_capacity];
@@ -125,12 +124,12 @@ public:
 		std::copy(v.cbegin(), v.cend(), begin());
 	}
 
-	vector(vector&& v) noexcept : vector()
+	constexpr vector(vector&& v) noexcept : vector()
 	{
 		swap(v);
 	}
 
-	vector& operator=(const vector& v)
+	constexpr vector& operator=(const vector& v)
 	{
 		delete[] m_begin;
 
@@ -142,26 +141,26 @@ public:
 		return *this;
 	}
 
-	vector& operator=(vector&& v) noexcept
+	constexpr vector& operator=(vector&& v) noexcept
 	{
 		swap(v);
 		return *this;
 	}
 
-	void swap(vector& v) noexcept
+	constexpr void swap(vector& v) noexcept
 	{
 		std::swap(m_capacity, v.m_capacity);
 		std::swap(m_begin, v.m_begin);
 		std::swap(m_end, v.m_end);
 	}
 
-	void push_back(const T& c)
+	constexpr void push_back(const T& c)
 	{
 		emplace_back(c);
 	}
 
 	template <class... Args>
-	void  emplace_back(Args&&... args)
+	constexpr void emplace_back(Args&&... args)
 	{
 		if(size() + 1 > capacity())
 		{
@@ -170,38 +169,38 @@ public:
 		new(m_end++) T{std::forward<Args>(args)...};
 	}
 
-	bool empty()
+	constexpr bool empty()
 	{
 		return size() == 0;
 	}
 
-	void pop_back()
+	constexpr void pop_back()
 	{
 		back().~T();
 		--m_end;
 	}
 
-	const T& front() const
+	constexpr const T& front() const
 	{
 		return *m_begin;
 	}
 
-	T& front()
+	constexpr T& front()
 	{
 		return *m_begin;
 	}
 
-	const T& back() const
+	constexpr const T& back() const
 	{
 		return *(m_end - 1);
 	}
 
-	T& back()
+	constexpr T& back()
 	{
 		return *(m_end - 1);
 	}
 
-	void clear()
+	constexpr void clear()
 	{
 		m_end = m_begin;
 	}

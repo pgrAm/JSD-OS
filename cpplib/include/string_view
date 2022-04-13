@@ -182,8 +182,8 @@ private:
 };
 
 template <typename C>
-inline bool operator==(const std::basic_string_view<C>& lhs,
-					   const std::basic_string_view<C>& rhs)
+constexpr inline bool operator==(const std::basic_string_view<C>& lhs,
+								 const std::basic_string_view<C>& rhs)
 {
 	if(lhs.size() != rhs.size())
 		return false;
@@ -191,8 +191,8 @@ inline bool operator==(const std::basic_string_view<C>& lhs,
 }
 
 template <typename C>
-inline bool operator!=(const std::basic_string_view<C>& lhs,
-					   const std::basic_string_view<C>& rhs)
+constexpr inline bool operator!=(const std::basic_string_view<C>& lhs,
+								 const std::basic_string_view<C>& rhs)
 {
 	if(lhs.size() != rhs.size())
 		return true;
@@ -232,28 +232,28 @@ constexpr bool operator==(std::basic_string_view<C> lhs,
 }
 
 template <typename C>
-inline bool operator==(const std::basic_string_view<C>& lhs,
+constexpr bool operator==(const std::basic_string_view<C>& lhs,
 					   const typename std::basic_string_view<C>::value_type* rhs)
 {
 	return lhs.compare(rhs) == 0;
 }
 
 template <typename C>
-inline bool operator!=(const std::basic_string_view<C>& lhs,
+constexpr bool operator!=(const std::basic_string_view<C>& lhs,
 					   const typename std::basic_string_view<C>::value_type* rhs)
 {
 	return lhs.compare(rhs) != 0;
 }
 
 template <typename C>
-inline bool operator==(const typename std::basic_string_view<C>::value_type* lhs,
+constexpr bool operator==(const typename std::basic_string_view<C>::value_type* lhs,
 					   const std::basic_string_view<C> rhs)
 {
 	return rhs.compare(lhs) == 0;
 }
 
 template <typename C>
-inline bool operator!=(const typename std::basic_string_view<C>::value_type* lhs,
+constexpr bool operator!=(const typename std::basic_string_view<C>::value_type* lhs,
 					   const std::basic_string_view<C> rhs)
 {
 	return rhs.compare(lhs) != 0;
@@ -262,7 +262,7 @@ namespace std {
 inline namespace literals {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wuser-defined-literals"
-inline constexpr basic_string_view<char> operator "" sv(const char* str, size_t len) noexcept
+constexpr basic_string_view<char> operator "" sv(const char* str, size_t len) noexcept
 {
 	return basic_string_view<char>(str, len);
 }
