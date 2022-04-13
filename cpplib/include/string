@@ -25,20 +25,20 @@ public:
 	using traits_type = char_traits<value_type>;
 	static const size_type npos = -1;
 
-	basic_string() noexcept
+	constexpr basic_string() noexcept
 	{
-		m_rep.s.size = 0;
+		__set_short_size(0);
 		m_rep.s.data[0] = '\0';
 		assert(!__is_long());
 	}
 
-	basic_string(const value_type* s) : basic_string(s, strlen(s))
-	{
-	}
+	constexpr basic_string(const value_type* s) 
+		: basic_string(s, traits_type::length(s))
+	{}
 
-	basic_string(const value_type* s, size_t len)
+	constexpr basic_string(const value_type* s, size_t len)
 	{
-		if(len > __min_cap - 1)
+		if(len > __min_cap)
 		{
 			const auto new_cap = len + 1;
 			m_rep.l.size = len;
@@ -50,16 +50,16 @@ public:
 		}
 		else
 		{
-			m_rep.s.size = len;
+			__set_short_size(len);
 			memcpy(&m_rep.s.data[0], s, len);
 			m_rep.s.data[len] = '\0';
 			assert(!__is_long());
 		}
 	}
 
-	basic_string(const basic_string& str) : basic_string(str.data(), str.size())
-	{
-	}
+	constexpr basic_string(const basic_string& str) 
+		: basic_string(str.data(), str.size())
+	{}
 
 	~basic_string()
 	{
@@ -67,12 +67,12 @@ public:
 			delete[] m_rep.l.data;
 	}
 
-	basic_string(basic_string&& str) noexcept
+	constexpr basic_string(basic_string&& str) noexcept
 	{
 		if(str.__is_long())
 		{
 			m_rep.l = str.m_rep.l;
-			str.m_rep.s.size = 0;
+			str.__set_short_size(0);
 			str.m_rep.s.data[0] = '\0';
 			assert(__is_long());
 			assert(!str.__is_long());
@@ -84,16 +84,16 @@ public:
 		}
 	}
 
-	basic_string& assign(const value_type* s)
+	constexpr basic_string& assign(const value_type* s)
 	{
-		const auto new_size = strlen(s);
+		const auto new_size = traits_type::length(s);
 		reserve(new_size);
 		__copy_from_null_terminated_string(s, new_size);
 
 		return *this;
 	}
 
-	basic_string& assign(const value_type* s, size_t n)
+	constexpr basic_string& assign(const value_type* s, size_t n)
 	{
 		reserve(n);
 		__copy_from_unterminated_string(s, n);
@@ -101,7 +101,7 @@ public:
 		return *this;
 	}
 
-	basic_string& assign(const basic_string& str)
+	constexpr basic_string& assign(const basic_string& str)
 	{
 		const auto new_size = str.size();
 		reserve(new_size);
@@ -125,24 +125,24 @@ public:
 		__self_view _sv;
 	};
 
-	explicit basic_string(__sv_wrapper __sv)
+	constexpr explicit basic_string(__sv_wrapper __sv)
 		: basic_string(__sv._sv.data(), __sv._sv.size())
 	{}
 
 	template <class T, class = typename enable_if<__is_sv_convertible<T>::value>::type>
-	explicit basic_string(const T& t) :
+	constexpr  explicit basic_string(const T& t) :
 		basic_string(__sv_wrapper(t))
 	{}
 
 	template <class T, class = typename enable_if<__is_sv_convertible<T>::value>::type>
-	basic_string& assign(const T& t)
+	constexpr basic_string& assign(const T& t)
 	{
 		__self_view sv = t;
 		return assign(sv.data(), sv.size());
 	}
 
 	template <class T, class = typename enable_if<__is_sv_convertible<T>::value>::type>
-	basic_string& operator=(const T& t)
+	constexpr basic_string& operator=(const T& t)
 	{
 		__self_view sv = t;
 		return assign(sv);
@@ -153,17 +153,17 @@ public:
 		return basic_string_view<CharT>(data(), size());
 	}
 
-	basic_string& operator=(const value_type* str)
+	constexpr basic_string& operator=(const value_type* str)
 	{
 		return assign(str);
 	}
 
-	basic_string& operator=(const basic_string& str)
+	constexpr basic_string& operator=(const basic_string& str)
 	{
 		return assign(str);
 	}
 
-	basic_string& operator=(basic_string&& str) noexcept
+	constexpr basic_string& operator=(basic_string&& str) noexcept
 	{
 		if(!str.__is_long())
 		{
@@ -176,14 +176,14 @@ public:
 		else if(&str != this)
 		{
 			m_rep.l = str.m_rep.l;
-			str.m_rep.s.size = 0;
+			str.__set_short_size(0);
 			str.m_rep.s.data[0] = '\0';
 			assert(__is_long());
 		}
 		return *this;
 	}
 
-	iterator begin() noexcept
+	constexpr iterator begin() noexcept
 	{
 		if(__is_long())
 			return m_rep.l.data;
@@ -191,12 +191,12 @@ public:
 			return &m_rep.s.data[0];
 	}
 
-	iterator end() noexcept
+	constexpr iterator end() noexcept
 	{
 		return begin() + size();
 	}
 
-	const_iterator cbegin() const noexcept
+	constexpr const_iterator cbegin() const noexcept
 	{
 		if(__is_long())
 			return m_rep.l.data;
@@ -204,43 +204,43 @@ public:
 			return &m_rep.s.data[0];
 	}
 
-	const_iterator cend() const noexcept
+	constexpr const_iterator cend() const noexcept
 	{
 		return cbegin() + size();
 	}
 
-	size_type size() const noexcept
+	constexpr size_type size() const noexcept
 	{
 		if(__is_long())
 			return m_rep.l.size;
 		else
-			return m_rep.s.size;
+			return __get_short_size();
 	}
 
-	size_type length() const noexcept
+	constexpr size_type length() const noexcept
 	{
 		return size();
 	}
 
-	size_type capacity() const noexcept
+	constexpr size_type capacity() const noexcept
 	{
 		if(__is_long())
 			return __get_long_cap() - 1;
 		else
-			return __min_cap - 1;
+			return __min_cap;
 	}
 
-	value_type& operator[](size_type n)
+	constexpr value_type& operator[](size_type n)
 	{
 		return begin()[n];
 	}
 
-	const value_type& operator[](size_type n) const
+	constexpr const value_type& operator[](size_type n) const
 	{
 		return cbegin()[n];
 	}
 
-	void reserve(size_type n = 0)
+	constexpr void reserve(size_type n = 0)
 	{
 		if(n > capacity())
 		{
@@ -261,23 +261,22 @@ public:
 		}
 	}
 
-	const value_type* data() const noexcept
+	constexpr const value_type* data() const noexcept
 	{
 		return cbegin();
 	}
 
-	const value_type* c_str() const noexcept
+	constexpr const value_type* c_str() const noexcept
 	{
 		return cbegin();
 	}
 
-
-	void swap(basic_string& s) noexcept
+	constexpr void swap(basic_string& s) noexcept
 	{
 		std::swap(m_rep, s.m_rep);
 	}
 
-	void push_back(value_type c)
+	constexpr void push_back(value_type c)
 	{
 		if(size() + 1 > capacity())
 		{
@@ -290,12 +289,13 @@ public:
 		}
 		else
 		{
-			m_rep.s.data[m_rep.s.size++] = c;
-			m_rep.s.data[m_rep.s.size] = '\0';
+			m_rep.s.data[__get_short_size()] = c;
+			m_rep.s.inv_sz--;
+			m_rep.s.data[__get_short_size()] = '\0';
 		}
 	}
 
-	basic_string& append(const value_type* str, size_type count)
+	constexpr basic_string& append(const value_type* str, size_type count)
 	{
 		const auto new_size = size() + count;
 		if(new_size > capacity())
@@ -311,33 +311,33 @@ public:
 		}
 		else
 		{
-			m_rep.s.size = new_size;
+			__set_short_size(new_size);
 			m_rep.s.data[new_size] = '\0';
 		}
 		return *this;
 	}
 
-	basic_string& append(const value_type* str)
+	constexpr basic_string& append(const value_type* str)
 	{
-		return append(str, strlen(str));
+		return append(str, traits_type::length(str));
 	}
 
-	basic_string& append(const basic_string& str)
+	constexpr basic_string& append(const basic_string& str)
 	{
 		return append(str.data(), str.size());
 	}
 
-	basic_string& operator+=(const value_type* str)
+	constexpr basic_string& operator+=(const value_type* str)
 	{
 		return append(str);
 	}
 
-	basic_string& operator+=(const basic_string& str)
+	constexpr basic_string& operator+=(const basic_string& str)
 	{
 		return append(str.data(), str.size());
 	}
 
-	basic_string& operator+=(value_type c)
+	constexpr basic_string& operator+=(value_type c)
 	{
 		push_back(c);
 		return *this;
@@ -349,12 +349,12 @@ public:
 		return append(str.data(), str.size());
 	}
 
-	int compare(const value_type* s) const noexcept
+	constexpr int compare(const value_type* s) const noexcept
 	{
 		return strcmp(c_str(), s);
 	}
 
-	int compare(const basic_string& s) const noexcept
+	constexpr int compare(const basic_string& s) const noexcept
 	{
 		size_type lhs_sz = size();
 		size_type rhs_sz = s.size();
@@ -368,12 +368,12 @@ public:
 		return 0;
 	}
 
-	bool empty() const noexcept
+	[[nodiscard]] constexpr bool empty() const noexcept
 	{
 		return size() == 0;
 	}
 
-	void pop_back()
+	constexpr void pop_back()
 	{
 		if(__is_long())
 		{
@@ -381,18 +381,18 @@ public:
 		}
 		else
 		{
-			--m_rep.s.size;
+			m_rep.s.inv_sz++;
 		}
 		*end() = '\0';
 	}
 
-	basic_string substr(size_t pos = 0, size_t count = npos) const
+	constexpr basic_string substr(size_t pos = 0, size_t count = npos) const
 	{
 		return basic_string{ cbegin() + pos,
 							 std::min(size() - pos, count) };
 	}
 
-	size_t find_first_of(const basic_string& str, size_t pos = 0) const
+	constexpr size_t find_first_of(const basic_string& str, size_t pos = 0) const
 	{
 		for(auto it = cbegin() + pos; it < cend(); it++)
 		{
@@ -434,17 +434,17 @@ public:
 		return npos;
 	}
 
-	const value_type& back() const noexcept
+	constexpr const value_type& back() const noexcept
 	{
 		return *(cend() - 1);
 	}
 
-	value_type& back() noexcept
+	constexpr value_type& back() noexcept
 	{
 		return *(end() - 1);
 	}
 
-	void clear() noexcept
+	constexpr void clear() noexcept
 	{
 		if(__is_long())
 		{
@@ -453,12 +453,12 @@ public:
 		}
 		else
 		{
-			m_rep.s.size = 0;
+			__set_short_size(0);			
 			m_rep.s.data[0] = '\0';
 		}
 	}
 
-	void resize(size_t n)
+	constexpr void resize(size_t n)
 	{
 		reserve(n);
 		if(n > size())
@@ -472,14 +472,14 @@ public:
 		}
 		else
 		{
-			m_rep.s.size = n;
+			__set_short_size(n);
 			m_rep.s.data[n] = '\0';
 		}
 	}
 
 private:
 
-	void __copy_from_null_terminated_string(const value_type* data, size_type new_size) noexcept
+	constexpr void __copy_from_null_terminated_string(const value_type* data, size_type new_size) noexcept
 	{
 		assert(capacity() >= new_size);
 		if(__is_long())
@@ -490,13 +490,13 @@ private:
 		}
 		else
 		{
-			m_rep.s.size = new_size;
+			__set_short_size(new_size);
 			memcpy(&m_rep.s.data[0], data, (new_size + 1) * sizeof(value_type));
 			assert(!__is_long());
 		}
 	}
 
-	void __copy_from_unterminated_string(const value_type* data, size_type new_size) noexcept
+	constexpr void __copy_from_unterminated_string(const value_type* data, size_type new_size) noexcept
 	{
 		assert(capacity() >= new_size);
 		if(__is_long())
@@ -508,26 +508,36 @@ private:
 		}
 		else
 		{
-			m_rep.s.size = new_size;
+			__set_short_size(new_size);
 			memcpy(&m_rep.s.data[0], data, new_size * sizeof(value_type));
 			m_rep.s.data[new_size] = '\0';
 			assert(!__is_long());
 		}
 	}
 
-	size_type __get_long_cap() const noexcept
+	constexpr size_type __get_short_size() const noexcept
+	{
+		return __min_cap - m_rep.s.inv_sz;
+	}
+
+	constexpr void __set_short_size(size_type s) noexcept
+	{
+		m_rep.s.inv_sz = __min_cap - s;
+	}
+
+	constexpr size_type __get_long_cap() const noexcept
 	{
 		return m_rep.l.cap & (size_type)(~__long_mask);
 	}
 
-	void __set_long_cap(size_type s) noexcept
+	constexpr void __set_long_cap(size_type s) noexcept
 	{
 		m_rep.l.cap = __long_mask | s;
 	}
 
-	bool __is_long() const noexcept
+	constexpr bool __is_long() const noexcept
 	{
-		return bool(m_rep.s.size & __short_mask);
+		return bool(m_rep.s.inv_sz & __short_mask);
 	}
 
 	struct __long
@@ -545,15 +555,23 @@ private:
 	static const size_type __long_mask = ~(size_type(~0) >> 1);
 	//#endif
 
-	enum {
-		__min_cap = (sizeof(__long) - 1) / sizeof(value_type) > 2 ?
-		(sizeof(__long) - 1) / sizeof(value_type) : 2
-	};
+	constexpr static 
+	size_t __min_cap =	(sizeof(__long) - 1) / sizeof(value_type) > 2 ?
+						(sizeof(__long) - 1) / sizeof(value_type) : 2;
 
 	struct __short
 	{
-		value_type data[__min_cap];
-		unsigned char size;
+		union {
+			value_type data[__min_cap + 1];
+			struct
+			{
+				value_type padding[__min_cap];
+				union {
+					unsigned char inv_sz;
+					value_type p;
+				};
+			};
+		};
 	};
 
 	struct __rep
@@ -569,8 +587,8 @@ private:
 };
 
 template <typename C>
-inline std::basic_string<C> operator+(const std::basic_string<C>& lhs,
-									  const std::basic_string<C>& rhs)
+constexpr std::basic_string<C> operator+(const std::basic_string<C>& lhs,
+										 const std::basic_string<C>& rhs)
 {
 	auto r = lhs;
 	r += rhs;
@@ -578,8 +596,8 @@ inline std::basic_string<C> operator+(const std::basic_string<C>& lhs,
 }
 
 template <typename C>
-inline bool operator==(const std::basic_string<C>& lhs,
-					   const std::basic_string<C>& rhs)
+constexpr bool operator==(const std::basic_string<C>& lhs,
+						  const std::basic_string<C>& rhs)
 {
 	if(lhs.size() != rhs.size())
 		return false;
@@ -587,7 +605,7 @@ inline bool operator==(const std::basic_string<C>& lhs,
 }
 
 template <typename C>
-inline bool operator!=(const std::basic_string<C>& lhs,
+constexpr bool operator!=(const std::basic_string<C>& lhs,
 					   const std::basic_string<C>& rhs)
 {
 	if(lhs.size() != rhs.size())
@@ -596,36 +614,36 @@ inline bool operator!=(const std::basic_string<C>& lhs,
 }
 
 template <typename C>
-inline bool operator==(const std::basic_string<C>& lhs,
+constexpr bool operator==(const std::basic_string<C>& lhs,
 					   const typename std::basic_string<C>::value_type* rhs)
 {
 	return lhs.compare(rhs) == 0;
 }
 
 template <typename C>
-inline bool operator!=(const std::basic_string<C>& lhs,
+constexpr bool operator!=(const std::basic_string<C>& lhs,
 					   const typename std::basic_string<C>::value_type* rhs)
 {
 	return lhs.compare(rhs) != 0;
 }
 
 template <typename C>
-inline bool operator==(const typename std::basic_string<C>::value_type* lhs,
+constexpr bool operator==(const typename std::basic_string<C>::value_type* lhs,
 					   const std::basic_string<C>& rhs)
 {
 	return rhs.compare(lhs) == 0;
 }
 
 template <typename C>
-inline bool operator!=(const typename std::basic_string<C>::value_type* lhs,
+constexpr bool operator!=(const typename std::basic_string<C>::value_type* lhs,
 					   const std::basic_string<C>& rhs)
 {
 	return rhs.compare(lhs) != 0;
 }
 
 template <typename C>
-inline std::basic_string<C> operator+(const std::basic_string<C>& lhs,
-									  const typename std::basic_string<C>::value_type* rhs)
+constexpr std::basic_string<C> operator+(const std::basic_string<C>& lhs,
+												const typename std::basic_string<C>::value_type* rhs)
 {
 	auto new_str = lhs;
 	return new_str.append(rhs);
