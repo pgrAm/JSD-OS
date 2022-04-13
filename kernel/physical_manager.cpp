@@ -1,6 +1,8 @@
 #include <kernel/physical_manager.h>
 #include <kernel/boot_info.h>
 #include <kernel/kassert.h>
+#include <utility>
+#include <algorithm>
 #include <stdio.h>
 
 typedef struct
@@ -10,96 +12,149 @@ typedef struct
 } memory_block;
 
 #define MAX_NUM_MEMORY_BLOCKS 128
-static size_t num_memory_blocks = 0;
-static memory_block memory_map[MAX_NUM_MEMORY_BLOCKS] = {};
 
-void physical_memory_add_block(size_t block_index, size_t address, size_t length)
+template<class Input, class Output>
+Output* mem_copy(Input* first, Input* last, Output* d_first)
+requires(std::is_trivially_copyable_v<Input>)
 {
-	if(block_index >= MAX_NUM_MEMORY_BLOCKS)
-	{
-		puts("error maximum memory blocks reached");
-		return;
-	}
-	if(block_index < num_memory_blocks)
-	{
-		memmove(&memory_map[block_index + 1], &memory_map[block_index], sizeof(memory_block) * (num_memory_blocks - block_index));
-	}
-	memory_map[block_index].offset = address;
-	memory_map[block_index].length = length;
-	num_memory_blocks++;
+	return (Output*)memcpy(d_first, first, (last - first)*sizeof(Input));
+	//return std::copy(first, last, d_first);
 }
 
-void physical_memory_remove_block(size_t block_index)
+struct block_list
 {
-	k_assert(block_index < MAX_NUM_MEMORY_BLOCKS);
+	using iterator = memory_block*;
+	using const_iterator = const memory_block*;
 
-	if(block_index < (num_memory_blocks - 1))
+	constexpr iterator begin() noexcept
 	{
-		memmove(&memory_map[block_index], &memory_map[block_index + 1], sizeof(memory_block) * ((num_memory_blocks - 1) - block_index));
+		return &blocks[0];
 	}
-	num_memory_blocks--;
-}
 
-bool physical_claim_from_block(uintptr_t address, size_t size, size_t* block_index)
-{
-	size_t padding = address - memory_map[*block_index].offset;
-
-	if(memory_map[*block_index].length >= size + padding)
+	constexpr iterator end() noexcept
 	{
-		//printf("%X padding\n", padding);
+		return begin() + size();
+	}
 
-		if(padding > 0)
+	constexpr const_iterator cbegin() const noexcept
+	{
+		return &blocks[0];
+	}
+
+	constexpr const_iterator cend() const noexcept
+	{
+		return cbegin() + size();
+	}
+
+	constexpr void erase(iterator it) noexcept
+	{
+		k_assert((it - cbegin()) < MAX_NUM_MEMORY_BLOCKS);
+
+		if(it < (end() - 1))
 		{
-			//add a new block to the list
-			physical_memory_add_block(*block_index, memory_map[*block_index].offset, padding);
-			(*block_index)++;
+			mem_copy(it + 1, end(), it);
 		}
-
-		//printf("%X bytes at %X\n", memory_map[*block_index].length, memory_map[*block_index].offset);
-
-		memory_map[*block_index].offset += size + padding;
-		memory_map[*block_index].length -= size + padding;
-
-		if(memory_map[*block_index].length == 0)
-		{
-			//remove the memory block from the list
-			physical_memory_remove_block(*block_index);
-			(*block_index)--;
-		}
-
-		return true;
+		--num_blocks;
 	}
 
-	return false;
-}
+	template <typename... Args>
+	constexpr void emplace_back(Args&&... args) noexcept
+	{
+		*end() = memory_block{std::forward<Args>(args)...};
+		++num_blocks;
+	}
+
+	template <typename... Args>
+	constexpr iterator emplace(iterator it, Args&&... args) noexcept
+	{
+		k_assert(it < (cbegin() + MAX_NUM_MEMORY_BLOCKS));
+
+		if(it <= end())
+		{
+			std::copy_backward(it, end(), end() + 1);
+		}
+		*it = memory_block{std::forward<Args>(args)...};
+		++num_blocks;
+		return it;
+	}
+
+	constexpr void claim_from_block(iterator& it, uintptr_t offset, size_t size) noexcept
+	{
+		auto length = it->length - (size + offset);
+		if(length == 0)
+		{
+			if(offset > 0)
+			{
+				it->length = offset;
+			}
+			else
+			{
+				//remove the memory block from the list
+				erase(it--);
+			}
+		}
+		else
+		{
+			if(offset > 0)
+			{
+				//add a new block to the list
+				emplace(it, it->offset, offset);
+				++it;
+			}
+			*it = {it->offset + (size + offset), length};
+		}
+	}
+
+	memory_block& operator[](size_t i) noexcept
+	{
+		return blocks[i];
+	}
+
+	const memory_block& operator[](size_t i) const noexcept
+	{
+		return blocks[i];
+	}
+
+	size_t size() const noexcept
+	{
+		return num_blocks;
+	}
+
+private:
+	size_t num_blocks = 0;
+	memory_block blocks[MAX_NUM_MEMORY_BLOCKS] = {};
+};
+
+constinit block_list memory_map{};
 
 void physical_memory_reserve(uintptr_t address, size_t size)
 {
-	//printf("%X bytes reserved at %X\n", size, address);
-
-	for(size_t i = 0; i < num_memory_blocks; i++)
+	for(auto it = memory_map.begin(); it != memory_map.end(); it++)
 	{
-		if(memory_map[i].offset > address + size)
+		if(it->offset > address + size)
 		{
 			printf(">= %d bytes already reserved at %X\n", size, address);
 			return;
 		}
 
-		if(memory_map[i].offset > address)
+		if(it->offset > address)
 		{
-			size -= memory_map[i].offset - address;
-			address = memory_map[i].offset;
+			size -= it->offset - address;
+			address = it->offset;
 		}
 
 		size_t claimed_space = size;
-		size_t available_space = memory_map[i].length - (address - memory_map[i].offset);
+		size_t available_space = it->length - (address - it->offset);
 		if(available_space < claimed_space)
 		{
 			claimed_space = available_space;
 		}
 
-		if(physical_claim_from_block(address, claimed_space, &i))
+		size_t padding = address - it->offset;
+		if(it->length >= size + padding)
 		{
+			memory_map.claim_from_block(it, padding, claimed_space);
+
 			printf("%X bytes reserved at %X\n", claimed_space, address);
 
 			address += claimed_space;
@@ -113,73 +168,73 @@ void physical_memory_reserve(uintptr_t address, size_t size)
 
 void physical_memory_free(uintptr_t physical_address, size_t size)
 {
-	for(size_t i = 0; i < num_memory_blocks; i++)
+	for(auto it = memory_map.begin(); it != memory_map.end(); it++)
 	{
-		if(memory_map[i].offset + memory_map[i].length < physical_address)
+		if(it->offset + it->length < physical_address)
 		{
 			continue;
 		}
-		else if(memory_map[i].offset + memory_map[i].length == physical_address) //we have an adjacent block
+		else if(it->offset + it->length == physical_address) //we have an adjacent block
 		{
 			//we have an adjacent block before
-			memory_map[i].length += size;
+			it->length += size;
 
-			size_t next_index = i + 1;
+			auto next = it + 1;
 
-			if(next_index < num_memory_blocks &&
-			   memory_map[next_index].offset == physical_address + size)
-			{			
+			if(next < memory_map.end() && next->offset == physical_address + size)
+			{
 				//we have an adjacent block after too
 				//collapse that block into this one
-				memory_map[i].length += memory_map[next_index].length;
-				physical_memory_remove_block(next_index);
+				it->length += next->length;
+				memory_map.erase(next);
 			}
 			return;
 		}
-		else if(memory_map[i].offset == physical_address + size)
+		else if(it->offset == physical_address + size)
 		{
 			//we have an adjacent block after
-			memory_map[i].offset = physical_address;
-			memory_map[i].length += size;
+			it->offset = physical_address;
+			it->length += size;
 			return;
 		}
-		else if(memory_map[i].offset + memory_map[i].length > physical_address)
+		else if(it->offset + it->length > physical_address)
 		{
 			//otherwise we need to add a new block
-			physical_memory_add_block(i, physical_address, size);
+			memory_map.emplace(it, physical_address, size);
 			return;
 		}
 	}
 
-	physical_memory_add_block(num_memory_blocks, physical_address, size);
+	memory_map.emplace_back(physical_address, size);
 }
 
 uintptr_t physical_memory_allocate(size_t size, size_t align)
 {
-	for(size_t i = 0; i < num_memory_blocks; i++)
+	for(auto it = memory_map.begin(); it != memory_map.end(); it++)
 	{
-		uintptr_t aligned_addr = align_addr(memory_map[i].offset, align);
+		uintptr_t aligned_addr = align_addr(it->offset, align);
 
-		if(physical_claim_from_block(aligned_addr, size, &i))
+		size_t padding = aligned_addr - it->offset;
+		if(it->length >= size + padding)
 		{
+			memory_map.claim_from_block(it, padding, size);
 			return aligned_addr;
 		}
 	}
 
 	printf("could not allocate enough pages\n");
-
 	return 0;
 }
 
 uintptr_t physical_memory_allocate_in_range(uintptr_t start, uintptr_t end, size_t size, size_t align)
 {
-	for(size_t i = 0; i < num_memory_blocks; i++)
+	for(auto it = memory_map.begin(); it != memory_map.end(); it++)
 	{
-		uintptr_t aligned_addr = align_addr(memory_map[i].offset, align);
+		uintptr_t aligned_addr = align_addr(it->offset, align);
 
 		if(aligned_addr < start)
 		{
-			if(memory_map[i].offset + memory_map[i].length < start)
+			if(it->offset + it->length < start)
 			{
 				continue;
 			}
@@ -189,14 +244,15 @@ uintptr_t physical_memory_allocate_in_range(uintptr_t start, uintptr_t end, size
 		if(aligned_addr + size > end)
 			return 0;
 
-		if(physical_claim_from_block(aligned_addr, size, &i))
+		size_t padding = aligned_addr - it->offset;
+		if(it->length >= size + padding)
 		{
+			memory_map.claim_from_block(it, padding, size);
 			return aligned_addr;
 		}
 	}
 
 	printf("Could not allocate enough physical memory\n");
-
 	return 0;
 }
 
@@ -204,7 +260,7 @@ SYSCALL_HANDLER size_t physical_num_bytes_free(void)
 {
 	size_t sum = 0;
 
-	for(size_t i = 0; i < num_memory_blocks; i++)
+	for(size_t i = 0; i < memory_map.size(); i++)
 	{
 		sum += memory_map[i].length;
 	}
@@ -221,7 +277,7 @@ size_t physical_mem_size(void)
 
 void print_free_map()
 {
-	for(size_t i = 0; i < num_memory_blocks; i++)
+	for(size_t i = 0; i < memory_map.size(); i++)
 	{
 		printf("Available \t%8X - %8X\n",
 			   memory_map[i].offset,
@@ -229,12 +285,14 @@ void print_free_map()
 	}
 }
 
-void physical_memory_init(void) 
+void physical_memory_init(void)
 {
 	total_mem_size = boot_information.low_memory * 1024 + boot_information.high_memory * 1024;
 
-	physical_memory_add_block(0, 0x500, (boot_information.low_memory * 1024) - 0x500);
-	physical_memory_add_block(1, 0x00100000, boot_information.high_memory * 1024);
+	k_assert(memory_map.size() == 0);
+
+	memory_map.emplace_back(0x500u, (boot_information.low_memory * 1024) - 0x500);
+	memory_map.emplace_back(0x00100000u, boot_information.high_memory * 1024);
 
 	//reserve kernel
 	physical_memory_reserve(boot_information.kernel_location, boot_information.kernel_size);
