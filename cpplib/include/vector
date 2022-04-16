@@ -4,7 +4,6 @@
 extern "C" {
 #include <string.h>
 }
-
 #include <algorithm>
 #include <utility>
 #include <new>
@@ -28,24 +27,24 @@ public:
 	constexpr vector(const T* s, size_t len)
 	{
 		m_capacity = len;
-		m_begin = new T[m_capacity];
+		m_begin = __allocate(m_capacity);
 		m_end = m_begin + len;
 
-		std::copy(s, s + len, begin());
+		__copy_init_range(m_begin, s, len);
 	}
 
 	constexpr vector(size_t count, const T& value = {})
 	{
 		m_capacity = count;
-		m_begin = new T[m_capacity];
+		m_begin = __allocate(m_capacity);
 		m_end = m_begin + count;
 
-		std::fill(begin(), end(), value);
+		__value_init_range(m_begin, value, count);
 	}
 
 	~vector()
 	{
-		delete[] m_begin;
+		__deallocate(m_begin);
 	}
 
 	constexpr iterator begin()
@@ -98,11 +97,11 @@ public:
 		if(n > capacity())
 		{
 			auto sz = size();	
-			T* new_ptr = new T[n];
+			T* new_ptr = __allocate(n);
 
-			std::move(begin(), end(), new_ptr);
+			__move_init_range(new_ptr, m_begin, sz);
 
-			delete[] m_begin;
+			__deallocate(m_begin);
 
 			m_capacity = n;
 			m_begin = new_ptr;
@@ -110,7 +109,12 @@ public:
 		}
 	}
 
-	constexpr T* data() const
+	constexpr T* data()
+	{
+		return m_begin;
+	}
+
+	constexpr const T* data() const
 	{
 		return m_begin;
 	}
@@ -118,10 +122,10 @@ public:
 	constexpr vector(const vector& v)
 	{
 		m_capacity = v.size();
-		m_begin = new T[m_capacity];
+		m_begin = __allocate(m_capacity);
 		m_end = m_begin + v.size();
 
-		std::copy(v.cbegin(), v.cend(), begin());
+		__copy_init_range(m_begin, v.data(), v.size());
 	}
 
 	constexpr vector(vector&& v) noexcept : vector()
@@ -131,13 +135,12 @@ public:
 
 	constexpr vector& operator=(const vector& v)
 	{
-		delete[] m_begin;
+		clear();
+		reserve(v.size());
 
-		m_capacity = v.size();
-		m_begin = new T[m_capacity];
+		__copy_init_range(m_begin, v.data(), v.size());
+
 		m_end = m_begin + v.size();
-		
-		std::copy(v.cbegin(), v.cend(), begin());
 		return *this;
 	}
 
@@ -202,14 +205,15 @@ public:
 
 	constexpr void clear()
 	{
-		m_end = m_begin;
+		while(begin() != end())
+			pop_back();
 	}
 
 	constexpr iterator erase(const_iterator pos)
 	{
 		auto index = (pos - cbegin());
 
-		std::move(pos + 1, cend(), begin() + index);
+		std::move(begin() + index + 1, end(), begin() + index);
 		pop_back();
 		return end();
 	}
@@ -230,6 +234,34 @@ public:
 
 
 private:
+	static T* __allocate(size_t size)
+	{
+		return (T*)::operator new(sizeof(T) * size);
+	}
+
+	static void __deallocate(T* ptr)
+	{
+		::operator delete(ptr);
+	}
+
+	static void __move_init_range(T* dst, T* src, size_t size)
+	{
+		for(size_t i = 0; i < size; i++)
+			new(&dst[i]) T{std::move(src[i])};
+	}
+
+	static void __copy_init_range(T* dst, const T* src, size_t size)
+	{
+		for(size_t i = 0; i < size; i++)
+			new(&dst[i]) T{src[i]};
+	}
+
+	static void __value_init_range(T* dst, const T& val, size_t size)
+	{
+		for(size_t i = 0; i < size; i++)
+			new(&dst[i]) T{val};
+	}
+
 	T* m_begin;
 	T* m_end;
 	size_t m_capacity;
