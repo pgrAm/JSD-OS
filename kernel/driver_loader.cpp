@@ -81,6 +81,7 @@ static void load_driver(fs::dir_stream_ref cwd, const std::string_view filename,
 
 static constexpr func_info func_list[] = {
 	{"printf",	(void*)&printf},
+	{"puts",	(void*)&puts},
 	{"time",	(void*)&time},
 	{"malloc",	(void*)&malloc},
 	{"calloc",	(void*)&calloc},
@@ -89,6 +90,7 @@ static constexpr func_info func_list[] = {
 	{"gmtime",	(void*)&gmtime},
 	{"memcmp",	(void*)&memcmp},
 	{"memset",	(void*)&memset},
+	{"memmove",	(void*)&memmove},
 	{"filesystem_add_virtual_drive",(void*)&filesystem_add_virtual_drive},
 	{"filesystem_add_partitioner",	(void*)&filesystem_add_partitioner},
 	{"filesystem_add_drive",		(void*)&filesystem_add_drive},

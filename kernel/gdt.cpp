@@ -38,14 +38,14 @@ extern "C"
 	extern gdt_entry gdt_tss_location;
 }
 
-static kernel_mutex tss_mtx = {-1, 0};
+static constinit sync::mutex tss_mtx{};
 
 extern "C" void load_TSS(uint16_t tss_seg);
 
 tss* create_TSS(uintptr_t stack_addr)
 {
 	//lock modifications to the TSS
-	scoped_lock l{&tss_mtx};
+	scoped_lock l{tss_mtx};
 
 	auto n_tss = new tss{};
 

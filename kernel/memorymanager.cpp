@@ -26,7 +26,7 @@ static inline void __flush_tlb_page(uintptr_t addr)
 }
 
 //this mutex must be locked when accessing/modfying kernel address space mappings
-static kernel_mutex kernel_addr_mutex = {-1, 0};
+static constinit sync::mutex kernel_addr_mutex{};
 
 extern "C" void memmanager_print_all_mappings_to_physical_DEBUG();
 
@@ -159,7 +159,7 @@ static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flag
 
 void memmanager_unmap_page(uintptr_t virtual_address)
 {
-	scoped_lock l{&kernel_addr_mutex};
+	scoped_lock l{kernel_addr_mutex};
 
 	size_t pd_index = get_page_dir_index(virtual_address);
 	uintptr_t pd_entry = current_page_directory[pd_index];
@@ -210,7 +210,7 @@ static bool memmanager_map_page(uintptr_t virtual_address, uintptr_t physical_ad
 
 void* memmanager_map_to_new_pages(uintptr_t physical_address, size_t n, page_flags_t flags)
 {
-	scoped_lock l{&kernel_addr_mutex};
+	scoped_lock l{kernel_addr_mutex};
 
 	uintptr_t virtual_address = memmanager_get_unmapped_pages(n, flags);
 
@@ -257,7 +257,7 @@ static void* memmanager_alloc_page(page_flags_t flags)
 {
 	uintptr_t physical_address = memmanager_allocate_physical_page();
 
-	scoped_lock l{&kernel_addr_mutex};
+	scoped_lock l{kernel_addr_mutex};
 
 	uintptr_t virtual_address = memmanager_get_unmapped_pages(1, flags);
 
@@ -269,7 +269,7 @@ static void* memmanager_alloc_page(page_flags_t flags)
 
 void* memmanager_virtual_alloc(void* v_address, size_t n, page_flags_t flags)
 {
-	scoped_lock l{&kernel_addr_mutex};
+	scoped_lock l{kernel_addr_mutex};
 
 	uintptr_t illegal = PAGE_PRESENT | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
 

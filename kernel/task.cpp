@@ -2,10 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-extern "C" {
 #include <kernel/locks.h>
-}
-
 #include <kernel/task.h>
 #include <kernel/memorymanager.h>
 #include <kernel/elf.h>

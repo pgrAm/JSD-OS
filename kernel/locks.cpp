@@ -4,26 +4,24 @@
 #include <stdio.h>
 
 #ifdef SYNC_HAS_CAS_FUNC
-bool tas_aquire(volatile uint8_t* l)
+bool tas_aquire(uint8_t* l)
 {
 	return __sync_val_compare_and_swap(l, 0, 1);
 }
 
-void tas_release(volatile uint8_t* l)
+void tas_release(uint8_t* l)
 {
-	__asm__ __volatile__("" ::: "memory");
-	*l = 0;
+	__atomic_store_n(l, 0, __ATOMIC_RELEASE);
 }
 
-inline int cas_func(volatile uint8_t* tas_lock, volatile int* ptr, int oldval, int newval)
+inline int cas_func(uint8_t* tas_lock, int* ptr, int oldval, int newval)
 {
 	return __sync_val_compare_and_swap(ptr, oldval, newval);
 }
 
-void cas_atomic_set(volatile uint8_t* tas_lock, volatile int* ptr, int newval)
+void cas_atomic_set(uint8_t* tas_lock, int* ptr, int newval)
 {
-	__asm__ __volatile__("" ::: "memory");
-	*ptr = newval;
+	__atomic_store_n(ptr, newval, __ATOMIC_RELEASE);
 }
 #else
 bool tas_aquire(volatile uint8_t* l)
@@ -72,8 +70,7 @@ void cas_atomic_set(volatile uint8_t* tas_lock, volatile int* ptr, int newval)
 {
 	int_lock l = atomic_lock_aquire(tas_lock);
 
-	__asm__ __volatile__("" ::: "memory");
-	*ptr = newval;
+	__atomic_store_n(ptr, newval, __ATOMIC_RELEASE);
 
 	atomic_lock_release(l, tas_lock);
 }

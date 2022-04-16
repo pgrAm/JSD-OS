@@ -2,6 +2,7 @@
 #include <kernel/filesystem/fs_driver.h>
 #include <kernel/filesystem/util.h>
 #include <kernel/kassert.h>
+#include <kernel/locks.h>
 #include <stdlib.h>
 #include <bit>
 #include "drives.h"
@@ -15,6 +16,42 @@ size_t calc_block_ratio(size_t block_size, size_t cache_size)
 	return (block_size > cache_size || cache_size % block_size != 0) ?
 		1 : (cache_size / block_size);
 }
+
+template <typename T>
+class fifo_cache
+{
+public:
+	using iterator = T*;
+	using const_iterator = const T*;
+
+	fifo_cache(size_t size)
+		: m_last_index(0)
+		, m_size(size)
+		, m_data(new T[size])
+	{}
+
+	T& refresh_oldest_item()
+	{
+		size_t next = (m_last_index + 1) % m_size;
+
+		sync::atomic_store(&m_last_index, next);
+		return m_data[m_last_index];
+	}
+
+	iterator buf_begin()
+	{
+		return &m_data[0];
+	}
+
+	iterator buf_end()
+	{
+		return &m_data[0] + m_size;
+	}
+private:
+	size_t m_last_index;
+	const size_t m_size;
+	std::unique_ptr<T[]> m_data;
+};
 
 struct filesystem_drive
 {
@@ -30,7 +67,7 @@ struct filesystem_drive
 		, m_blocksz_log2(std::countr_zero(block_size))
 		, m_num_blocks(num_blocks)
 		, m_num_blocks_per_cache(calc_block_ratio(block_size, default_cache_size))
-		, m_max_cached_blocks(8)
+		, block_cache{8}
 	{
 		//must have allocate & free or neither
 		k_assert(!!disk_drv.allocate_buffer == !!disk_drv.free_buffer);
@@ -38,9 +75,10 @@ struct filesystem_drive
 
 	~filesystem_drive()
 	{
-		for(auto&& block : block_cache)
+		for(auto it = block_cache.buf_begin(); it != block_cache.buf_end(); ++it)
 		{
-			free_buffer(block.data, block_size());
+			if(it->data)
+				free_buffer(it->data, block_size());
 		}
 	}
 
@@ -131,17 +169,65 @@ private:
 	size_t m_blocksz_log2;
 	size_t m_num_blocks;
 	size_t m_num_blocks_per_cache;
-	size_t m_max_cached_blocks;
 
 	struct cached_block {
 		size_t index;
-		uint8_t* data;
-		bool dirty;
+		uint8_t* data = nullptr;
+		bool dirty = false;
+		std::unique_ptr<shared_mutex> mtx = std::make_unique<shared_mutex>();
 	};
 
-	cached_block& block_rw(size_t block, bool write_all) const;
+	class writable_block {
+	public: 
+		using lock_t = scoped_lock<shared_mutex>;
 
-	mutable std::vector<cached_block> block_cache;
+		template<typename T>
+		writable_block(cached_block& b, T&& l)
+			: block(b), lock(std::forward<T>(l))
+		{}
+		~writable_block()
+		{
+			block.dirty = true;
+		}
+		uint8_t* get() const
+		{
+			return block.data;
+		}
+		const size_t index()
+		{
+			return block.index;
+		}
+	private:
+		cached_block& block;
+		lock_t lock;
+	};
+
+	class readable_block {
+	public:
+		using lock_t = shared_lock;
+
+		template<typename T>
+		readable_block(cached_block& b, T&& l)
+			: block(b), lock(std::forward<T>(l))
+		{}
+		const uint8_t* get() const
+		{
+			return block.data;
+		}
+		const size_t index() 
+		{
+			return block.index;
+		}
+	private:
+		cached_block& block;
+		shared_lock lock;
+	};
+
+	template<typename T>
+	T block_rw(size_t block, bool write_all = false) const;
+
+	shared_mutex cache_write_mutex;
+	mutable fifo_cache<cached_block> block_cache;
 };
 
 using fs_drive_list = std::vector<filesystem_virtual_drive*>;
@@ -284,44 +370,49 @@ filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver
 	return drives.back();
 }
 
-filesystem_drive::cached_block& 
-filesystem_drive::block_rw(size_t index, bool write_all) const
+template<typename T>
+T filesystem_drive::block_rw(size_t index, bool write_all) const
 {
 	auto block = fs::align_power_2(index, m_num_blocks_per_cache);
 
-	auto it = std::find_if(block_cache.begin(), block_cache.end(), [block](auto&& c) {
-		return block == c.index;
-	});
+	auto it = std::find_if(block_cache.buf_begin(),
+						   block_cache.buf_end(), [block](auto&& c) {
+							   return block == c.index && (!!c.data);
+						   });
 
-	if(it == block_cache.end())
+	if(it == block_cache.buf_end())
 	{
-		uint8_t* disk_buf = nullptr;
-		if(block_cache.size() >= m_max_cached_blocks)
+		auto& item = block_cache.refresh_oldest_item();
+
 		{
-			disk_buf = block_cache.front().data;
-			if(block_cache.front().dirty)
+			scoped_lock lock{*item.mtx};
+
+			if(item.data)
 			{
-				write_blocks(block_cache.front().index, disk_buf, m_num_blocks_per_cache);
+				if(item.dirty)
+				{
+					write_blocks(item.index, item.data, m_num_blocks_per_cache);
+					item.dirty = false;
+				}
 			}
-			block_cache.erase(block_cache.begin());
-		}
-		else
-		{
-			disk_buf = allocate_buffer(blocks_to_bytes(m_num_blocks_per_cache));
+			else
+			{
+				item.data = allocate_buffer(blocks_to_bytes(m_num_blocks_per_cache));
+			}
+
+			item.index = block;
+
+			k_assert(item.data);
+			if(!write_all)
+			{
+				read_blocks(item.index, item.data, m_num_blocks_per_cache);
+			}
 		}
 
-		block_cache.push_back({block, disk_buf, false});
-
-		k_assert(disk_buf);
-		if(!write_all)
-		{
-			read_blocks(block, disk_buf, m_num_blocks_per_cache);
-		}
-
-		return block_cache.back();
+		return {item, item.mtx};
 	}
 
-	return *it;
+	return {*it, *it->mtx};
 }
 
 filesystem_virtual_drive::filesystem_virtual_drive(filesystem_drive* disk_, 
@@ -344,10 +435,9 @@ void filesystem_drive::write_to_block(size_t block,
 									  const uint8_t* buf,
 									  size_t num_bytes) const
 {
-	auto& blk = block_rw(block, num_bytes == blocks_to_bytes(m_num_blocks_per_cache));
-	auto block_offset = blocks_to_bytes(block - blk.index);
-	memcpy(blk.data + block_offset + offset, buf, num_bytes);
-	blk.dirty = true;
+	auto blk = block_rw<writable_block>(block, num_bytes == blocks_to_bytes(m_num_blocks_per_cache));
+	auto block_offset = blocks_to_bytes(block - blk.index());
+	memcpy(blk.get() + block_offset + offset, buf, num_bytes);
 }
 
 void filesystem_drive::read_from_block(size_t block,
@@ -355,10 +445,9 @@ void filesystem_drive::read_from_block(size_t block,
 									   uint8_t* buf,
 									   size_t num_bytes) const
 {
-	auto& blk = block_rw(block, false);
-	k_assert(blk.index <= block);
-	auto block_offset = blocks_to_bytes(block - blk.index);
-	memcpy(buf, blk.data + block_offset + offset, num_bytes);
+	auto blk = block_rw<readable_block>(block);
+	auto block_offset = blocks_to_bytes(block - blk.index());
+	memcpy(buf, blk.get() + block_offset + offset, num_bytes);
 }
 
 void filesystem_write_to_disk(const filesystem_drive* disk,

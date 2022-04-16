@@ -96,27 +96,25 @@ static void wait_for_irq6(void)
 	kernel_wait_cv(&irq6_condition);
 }
 
-typedef struct
+struct floppy_drive
 {
-	uint8_t type;
-	uint8_t sectors_per_track;
-	uint8_t heads_per_cylinder;
-	uint8_t num_tracks;
-	uint8_t gap_len;
-	size_t num_sectors;
+	uint8_t type = 0;
+	uint8_t sectors_per_track = 0;
+	uint8_t heads_per_cylinder = 0;
+	uint8_t num_tracks = 0;
+	uint8_t gap_len = 0;
+	size_t num_sectors = 0;
 
-	uint8_t drive_index;
-	kernel_mutex mutex;
-} floppy_drive;
+	uint8_t drive_index = 0;
+	sync::mutex mutex;
+};
 
-static floppy_drive floppy_drives[2];
+static constinit floppy_drive floppy_drives[2];
 static size_t num_floppy_drives = 0;
 
 static void floppy_set_drive_params(uint8_t type, floppy_drive* f)
 {
 	f->type = type;
-	f->mutex.tas_lock = 0;
-	f->mutex.ownerPID = -1;
 
 	if(type > 1 && type <= 5)
 	{
@@ -246,7 +244,7 @@ static void floppy_read_blocks(void* drv_data, size_t lba, uint8_t* buf, size_t 
 {
 	floppy_drive* d = (floppy_drive*)drv_data;
 
-	scoped_lock l{&d->mutex};
+	scoped_lock l{d->mutex};
 
 	if(lba > d->num_sectors)
 	{
@@ -281,7 +279,7 @@ static void floppy_write_blocks(void* drv_data, size_t lba, const uint8_t* buf, 
 
 	floppy_drive* d = (floppy_drive*)drv_data;
 
-	scoped_lock l{&d->mutex};
+	scoped_lock l{d->mutex};
 
 	if(lba + num_sectors > d->num_sectors)
 	{
