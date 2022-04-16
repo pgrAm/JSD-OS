@@ -409,7 +409,7 @@ T filesystem_drive::block_rw(size_t index, bool write_all) const
 			}
 		}
 
-		return {item, item.mtx};
+		return {item, *item.mtx};
 	}
 
 	return {*it, *it->mtx};
