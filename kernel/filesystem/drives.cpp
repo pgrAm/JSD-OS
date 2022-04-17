@@ -55,11 +55,11 @@ private:
 
 struct filesystem_drive
 {
-	filesystem_drive(const disk_driver& disk_drv, 
-					 void* driver_data, 
-					 size_t block_size, 
-					 size_t num_blocks, 
-					 size_t index) 
+	filesystem_drive(const disk_driver& disk_drv,
+					 void* driver_data,
+					 size_t block_size,
+					 size_t num_blocks,
+					 size_t index)
 		: m_drv_impl_data(driver_data)
 		, m_driver(disk_drv)
 		, m_index(index)
@@ -174,12 +174,12 @@ private:
 		size_t index;
 		uint8_t* data = nullptr;
 		bool dirty = false;
-		std::unique_ptr<shared_mutex> mtx = std::make_unique<shared_mutex>();
+		std::unique_ptr<upgradable_shared_mutex> mtx = std::make_unique<upgradable_shared_mutex>();
 	};
 
 	class writable_block {
-	public: 
-		using lock_t = scoped_lock<shared_mutex>;
+	public:
+		using lock_t = scoped_lock<upgradable_shared_mutex>;
 
 		template<typename T>
 		writable_block(cached_block& b, T&& l)
@@ -204,7 +204,7 @@ private:
 
 	class readable_block {
 	public:
-		using lock_t = shared_lock;
+		using lock_t = shared_lock<upgradable_shared_mutex>;
 
 		template<typename T>
 		readable_block(cached_block& b, T&& l)
@@ -214,19 +214,19 @@ private:
 		{
 			return block.data;
 		}
-		const size_t index() 
+		const size_t index()
 		{
 			return block.index;
 		}
 	private:
 		cached_block& block;
-		shared_lock lock;
+		lock_t lock;
 	};
 
 	template<typename T>
 	T block_rw(size_t block, bool write_all = false) const;
 
-	shared_mutex cache_write_mutex;
+	mutable upgradable_shared_mutex cache_write_mutex;
 	mutable fifo_cache<cached_block> block_cache;
 };
 
@@ -375,6 +375,8 @@ T filesystem_drive::block_rw(size_t index, bool write_all) const
 {
 	auto block = fs::align_power_2(index, m_num_blocks_per_cache);
 
+	cache_write_mutex.lock_shared();
+
 	auto it = std::find_if(block_cache.buf_begin(),
 						   block_cache.buf_end(), [block](auto&& c) {
 							   return block == c.index && (!!c.data);
@@ -382,41 +384,55 @@ T filesystem_drive::block_rw(size_t index, bool write_all) const
 
 	if(it == block_cache.buf_end())
 	{
+		cache_write_mutex.upgrade();
+
 		auto& item = block_cache.refresh_oldest_item();
 
 		{
 			scoped_lock lock{*item.mtx};
 
-			if(item.data)
+			auto old_index = item.index;
+			item.index = block;
+
+			if(!item.data)
 			{
-				if(item.dirty)
-				{
-					write_blocks(item.index, item.data, m_num_blocks_per_cache);
-					item.dirty = false;
-				}
+				//it doesn't matter what this value is, as long as it isn't nullptr
+				item.data = (uint8_t*)1;
+
+				cache_write_mutex.unlock();
+
+				item.data = allocate_buffer(blocks_to_bytes(m_num_blocks_per_cache));
 			}
 			else
 			{
-				item.data = allocate_buffer(blocks_to_bytes(m_num_blocks_per_cache));
-			}
+				cache_write_mutex.unlock();
 
-			item.index = block;
+				if(item.dirty)
+				{
+					write_blocks(old_index, item.data, m_num_blocks_per_cache);
+					item.dirty = false;
+				}
+			}
 
 			k_assert(item.data);
 			if(!write_all)
 			{
 				read_blocks(item.index, item.data, m_num_blocks_per_cache);
 			}
-		}
 
-		return {item, *item.mtx};
+			return {item, std::move(lock)};
+		}
 	}
 
-	return {*it, *it->mtx};
+	typename T::lock_t lock{*it->mtx};
+
+	cache_write_mutex.unlock_shared();
+
+	return {*it, std::move(lock)};
 }
 
-filesystem_virtual_drive::filesystem_virtual_drive(filesystem_drive* disk_, 
-												   fs_index begin, 
+filesystem_virtual_drive::filesystem_virtual_drive(filesystem_drive* disk_,
+												   fs_index begin,
 												   size_t size)
 	: disk(disk_)
 	, fs_impl_data(nullptr)
@@ -501,7 +517,7 @@ void filesystem_read_from_disk(const filesystem_drive* disk,
 {
 	k_assert(disk);
 
-	auto blocks = filesystem_chunkify(offset, num_bytes, disk->block_size()-1, disk->block_size_log2());
+	auto blocks = filesystem_chunkify(offset, num_bytes, disk->block_size() - 1, disk->block_size_log2());
 	auto block = block_num + blocks.start_chunk;
 
 	if(blocks.start_size != 0)

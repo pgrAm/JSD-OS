@@ -107,8 +107,11 @@ void atomic_store(T* ptr, T newval)
 }
 }
 
+template<typename Mutex> class shared_lock;
+
 template<typename Mutex>
 class scoped_lock {
+	friend class shared_lock<Mutex>;
 public:
 	scoped_lock(Mutex& m) : m_mutex(&m)
 	{
@@ -116,7 +119,8 @@ public:
 	}
 	~scoped_lock()
 	{
-		m_mutex->unlock();
+		if(m_mutex)
+			m_mutex->unlock();
 	}
 	scoped_lock(const scoped_lock&) = delete;
 	scoped_lock(scoped_lock&& o) : m_mutex(o.m_mutex)
@@ -139,7 +143,7 @@ public:
 
 	void unlock()
 	{
-		exclusive_mtx.lock();
+		exclusive_mtx.unlock();
 	}
 
 	void lock_shared() 
@@ -213,21 +217,70 @@ private:
 	bool exclusive_locked = false;
 };
 
+class upgradable_shared_mutex
+{
+public:
+	void lock()
+	{
+		scoped_lock l{meta_mutex};
+		mtx.lock();
+	}
 
+	void unlock()
+	{
+		mtx.unlock();
+	}
+
+	void lock_shared()
+	{
+		scoped_lock l{meta_mutex};
+		mtx.lock_shared();
+	}
+
+	void unlock_shared()
+	{
+		mtx.unlock_shared();
+	}
+
+	void upgrade()
+	{
+		scoped_lock l{meta_mutex};
+		mtx.unlock_shared();
+		mtx.lock();
+	}
+
+	void downgrade()
+	{
+		scoped_lock l{meta_mutex};
+		mtx.unlock();
+		mtx.lock_shared();
+	}
+
+private:
+	sync::mutex meta_mutex;
+	shared_mutex mtx;
+};
+
+template<typename Mutex>
 class shared_lock {
 public:
-	shared_lock(shared_mutex& m) : m_mutex(&m)
+	shared_lock(Mutex& m) : m_mutex(&m)
 	{
-		//printf("lock s\n");
 		m_mutex->lock_shared();
 	}
 	~shared_lock()
 	{
 		if(m_mutex)
 		{
-			//printf("unlock s\n");
 			m_mutex->unlock_shared();
 		}
+	}
+
+	shared_lock(scoped_lock<upgradable_shared_mutex>&& o)
+		: m_mutex(o.m_mutex)
+	{
+		o.m_mutex = nullptr;
+		m_mutex->downgrade();
 	}
 
 	shared_lock(const shared_lock&) = delete;	
@@ -237,8 +290,10 @@ public:
 	}
 
 private:
-	shared_mutex* m_mutex;
+	Mutex* m_mutex;
 };
+
+template<class T> shared_lock(T)->shared_lock<T>;
 
 #endif
 #endif
