@@ -379,7 +379,9 @@ int execute_line(std::string_view current_line)
 					file_info fi;
 					get_file_info(&fi, file_h.get());
 
-					spawn_process(file_h.get(), dir.get(), WAIT_FOR_PROCESS);
+					auto mode = (keywords.back() == "&") ? 0 : WAIT_FOR_PROCESS;
+
+					spawn_process(file_h.get(), dir.get(), mode);
 					return 0;
 				}
 
