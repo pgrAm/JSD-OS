@@ -10,7 +10,7 @@ extern "C" {
 #include <kernel/syscall.h>
 
 void handle_input_event(input_event e);
-SYSCALL_HANDLER int get_input_event(input_event* e);
+SYSCALL_HANDLER int get_input_event(input_event* e, bool wait);
 
 #ifdef __cplusplus
 }

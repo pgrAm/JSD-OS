@@ -67,9 +67,12 @@ void kernel_main()
 
 	rdfs_init();
 
-	keyboard_init();
-
 	load_drivers();
+
+	for(;;)
+	{
+		run_background_tasks();
+	}
 
 	printf("oops\n");
 

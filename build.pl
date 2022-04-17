@@ -61,7 +61,7 @@ my @kernel_src = qw(
 	drivers/display/basic_text/basic_text.cpp
 	drivers/formats/rdfs.cpp
 	drivers/ramdisk.cpp
-	drivers/kbrd.c
+	drivers/kbrd.cpp
 	drivers/cmos.cpp
 	drivers/pit.cpp		
 );

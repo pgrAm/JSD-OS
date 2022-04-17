@@ -7,6 +7,8 @@ enum event_type
 {
 	BUTTON_DOWN = 0,
 	BUTTON_UP,
+	KEY_DOWN,
+	KEY_UP,
 	AXIS_MOTION
 };
 

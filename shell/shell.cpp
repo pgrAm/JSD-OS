@@ -433,7 +433,7 @@ int get_command(char* input)
 	while(true)
 	{
 		input_event e;
-		if(get_input_event(&e) == 0)
+		if(get_input_event(&e, true) == 0)
 		{
 			if(e.device_index == 0)
 			{
@@ -464,46 +464,47 @@ int get_command(char* input)
 						set_mouse_color(7);
 					}
 				}
-			}
-		}
-
-		key_type k = getkey();
-		if((k == VK_UP || k == VK_DOWN) && get_keystate(k))
-		{
-			if(!command_history.empty())
-			{
-				video_erase_chars(command_buffer.size());
-
-				history_index %= command_history.size();
-
-				command_buffer = command_history[history_index];
-
-				history_index = (k == VK_UP) ? history_index + 1 : history_index - 1;
-
-				printf("%s", command_buffer.c_str());
-			}
-		}
-		else
-		{
-			char in_char = get_ascii_from_vk(k);
-
-			if(in_char == '\b')
-			{
-				if(!command_buffer.empty())
+				else if(e.type == KEY_DOWN)
 				{
-					command_buffer.pop_back();
-					video_erase_chars(1);
+					if(e.data == VK_UP || e.data == VK_DOWN)
+					{
+						if(!command_history.empty())
+						{
+							video_erase_chars(command_buffer.size());
+
+							history_index %= command_history.size();
+
+							command_buffer = command_history[history_index];
+
+							history_index = (e.data == VK_UP) ? history_index + 1 : history_index - 1;
+
+							printf("%s", command_buffer.c_str());
+						}
+					}
+					else
+					{
+						char in_char = get_ascii_from_vk(e.data);
+
+						if(in_char == '\b')
+						{
+							if(!command_buffer.empty())
+							{
+								command_buffer.pop_back();
+								video_erase_chars(1);
+							}
+						}
+						else if(in_char == '\n')
+						{
+							putchar(in_char);
+							break;
+						}
+						else if(in_char != '\0')
+						{
+							putchar(in_char);
+							command_buffer += in_char;
+						}
+					}
 				}
-			}
-			else if(in_char == '\n')
-			{
-				putchar(in_char);
-				break;
-			}
-			else if(in_char != '\0')
-			{
-				putchar(in_char);
-				command_buffer += in_char;
 			}
 		}
 	}

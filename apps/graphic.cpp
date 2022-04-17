@@ -71,10 +71,10 @@ int main(int argc, char** argv)
 	size_t page_begin = 0;
 	set_display_offset(page_begin, true);
 
-	while(VK_ESCAPE != getkey())
+	input_event e{};
+	while(!(e.type == KEY_DOWN && e.data == VK_ESCAPE))
 	{
-		input_event e;
-		while(get_input_event(&e) == 0)
+		while(get_input_event(&e, false) == 0)
 		{
 			if(e.device_index == 0)
 			{
