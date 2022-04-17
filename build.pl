@@ -15,12 +15,12 @@ my $builddir = getcwd . "/builddir";
 
 mkpath($builddir);
 
-my @common_flags = qw(-target i386-elf -Wuninitialized -Wall -fno-asynchronous-unwind-tables -march=i386  -O2 -mno-sse -mno-mmx  -fomit-frame-pointer -fno-builtin -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
+my @common_flags = qw(-target i386-elf -Wuninitialized -Wall -fno-asynchronous-unwind-tables -march=i386  -O2 -mno-sse -mno-mmx -fomit-frame-pointer -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
 my @cpp_flags = qw(-std=c++20 -fno-rtti -fno-exceptions -I cpplib/include);
 my @c_flags = qw(-std=c99 -Wc++-compat);
 my @asm_flags = qw(-f elf);
 
-my @kernel_flags = qw(-D __KERNEL -mno-implicit-float -ffreestanding);
+my @kernel_flags = qw(-D __KERNEL -mno-implicit-float);
 my @driver_flags = (@kernel_flags, qw(-fPIC -fno-function-sections));
 my @shlib_flags = qw(-fPIC);
 my @user_flags = qw(-I api/ -nodefaultlibs);
@@ -31,7 +31,7 @@ my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O
 my @kernel_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a --lto-O2 -N -O2 -Ttext=0xF000 -T linker.ld);
 
 mkpath("$builddir/tools");
-system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++20 -O2");
+#system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++20 -O2");
 
 my @kernel_src = qw(	
 	kernel/kernel.asm
@@ -140,6 +140,8 @@ my $shell = build(name => "shell.elf", src => ["api/crt0.c", "api/crti.asm", "sh
 
 my $primes = build(name => "primes.elf", src => ["api/crt0.c", "api/crti.asm", "apps/primes.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($graphics), $kb, $cppr]);
 
+my $bkgrndtest = build(name => "bkgrnd.elf", src => ["api/crt0.c", "api/crti.asm", "apps/bkgrnd.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($graphics), $kb, $cppr]);
+
 my $listmode = build(name => "listmode.elf", src => ["api/crt0.c", "api/crti.asm", "apps/listmode.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($graphics), $kb, $cppr]);
 
 my $graphicstest = build(name => "graphic.elf", src => ["api/crt0.c", "api/crti.asm", "apps/graphic.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($graphics), $kb, $cppr]);
@@ -179,7 +181,8 @@ build_fdimage(
 		$clib,
 		$i8042_drv,
 		$ps2mouse_drv,
-		$fwritetest
+		$fwritetest,
+		$bkgrndtest
 	]
 );
 
@@ -203,6 +206,7 @@ copy($shell, 		"$builddir/iso/shell.elf");
 copy($primes, 		"$builddir/iso/primes.elf");
 copy($listmode, 	"$builddir/iso/listmode.elf");
 copy($fwritetest, 	"$builddir/iso/fwrite.elf");
+copy($bkgrndtest, 	"$builddir/iso/bkgrnd.elf");
 
 mkpath("$builddir/iso/drivers");
 copy($fat_drv, 		"$builddir/iso/drivers/fat.drv");
