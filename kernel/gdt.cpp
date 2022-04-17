@@ -45,7 +45,7 @@ extern "C" void load_TSS(uint16_t tss_seg);
 tss* create_TSS(uintptr_t stack_addr)
 {
 	//lock modifications to the TSS
-	scoped_lock l{tss_mtx};
+	sync::lock_guard l{tss_mtx};
 
 	auto n_tss = new tss{};
 

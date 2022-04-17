@@ -92,7 +92,7 @@ public:
 		return kernel_try_lock_mutex(&m_mtx);
 	}
 
-	void unlock() 
+	void unlock()
 	{
 		kernel_unlock_mutex(&m_mtx);
 	}
@@ -105,25 +105,24 @@ void atomic_store(T* ptr, T newval)
 {
 	__atomic_store_n(ptr, newval, __ATOMIC_RELEASE);
 }
-}
 
 template<typename Mutex> class shared_lock;
 
 template<typename Mutex>
-class scoped_lock {
+class lock_guard {
 	friend class shared_lock<Mutex>;
 public:
-	scoped_lock(Mutex& m) : m_mutex(&m)
+	lock_guard(Mutex& m) : m_mutex(&m)
 	{
 		m_mutex->lock();
 	}
-	~scoped_lock()
+	~lock_guard()
 	{
 		if(m_mutex)
 			m_mutex->unlock();
 	}
-	scoped_lock(const scoped_lock&) = delete;
-	scoped_lock(scoped_lock&& o) : m_mutex(o.m_mutex)
+	lock_guard(const lock_guard&) = delete;
+	lock_guard(lock_guard&& o) : m_mutex(o.m_mutex)
 	{
 		o.m_mutex = nullptr;
 	}
@@ -131,9 +130,9 @@ private:
 	Mutex* m_mutex;
 };
 
-template<class T> scoped_lock(T)->scoped_lock<T>;
+template<class T> lock_guard(T)->lock_guard<T>;
 
-class shared_mutex 
+class shared_mutex
 {
 public:
 	void lock()
@@ -146,9 +145,9 @@ public:
 		exclusive_mtx.unlock();
 	}
 
-	void lock_shared() 
+	void lock_shared()
 	{
-		scoped_lock l{shared_mtx};
+		lock_guard l{shared_mtx};
 		if(++num_shared == 1) {
 			exclusive_mtx.lock();
 		}
@@ -156,15 +155,15 @@ public:
 
 	void unlock_shared()
 	{
-		scoped_lock l{shared_mtx};
+		lock_guard l{shared_mtx};
 		if(--num_shared == 0) {
 			exclusive_mtx.unlock();
 		}
 	}
 
 private:
-	sync::mutex exclusive_mtx;
-	sync::mutex shared_mtx;
+	mutex exclusive_mtx;
+	mutex shared_mtx;
 	size_t num_shared = 0;
 };
 
@@ -173,7 +172,7 @@ class shared_wpref_mutex
 public:
 	void lock()
 	{
-		scoped_lock l{shared_mtx};
+		lock_guard l{shared_mtx};
 		++num_exclusive_waiting;
 		while(num_shared > 0 || exclusive_locked)
 		{
@@ -185,14 +184,14 @@ public:
 
 	void unlock()
 	{
-		scoped_lock l{shared_mtx};
+		lock_guard l{shared_mtx};
 		exclusive_locked = true;
 		kernel_signal_cv(&cond);
 	}
 
 	void lock_shared()
 	{
-		scoped_lock l{shared_mtx};
+		lock_guard l{shared_mtx};
 		while(num_exclusive_waiting > 0 || exclusive_locked)
 		{
 			kernel_wait_cv(&cond);
@@ -202,7 +201,7 @@ public:
 
 	void unlock_shared()
 	{
-		scoped_lock l{shared_mtx};
+		lock_guard l{shared_mtx};
 		if(--num_shared == 0)
 		{
 			kernel_signal_cv(&cond);
@@ -211,7 +210,7 @@ public:
 
 private:
 	kernel_cv cond = sync::init_cv();
-	sync::mutex shared_mtx;
+	mutex shared_mtx;
 	size_t num_shared = 0;
 	size_t num_exclusive_waiting = 0;
 	bool exclusive_locked = false;
@@ -222,7 +221,7 @@ class upgradable_shared_mutex
 public:
 	void lock()
 	{
-		scoped_lock l{meta_mutex};
+		lock_guard l{meta_mutex};
 		mtx.lock();
 	}
 
@@ -233,7 +232,7 @@ public:
 
 	void lock_shared()
 	{
-		scoped_lock l{meta_mutex};
+		lock_guard l{meta_mutex};
 		mtx.lock_shared();
 	}
 
@@ -244,20 +243,20 @@ public:
 
 	void upgrade()
 	{
-		scoped_lock l{meta_mutex};
+		lock_guard l{meta_mutex};
 		mtx.unlock_shared();
 		mtx.lock();
 	}
 
 	void downgrade()
 	{
-		scoped_lock l{meta_mutex};
+		lock_guard l{meta_mutex};
 		mtx.unlock();
 		mtx.lock_shared();
 	}
 
 private:
-	sync::mutex meta_mutex;
+	mutex meta_mutex;
 	shared_mutex mtx;
 };
 
@@ -276,15 +275,15 @@ public:
 		}
 	}
 
-	shared_lock(scoped_lock<upgradable_shared_mutex>&& o)
+	shared_lock(lock_guard<upgradable_shared_mutex>&& o)
 		: m_mutex(o.m_mutex)
 	{
 		o.m_mutex = nullptr;
 		m_mutex->downgrade();
 	}
 
-	shared_lock(const shared_lock&) = delete;	
-	shared_lock(shared_lock&& o) : m_mutex(o.m_mutex) 
+	shared_lock(const shared_lock&) = delete;
+	shared_lock(shared_lock&& o) : m_mutex(o.m_mutex)
 	{
 		o.m_mutex = nullptr;
 	}
@@ -294,6 +293,6 @@ private:
 };
 
 template<class T> shared_lock(T)->shared_lock<T>;
-
+}
 #endif
 #endif

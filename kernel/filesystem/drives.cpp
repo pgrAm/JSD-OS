@@ -174,12 +174,12 @@ private:
 		size_t index;
 		uint8_t* data = nullptr;
 		bool dirty = false;
-		std::unique_ptr<upgradable_shared_mutex> mtx = std::make_unique<upgradable_shared_mutex>();
+		std::unique_ptr<sync::upgradable_shared_mutex> mtx = std::make_unique<sync::upgradable_shared_mutex>();
 	};
 
 	class writable_block {
 	public:
-		using lock_t = scoped_lock<upgradable_shared_mutex>;
+		using lock_t = sync::lock_guard<sync::upgradable_shared_mutex>;
 
 		template<typename T>
 		writable_block(cached_block& b, T&& l)
@@ -204,7 +204,7 @@ private:
 
 	class readable_block {
 	public:
-		using lock_t = shared_lock<upgradable_shared_mutex>;
+		using lock_t = sync::shared_lock<sync::upgradable_shared_mutex>;
 
 		template<typename T>
 		readable_block(cached_block& b, T&& l)
@@ -226,7 +226,7 @@ private:
 	template<typename T>
 	T block_rw(size_t block, bool write_all = false) const;
 
-	mutable upgradable_shared_mutex cache_write_mutex;
+	mutable sync::upgradable_shared_mutex cache_write_mutex;
 	mutable fifo_cache<cached_block> block_cache;
 };
 
@@ -389,7 +389,7 @@ T filesystem_drive::block_rw(size_t index, bool write_all) const
 		auto& item = block_cache.refresh_oldest_item();
 
 		{
-			scoped_lock lock{*item.mtx};
+			sync::lock_guard lock{*item.mtx};
 
 			auto old_index = item.index;
 			item.index = block;

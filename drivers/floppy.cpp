@@ -244,7 +244,7 @@ static void floppy_read_blocks(void* drv_data, size_t lba, uint8_t* buf, size_t 
 {
 	floppy_drive* d = (floppy_drive*)drv_data;
 
-	scoped_lock l{d->mutex};
+	sync::lock_guard l{d->mutex};
 
 	if(lba > d->num_sectors)
 	{
@@ -279,7 +279,7 @@ static void floppy_write_blocks(void* drv_data, size_t lba, const uint8_t* buf, 
 
 	floppy_drive* d = (floppy_drive*)drv_data;
 
-	scoped_lock l{d->mutex};
+	sync::lock_guard l{d->mutex};
 
 	if(lba + num_sectors > d->num_sectors)
 	{
