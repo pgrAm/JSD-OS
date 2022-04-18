@@ -7,7 +7,6 @@
 #include <kernel/sysclock.h>
 #include <kernel/display.h>
 #include <kernel/input.h>
-#include <drivers/kbrd.h>
 
 //A syscall is accomplished by
 //putting the arguments into EAX, ECX, EDX, EDI, ESI

@@ -1,7 +1,8 @@
 
 #include <kernel/interrupt.h>
 #include <drivers/portio.h>
-#include <drivers/kbrd.h>
+#include <kernel/input.h>
+#include <kernel/sysclock.h>
 
 static const virtual_keycode key_translation_table[] = {
 	/*0x00*/ VK_NONE,		/*0x01*/ VK_ESCAPE,		/*0x02*/ VK_1,				/*0x03*/ VK_2,
@@ -91,13 +92,17 @@ static INTERRUPT_HANDLER void AT_keyboard_handler(interrupt_frame* r)
 			lookup += 128;
 		}
 
-		handle_keyevent(key_translation_table[lookup], pressed);
+		handle_input_event(input_event{0, 0,
+				   key_translation_table[lookup],
+				   pressed ? event_type::KEY_DOWN : event_type::KEY_UP,
+				   sysclock_get_ticks()
+						   });
 	}
 
 	last_key = key;
 }
 
-void AT_kbrd_init()
+extern "C" void AT_kbrd_init()
 {
 	irq_install_handler(1, AT_keyboard_handler);
 }

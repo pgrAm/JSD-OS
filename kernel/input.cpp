@@ -3,6 +3,8 @@
 
 #include "input.h"
 
+static bool virtual_keystates[NUM_VIRTUAL_KEYS];
+
 #define INPUT_BUFFER_SIZE 64
 
 static volatile size_t input_buf_front = 0;
@@ -13,6 +15,20 @@ static kernel_cv input_waiting_cv = sync::init_cv();
 
 void handle_input_event(input_event e)
 {
+	if(e.type == event_type::KEY_DOWN || e.type == event_type::KEY_UP)
+	{
+		bool down = (e.type == event_type::KEY_DOWN);
+
+		virtual_keystates[e.data] = down;
+
+		if(down && (e.data == VK_TAB) && (virtual_keystates[VK_RALT] || virtual_keystates[VK_LALT]))
+		{
+			//we hereby interrupt this process
+			run_next_task();
+			return;
+		}
+	}
+
 	input_buf[input_buf_front] = e;
 	input_buf_front = (input_buf_front + 1) % INPUT_BUFFER_SIZE;
 
@@ -52,3 +68,12 @@ SYSCALL_HANDLER int get_input_event(input_event* e, bool wait)
 		return do_get_input_event(e);
 	}
 };
+
+SYSCALL_HANDLER int get_keystate(key_type key)
+{
+	if(key >= NUM_VIRTUAL_KEYS || !this_task_is_active())
+	{
+		return 0;
+	}
+	return virtual_keystates[key];
+}

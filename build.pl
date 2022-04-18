@@ -61,7 +61,6 @@ my @kernel_src = qw(
 	drivers/display/basic_text/basic_text.cpp
 	drivers/formats/rdfs.cpp
 	drivers/ramdisk.cpp
-	drivers/kbrd.cpp
 	drivers/cmos.cpp
 	drivers/pit.cpp		
 );
@@ -90,7 +89,7 @@ build(	name => "kernal.elf",
 system("objcopy -O binary $builddir/kernal.elf $builddir/kernal.sys --set-section-flags .bss=alloc,load,contents --gap-fill 0");
 
 my $kb_drv = 
-build_driver("AT_kbrd.drv", ["drivers/at_kbrd.c"]);
+build_driver("AT_kbrd.drv", ["drivers/at_kbrd.cpp"]);
 my $isa_dma = 
 build_driver("isa_dma.drv", ["drivers/isa_dma.cpp"]);
 my $drv_lib = 

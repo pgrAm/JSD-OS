@@ -16,7 +16,6 @@
 #include <kernel/kassert.h>
 
 #include <drivers/ramdisk.h>
-#include <drivers/kbrd.h>
 #include <drivers/formats/rdfs.h>
 #include <drivers/display/basic_text/basic_text.h>
 

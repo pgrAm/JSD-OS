@@ -12,7 +12,6 @@
 #include <kernel/memorymanager.h>
 #include <kernel/display.h>
 #include <kernel/sysclock.h>
-#include <drivers/kbrd.h>
 
 #define print_string print_string_len
 #define open filesystem_open_file

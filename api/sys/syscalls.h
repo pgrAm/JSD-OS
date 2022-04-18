@@ -11,6 +11,8 @@
 
 #ifdef __cplusplus
 extern "C" {
+#else
+#include <stdbool.h>
 #endif
 
 #define WAIT_FOR_PROCESS 0x01
@@ -28,8 +30,8 @@ enum syscall_indices
 	SYSCALL_TIMEZONE = 8,
 	SYSCALL_ALLOC_PAGES = 9,
 	SYSCALL_FREE_PAGES = 10,
-	SYSCALL_KEYGET = 11,
-	SYSCALL_WAIT_KEYGET = 12,
+	SYSCALL_UNUSED0 = 11,
+	SYSCALL_UNUSED1 = 12,
 	SYSCALL_OPEN_FILE_HANDLE = 13,
 	SYSCALL_OPEN_DIR_HANDLE = 14,
 	SYSCALL_GET_FILE_IN_DIR = 15,
@@ -186,16 +188,6 @@ static inline int free_pages(void *p, size_t n)
 	return (int)do_syscall_2(SYSCALL_FREE_PAGES, (uint32_t)p, (uint32_t)n);
 }
 
-static inline key_type getkey()
-{
-	return (key_type)do_syscall_0(SYSCALL_KEYGET);
-}
-
-static inline key_type wait_and_getkey()
-{
-	return (key_type)do_syscall_0(SYSCALL_WAIT_KEYGET);
-}
-
 static inline const file_handle* get_file_in_dir(const directory_stream* d, size_t index)
 {
 	return (const file_handle*)do_syscall_2(SYSCALL_GET_FILE_IN_DIR, (uint32_t)d, (uint32_t)index);
@@ -274,10 +266,11 @@ static inline directory_stream* open_dir(directory_stream* rel, const char* path
 	return ds;
 }
 
-static inline int get_input_event(input_event* e)
+static inline int get_input_event(input_event* e, bool wait)
 {
-	return (int)do_syscall_1(SYSCALL_GET_INPUT_EVENT, (uint32_t)e);
+	return (int)do_syscall_2(SYSCALL_GET_INPUT_EVENT, (uint32_t)e, (uint32_t)wait);
 }
+
 
 #ifdef __cplusplus
 }

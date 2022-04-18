@@ -18,10 +18,6 @@
 #include <kernel/kassert.h>
 #include <kernel/input.h>
 
-extern "C" {
-#include <drivers/kbrd.h>
-}
-
 #include <vector>
 #include <string>
 
@@ -116,7 +112,6 @@ static constexpr func_info func_list[] = {
 	{"memmanager_free_pages",		(void*)&memmanager_free_pages},
 	{"kernel_lock_mutex",	(void*)&kernel_lock_mutex},
 	{"kernel_unlock_mutex", (void*)&kernel_unlock_mutex},
-	{"handle_keyevent",		(void*)&handle_keyevent},
 	{"kernel_signal_cv",	(void*)&kernel_signal_cv},
 	{"kernel_wait_cv",		(void*)&kernel_wait_cv},
 	{"display_add_driver",	(void*)&display_add_driver},
