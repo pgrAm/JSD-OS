@@ -111,6 +111,16 @@ public:
 								  std::min(size() - pos, count) };
 	}
 
+	constexpr bool starts_with(value_type c) const noexcept
+	{
+		return front() == c;
+	}
+
+	constexpr bool ends_with(value_type c) const noexcept
+	{
+		return back() == c;
+	}
+
 	constexpr size_type find_first_of( basic_string_view str, 
 									  size_type pos = 0 ) const noexcept
 	{
@@ -168,6 +178,11 @@ public:
 	constexpr const_reference back() const
 	{
 		return *(cend() - 1);
+	}
+
+	constexpr const_reference front() const
+	{
+		return *cbegin();
 	}
 
 	constexpr size_type max_size() const noexcept

@@ -5,12 +5,13 @@
 
 namespace std {
 
-    template<class _ToType, class _FromType, class = enable_if_t<
-        sizeof(_ToType) == sizeof(_FromType) &&
-        is_trivially_copyable_v<_ToType> &&
-        is_trivially_copyable_v<_FromType> >>
-        constexpr _ToType bit_cast(_FromType const& __from) noexcept {
-        return __builtin_bit_cast(_ToType, __from);
+    template<class ToType, class FromType>
+	constexpr ToType bit_cast(FromType const& from) noexcept 
+		requires(sizeof(ToType) == sizeof(FromType) &&
+				 is_trivially_copyable_v<ToType> &&
+				 is_trivially_copyable_v<FromType>)
+	{
+        return __builtin_bit_cast(ToType, from);
     }
 
 	template<typename T>

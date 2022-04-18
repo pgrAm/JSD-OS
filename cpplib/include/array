@@ -8,10 +8,13 @@ extern "C" {
 #include <algorithm>
 
 namespace std {
-	template<class T, size_t N> class array;
+	template<typename T, size_t N> class array;
+
+	template <typename T, typename... Args>
+	array(T, Args...)->array<T, 1 + sizeof...(Args)>;
 };
 
-template<class T, size_t N>
+template<typename T, size_t N>
 class std::array {
 public:
 	using iterator = T*;
@@ -28,14 +31,24 @@ public:
 		return ____data + N;
 	}
 
-	constexpr const_iterator cbegin() const noexcept
+	constexpr const_iterator begin() const noexcept
 	{
 		return ____data;
 	}
 
-	constexpr const_iterator cend() const noexcept
+	constexpr const_iterator end() const noexcept
 	{
 		return ____data + N;
+	}
+
+	constexpr const_iterator cbegin() const noexcept
+	{
+		return begin();
+	}
+
+	constexpr const_iterator cend() const noexcept
+	{
+		return end();
 	}
 
 	constexpr size_type size() const

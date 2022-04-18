@@ -196,7 +196,7 @@ public:
 		return begin() + size();
 	}
 
-	constexpr const_iterator cbegin() const noexcept
+	constexpr const_iterator begin() const noexcept
 	{
 		if(__is_long())
 			return m_rep.l.data;
@@ -204,9 +204,19 @@ public:
 			return &m_rep.s.data[0];
 	}
 
-	constexpr const_iterator cend() const noexcept
+	constexpr const_iterator end() const noexcept
 	{
 		return cbegin() + size();
+	}
+
+	constexpr const_iterator cbegin() const noexcept
+	{
+		return begin();
+	}
+
+	constexpr const_iterator cend() const noexcept
+	{
+		return end();
 	}
 
 	constexpr size_type size() const noexcept
@@ -386,6 +396,16 @@ public:
 		*end() = '\0';
 	}
 
+	constexpr bool starts_with(value_type c) const noexcept
+	{
+		return front() == c;
+	}
+
+	constexpr bool ends_with(value_type c) const noexcept
+	{
+		return back() == c;
+	}
+
 	constexpr basic_string substr(size_t pos = 0, size_t count = npos) const
 	{
 		return basic_string{ cbegin() + pos,
@@ -432,6 +452,16 @@ public:
 		}
 
 		return npos;
+	}
+
+	constexpr value_type& front()
+	{
+		return *begin();
+	}
+
+	constexpr const value_type& front() const
+	{
+		return *cbegin();
 	}
 
 	constexpr const value_type& back() const noexcept
