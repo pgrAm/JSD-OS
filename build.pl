@@ -15,7 +15,7 @@ my $builddir = getcwd . "/builddir";
 
 mkpath($builddir);
 
-my @common_flags = qw(-target i386-elf -Wuninitialized -Wall -fno-asynchronous-unwind-tables -march=i386  -O2 -mno-sse -mno-mmx -fomit-frame-pointer -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
+my @common_flags = qw(-target i386-elf -Wuninitialized -Wall -fno-unwind-tables -fno-asynchronous-unwind-tables -march=i386 -O2 -mno-sse -mno-mmx -fomit-frame-pointer -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
 my @cpp_flags = qw(-std=c++20 -fno-rtti -fno-exceptions -I cpplib/include);
 my @c_flags = qw(-std=c99 -Wc++-compat);
 my @asm_flags = qw(-f elf);
@@ -57,6 +57,7 @@ my @kernel_src = qw(
 	kernel/boot_info.c
 	kernel/rt_device.cpp		
 	kernel/input.cpp		
+	kernel/kassert.cpp		
 
 	drivers/display/basic_text/basic_text.cpp
 	drivers/formats/rdfs.cpp
