@@ -106,11 +106,11 @@ struct ata_drive
 
 static ata_channel channels[2];
 static ata_drive ide_drives[4];
-static kernel_cv irq_condition[2] = {{-1, 1}, {-1, 1}};
+static constinit sync::cv irq_condition[2];
 
 static void ata_wait_irq(size_t index)
 {
-	kernel_wait_cv(&irq_condition[index]);
+	irq_condition[index].wait();
 }
 
 static void ata_delay400(uint8_t channel)
@@ -356,7 +356,7 @@ static INTERRUPT_HANDLER void ata_irq_handler0(interrupt_frame* r)
 {
 	inb(channels[0].base + ATA_REG_STATUS);
 	acknowledge_irq(14);
-	kernel_signal_cv(&irq_condition[0]);
+	irq_condition[0].notify();
 }
 
 static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
@@ -366,7 +366,7 @@ static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
 	{
 		inb(channels[1].base + ATA_REG_STATUS);
 		acknowledge_irq(15);
-		kernel_signal_cv(&irq_condition[1]);
+		irq_condition[1].notify();
 	}
 	else
 	{
@@ -379,7 +379,7 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 	uint32_t channel = drive.channel;
 	uint32_t words = ATAPI_SECTOR_SIZE / sizeof(uint16_t);
 
-	irq_condition[channel].unavailable = 1;
+	//irq_condition[channel].unavailable = 1;
 
 	uint16_t base_port = channels[channel].base;
 	uint16_t ctrl_port = channels[channel].ctrl;
@@ -420,7 +420,7 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 		num_sectors,
 		0x0, 0x0
 	};
-	irq_condition[channel].unavailable = 1;
+	//irq_condition[channel].unavailable = 1;
 	outsw(base_port, (uint16_t*)atapi_packet, sizeof(atapi_packet) / sizeof(uint16_t));
 
 	// receive data:
@@ -734,8 +734,8 @@ static INTERRUPT_HANDLER void ata_irq_handler(interrupt_frame* r)
 
 	inb(channels[0].base + ATA_REG_STATUS);
 	inb(channels[1].base + ATA_REG_STATUS);
-	kernel_signal_cv(&irq_condition[0]);
-	kernel_signal_cv(&irq_condition[1]);
+	irq_condition[0].notify();
+	irq_condition[1].notify();
 
 	//outb(channels[0].bus_master + 0x2, inb(channels[0].bus_master + 0x2) | 4);
 

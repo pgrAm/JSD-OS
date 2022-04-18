@@ -4,37 +4,37 @@
 #include <stdio.h>
 
 #ifdef SYNC_HAS_CAS_FUNC
-bool tas_aquire(uint8_t* l)
+static inline bool tas_aquire(uint8_t* l)
 {
 	return __sync_val_compare_and_swap(l, 0, 1);
 }
 
-void tas_release(uint8_t* l)
+static inline void tas_release(uint8_t* l)
 {
 	__atomic_store_n(l, 0, __ATOMIC_RELEASE);
 }
 
-inline int cas_func(uint8_t* tas_lock, int* ptr, int oldval, int newval)
+static inline int cas_func(lockable_val* ptr, int oldval, int newval)
 {
-	return __sync_val_compare_and_swap(ptr, oldval, newval);
+	return __sync_val_compare_and_swap(&ptr->value, oldval, newval);
 }
 
-void cas_atomic_set(uint8_t* tas_lock, int* ptr, int newval)
+static inline void cas_atomic_set(lockable_val* ptr, int newval)
 {
-	__atomic_store_n(ptr, newval, __ATOMIC_RELEASE);
+	__atomic_store_n(&ptr->value, newval, __ATOMIC_RELEASE);
 }
 #else
-bool tas_aquire(volatile uint8_t* l)
+static inline bool tas_aquire(uint8_t* l)
 {
 	return __sync_lock_test_and_set(l, 1);
 }
 
-void tas_release(volatile uint8_t* l)
+static inline void tas_release(uint8_t* l)
 {
 	__sync_lock_release(l);
 }
 
-inline int_lock atomic_lock_aquire(volatile uint8_t* tas_lock)
+static inline int_lock atomic_lock_aquire(uint8_t* tas_lock)
 {
 	while(true)
 	{
@@ -45,41 +45,41 @@ inline int_lock atomic_lock_aquire(volatile uint8_t* tas_lock)
 	}
 }
 
-inline void atomic_lock_release(int_lock l, volatile uint8_t* tas_lock)
+static inline void atomic_lock_release(int_lock l, uint8_t* tas_lock)
 {
 	tas_release(tas_lock);
 	unlock_interrupts(l);
 }
 
-inline int cas_func(volatile uint8_t* tas_lock, volatile int* ptr, int oldval, int newval)
+static inline int cas_func(lockable_val* ptr, int oldval, int newval)
 {
-	int_lock l = atomic_lock_aquire(tas_lock);
+	int_lock l = atomic_lock_aquire(&ptr->tas_lock);
 
-	int old_ptr_val = *ptr;
-	if(*ptr == oldval)
+	int old_ptr_val = ptr->value;
+	if(old_ptr_val == oldval)
 	{
-		*ptr = newval;
+		ptr->value = newval;
 	}
 
-	atomic_lock_release(l, tas_lock);
+	atomic_lock_release(l, &ptr->tas_lock);
 
 	return old_ptr_val;
 }
 
-void cas_atomic_set(volatile uint8_t* tas_lock, volatile int* ptr, int newval)
+static inline void cas_atomic_set(lockable_val* ptr, int newval)
 {
-	int_lock l = atomic_lock_aquire(tas_lock);
+	int_lock l = atomic_lock_aquire(&ptr->tas_lock);
 
-	__atomic_store_n(ptr, newval, __ATOMIC_RELEASE);
+	ptr->value = newval;
 
-	atomic_lock_release(l, tas_lock);
+	atomic_lock_release(l, &ptr->tas_lock);
 }
 
 #endif
 
-inline bool do_try_lock_mutex(kernel_mutex* m, int* pid)
+static inline bool do_try_lock_mutex(kernel_mutex* m, int* pid)
 {
-	*pid = cas_func(&m->tas_lock, &m->ownerPID, INVALID_PID, get_running_process());
+	*pid = cas_func(&m->ownerPID, INVALID_PID, get_running_process());
 	return *pid == INVALID_PID;
 }
 
@@ -92,7 +92,7 @@ bool kernel_try_lock_mutex(kernel_mutex* m)
 void kernel_lock_mutex(kernel_mutex* m)
 {
 	int pid;
-	while (!do_try_lock_mutex(m, &pid))
+	while(!do_try_lock_mutex(m, &pid))
 	{
 		switch_to_task(pid);
 	}
@@ -100,7 +100,7 @@ void kernel_lock_mutex(kernel_mutex* m)
 
 void kernel_unlock_mutex(kernel_mutex* m)
 {
-	cas_atomic_set(&m->tas_lock, &m->ownerPID, INVALID_PID);
+	cas_atomic_set(&m->ownerPID, INVALID_PID);
 	switch_to_active_task();
 }
 
@@ -112,14 +112,14 @@ void kernel_signal_cv(kernel_cv* m)
 
 static inline bool do_try_wait_cv(kernel_cv* m, int current_pid)
 {
-	int pid = cas_func(&m->tas_lock, &m->waitingPID, INVALID_PID, current_pid);
+	int pid = cas_func(&m->waitingPID, INVALID_PID, current_pid);
 	if(pid == INVALID_PID) //locked
 	{
 		while(true)
 		{
 			if(tas_aquire(&m->unavailable) == 0)
 			{
-				cas_atomic_set(&m->tas_lock, &m->waitingPID, INVALID_PID);
+				cas_atomic_set(&m->waitingPID, INVALID_PID);
 				return true;
 			}
 			run_background_tasks();

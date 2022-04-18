@@ -46,16 +46,16 @@ int atoi(const char * str)
 #ifdef __KERNEL
 //static volatile int_lock alloc_lock = 0;
 
-static kernel_mutex alloc_lock = { -1, 0 };
+static constinit sync::mutex alloc_lock{};
 static int liballoc_lock()
 {
-	kernel_lock_mutex(&alloc_lock);
+	alloc_lock.lock();
 	return 0;
 }
 
 static int liballoc_unlock()
 {
-	kernel_unlock_mutex(&alloc_lock);
+	alloc_lock.unlock();
 	return 0;
 }
 #else

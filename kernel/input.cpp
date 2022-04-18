@@ -11,7 +11,7 @@ static volatile size_t input_buf_front = 0;
 static size_t input_buf_back = 0;
 static input_event input_buf[INPUT_BUFFER_SIZE];
 
-static kernel_cv input_waiting_cv = sync::init_cv();
+static constinit sync::cv input_waiting_cv{};
 
 void handle_input_event(input_event e)
 {
@@ -32,7 +32,7 @@ void handle_input_event(input_event e)
 	input_buf[input_buf_front] = e;
 	input_buf_front = (input_buf_front + 1) % INPUT_BUFFER_SIZE;
 
-	kernel_signal_cv(&input_waiting_cv);
+	input_waiting_cv.notify();
 }
 
 static int do_get_input_event(input_event* e)
@@ -59,7 +59,7 @@ SYSCALL_HANDLER int get_input_event(input_event* e, bool wait)
 	{
 		while(do_get_input_event(e) != 0)
 		{
-			kernel_wait_cv(&input_waiting_cv);
+			input_waiting_cv.wait();
 		}
 		return 0;
 	}

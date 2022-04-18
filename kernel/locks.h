@@ -8,6 +8,8 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 
+#define	__I386_ONLY
+
 #ifndef __I386_ONLY
 #define SYNC_HAS_CAS_FUNC 1
 #endif
@@ -32,15 +34,17 @@ static inline void unlock_interrupts(int_lock lock)
 	: "r" (lock));
 }
 
-static inline void wait_for_interrupt()
+typedef struct
 {
-	__asm__ volatile("hlt");
-}
+	int value;
+#ifndef SYNC_HAS_CAS_FUNC
+	uint8_t tas_lock;
+#endif
+} lockable_val;
 
 typedef struct
 {
-	int ownerPID;
-	uint8_t tas_lock;
+	lockable_val ownerPID;
 } kernel_mutex;
 
 bool kernel_try_lock_mutex(kernel_mutex* m);
@@ -49,9 +53,8 @@ void kernel_unlock_mutex(kernel_mutex* m);
 
 typedef struct
 {
-	int waitingPID;
+	lockable_val waitingPID;
 	uint8_t unavailable;
-	uint8_t tas_lock;
 } kernel_cv;
 
 void kernel_signal_cv(kernel_cv* m);
@@ -63,15 +66,51 @@ bool kernel_try_wait_cv(kernel_cv* m);
 
 namespace sync {
 
+consteval lockable_val init_lockable()
+{
+#ifndef SYNC_HAS_CAS_FUNC
+	return {-1, 0};
+#else
+	return {-1};
+#endif
+}
+
 consteval kernel_mutex init_mutex()
 {
-	return {-1, 0};
+	return {init_lockable()};
 }
 
 consteval kernel_cv init_cv()
 {
-	return {-1, 1};
+	return {init_lockable(), 1};
 }
+
+class cv
+{
+public:
+	constexpr cv() = default;
+	~cv() = default;
+	cv(const cv&) = delete;
+	cv(cv&&) = delete;
+	cv& operator=(const cv&) = delete;
+
+	void notify()
+	{
+		kernel_signal_cv(&m_cv);
+	}
+
+	void wait()
+	{
+		return kernel_wait_cv(&m_cv);
+	}
+
+	bool try_wait()
+	{
+		return kernel_try_wait_cv(&m_cv);
+	}
+private:
+	kernel_cv m_cv = init_cv();
+};
 
 class mutex
 {
@@ -209,7 +248,7 @@ public:
 	}
 
 private:
-	kernel_cv cond = sync::init_cv();
+	kernel_cv cond = init_cv();
 	mutex shared_mtx;
 	size_t num_shared = 0;
 	size_t num_exclusive_waiting = 0;

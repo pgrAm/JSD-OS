@@ -111,6 +111,7 @@ struct dma_buffer {
 			else if(blk_it->offset == it->offset + it->size)
 			{
 				blk_it->offset -= it->size;
+				blk_it->size += it->size;
 				return 1;
 			}
 			else if(blk_it->offset + blk_it->size == it->offset)
