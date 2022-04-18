@@ -13,13 +13,7 @@ extern "C" {
 #include <kernel/syscall.h>
 #include <common/display_mode.h>
 
-void set_cursor_visibility(bool on);
-
 void print_string_len(const char* str, size_t length);
-
-void clear_screen();
-
-void clear_row(uint16_t row);
 
 typedef struct mode_list mode_list;
 

@@ -52,7 +52,7 @@ public:
 		m_screen_ptr((text_char*)get_mapped_frame_buffer(driver, rows* cols)),
 		m_num_rows(rows),
 		m_num_cols(cols),
-		m_total_size(rows* cols),
+		m_total_size(rows*cols),
 		m_last_row_start((rows - 1)* cols),
 		m_cursorpos(driver->get_cursor_offset())
 	{}
@@ -209,11 +209,6 @@ static void initialize_terminal(int col, int row)
 	k_terminal->clear();
 }
 
-void set_cursor_visibility(bool on)
-{
-	default_driver->set_cursor_visible(on);
-}
-
 void print_string(std::string_view str)
 {
 	print_string_len(str.data(), str.size());
@@ -224,14 +219,6 @@ void print_string_len(const char* str, size_t length)
 	if(k_terminal)
 	{
 		k_terminal->print_chars(str, length);
-	}
-}
-
-void clear_screen()
-{
-	if(k_terminal)
-	{
-		k_terminal->clear();
 	}
 }
 
@@ -256,25 +243,21 @@ void display_add_driver(const display_driver* d, bool use_as_default)
 	}
 }
 
-bool display_mode_satisfied(const display_mode* requested, const display_mode* actual)
+static bool display_mode_satisfied(const display_mode& requested, const display_mode& actual)
 {
-	if(requested == nullptr)
-	{
-		return true;
-	}
-	if(actual == nullptr || actual->format == DISPLAY_MODE_INVALID)
+	if(actual.format == DISPLAY_MODE_INVALID)
 	{
 		return false;
 	}
 
-	return	(requested->bpp == 0	|| requested->bpp	== actual->bpp) &&
-			(requested->width == 0	|| requested->width == actual->width) &&
-			(requested->height == 0 || requested->height == actual->height) &&
-			(requested->pitch == 0	|| requested->pitch == actual->pitch) &&
-			(requested->refresh == 0 || requested->refresh == actual->refresh) &&
-			(requested->flags == 0	|| (requested->flags & actual->flags) == requested->flags) &&
-			(requested->format == 0 || requested->format == actual->format) &&
-			(requested->buffer_size == 0 || requested->buffer_size <= actual->buffer_size);
+	return	(requested.bpp		== 0	|| requested.bpp		== actual.bpp) &&
+			(requested.width	== 0	|| requested.width		== actual.width) &&
+			(requested.height	== 0	|| requested.height		== actual.height) &&
+			(requested.pitch	== 0	|| requested.pitch		== actual.pitch) &&
+			(requested.refresh	== 0	|| requested.refresh	== actual.refresh) &&
+			(requested.flags	== 0	|| (requested.flags & actual.flags) == requested.flags) &&
+			(requested.format	== 0	|| requested.format == actual.format) &&
+			(requested.buffer_size == 0 || requested.buffer_size <= actual.buffer_size);
 }
 
 SYSCALL_HANDLER int get_display_mode(int index, display_mode* result)
@@ -303,7 +286,7 @@ SYSCALL_HANDLER int set_display_mode(const display_mode* requested, display_mode
 {
 	if(this_task_is_active())
 	{
-		bool success = display_mode_satisfied(requested, &current_mode);
+		bool success = !requested || display_mode_satisfied(*requested, current_mode);
 
 		if(!success)
 		{
@@ -311,7 +294,7 @@ SYSCALL_HANDLER int set_display_mode(const display_mode* requested, display_mode
 			{
 				auto& mode = default_driver->available_modes[i];
 
-				if(display_mode_satisfied(requested, &mode))
+				if(display_mode_satisfied(*requested, mode))
 				{
 					success = default_driver->set_mode(i);
 					if(success)
@@ -338,6 +321,7 @@ SYSCALL_HANDLER int set_display_mode(const display_mode* requested, display_mode
 
 		return success ? 0 : -1;
 	}
+
 	return -1;
 }
 
