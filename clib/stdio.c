@@ -69,7 +69,7 @@ static FILE* stdout = NULL;
 
 void file_write(const char* buf, size_t size, FILE* f)
 {
-	print_string(buf, size);
+	print_string_len(buf, size);
 }
 #endif
 //

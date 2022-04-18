@@ -47,7 +47,15 @@ SYSCALL_HANDLER int set_display_offset(size_t offset, int on_retrace);
 #ifdef __cplusplus
 }
 
+void print_string(char c);
 void print_string(std::string_view str);
+
+template<typename... Args>
+inline void print_strings(Args... args)
+{
+	(print_string(args), ...);
+}
+
 
 #endif
 #endif

@@ -209,6 +209,11 @@ static void initialize_terminal(int col, int row)
 	k_terminal->clear();
 }
 
+void print_string(char c)
+{
+	print_string_len(&c, 1);
+}
+
 void print_string(std::string_view str)
 {
 	print_string_len(str.data(), str.size());
