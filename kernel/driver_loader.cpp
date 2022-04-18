@@ -20,6 +20,9 @@
 
 #include <vector>
 #include <string>
+#include <array>
+
+using namespace std::literals;
 
 struct func_info {
 	const std::string_view name;
@@ -43,7 +46,7 @@ static void load_driver(fs::dir_stream_ref cwd, const std::string_view filename,
 	auto f = cwd.find_file_by_path(filename);
 	if(!f)
 	{
-		printf("could not find driver %s\n", std::string(filename).c_str());
+		print_strings("Can't find driver ", filename, '\n');
 		return;
 	}
 
@@ -64,63 +67,138 @@ static void load_driver(fs::dir_stream_ref cwd, const std::string_view filename,
 		}
 		else
 		{
-			printf("cannot find function\n");
+			print_string("Can't find function\n");
 		}
 	}
 	else
 	{
-		printf("Cannot find ");
-		print_string_len(filename.data(), filename.size());
-		putchar('\n');
+		print_strings("Can't find ", filename, '\n');
 	}
 }
 
-static constexpr func_info func_list[] = {
-	{"printf",	(void*)&printf},
-	{"puts",	(void*)&puts},
-	{"time",	(void*)&time},
-	{"malloc",	(void*)&malloc},
-	{"calloc",	(void*)&calloc},
-	{"free",	(void*)&free},
-	{"mktime",	(void*)&mktime},
-	{"gmtime",	(void*)&gmtime},
-	{"memcmp",	(void*)&memcmp},
-	{"memset",	(void*)&memset},
-	{"memmove",	(void*)&memmove},
-	{"filesystem_add_virtual_drive",(void*)&filesystem_add_virtual_drive},
-	{"filesystem_add_partitioner",	(void*)&filesystem_add_partitioner},
-	{"filesystem_add_drive",		(void*)&filesystem_add_drive},
-	{"filesystem_add_driver",		(void*)&filesystem_add_driver},
-	{"filesystem_read_from_disk",	(void*)&filesystem_read_from_disk},
-	{"filesystem_write_to_disk",	(void*)&filesystem_write_to_disk},
-	{"filesystem_create_stream",	(void*)&filesystem_create_stream},
-	{"filesystem_open_file",		(void*)&filesystem_open_file},
-	{"filesystem_close_file",		(void*)&filesystem_close_file},
-	{"filesystem_seek_file",		(void*)&filesystem_seek_file},
-	{"filesystem_get_pos",			(void*)&filesystem_get_pos},
-	{"filesystem_read_file",		(void*)&filesystem_read_file},
-	{"filesystem_write_file",		(void*)&filesystem_write_file},
-	{"irq_install_handler",			(void*)&irq_install_handler},
-	{"sysclock_sleep",				(void*)&sysclock_sleep},
-	{"sysclock_get_ticks",			(void*)&sysclock_get_ticks},
-	{"physical_memory_allocate_in_range", (void*)&physical_memory_allocate_in_range},
-	{"physical_memory_allocate",	(void*)&physical_memory_allocate},
-	{"memmanager_virtual_alloc",	(void*)&memmanager_virtual_alloc},
-	{"memmanager_map_to_new_pages", (void*)&memmanager_map_to_new_pages},
-	{"memmanager_get_physical",		(void*)&memmanager_get_physical},
-	{"memmanager_unmap_pages",		(void*)&memmanager_unmap_pages},
-	{"memmanager_free_pages",		(void*)&memmanager_free_pages},
-	{"kernel_lock_mutex",	(void*)&kernel_lock_mutex},
-	{"kernel_unlock_mutex", (void*)&kernel_unlock_mutex},
-	{"kernel_signal_cv",	(void*)&kernel_signal_cv},
-	{"kernel_wait_cv",		(void*)&kernel_wait_cv},
-	{"display_add_driver",	(void*)&display_add_driver},
-	{"acknowledge_irq",		(void*)&acknowledge_irq},
-	{"irq_enable",			(void*)&irq_enable},
-	{"add_realtime_device",	(void*)&add_realtime_device},
-	{"find_realtime_device",(void*)&find_realtime_device},
-	{"handle_input_event",	(void*)&handle_input_event}
+static constexpr std::array func_list
+{
+	func_info{"printf"sv,						(void*)&printf},
+	func_info{"puts"sv,							(void*)&puts},
+	func_info{"time"sv,							(void*)&time},
+	func_info{"malloc"sv,						(void*)&malloc},
+	func_info{"calloc"sv,						(void*)&calloc},
+	func_info{"free"sv,							(void*)&free},
+	func_info{"mktime"sv,						(void*)&mktime},
+	func_info{"gmtime"sv,						(void*)&gmtime},
+	func_info{"memcmp"sv,						(void*)&memcmp},
+	func_info{"memset"sv,						(void*)&memset},
+	func_info{"memmove"sv,						(void*)&memmove},
+	func_info{"filesystem_add_virtual_drive"sv,	(void*)&filesystem_add_virtual_drive},
+	func_info{"filesystem_add_partitioner"sv,	(void*)&filesystem_add_partitioner},
+	func_info{"filesystem_add_drive"sv,			(void*)&filesystem_add_drive},
+	func_info{"filesystem_add_driver"sv,		(void*)&filesystem_add_driver},
+	func_info{"filesystem_read_from_disk"sv,	(void*)&filesystem_read_from_disk},
+	func_info{"filesystem_write_to_disk"sv,		(void*)&filesystem_write_to_disk},
+	func_info{"filesystem_create_stream"sv,		(void*)&filesystem_create_stream},
+	func_info{"filesystem_open_file"sv,			(void*)&filesystem_open_file},
+	func_info{"filesystem_close_file"sv,		(void*)&filesystem_close_file},
+	func_info{"filesystem_seek_file"sv,			(void*)&filesystem_seek_file},
+	func_info{"filesystem_get_pos"sv,			(void*)&filesystem_get_pos},
+	func_info{"filesystem_read_file"sv,			(void*)&filesystem_read_file},
+	func_info{"filesystem_write_file"sv,		(void*)&filesystem_write_file},
+	func_info{"irq_install_handler"sv,			(void*)&irq_install_handler},
+	func_info{"sysclock_sleep"sv,				(void*)&sysclock_sleep},
+	func_info{"sysclock_get_ticks"sv,			(void*)&sysclock_get_ticks},
+	func_info{"physical_memory_allocate_in_range"sv, (void*)&physical_memory_allocate_in_range},
+	func_info{"physical_memory_allocate"sv,		(void*)&physical_memory_allocate},
+	func_info{"memmanager_virtual_alloc"sv,		(void*)&memmanager_virtual_alloc},
+	func_info{"memmanager_map_to_new_pages"sv,	(void*)&memmanager_map_to_new_pages},
+	func_info{"memmanager_get_physical"sv,		(void*)&memmanager_get_physical},
+	func_info{"memmanager_unmap_pages"sv,		(void*)&memmanager_unmap_pages},
+	func_info{"memmanager_free_pages"sv,		(void*)&memmanager_free_pages},
+	func_info{"kernel_lock_mutex"sv,			(void*)&kernel_lock_mutex},
+	func_info{"kernel_unlock_mutex"sv,			(void*)&kernel_unlock_mutex},
+	func_info{"kernel_signal_cv"sv,				(void*)&kernel_signal_cv},
+	func_info{"kernel_wait_cv"sv,				(void*)&kernel_wait_cv},
+	func_info{"display_add_driver"sv,			(void*)&display_add_driver},
+	func_info{"acknowledge_irq"sv,				(void*)&acknowledge_irq},
+	func_info{"irq_enable"sv,					(void*)&irq_enable},
+	func_info{"add_realtime_device"sv,			(void*)&add_realtime_device},
+	func_info{"find_realtime_device"sv,			(void*)&find_realtime_device},
+	func_info{"handle_input_event"sv,			(void*)&handle_input_event},
+#ifndef NDEBUG
+	func_info{"__kassert_fail"sv,				(void*)&__kassert_fail},
+#endif
 };
+
+static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f);
+
+static void execute_line(std::string_view line, fs::dir_stream_ref cwd)
+{
+	auto space = line.find_first_of(' ');
+	auto token = line.substr(0, space);
+
+	if(line.size() >= 2 && line[0] == '/' && line[1] == '/')
+	{
+	}
+	else if(token == "load_driver"sv)
+	{
+		auto filename = line.substr(space + 1);
+		auto slash = filename.find_last_of('/');
+
+		if(slash == std::string_view::npos)
+			slash = 0;
+		else
+			slash++;
+
+		auto dot = filename.find_first_of('.');
+		std::string init_func = std::string{filename.substr(slash, dot - slash)};
+		init_func += "_init"sv;
+
+		print_strings("Loading driver "sv, filename, ", calling ", init_func, '\n');
+
+		load_driver(cwd, filename, init_func);
+	}
+	else if(token == "load_file"sv)
+	{
+		auto filename = line.substr(space + 1);
+
+		size_t num_drives = filesystem_get_num_drives();
+
+		for(size_t drive = 0; drive < num_drives; drive++)
+		{
+			auto root = filesystem_get_root_directory(drive);
+
+			if(!root)
+				continue;
+
+			fs::dir_stream dir{root, 0};
+
+			if(!dir)
+				continue;
+
+			if(fs::stream stream{dir.get_ptr(), filename}; !!stream)
+			{
+				print_strings("Processing file ", filename, ", set init drive\n");
+
+				process_init_file(dir, stream);
+				break;
+			}
+		}
+	}
+	else if(token == "execute"sv)
+	{
+		auto filename = line.substr(space + 1);
+		auto f = cwd.find_file_by_path(filename);
+
+		if(!f)
+		{
+			print_strings("Can't find ", filename, '\n');
+		}
+		else
+		{
+			print_strings("Executing ", filename, '\n');
+
+			spawn_process(&(*f), cwd.get_ptr(), WAIT_FOR_PROCESS);
+		}
+	}
+}
 
 static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
 {
@@ -136,93 +214,15 @@ static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
 			eof = true;
 			c = '\n';
 		}
-
-		if(c == '\n')
+		switch(c)
 		{
-			auto line = std::string_view(buffer);
-
-			auto space = line.find_first_of(' ');
-			auto token = line.substr(0, space);
-
-			if(line.size() >= 2 && line[0] == '/' && line[1] == '/')
-			{
-			}
-			else if(token == "load_driver")
-			{
-				auto filename = line.substr(space + 1);
-				auto slash = filename.find_last_of('/');
-
-				if(slash == std::string_view::npos)
-					slash = 0;
-				else
-					slash++;
-
-				auto dot = filename.find_first_of('.');
-				std::string init_func = std::string{filename.substr(slash, dot - slash)};
-				init_func += "_init";
-
-				printf("loading driver ");
-				print_string_len(filename.data(), filename.size());
-				printf(", calling ");
-				print_string_len(init_func.data(), init_func.size());
-				putchar('\n');
-
-				load_driver(cwd, filename, init_func);
-			}
-			else if(token == "load_file")
-			{
-				auto filename = line.substr(space + 1);
-
-				size_t num_drives = filesystem_get_num_drives();
-
-				for(size_t drive = 0; drive < num_drives; drive++)
-				{
-					auto root = filesystem_get_root_directory(drive);
-
-					if(!root)
-						continue;
-
-					fs::dir_stream dir{root, 0};
-					
-					if(!dir)
-						continue;
-
-					if(fs::stream stream{dir.get_ptr(), filename}; !!stream)
-					{
-						printf("processing file ");
-						print_string_len(filename.data(), filename.size());
-						printf(", set init drive\n");
-
-						process_init_file(dir, stream);
-						break;
-					}
-				}
-			}
-			else if(token == "execute")
-			{
-				auto filename = line.substr(space + 1);
-				auto f = cwd.find_file_by_path(filename);
-
-				if(!f)
-				{
-					printf("can't find ");
-					print_string_len(filename.data(), filename.size());
-					printf("\n");
-				}
-				else
-				{
-					printf("executing ");
-					print_string_len(filename.data(), filename.size());
-					printf("\n");
-
-					spawn_process(&(*f), cwd.get_ptr(), WAIT_FOR_PROCESS);
-				}
-			}
-
+		case '\r':
+			continue;
+		case '\n':
+			execute_line(buffer, cwd);
 			buffer.clear();
-		}
-		else if(c != '\r')
-		{
+			continue;
+		default:
 			buffer += c;
 		}
 	}
@@ -230,12 +230,11 @@ static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
 
 extern "C" void load_drivers()
 {
-	printf("loading drivers\n");
+	print_string("Loading drivers\n"sv);
 
-	const auto num_funcs = sizeof(func_list) / sizeof(func_info);
-	for(size_t i = 0; i < num_funcs; i++)
+	for(auto&& func : func_list)
 	{
-		driver_symbol_map.insert(func_list[i].name, (uintptr_t)func_list[i].address);
+		driver_symbol_map.insert(func.name, (uintptr_t)func.address);
 	}
 
 	std::string_view init_path = "init.sys";
@@ -244,7 +243,7 @@ extern "C" void load_drivers()
 
 	if(!cwd)
 	{
-		printf("Corrupted boot drive!\n");
+		print_string("Corrupted boot drive!\n");
 		while(true);
 	}
 
@@ -254,7 +253,7 @@ extern "C" void load_drivers()
 		return;
 	}
 
-	printf("Cannot find init.sys!\n");
+	print_string("Can't find init.sys!\n");
 	while(true);
 }
 

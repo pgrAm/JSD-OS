@@ -13,7 +13,6 @@
 #include <kernel/display.h>
 #include <kernel/sysclock.h>
 
-#define print_string print_string_len
 #define open filesystem_open_file
 #define close filesystem_close_file
 #define read filesystem_read_file
