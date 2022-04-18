@@ -179,7 +179,7 @@ private:
 
 	class writable_block {
 	public:
-		using lock_t = sync::lock_guard<sync::upgradable_shared_mutex>;
+		using lock_t = sync::unique_lock<sync::upgradable_shared_mutex>;
 
 		template<typename T>
 		writable_block(cached_block& b, T&& l)
@@ -250,6 +250,7 @@ filesystem_virtual_drive* filesystem_get_drive(size_t index)
 	k_assert(index < virtual_drives.size());
 	auto drive = virtual_drives[index];
 
+	k_assert(drive);
 	k_assert(drive->mounted);
 	k_assert(drive->fs_driver);
 	k_assert(drive->fs_driver->read_chunks);
@@ -389,7 +390,7 @@ T filesystem_drive::block_rw(size_t index, bool write_all) const
 		auto& item = block_cache.refresh_oldest_item();
 
 		{
-			sync::lock_guard lock{*item.mtx};
+			sync::unique_lock lock{*item.mtx};
 
 			auto old_index = item.index;
 			item.index = block;

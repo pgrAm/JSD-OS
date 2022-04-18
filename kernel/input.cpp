@@ -11,7 +11,8 @@ static volatile size_t input_buf_front = 0;
 static size_t input_buf_back = 0;
 static input_event input_buf[INPUT_BUFFER_SIZE];
 
-static constinit sync::cv input_waiting_cv{};
+static constinit sync::mutex input_waiting_mtx{};
+static constinit sync::condition_variable input_waiting_cv{};
 
 void handle_input_event(input_event e)
 {
@@ -32,7 +33,7 @@ void handle_input_event(input_event e)
 	input_buf[input_buf_front] = e;
 	input_buf_front = (input_buf_front + 1) % INPUT_BUFFER_SIZE;
 
-	input_waiting_cv.notify();
+	input_waiting_cv.notify_one();
 }
 
 static int do_get_input_event(input_event* e)
@@ -59,7 +60,8 @@ SYSCALL_HANDLER int get_input_event(input_event* e, bool wait)
 	{
 		while(do_get_input_event(e) != 0)
 		{
-			input_waiting_cv.wait();
+			sync::unique_lock l{input_waiting_mtx};
+			input_waiting_cv.wait(l);
 		}
 		return 0;
 	}

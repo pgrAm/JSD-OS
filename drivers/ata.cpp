@@ -106,11 +106,13 @@ struct ata_drive
 
 static ata_channel channels[2];
 static ata_drive ide_drives[4];
-static constinit sync::cv irq_condition[2];
+static constinit sync::mutex irq_mtx[2];
+static constinit sync::condition_variable irq_condition[2];
 
 static void ata_wait_irq(size_t index)
 {
-	irq_condition[index].wait();
+	sync::unique_lock l{irq_mtx[index]};
+	irq_condition[index].wait(l);
 }
 
 static void ata_delay400(uint8_t channel)
@@ -356,7 +358,7 @@ static INTERRUPT_HANDLER void ata_irq_handler0(interrupt_frame* r)
 {
 	inb(channels[0].base + ATA_REG_STATUS);
 	acknowledge_irq(14);
-	irq_condition[0].notify();
+	irq_condition[0].notify_one();
 }
 
 static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
@@ -366,7 +368,7 @@ static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
 	{
 		inb(channels[1].base + ATA_REG_STATUS);
 		acknowledge_irq(15);
-		irq_condition[1].notify();
+		irq_condition[1].notify_one();
 	}
 	else
 	{
@@ -734,8 +736,8 @@ static INTERRUPT_HANDLER void ata_irq_handler(interrupt_frame* r)
 
 	inb(channels[0].base + ATA_REG_STATUS);
 	inb(channels[1].base + ATA_REG_STATUS);
-	irq_condition[0].notify();
-	irq_condition[1].notify();
+	irq_condition[0].notify_one();
+	irq_condition[1].notify_one();
 
 	//outb(channels[0].bus_master + 0x2, inb(channels[0].bus_master + 0x2) | 4);
 

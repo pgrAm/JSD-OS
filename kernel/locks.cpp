@@ -110,34 +110,15 @@ void kernel_signal_cv(kernel_cv* m)
 	switch_to_active_task();
 }
 
-static inline bool do_try_wait_cv(kernel_cv* m, int current_pid)
+void kernel_wait_cv(kernel_mutex* locked_mutex, kernel_cv* m)
 {
-	int pid = cas_func(&m->waitingPID, INVALID_PID, current_pid);
-	if(pid == INVALID_PID) //locked
+	while(true)
 	{
-		while(true)
+		if(tas_aquire(&m->unavailable) == 0)
 		{
-			if(tas_aquire(&m->unavailable) == 0)
-			{
-				cas_atomic_set(&m->waitingPID, INVALID_PID);
-				return true;
-			}
-			run_background_tasks();
+			kernel_unlock_mutex(locked_mutex);
+			return;
 		}
-	}
-	return false;
-}
-
-void kernel_wait_cv(kernel_cv* m)
-{
-	int pid = get_running_process();
-	while(!do_try_wait_cv(m, pid))
-	{
 		run_background_tasks();
 	}
-}
-
-bool kernel_try_wait_cv(kernel_cv* m)
-{
-	return do_try_wait_cv(m, get_running_process());
 }

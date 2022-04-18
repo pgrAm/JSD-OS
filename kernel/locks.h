@@ -8,58 +8,54 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 
-#define	__I386_ONLY
-
 #ifndef __I386_ONLY
 #define SYNC_HAS_CAS_FUNC 1
 #endif
 
-typedef uint32_t int_lock;
+	typedef uint32_t int_lock;
 
-static inline int_lock lock_interrupts()
-{
-	int_lock lock;
-	__asm__ volatile("pushfl\n"
-		"cli\n"
-		"popl %0\n"
-		: "=r"(lock));
-	return lock;
-}
+	static inline int_lock lock_interrupts()
+	{
+		int_lock lock;
+		__asm__ volatile("pushfl\n"
+						 "cli\n"
+						 "popl %0\n"
+						 : "=r"(lock));
+		return lock;
+	}
 
-static inline void unlock_interrupts(int_lock lock)
-{
-	__asm__ volatile("pushl %0\n"
-		"popfl\n"
-		:
-	: "r" (lock));
-}
+	static inline void unlock_interrupts(int_lock lock)
+	{
+		__asm__ volatile("pushl %0\n"
+						 "popfl\n"
+						 :
+		: "r" (lock));
+	}
 
-typedef struct
-{
-	int value;
+	typedef struct
+	{
+		int value;
 #ifndef SYNC_HAS_CAS_FUNC
-	uint8_t tas_lock;
+		uint8_t tas_lock;
 #endif
-} lockable_val;
+	} lockable_val;
 
-typedef struct
-{
-	lockable_val ownerPID;
-} kernel_mutex;
+	typedef struct
+	{
+		lockable_val ownerPID;
+	} kernel_mutex;
 
-bool kernel_try_lock_mutex(kernel_mutex* m);
-void kernel_lock_mutex(kernel_mutex* m);
-void kernel_unlock_mutex(kernel_mutex* m);
+	bool kernel_try_lock_mutex(kernel_mutex* m);
+	void kernel_lock_mutex(kernel_mutex* m);
+	void kernel_unlock_mutex(kernel_mutex* m);
 
-typedef struct
-{
-	lockable_val waitingPID;
-	uint8_t unavailable;
-} kernel_cv;
+	typedef struct
+	{
+		uint8_t unavailable;
+	} kernel_cv;
 
-void kernel_signal_cv(kernel_cv* m);
-void kernel_wait_cv(kernel_cv* m);
-bool kernel_try_wait_cv(kernel_cv* m);
+	void kernel_signal_cv(kernel_cv* m);
+	void kernel_wait_cv(kernel_mutex* locked_mutex, kernel_cv* m);
 
 #ifdef __cplusplus
 }
@@ -82,35 +78,8 @@ consteval kernel_mutex init_mutex()
 
 consteval kernel_cv init_cv()
 {
-	return {init_lockable(), 1};
+	return {1};
 }
-
-class cv
-{
-public:
-	constexpr cv() = default;
-	~cv() = default;
-	cv(const cv&) = delete;
-	cv(cv&&) = delete;
-	cv& operator=(const cv&) = delete;
-
-	void notify()
-	{
-		kernel_signal_cv(&m_cv);
-	}
-
-	void wait()
-	{
-		return kernel_wait_cv(&m_cv);
-	}
-
-	bool try_wait()
-	{
-		return kernel_try_wait_cv(&m_cv);
-	}
-private:
-	kernel_cv m_cv = init_cv();
-};
 
 class mutex
 {
@@ -135,6 +104,12 @@ public:
 	{
 		kernel_unlock_mutex(&m_mtx);
 	}
+
+	kernel_mutex* native_handle()
+	{
+		return &m_mtx;
+	}
+
 private:
 	kernel_mutex m_mtx = init_mutex();
 };
@@ -149,7 +124,6 @@ template<typename Mutex> class shared_lock;
 
 template<typename Mutex>
 class lock_guard {
-	friend class shared_lock<Mutex>;
 public:
 	lock_guard(Mutex& m) : m_mutex(&m)
 	{
@@ -157,19 +131,90 @@ public:
 	}
 	~lock_guard()
 	{
-		if(m_mutex)
-			m_mutex->unlock();
+		m_mutex->unlock();
 	}
 	lock_guard(const lock_guard&) = delete;
-	lock_guard(lock_guard&& o) : m_mutex(o.m_mutex)
-	{
-		o.m_mutex = nullptr;
-	}
 private:
 	Mutex* m_mutex;
 };
 
+template<typename Mutex>
+class unique_lock {
+	friend class shared_lock<Mutex>;
+public:
+	unique_lock(Mutex& m)
+		: m_mutex(&m)
+		, m_owns_lock(true)
+	{
+		m_mutex->lock();
+	}
+	~unique_lock()
+	{
+		if(owns_lock())
+			m_mutex->unlock();
+	}
+	unique_lock(const unique_lock&) = delete;
+	unique_lock(unique_lock&& o) : m_mutex(o.m_mutex)
+	{
+		m_owns_lock = false;
+		o.m_mutex = nullptr;
+	}
+
+	void lock()
+	{
+		m_mutex->lock();
+		m_owns_lock = true;
+	}
+
+	bool try_lock()
+	{
+		m_owns_lock = m_mutex->try_lock();
+	}
+
+	bool owns_lock() const noexcept
+	{
+		return m_owns_lock && m_mutex;
+	}
+
+	void unlock()
+	{
+		m_mutex->unlock();
+		m_owns_lock = false;
+	}
+
+	Mutex* mutex()
+	{
+		return m_mutex;
+	}
+private:
+	Mutex* m_mutex;
+	bool m_owns_lock;
+};
+
 template<class T> lock_guard(T)->lock_guard<T>;
+
+class condition_variable
+{
+public:
+	constexpr condition_variable() = default;
+	~condition_variable() = default;
+	condition_variable(const condition_variable&) = delete;
+	condition_variable(condition_variable&&) = delete;
+	condition_variable& operator=(const condition_variable&) = delete;
+
+	void notify_one()
+	{
+		kernel_signal_cv(&m_cv);
+	}
+
+	void wait(unique_lock<mutex>& m)
+	{
+		return kernel_wait_cv(m.mutex()->native_handle(), &m_cv);
+	}
+private:
+	kernel_cv m_cv = init_cv();
+};
+
 
 class shared_mutex
 {
@@ -204,55 +249,6 @@ private:
 	mutex exclusive_mtx;
 	mutex shared_mtx;
 	size_t num_shared = 0;
-};
-
-class shared_wpref_mutex
-{
-public:
-	void lock()
-	{
-		lock_guard l{shared_mtx};
-		++num_exclusive_waiting;
-		while(num_shared > 0 || exclusive_locked)
-		{
-			kernel_wait_cv(&cond);
-		}
-		--num_exclusive_waiting;
-		exclusive_locked = true;
-	}
-
-	void unlock()
-	{
-		lock_guard l{shared_mtx};
-		exclusive_locked = true;
-		kernel_signal_cv(&cond);
-	}
-
-	void lock_shared()
-	{
-		lock_guard l{shared_mtx};
-		while(num_exclusive_waiting > 0 || exclusive_locked)
-		{
-			kernel_wait_cv(&cond);
-		}
-		++num_shared;
-	}
-
-	void unlock_shared()
-	{
-		lock_guard l{shared_mtx};
-		if(--num_shared == 0)
-		{
-			kernel_signal_cv(&cond);
-		}
-	}
-
-private:
-	kernel_cv cond = init_cv();
-	mutex shared_mtx;
-	size_t num_shared = 0;
-	size_t num_exclusive_waiting = 0;
-	bool exclusive_locked = false;
 };
 
 class upgradable_shared_mutex
@@ -314,7 +310,7 @@ public:
 		}
 	}
 
-	shared_lock(lock_guard<upgradable_shared_mutex>&& o)
+	shared_lock(unique_lock<upgradable_shared_mutex>&& o)
 		: m_mutex(o.m_mutex)
 	{
 		o.m_mutex = nullptr;

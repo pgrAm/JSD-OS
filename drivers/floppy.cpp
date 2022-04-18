@@ -71,7 +71,8 @@ enum floppy_commands
 #define MT_BIT 0x80
 
 static bool motor_is_ready[2] = {false, false};
-static constinit sync::cv irq6_condition{};
+static constinit sync::mutex irq6_mtx{};
+static constinit sync::condition_variable irq6_condition{};
 
 static void floppy_read_blocks(void* drv_data, size_t block_number, uint8_t* buf, size_t num_bytes);
 static void floppy_write_blocks(void* drv_data, size_t block_number, const uint8_t* buf, size_t num_bytes);
@@ -88,12 +89,13 @@ static disk_driver floppy_driver = {
 static INTERRUPT_HANDLER void floppy_irq_handler(interrupt_frame* r)
 {
 	acknowledge_irq(6);
-	irq6_condition.notify();
+	irq6_condition.notify_one();
 }
 
 static void wait_for_irq6(void)
 {
-	irq6_condition.wait();
+	sync::unique_lock l{irq6_mtx};
+	irq6_condition.wait(l);
 }
 
 struct floppy_drive
