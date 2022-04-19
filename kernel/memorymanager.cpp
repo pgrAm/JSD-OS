@@ -157,14 +157,14 @@ static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flag
 	return (uintptr_t)nullptr;
 }
 
-void memmanager_unmap_page(uintptr_t virtual_address)
+void memmanager_unmap_page_with_flags(uintptr_t virtual_address, page_flags_t flags)
 {
 	sync::lock_guard l{kernel_addr_mutex};
 
 	size_t pd_index = get_page_dir_index(virtual_address);
 	uintptr_t pd_entry = current_page_directory[pd_index];
 
-	if(pd_entry & PAGE_PRESENT)
+	if(pd_entry & flags)
 	{
 		//unmap the page
 		memmanager_update_pt(&memmanager_get_pt_entry(virtual_address, pd_index),
@@ -316,19 +316,28 @@ SYSCALL_HANDLER void* syscall_virtual_alloc(void* v_address, size_t n, page_flag
 	return memmanager_virtual_alloc(v_address, n, flags);
 }
 
-int memmanager_unmap_pages(void* page, size_t num_pages)
+static int memmanager_unmap_pages_with_flags(void* addr, size_t num_pages, page_flags_t flags)
 {
-	uintptr_t virtual_address = (uintptr_t)page;
-
+	uintptr_t v_addr = (uintptr_t)addr;
 	while(num_pages--)
 	{
-		memmanager_unmap_page(virtual_address); //unmap the page
-		virtual_address += PAGE_SIZE; //next page
+		memmanager_unmap_page_with_flags(v_addr, flags); //unmap the page
+		v_addr += PAGE_SIZE; //next page
 	}
 	return 0;
 }
 
-int memmanager_free_pages(void* page, size_t num_pages)
+SYSCALL_HANDLER int syscall_unmap_user_pages(void* addr, size_t num_pages)
+{
+	return memmanager_unmap_pages_with_flags(addr, num_pages, PAGE_USER);
+}
+
+int memmanager_unmap_pages(void* addr, size_t num_pages)
+{
+	return memmanager_unmap_pages_with_flags(addr, num_pages, PAGE_ALLOCATED);
+}
+
+int memmanager_free_pages_with_flags(void* page, size_t num_pages, page_flags_t flags)
 {
 	//printf("\tFreeing %d pages\n", num_pages);
 
@@ -338,7 +347,7 @@ int memmanager_free_pages(void* page, size_t num_pages)
 	{
 		uintptr_t physical_address = memmanager_get_pt_entry(virtual_address);
 
-		memmanager_unmap_page(virtual_address); //unmap the page
+		memmanager_unmap_page_with_flags(virtual_address, flags); //unmap the page
 
 		virtual_address += PAGE_SIZE; //next page
 
@@ -356,12 +365,17 @@ int memmanager_free_pages(void* page, size_t num_pages)
 	return 0;
 }
 
+int memmanager_free_pages(void* page, size_t num_pages)
+{
+	return memmanager_free_pages_with_flags(page, num_pages, PAGE_ALLOCATED);
+}
+
 SYSCALL_HANDLER int syscall_free_pages(void* page, size_t num_pages)
 {
 	if(!page) 
 		return -1;
 
-	return memmanager_free_pages(page, num_pages);
+	return memmanager_free_pages_with_flags(page, num_pages, PAGE_USER);
 }
 
 void memmanager_init_page_dir(__attribute__((nonnull)) uintptr_t* page_dir, uintptr_t physaddr)

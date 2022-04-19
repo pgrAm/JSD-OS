@@ -6,6 +6,7 @@
 #include <kernel/physical_manager.h>
 #include <kernel/sysclock.h>
 #include <kernel/display.h>
+#include <kernel/shared_mem.h>
 #include <kernel/input.h>
 
 //A syscall is accomplished by
@@ -36,7 +37,7 @@ const void* syscall_table[] =
 	sysclock_get_utc_offset,
 	syscall_virtual_alloc,
 	syscall_free_pages,
-	_empty,
+	syscall_unmap_user_pages,
 	_empty,
 	syscall_open_file_handle,
 	syscall_open_directory_handle,
@@ -54,7 +55,11 @@ const void* syscall_table[] =
 	set_display_offset,
 	get_input_event,
 	syscall_write_file,
-	syscall_dispose_file_handle
+	syscall_dispose_file_handle,
+	create_shared_buffer,
+	open_shared_buffer,
+	close_shared_buffer,
+	map_shared_buffer
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

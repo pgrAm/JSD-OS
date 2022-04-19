@@ -58,6 +58,7 @@ my @kernel_src = qw(
 	kernel/rt_device.cpp		
 	kernel/input.cpp		
 	kernel/kassert.cpp		
+	kernel/shared_mem.cpp		
 
 	drivers/display/basic_text/basic_text.cpp
 	drivers/formats/rdfs.cpp

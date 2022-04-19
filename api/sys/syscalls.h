@@ -30,7 +30,7 @@ enum syscall_indices
 	SYSCALL_TIMEZONE = 8,
 	SYSCALL_ALLOC_PAGES = 9,
 	SYSCALL_FREE_PAGES = 10,
-	SYSCALL_UNUSED0 = 11,
+	SYSCALL_UNMAP_PAGES = 11,
 	SYSCALL_UNUSED1 = 12,
 	SYSCALL_OPEN_FILE_HANDLE = 13,
 	SYSCALL_OPEN_DIR_HANDLE = 14,
@@ -48,7 +48,11 @@ enum syscall_indices
 	SYSCALL_SET_DISPLAY_OFFSET = 26,
 	SYSCALL_GET_INPUT_EVENT = 27,
 	SYSCALL_WRITE = 28,
-	SYSCALL_DISPOSE_FILE_HANDLE
+	SYSCALL_DISPOSE_FILE_HANDLE = 29,
+	SYSCALL_CREATE_SHARED_BUFFER = 30,
+	SYSCALL_OPEN_SHARED_BUFFER = 31,
+	SYSCALL_CLOSE_SHARED_BUFFER = 32,
+	SYSCALL_MAP_SHARED_BUFFER = 33
 };
 
 struct file_handle;
@@ -131,7 +135,8 @@ static inline void sys_exit(int a)
 
 static inline file_stream* open(directory_stream* rel, const char* path, size_t path_len, int flags)
 {
-	return (file_stream*)do_syscall_4(SYSCALL_OPEN, (uint32_t)rel, (uint32_t)path, (uint32_t)path_len, (uint32_t)flags);
+	return (file_stream*)do_syscall_4(SYSCALL_OPEN, 
+									  (uint32_t)rel, (uint32_t)path, (uint32_t)path_len, (uint32_t)flags);
 }
 
 static inline int close(file_stream* file)
@@ -188,6 +193,11 @@ static inline int free_pages(void *p, size_t n)
 	return (int)do_syscall_2(SYSCALL_FREE_PAGES, (uint32_t)p, (uint32_t)n);
 }
 
+static inline int unmap_pages(void* p, size_t n)
+{
+	return (int)do_syscall_2(SYSCALL_FREE_PAGES, (uint32_t)p, (uint32_t)n);
+}
+
 static inline const file_handle* get_file_in_dir(const directory_stream* d, size_t index)
 {
 	return (const file_handle*)do_syscall_2(SYSCALL_GET_FILE_IN_DIR, (uint32_t)d, (uint32_t)index);
@@ -235,7 +245,8 @@ static inline int dispose_file_handle(const file_handle *f)
 
 static inline const file_handle* find_path(directory_stream* rel, const char* name, size_t path_len, int mode, int flags)
 {
-	return (const file_handle*)do_syscall_5(SYSCALL_FIND_PATH, (uint32_t)rel, (uint32_t)name, (uint32_t)path_len, (uint32_t)mode, (uint32_t)flags);
+	return (const file_handle*)do_syscall_5(SYSCALL_FIND_PATH, 
+											(uint32_t)rel, (uint32_t)name, (uint32_t)path_len, (uint32_t)mode, (uint32_t)flags);
 }
 
 static inline int set_display_offset(size_t offset, int on_retrace)
@@ -271,6 +282,28 @@ static inline int get_input_event(input_event* e, bool wait)
 	return (int)do_syscall_2(SYSCALL_GET_INPUT_EVENT, (uint32_t)e, (uint32_t)wait);
 }
 
+static inline uintptr_t create_shared_buffer(const char* name, size_t name_len, size_t size)
+{
+	return (int)do_syscall_3(SYSCALL_CREATE_SHARED_BUFFER,
+							 (uint32_t)name, (uint32_t)name_len, (uint32_t)size);
+}
+
+static inline uintptr_t open_shared_buffer(const char* name, size_t name_len)
+{
+	return (int)do_syscall_2(SYSCALL_OPEN_SHARED_BUFFER,
+							 (uint32_t)name, (uint32_t)name_len);
+}
+
+static inline void close_shared_buffer(uintptr_t buf_handle)
+{
+	do_syscall_1(SYSCALL_CLOSE_SHARED_BUFFER, buf_handle);
+}
+
+static inline void* map_shared_buffer(uintptr_t buf_handle, size_t size, int flags)
+{
+	return (void*)do_syscall_3(SYSCALL_MAP_SHARED_BUFFER,
+							   (uint32_t)buf_handle, (uint32_t)size, (uint32_t)flags);
+}
 
 #ifdef __cplusplus
 }
