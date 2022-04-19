@@ -443,7 +443,7 @@ namespace detail
 
 	template <class T> 
 	struct is_copy_assignable
-		: public is_assignable<add_lvalue_reference_t<T>, add_lvalue_reference<add_const_t<T>>> 
+		: public is_assignable<add_lvalue_reference_t<T>, add_lvalue_reference_t<add_const_t<T>>> 
 	{};
 
 	template <class T>
