@@ -26,7 +26,7 @@ struct dynamic_object
 	sym_map* symbol_map = nullptr;
 	sym_map* glob_data_symbol_map = nullptr;
 	
-	dynamic_object(sym_map* libs, sym_map* symbols, sym_map* glob_data)
+	constexpr dynamic_object(sym_map* libs, sym_map* symbols, sym_map* glob_data)
 		: lib_set(libs)
 		, symbol_map(symbols)
 		, glob_data_symbol_map(glob_data) {}

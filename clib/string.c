@@ -2,7 +2,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 
-const char* strchr(const char* str, int character)
+char* strchr(const char* str, int character)
 {
     while (*str != (char)character)
     {

@@ -17,7 +17,7 @@ extern void _KERNEL_START_;
 
 void reserve_boot_mem()
 {
-	if(boot_information.memmap_location == NULL)
+	if(!boot_information.memmap_location)
 		return;
 
 	size_t mmap_entries = boot_information.memmap_size / sizeof(multiboot_mmap_entry);

@@ -303,7 +303,7 @@ static fat_time time_t_time_to_fat_time(time_t time)
 	};
 }
 
-static std::string_view read_field(const char* field, size_t size)
+static constexpr std::string_view read_field(const char* field, size_t size)
 {
 	const std::string_view f(field, size);
 	if(auto pos = f.find(' '); pos != std::string_view::npos)
@@ -320,7 +320,7 @@ static void write_field(char* field, std::string_view src, size_t size)
 		memset(field + src.size(), ' ', size - src.size());
 }
 
-static uint32_t fat_convert_flags(uint8_t fat_flags)
+static constexpr uint32_t fat_convert_flags(uint8_t fat_flags)
 {
 	uint32_t flags = 0;
 	if(fat_flags & DIRECTORY)
@@ -336,7 +336,7 @@ static uint32_t fat_convert_flags(uint8_t fat_flags)
 	return flags;
 }
 
-static uint8_t to_fat_flags(uint32_t flags)
+static constexpr uint8_t to_fat_flags(uint32_t flags)
 {
 	uint8_t fat_flags = 0;
 	if(flags & file_flags::IS_DIR)

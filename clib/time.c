@@ -68,7 +68,7 @@ time_t time(time_t* timer)
 	return the_current_time;
 }
 
-size_t __c_get_clock_tick_rate()
+clock_t __c_get_clock_tick_rate()
 {
 #ifndef __KERNEL
 	size_t rate;

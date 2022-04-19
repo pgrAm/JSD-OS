@@ -162,7 +162,7 @@ public:
 		emplace_back(c);
 	}
 
-	template <class... Args>
+	template <typename... Args>
 	constexpr void emplace_back(Args&&... args)
 	{
 		if(size() + 1 > capacity())

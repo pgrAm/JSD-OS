@@ -675,7 +675,7 @@ static bool vesa_populate_modes()
 		return false;
 	}
 	
-	printf("\t%s\n", translate_virtual_far_ptr(vesa_info->oem_string_ptr));
+	printf("\t%s\n", (const char*)translate_virtual_far_ptr(vesa_info->oem_string_ptr));
 
 	std::vector<uint16_t> modes;
 	uint16_t* mode_array = (uint16_t*)translate_virtual_far_ptr(vesa_info->video_mode_ptr);

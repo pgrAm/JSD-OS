@@ -113,7 +113,8 @@ public:
 		return nullptr;
 	}
 
-	template<typename _Ky> void remove(const _Ky& key)
+	template<typename _Ky> 
+	void remove(const _Ky& key)
 	{
 		size_t i = hash(key) & (buckets.size() - 1);
 		hash_node* prev = nullptr;

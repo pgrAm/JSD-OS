@@ -100,15 +100,14 @@ static void wait_for_irq6(void)
 
 struct floppy_drive
 {
+	sync::mutex mutex;
+	size_t num_sectors = 0;
 	uint8_t type = 0;
 	uint8_t sectors_per_track = 0;
 	uint8_t heads_per_cylinder = 0;
 	uint8_t num_tracks = 0;
 	uint8_t gap_len = 0;
-	size_t num_sectors = 0;
-
 	uint8_t drive_index = 0;
-	sync::mutex mutex;
 };
 
 static constinit floppy_drive floppy_drives[2];
