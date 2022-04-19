@@ -289,9 +289,11 @@ SYSCALL_HANDLER int get_display_mode(int index, display_mode* result)
 
 SYSCALL_HANDLER int set_display_mode(const display_mode* requested, display_mode* actual)
 {
+	bool success = false;
+
 	if(this_task_is_active())
 	{
-		bool success = !requested || display_mode_satisfied(*requested, current_mode);
+		success = !requested || display_mode_satisfied(*requested, current_mode);
 
 		if(!success)
 		{
@@ -318,16 +320,14 @@ SYSCALL_HANDLER int set_display_mode(const display_mode* requested, display_mode
 				initialize_terminal(current_mode.width, current_mode.height);
 			}
 		}
-
-		if(actual != nullptr)
-		{
-			*actual = current_mode;
-		}
-
-		return success ? 0 : -1;
 	}
 
-	return -1;
+	if(actual != nullptr)
+	{
+		*actual = current_mode;
+	}
+
+	return success ? 0 : -1;
 }
 
 SYSCALL_HANDLER int set_display_offset(size_t offset, int on_retrace)
@@ -338,13 +338,9 @@ SYSCALL_HANDLER int set_display_offset(size_t offset, int on_retrace)
 
 SYSCALL_HANDLER uint8_t* map_display_memory(void)
 {
-	if(this_task_is_active())
-	{
-		auto num_pages = memmanager_minimum_pages(current_mode.buffer_size);
-		auto buf = default_driver->get_framebuffer();
+	auto num_pages = memmanager_minimum_pages(current_mode.buffer_size);
+	auto buf = default_driver->get_framebuffer();
 
-		return (uint8_t*)memmanager_map_to_new_pages((uintptr_t)buf, num_pages,
-													 PAGE_USER | PAGE_PRESENT | PAGE_RW);
-	}
-	return nullptr;
+	return (uint8_t*)memmanager_map_to_new_pages((uintptr_t)buf, num_pages,
+												PAGE_USER | PAGE_PRESENT | PAGE_RW);
 }
