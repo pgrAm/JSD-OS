@@ -311,8 +311,7 @@ static int elf_process_dynamic_section(ELF_linker_data* object, directory_stream
 			{
 				std::string_view lib_name = {object->string_table + entry->d_un.d_val};
 
-				uint32_t val;
-				if(!object->lib_set->lookup(lib_name, &val))
+				if(!object->lib_set->contains(lib_name))
 				{
 					dynamic_object lib {
 						object->lib_set, 
@@ -359,18 +358,12 @@ static int elf_read_symbols(ELF_linker_data* object)
 		{
 			ELF_sym32* symbol = &object->symbol_table[i];
 
-			const char* symbol_name = object->string_table + symbol->name;
-
-			//printf("symbol name = %s\n", symbol_name);
-
-			uint32_t val;
-			if(!object->symbol_map->lookup(symbol_name, &val))
+			if(symbol->section_index)
 			{
-				//if this symbol exists in the image
-				if(symbol->section_index)
-				{
-					object->symbol_map->insert(symbol_name, (uintptr_t)object->base_address + symbol->value);
-				}
+				std::string_view symbol_name{object->string_table + symbol->name};
+
+				object->symbol_map->insert(symbol_name, 
+										   (uintptr_t)object->base_address + symbol->value);
 			}
 		}
 	}

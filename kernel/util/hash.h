@@ -38,7 +38,8 @@ public:
 		}
 	}
 
-	template<typename _Ky> bool lookup(const _Ky& key, D* value)
+	template<typename _Ky> 
+	D* lookup(const _Ky& key)
 	{
 		const size_t i = hash(key) & (buckets.size() - 1);
 		hash_node* entry = buckets[i];
@@ -47,17 +48,42 @@ public:
 		{
 			if(key == entry->key)
 			{
-				*value = entry->data;
-				return true;
+				return &entry->data;
 			}
 
 			entry = entry->next;
 		}
 
+		return nullptr;
+	}
+
+	template<typename _Ky> 
+	bool lookup(const _Ky& key, D* value)
+		requires(std::is_copy_assignable_v<D>)
+	{
+		if(auto data = lookup(key); !!data)
+		{
+			*value = *data;
+			return true;
+		}
+
 		return false;
 	}
 
-	template<typename _Ky> void insert(const _Ky& key, const D& value)
+	template<typename _Ky>
+	bool contains(const _Ky& key)
+	{
+		return !!lookup(key);
+	}
+
+	template<typename _Ky>
+	D* insert(const _Ky& key, const D& value)
+	{
+		return emplace(key, value);
+	}
+
+	template<typename _Ky, typename... Args>
+	D* emplace(const _Ky& key, Args&&... args)
 	{
 		size_t i = hash(key) & (buckets.size() - 1);
 		hash_node* prev = nullptr;
@@ -71,7 +97,7 @@ public:
 
 		if(entry == nullptr)
 		{
-			entry = new hash_node{K(key), value};
+			entry = new hash_node{K(key), {std::forward<Args>(args)...}};
 
 			if(prev == nullptr)
 			{
@@ -81,16 +107,15 @@ public:
 			{
 				prev->next = entry;
 			}
+			return &entry->data;
 		}
-		else
-		{
-			entry->data = value;
-		}
+
+		return nullptr;
 	}
 
 	template<typename _Ky> void remove(const _Ky& key)
 	{
-		D i = hash_string(key) & (buckets.size() - 1);
+		size_t i = hash(key) & (buckets.size() - 1);
 		hash_node* prev = nullptr;
 		hash_node* entry = buckets[i];
 
@@ -119,7 +144,7 @@ public:
 	}
 
 private:
-	static uint32_t hash(uint32_t x)
+	constexpr static uint32_t hash(uint32_t x)
 	{
 		x = ((x >> 16) ^ x) * 0x45d9f3b;
 		x = ((x >> 16) ^ x) * 0x45d9f3b;
@@ -127,7 +152,7 @@ private:
 		return x;
 	}
 
-	static uint32_t hash(const std::string_view name)
+	constexpr static uint32_t hash(const std::string_view name)
 	{
 		uint32_t h = 0;
 		for(size_t i = 0; i < name.size(); i++)
