@@ -50,8 +50,8 @@ public:
 	kernel_terminal(const display_driver* driver, size_t rows, size_t cols) :
 		m_display(driver),
 		m_screen_ptr((text_char*)get_mapped_frame_buffer(driver, rows* cols)),
-		m_num_rows(rows),
-		m_num_cols(cols),
+		m_height(rows),
+		m_width(cols),
 		m_total_size(rows*cols),
 		m_last_row_start((rows - 1)* cols),
 		m_cursorpos(driver->get_cursor_offset())
@@ -62,7 +62,7 @@ public:
 
 	void set_cursor_position(size_t row, size_t col)
 	{
-		set_cursor_offset((row * m_num_rows) + col);
+		set_cursor_offset((row * m_height) + col);
 	}
 
 	void set_cursor_offset(size_t offset)
@@ -84,18 +84,6 @@ public:
 	text_char* get_text_buffer()
 	{
 		return m_screen_ptr;
-	}
-
-	void delete_chars(size_t num)
-	{
-		auto cursor = cursor_pos();
-
-		auto begin = get_text_buffer() + cursor;
-		auto end = begin - num;
-
-		std::fill(begin, end, clearval);
-
-		set_cursor_offset(cursor - num);
 	}
 
 	void print_chars(const char* str, size_t length)
@@ -135,19 +123,19 @@ public:
 
 	void clear_row(size_t row)
 	{
-		auto begin = get_text_buffer() + row * m_num_cols;
-		auto end = begin + m_num_cols;
+		auto begin = get_text_buffer() + row * m_width;
+		auto end = begin + m_width;
 		std::fill(begin, end, clearval);
 	}
 
 	void scroll_up()
 	{
 		auto dst = get_text_buffer();
-		auto src = dst + m_num_cols;
+		auto src = dst + m_width;
 
-		memcpy(dst, src, (m_total_size - m_num_cols) * sizeof(text_char));
-		set_cursor_position(m_num_rows - 1, 0);
-		clear_row(m_num_rows - 1);
+		memcpy(dst, src, (m_total_size - m_width) * sizeof(text_char));
+		set_cursor_position(m_height - 1, 0);
+		clear_row(m_height - 1);
 	}
 
 	int handle_char(char source, text_char* dest, size_t pos)
@@ -155,7 +143,7 @@ public:
 		switch(source)
 		{
 		case '\n':
-			return m_num_cols - (pos % m_num_cols);
+			return m_width - (pos % m_width);
 			break;
 		case '\t':
 			return tab_size - (pos % tab_size);
@@ -170,15 +158,15 @@ public:
 
 	bool still_valid(const display_driver* d, size_t width, size_t height)
 	{
-		return (d == m_display) && (width == m_num_cols) && (height == m_num_rows);
+		return (d == m_display) && (width == m_width) && (height == m_height);
 	}
 private:
 
 	const display_driver* m_display;
 
 	text_char* m_screen_ptr; //non owning ptr
-	size_t m_num_rows;
-	size_t m_num_cols;
+	size_t m_height;
+	size_t m_width;
 	size_t m_total_size;
 	size_t m_last_row_start;
 	volatile size_t m_cursorpos;

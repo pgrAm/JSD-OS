@@ -1,5 +1,5 @@
 #include <sys/syscalls.h>
-#include <graphics/graphics.h>
+#include <terminal/terminal.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -45,6 +45,8 @@ void draw_fill(size_t x0, size_t y0, size_t w, size_t h, display_mode& actual, u
 	}
 }
 
+terminal s_term{"terminal_1"};
+
 int main(int argc, char** argv)
 {
 	display_mode requested = {
@@ -59,8 +61,8 @@ int main(int argc, char** argv)
 	display_mode actual;
 	if(set_display_mode(&requested, &actual) != 0)
 	{
-		initialize_text_mode(80, 25);
-		printf("Could not set graphics mode\n");
+		s_term.set_mode(80, 25);
+		s_term.print_string("Could not set graphics mode\n");
 		return 0;
 	}
 
@@ -118,8 +120,8 @@ int main(int argc, char** argv)
 		set_display_offset(page_begin, true);
 	}
 
-	initialize_text_mode(80, 25);
-	video_clear();
+	s_term.set_mode(80, 25);
+	s_term.clear();
 
 	return 0;
 }

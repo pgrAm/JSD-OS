@@ -1,13 +1,15 @@
 #include <sys/syscalls.h>
-#include <graphics/graphics.h>
+#include <terminal/terminal.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+terminal s_term{"terminal_1"};
+
 int main(int argc, char** argv)
 {
-	initialize_text_mode(0, 0);
-
-	video_clear();
+	set_stdout([](const char* buf, size_t size, void* impl) {
+					s_term.print_string(buf, size);
+			   });
 
 	display_mode mode;
 	int i = 0;

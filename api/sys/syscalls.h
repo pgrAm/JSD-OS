@@ -179,6 +179,7 @@ static inline int get_utc_offset()
 	return (int)do_syscall_0(SYSCALL_TIMEZONE);
 }
 
+#define PAGE_SIZE 4096
 #define PAGE_PRESENT 0x01
 #define PAGE_RW 0x02
 #define PAGE_USER 0x04

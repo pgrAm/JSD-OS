@@ -1,5 +1,5 @@
-#include<stdio.h>
-#include <graphics/graphics.h>
+#include <stdio.h>
+#include <terminal/terminal.h>
 
 bool is_prime(size_t number)
 {
@@ -13,9 +13,13 @@ bool is_prime(size_t number)
     return true;
 }
 
+terminal s_term{"terminal_1"};
+
 int main(int argc, char** argv)
 {
-    initialize_text_mode(90, 30);
+    set_stdout([](const char* buf, size_t size, void* impl) {
+        s_term.print_string(buf, size);
+               });
 
     size_t number = 2;
     while(true)

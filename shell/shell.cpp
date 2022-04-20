@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include <graphics/graphics.h>
+#include <terminal/terminal.h>
 #include <keyboard.h>
 #include <sys/syscalls.h>
 
@@ -11,6 +11,8 @@
 #include <vector>
 #include <charconv>
 #include <memory>
+
+terminal s_term{0, 0, "terminal_1"};
 
 void splash_text(int w);
 
@@ -148,7 +150,7 @@ void print_mem()
 void clear_console()
 {
 	printf("\x1b[2J\x1b[1;1H");
-	video_clear();
+	s_term.clear();
 }
 
 std::vector<std::string_view> tokenize(std::string_view input, char delim)
@@ -173,8 +175,8 @@ std::vector<std::string_view> tokenize(std::string_view input, char delim)
 
 void file_error(std::string_view error, std::string_view file)
 {
-	print_string(error.data(), error.size());
-	print_string(file.data(), file.size());
+	s_term.print_string(error);
+	s_term.print_string(file);
 	putchar('\n');
 }
 
@@ -221,7 +223,7 @@ int execute_line(std::string_view current_line)
 	}
 	else if("echo" == keyword)
 	{
-		print_string(keywords[1].data(), keywords[1].size());
+		s_term.print_string(keywords[1]);
 		putchar('\n');
 	}
 	else if("dir"sv == keyword || "ls"sv == keyword)
@@ -259,7 +261,7 @@ int execute_line(std::string_view current_line)
 
 		if(get_file_info(&file, f_handle.get()) != 0 || !(file.flags & IS_DIR))
 		{
-			print_string(path.data(), path.size());
+			s_term.print_string(path);
 			printf(" is not a valid directory\n");
 			return -1;
 		}
@@ -275,7 +277,7 @@ int execute_line(std::string_view current_line)
 		unsigned int height = 0;
 		std::from_chars(keywords[2].cbegin(), keywords[2].cend(), height);
 
-		if(initialize_text_mode(width, height) == 0)
+		if(s_term.set_mode(width, height) == 0)
 		{
 			clear_console();
 		}
@@ -302,7 +304,7 @@ int execute_line(std::string_view current_line)
 
 				read(&dataBuf[0], file.size, fs.get());
 
-				print_string(&dataBuf[0], file.size);
+				s_term.print_string(&dataBuf[0], file.size);
 
 				putchar('\n');
 
@@ -419,16 +421,16 @@ int execute_line(std::string_view current_line)
 
 void set_mouse_color(uint8_t color)
 {
-	auto coord = (cursor_x + cursor_y * get_terminal_width()) * sizeof(uint16_t) + 1;
+	//auto coord = (cursor_x + cursor_y * s_term.width()) * sizeof(uint16_t) + 1;
 
-	get_screen_buf()[coord] = (get_screen_buf()[coord] & 0x0F) | (color << 4);
+	//get_screen_buf()[coord] = (get_screen_buf()[coord] & 0x0F) | (color << 4);
 }
 
-int get_command(char* input)
+int get_command()
 {
 	std::string command_buffer;
 
-	size_t history_index = 0;
+	size_t history_index = command_history.size();
 
 	while(true)
 	{
@@ -446,8 +448,8 @@ int get_command(char* input)
 
 						if(cursor_x < 0)
 							cursor_x = 0;
-						else if(cursor_x >= get_terminal_width())
-							cursor_x = get_terminal_width() - 1;
+						else if(cursor_x >= s_term.width())
+							cursor_x = s_term.width() - 1;
 
 						set_mouse_color(7);
 					}
@@ -458,8 +460,8 @@ int get_command(char* input)
 
 						if(cursor_y < 0)
 							cursor_y = 0;
-						else if(cursor_y >= get_terminal_height())
-							cursor_y = get_terminal_height() - 1;
+						else if(cursor_y >= s_term.height())
+							cursor_y = s_term.height() - 1;
 
 						set_mouse_color(7);
 					}
@@ -470,15 +472,20 @@ int get_command(char* input)
 					{
 						if(!command_history.empty())
 						{
-							video_erase_chars(command_buffer.size());
+							s_term.delete_chars(command_buffer.size());
 
-							history_index %= command_history.size();
+							if(e.data == VK_UP)
+							{
+								if(history_index > 0)
+									command_buffer = command_history[--history_index];
+							}
+							else
+							{
+								if(history_index < (command_history.size() - 1))
+									command_buffer = command_history[++history_index];
+							}
 
-							command_buffer = command_history[history_index];
-
-							history_index = (e.data == VK_UP) ? history_index + 1 : history_index - 1;
-
-							printf("%s", command_buffer.c_str());
+							s_term.print_string(command_buffer);
 						}
 					}
 					else
@@ -490,7 +497,7 @@ int get_command(char* input)
 							if(!command_buffer.empty())
 							{
 								command_buffer.pop_back();
-								video_erase_chars(1);
+								s_term.delete_chars(1);
 							}
 						}
 						else if(in_char == '\n')
@@ -544,14 +551,14 @@ void splash_text(int w)
 	printf("***");
 }
 
-
 int main(int argc, char** argv)
 {
-	//asm volatile ("1: jmp 1b");
+	set_stdout([](const char* buf, size_t size, void* impl) {
+					s_term.print_string(buf, size);
+			   });
 
-	initialize_text_mode(0, 0);
-	video_clear();
-	splash_text(get_terminal_width());
+	s_term.clear();
+	splash_text(s_term.width());
 
 	time_t t_time = time(nullptr);
 
@@ -573,7 +580,7 @@ int main(int argc, char** argv)
 	for(;;)
 	{
 		prompt();
-		get_command(nullptr);
+		get_command();
 	}
 
 	return 0;
