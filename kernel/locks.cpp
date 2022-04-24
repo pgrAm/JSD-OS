@@ -19,10 +19,6 @@ static inline int cas_func(lockable_val* ptr, int oldval, int newval)
 	return __sync_val_compare_and_swap(&ptr->value, oldval, newval);
 }
 
-static inline void cas_atomic_set(lockable_val* ptr, int newval)
-{
-	__atomic_store_n(&ptr->value, newval, __ATOMIC_RELEASE);
-}
 #else
 static inline bool tas_aquire(uint8_t* l)
 {
@@ -66,15 +62,6 @@ static inline int cas_func(lockable_val* ptr, int oldval, int newval)
 	return old_ptr_val;
 }
 
-static inline void cas_atomic_set(lockable_val* ptr, int newval)
-{
-	int_lock l = atomic_lock_aquire(&ptr->tas_lock);
-
-	ptr->value = newval;
-
-	atomic_lock_release(l, &ptr->tas_lock);
-}
-
 #endif
 
 static inline bool do_try_lock_mutex(kernel_mutex* m, int* pid)
@@ -100,7 +87,7 @@ void kernel_lock_mutex(kernel_mutex* m)
 
 void kernel_unlock_mutex(kernel_mutex* m)
 {
-	cas_atomic_set(&m->ownerPID, INVALID_PID);
+	__atomic_store_n(&m->ownerPID.value, INVALID_PID, __ATOMIC_RELEASE);
 	switch_to_active_task();
 }
 

@@ -156,7 +156,7 @@ public:
 	unique_lock(const unique_lock&) = delete;
 	unique_lock(unique_lock&& o) : m_mutex(o.m_mutex)
 	{
-		m_owns_lock = false;
+		o.m_owns_lock = false;
 		o.m_mutex = nullptr;
 	}
 
@@ -313,6 +313,7 @@ public:
 	shared_lock(unique_lock<upgradable_shared_mutex>&& o)
 		: m_mutex(o.m_mutex)
 	{
+		o.m_owns_lock = false;
 		o.m_mutex = nullptr;
 		m_mutex->downgrade();
 	}
