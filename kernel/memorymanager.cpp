@@ -27,6 +27,7 @@ static inline void __flush_tlb_page(uintptr_t addr)
 
 //this mutex must be locked when accessing/modfying kernel address space mappings
 static constinit sync::mutex kernel_addr_mutex{};
+static uintptr_t* kernel_page_directory;
 
 extern "C" void memmanager_print_all_mappings_to_physical_DEBUG();
 
@@ -164,17 +165,19 @@ void memmanager_unmap_page_with_flags(uintptr_t virtual_address, page_flags_t fl
 	size_t pd_index = get_page_dir_index(virtual_address);
 	uintptr_t pd_entry = current_page_directory[pd_index];
 
-	if(pd_entry & flags)
+	if(pd_entry & PAGE_PRESENT)
 	{
-		//unmap the page
-		memmanager_update_pt(&memmanager_get_pt_entry(virtual_address, pd_index),
-							 0,
-							 virtual_address);
+		auto& pt_entry = memmanager_get_pt_entry(virtual_address, pd_index);
+		if(pt_entry & flags)
+		{
+			//unmap the page
+			memmanager_update_pt(&pt_entry, 0, virtual_address);
+		}
 	}
 	else
 	{
 		printf("warning pdir not exists for %X!\n", virtual_address);
-		while(true);
+		k_assert(false);
 	}
 }
 
@@ -271,7 +274,7 @@ void* memmanager_virtual_alloc(void* v_address, size_t n, page_flags_t flags)
 {
 	sync::lock_guard l{kernel_addr_mutex};
 
-	uintptr_t illegal = PAGE_PRESENT | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
+	uintptr_t illegal = PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
 
 	flags &= (PAGE_FLAGS_MASK & ~illegal);
 
@@ -296,16 +299,28 @@ void* memmanager_virtual_alloc(void* v_address, size_t n, page_flags_t flags)
 
 	uintptr_t page_virtual_address = (uintptr_t)virtual_address;
 
-	page_flags_t pf = flags | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
-	for(size_t i = 0; i < n; i++)
+	if(flags & PAGE_PRESENT)
 	{
-		auto r = memmanager_map_page(page_virtual_address, 0, pf);
-		k_assert(r);
+		page_flags_t pf = flags | PAGE_PRESENT;
+		for(size_t i = 0; i < n; i++)
+		{
+			auto r = memmanager_map_page(page_virtual_address,
+										 memmanager_allocate_physical_page(), pf);
+			k_assert(r);
+		}
+	}
+	else
+	{
+		page_flags_t pf = flags | PAGE_RESERVED | PAGE_MAP_ON_ACCESS;
+		for(size_t i = 0; i < n; i++)
+		{
+			auto r = memmanager_map_page(page_virtual_address, 0, pf);
+			k_assert(r);
 
-		k_assert(memmanager_get_page_flags(page_virtual_address) & PAGE_RESERVED);
-		k_assert(!(memmanager_get_page_flags(page_virtual_address) & PAGE_PRESENT));
-
-		page_virtual_address += PAGE_SIZE;
+			k_assert(memmanager_get_page_flags(page_virtual_address) & PAGE_RESERVED);
+			k_assert(!(memmanager_get_page_flags(page_virtual_address) & PAGE_PRESENT));
+			page_virtual_address += PAGE_SIZE;
+		}
 	}
 
 	return (void*)virtual_address;
@@ -339,8 +354,6 @@ int memmanager_unmap_pages(void* addr, size_t num_pages)
 
 int memmanager_free_pages_with_flags(void* page, size_t num_pages, page_flags_t flags)
 {
-	//printf("\tFreeing %d pages\n", num_pages);
-
 	uintptr_t virtual_address = (uintptr_t)page;
 
 	while(num_pages--)
@@ -417,7 +430,18 @@ void memmanager_enter_memory_space(uintptr_t memspace)
 
 bool memmanager_destroy_memory_space(uintptr_t pdir)
 {
-	//set_page_directory(kernel_page_directory);
+	for(size_t i = 0; i < PAGE_TABLE_SIZE; i++)
+	{
+		//copy only the kernel page directories
+		if(current_page_directory[i] & PAGE_USER)
+		{
+			physical_memory_free(current_page_directory[i] & PAGE_ADDRESS_MASK,
+								 PAGE_SIZE);
+		}
+	}
+
+	set_page_directory(kernel_page_directory);
+
 	memmanager_free_pages((void*)pdir, 1);
 
 	return true;
@@ -509,7 +533,7 @@ static uintptr_t* allocate_low_page()
 
 void memmanager_init(void)
 {
-	uintptr_t* kernel_page_directory = (uintptr_t*)allocate_low_page();
+	kernel_page_directory = (uintptr_t*)allocate_low_page();
 	uintptr_t* first_page_table = (uintptr_t*)allocate_low_page();
 
 	if(first_page_table == nullptr || kernel_page_directory == nullptr)
