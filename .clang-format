@@ -45,6 +45,6 @@ SpaceAfterTemplateKeyword: false
 SpaceBeforeParens: Never
 SpacesBeforeTrailingComments: 1
 TabWidth: 4
-UseCRLF: true
+UseCRLF: false
 UseTab: Always
 ...
