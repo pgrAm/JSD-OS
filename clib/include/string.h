@@ -22,9 +22,10 @@ char* strchr(const char* str, int character);
 char* strcat(char* destination, const char* source);
 char* strcpy(char* destination, const char* source);
 
-#include <string386.inl>
-
 #ifdef __cplusplus
 }
 #endif
+
+#include <string386.inl>
+
 #endif

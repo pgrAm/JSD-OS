@@ -89,6 +89,7 @@ static constexpr std::array func_list
 	func_info{"memcmp"sv,						(void*)&memcmp},
 	func_info{"memset"sv,						(void*)&memset},
 	func_info{"memmove"sv,						(void*)&memmove},
+	func_info{"memcpy"sv,						(void*)&memcpy},
 	func_info{"filesystem_add_virtual_drive"sv,	(void*)&filesystem_add_virtual_drive},
 	func_info{"filesystem_add_partitioner"sv,	(void*)&filesystem_add_partitioner},
 	func_info{"filesystem_add_drive"sv,			(void*)&filesystem_add_drive},

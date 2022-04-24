@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #ifndef __KERNEL
-#include <graphics/graphics.h>
 #include <sys/syscalls.h>
 #else
 #include <kernel/sys/syscalls.h>
