@@ -289,6 +289,12 @@ struc TCB
     .cr3:		resd 1
 	.tss_ptr:	resd 1
 endstruc
+
+global switch_task_no_return
+switch_task_no_return:
+	cli
+	mov esi, [esp + 4]
+	jmp load_new_task
 	
 global switch_task
 switch_task:
@@ -304,8 +310,10 @@ switch_task:
 	mov [edi + TCB.esp], esp		;Save ESP for previous task's kernel stack in the thread's TCB
 	mov [edi + TCB.cr3], eax
 
-    ;Load next task's state
+	;Load next task's state
     mov esi, [esp + (5+1)*4]		;esi = address of the next task's "thread control block" (parameter passed on stack)
+
+load_new_task:
     mov [current_task_TCB], esi		;Current task's TCB is the next task TCB
 
     mov esp, [esi + TCB.esp]		;Load ESP for next task's kernel stack from the thread's TCB

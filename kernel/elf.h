@@ -235,6 +235,9 @@ enum ELF_program_flags
 
 int load_elf(const file_handle* file, dynamic_object* object, bool user, directory_stream* lib_dir);
 
+void cleanup_elf(dynamic_object* object);
+
+
 #ifdef __cplusplus
 }
 #endif

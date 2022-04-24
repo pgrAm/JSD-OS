@@ -117,7 +117,7 @@ static span elf_get_size(ELF_header32* file_header, fs::stream_ref f)
 
 static int elf_read_symbols(ELF_linker_data* object);
 static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries);
-static int elf_process_dynamic_section(ELF_linker_data* object, directory_stream* lib_dir);
+static int elf_process_dynamic_section(dynamic_object* dyn_obj, directory_stream* lib_dir);
 int load_elf(const file_handle* file, dynamic_object* object, bool user, directory_stream* lib_dir);
 
 int load_elf(const file_handle* file, dynamic_object* object, bool user, directory_stream* lib_dir)
@@ -158,7 +158,7 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, directo
 			//printf("ELF alloc %d %s %d bytes\n", num_pages, info.name, s.size);
 
 			uintptr_t base_adress = (uintptr_t)memmanager_virtual_alloc(s.base, num_pages, default_flags);
-			object->segments.push_back({(void*)base_adress, num_pages});
+			object->segments.emplace_back((void*)base_adress, num_pages);
 			object->linker_data = nullptr;
 
 			if(s.base != nullptr) //if the elf cares where its loaded then don't add the base adress
@@ -227,15 +227,22 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, directo
 
 			object->entry_point = (void*)(base_adress + file_header.entry_point);
 
-			elf_process_dynamic_section((ELF_linker_data*)object->linker_data, lib_dir);
+			elf_process_dynamic_section(object, lib_dir);
 		}
 	}
 
 	return 1;
 }
 
-static int elf_process_dynamic_section(ELF_linker_data* object, directory_stream* lib_dir)
+void cleanup_elf(dynamic_object* object)
 {
+	delete static_cast<ELF_linker_data*>(object->linker_data);
+}
+
+static int elf_process_dynamic_section(dynamic_object* dyn_obj, directory_stream* lib_dir)
+{
+	ELF_linker_data* object = (ELF_linker_data*)dyn_obj->linker_data;
+
 	if(object == nullptr)
 	{
 		return 0;
@@ -324,6 +331,11 @@ static int elf_process_dynamic_section(ELF_linker_data* object, directory_stream
 						if(load_elf(&(*lib_handle), &lib, object->userspace, lib_dir))
 						{
 							lib.lib_set->insert(lib_name, 1);
+
+							for(auto&& seg : lib.segments)
+							{
+								dyn_obj->segments.push_back(seg);
+							}
 						}
 					}
 				}
