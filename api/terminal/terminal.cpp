@@ -18,8 +18,16 @@ static constexpr uint8_t vt100_colors[8] =
 	0x00, 0x04, 0x02, 0x06, 0x01, 0x05, 0x03, 0x07
 };
 
+struct buf_handle_data
+{
+	uintptr_t handle;
+	bool needs_init;
+};
+
 struct shared_terminal_state
 {
+	display_mode current_mode;
+
 	size_t width = 0;
 	size_t height = 0;
 	size_t total_size = 0;
@@ -28,6 +36,9 @@ struct shared_terminal_state
 	uint8_t is_bright = 0x1;
 	uint8_t fgr_color = 0x07;
 	uint8_t bgr_color = 0x0;
+
+	uint8_t color = 0x0f;
+	text_char clear_val = {'\0', color};
 };
 
 static int set_display_mode(size_t width, size_t height, shared_terminal_state& state)
@@ -38,33 +49,44 @@ static int set_display_mode(size_t width, size_t height, shared_terminal_state& 
 		FORMAT_DONT_CARE,
 		DISPLAY_TEXT_MODE
 	};
-	display_mode actual;
 
-	int err = set_display_mode(&requested, &actual);
+	int err = set_display_mode(&requested, &state.current_mode);
 
-	if(actual.flags & DISPLAY_TEXT_MODE)
+	if(state.current_mode.flags & DISPLAY_TEXT_MODE)
 	{
-		state.width = actual.width;
-		state.height = actual.height;
-		state.total_size = actual.width * actual.height;
-		state.last_row_start = actual.width * (actual.height - 1);
+		state.width = state.current_mode.width;
+		state.height = state.current_mode.height;
+		state.total_size = state.width * state.height;
+		state.last_row_start = state.width * (state.height - 1);
 	}
 
 	return err;
 }
 
-static shared_terminal_state& get_shared_state(uintptr_t buf_handle)
+static buf_handle_data get_buf_handle(const char* name, size_t name_len, terminal::open_mode mode)
 {
-	return *(shared_terminal_state*)map_shared_buffer(buf_handle, sizeof(shared_terminal_state), PAGE_RW);
+	if(mode != terminal::OPEN_EXISTING)
+	{
+		auto buf = create_shared_buffer(name, name_len, sizeof(shared_terminal_state));
+		if(buf || mode == terminal::CREATE_NEW)
+		{
+			return{buf, true};
+		}
+	}
+
+	return{open_shared_buffer(name, name_len), false};
 }
 
-static shared_terminal_state& make_shared_state(uintptr_t buf_handle, size_t width, size_t height)
+static shared_terminal_state& get_shared_state(uintptr_t buf_handle, size_t width, size_t height, bool init)
 {
-	auto& buf = get_shared_state(buf_handle);
+	auto& buf = *(shared_terminal_state*)map_shared_buffer(buf_handle, 
+														   sizeof(shared_terminal_state), PAGE_RW);
+	if(init)
+	{
+		new (&buf) shared_terminal_state{};
 
-	new (&buf) shared_terminal_state{};
-
-	set_display_mode(width, height, buf);
+		set_display_mode(width, height, buf);
+	}
 
 	return buf;
 }
@@ -72,15 +94,9 @@ static shared_terminal_state& make_shared_state(uintptr_t buf_handle, size_t wid
 class terminal::impl
 {
 public:
-	impl(uintptr_t handle)
-		: buf_handle{handle}
-		, m_state{get_shared_state(handle)}
-		, m_screen_ptr{(text_char*)map_display_memory()}
-	{}
-
-	impl(size_t width, size_t height, uintptr_t handle)
-		: buf_handle{handle}
-		, m_state{make_shared_state(handle, width, height)}
+	impl(buf_handle_data h, size_t width, size_t height)
+		: buf_handle{h.handle}
+		, m_state{get_shared_state(h.handle, width, height, h.needs_init)}
 		, m_screen_ptr{(text_char*)map_display_memory()}
 	{}
 
@@ -94,8 +110,6 @@ public:
 	shared_terminal_state& m_state;
 
 	text_char* m_screen_ptr;
-	uint8_t m_color = 0x0f;
-	text_char m_clear_val = {'\0', m_color};
 
 	int handle_escape_sequence(const char* sequence);
 	int handle_char(char source, text_char* dest, size_t pos);
@@ -106,8 +120,8 @@ public:
 		m_state.bgr_color = bgr;
 		m_state.is_bright = bright;
 
-		m_color = ((bgr & 0x0f) << 4) | ((fgr + (bright & 0x01) * 8) & 0x0f);
-		m_clear_val = {'\0', m_color};
+		m_state.color = ((bgr & 0x0f) << 4) | ((fgr + (bright & 0x01) * 8) & 0x0f);
+		m_state.clear_val = {'\0', m_state.color};
 	}
 
 	void set_cursor_pos(size_t offset)
@@ -126,18 +140,14 @@ public:
 		auto begin = m_screen_ptr;
 		auto end = begin + m_state.total_size;
 
-		std::fill(begin, end, m_clear_val);
+		std::fill(begin, end, m_state.clear_val);
 
 		set_cursor_pos(0);
 	}
 };
 
-terminal::terminal(size_t width, size_t height, const char* name, size_t name_len) 
-	: m_impl{ new impl(width, height, create_shared_buffer(name, name_len, sizeof(shared_terminal_state)))}
-{}
-
-terminal::terminal(const char* name, size_t name_len)
-	: m_impl { new impl(open_shared_buffer(name, name_len))}
+terminal::terminal(const char* name, size_t name_len, size_t width, size_t height, open_mode mode)
+	: m_impl{new impl(get_buf_handle(name, name_len, mode), width, height)}
 {}
 
 terminal::~terminal()
@@ -172,7 +182,7 @@ void terminal::delete_chars(size_t num)
 	auto end = m_impl->m_screen_ptr + cursor;
 	auto begin = end - num;
 
-	std::fill(begin, end, m_impl->m_clear_val);
+	std::fill(begin, end, m_impl->m_state.clear_val);
 
 	set_cursor_pos(cursor - num);
 }
@@ -218,7 +228,7 @@ void terminal::clear_row(size_t row)
 {
 	auto begin = m_impl->m_screen_ptr + row * m_impl->m_state.width;
 	auto end = begin + m_impl->m_state.width;
-	std::fill(begin, end, m_impl->m_clear_val);
+	std::fill(begin, end, m_impl->m_state.clear_val);
 }
 
 void terminal::scroll_up()
@@ -345,7 +355,7 @@ int terminal::impl::handle_char(char source, text_char* dest, size_t pos)
 		dest->ch = '\0';
 		return -1;
 	default:
-		*dest = {source, m_color};
+		*dest = {source, m_state.color};
 		return 1;
 	}
 }

@@ -70,8 +70,6 @@ SYSCALL_HANDLER void close_shared_buffer(uintptr_t buf_handle)
 
 	if(--data->num_refs == 0)
 	{
-		auto phys = data->physical;
-
 		physical_memory_free(data->physical, data->num_pages * PAGE_SIZE);
 
 		shared_buffers.remove(data->name);

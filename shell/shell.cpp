@@ -12,7 +12,7 @@
 #include <charconv>
 #include <memory>
 
-terminal s_term{0, 0, "terminal_1"};
+terminal s_term{"terminal_1"};
 
 void splash_text(int w);
 

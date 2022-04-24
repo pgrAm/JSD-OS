@@ -9,15 +9,20 @@ class terminal
 public:
 	static const int tab_size = 5;
 
-	terminal(size_t width, size_t height, const char* name, size_t name_len);
-	terminal(const char* name, size_t name_len);
+	enum open_mode {
+		CREATE_NEW = 0,
+		CREATE_IF_NOT_FOUND,
+		OPEN_EXISTING
+	};
 
-	terminal(size_t width, size_t height, std::string_view name) 
-		: terminal{width, height, name.data(), name.size()}
+	terminal(const char* name, size_t name_len, size_t width, size_t height, open_mode mode);
+
+	terminal(std::string_view name, size_t width, size_t height, open_mode mode)
+		: terminal{name.data(), name.size(), width, height, mode}
 	{}
 
-	terminal(std::string_view name)
-		: terminal{name.data(), name.size()}
+	terminal(std::string_view name, open_mode mode = CREATE_IF_NOT_FOUND)
+		: terminal{name.data(), name.size(), 0, 0, mode}
 	{}
 
 	terminal(const terminal&) = delete;
