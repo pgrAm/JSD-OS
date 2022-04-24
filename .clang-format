@@ -1,0 +1,50 @@
+# Format Style Options - Created with Clang Power Tools
+---
+BasedOnStyle: Google
+AccessModifierOffset: -4
+AlignConsecutiveAssignments: Consecutive 
+AlignOperands: DontAlign
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: None
+AllowShortLoopsOnASingleLine: false
+BinPackArguments: false
+BinPackParameters: false
+BraceWrapping: 
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterControlStatement: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterObjCDeclaration: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeElse: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+BreakBeforeBraces: Allman
+BreakConstructorInitializers: AfterColon
+BreakStringLiterals: false
+ColumnLimit: 100
+DeriveLineEnding: false
+DerivePointerAlignment: false
+EmptyLineBeforeAccessModifier: Leave
+FixNamespaceComments: false
+IncludeBlocks: Preserve
+IndentCaseLabels: false
+IndentPPDirectives: AfterHash
+IndentRequires: true
+IndentWidth: 4
+MaxEmptyLinesToKeep: 2
+ObjCBlockIndentWidth: 4
+ReflowComments: false
+SortIncludes: false
+SpaceAfterTemplateKeyword: false
+SpaceBeforeParens: Never
+SpacesBeforeTrailingComments: 1
+TabWidth: 4
+UseCRLF: true
+UseTab: Always
+...
