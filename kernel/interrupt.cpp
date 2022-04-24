@@ -257,7 +257,7 @@ bool irq_is_requested(size_t irq)
 	return inb(port) & irq_mask;
 }
 
-void acknowledge_irq(size_t irq)
+INT_CALLABLE void acknowledge_irq(size_t irq)
 {
 	if(irq >= 8)
 	{

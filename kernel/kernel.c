@@ -72,10 +72,6 @@ void kernel_main()
 	{
 		run_background_tasks();
 	}
-
-	printf("oops\n");
-
-	for(;;);
 }
 
 void __cxa_pure_virtual() {

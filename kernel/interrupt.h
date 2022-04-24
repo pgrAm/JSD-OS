@@ -39,7 +39,7 @@ typedef struct
 
 typedef INTERRUPT_HANDLER void (irq_func)(interrupt_frame* r);
 
-void acknowledge_irq(size_t irq);
+INT_CALLABLE void acknowledge_irq(size_t irq);
 void interrupts_init();
 void isr_install_handler(size_t vector, irq_func r, bool user);
 void isr_uninstall_handler(size_t irq);
