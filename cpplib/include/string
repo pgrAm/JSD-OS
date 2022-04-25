@@ -7,6 +7,8 @@
 #include <string_view>
 #include <assert.h>
 #include <char_traits.h>
+#include <stddef.h>
+#include <stdint.h>
 
 namespace std {
 template<typename C> class basic_string;
@@ -44,14 +46,14 @@ public:
 			m_rep.l.size = len;
 			m_rep.l.data = new value_type[new_cap];
 			__set_long_cap(new_cap);
-			memcpy(m_rep.l.data, s, len);
+			memcpy(m_rep.l.data, s, len * sizeof(value_type));
 			m_rep.l.data[len] = '\0';
 			assert(__is_long());
 		}
 		else
 		{
 			__set_short_size(len);
-			memcpy(&m_rep.s.data[0], s, len);
+			memcpy(&m_rep.s.data[0], s, len * sizeof(value_type));
 			m_rep.s.data[len] = '\0';
 			assert(!__is_long());
 		}
@@ -337,6 +339,14 @@ public:
 		return append(str.data(), str.size());
 	}
 
+	template<class StringViewLike>
+	constexpr basic_string& append(const StringViewLike& str) 
+		requires(__is_sv_convertible<StringViewLike>::value)
+	{
+		__self_view sv = str;
+		return append(sv.data(), sv.size());
+	}
+
 	constexpr basic_string& operator+=(const value_type* str)
 	{
 		return append(str);
@@ -354,9 +364,11 @@ public:
 	}
 
 	template <class StringViewLike>
-	constexpr basic_string& operator+=(const StringViewLike& str)
+	constexpr basic_string& operator+=(const StringViewLike& str) 
+		requires(__is_sv_convertible<StringViewLike>::value)
 	{
-		return append(str.data(), str.size());
+		__self_view sv = str;
+		return append(sv.data(), sv.size());
 	}
 
 	constexpr int compare(const value_type* s) const noexcept
@@ -567,7 +579,7 @@ private:
 
 	constexpr bool __is_long() const noexcept
 	{
-		return bool(m_rep.s.inv_sz & __short_mask);
+		return !!(m_rep.s.inv_sz & __short_mask);
 	}
 
 	struct __long
@@ -577,13 +589,9 @@ private:
 		size_type cap;
 	};
 
-	//#ifdef MACHINE_IS_BIG_ENDIAN
-	//	static const size_type __short_mask = 0x01;
-	//	static const size_type __long_mask = 0x1ul;
-	//#else
+	//needs to be little endian
 	static const size_type __short_mask = 0x80;
 	static const size_type __long_mask = ~(size_type(~0) >> 1);
-	//#endif
 
 	constexpr static 
 	size_t __min_cap =	(sizeof(__long) - 1) / sizeof(value_type) > 2 ?
@@ -596,10 +604,8 @@ private:
 			struct
 			{
 				value_type padding[__min_cap];
-				union {
-					unsigned char inv_sz;
-					value_type p;
-				};
+				uint8_t p[sizeof(value_type) - 1];
+				uint8_t inv_sz;
 			};
 		};
 	};
