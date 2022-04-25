@@ -31,7 +31,8 @@ my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O
 my @kernel_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a --lto-O2 -N -O2 -Ttext=0xF000 -T linker.ld -mllvm -align-all-nofallthru-blocks=2);
 
 mkpath("$builddir/tools");
-#system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++20 -O2");
+system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++20 -O2");
+system("clang tools/limine/limine-install.c -o $builddir/tools/limine-install.exe -O2");
 
 my @kernel_src = qw(	
 	kernel/kernel.asm
@@ -187,6 +188,33 @@ build_fdimage(
 	]
 );
 
+my @iso_files = (
+	"/" => [
+		"LICENSE.txt",
+		"configs/cdboot/cdboot.sys",
+		$graphicstest,
+		$clib,
+		$terminal,
+		$shell,
+		$primes,
+		$listmode,
+		$fwritetest,
+		$bkgrndtest,
+	],
+	"/drivers" => [
+		$fat_drv, 		
+		$floppy_drv, 
+		$isa_dma, 		
+		$vga_drv, 		
+		$vesa_drv, 	
+		$mbr_drv, 		
+		$i8042_drv, 	
+		$ps2mouse_drv,
+		"fonts/font08.psf",
+		"fonts/font16.psf"
+	]
+);
+
 mkpath("$builddir/iso");
 
 build_fdimage(
@@ -198,31 +226,26 @@ build_fdimage(
 	]
 );
 
-copy("LICENSE.txt", "$builddir/iso/LICENSE.txt");
-copy("configs/cdboot/cdboot.sys", "$builddir/iso/cdboot.sys");
-copy($graphicstest, "$builddir/iso/graphic.elf");
-copy($clib, 		"$builddir/iso/clib.lib");
-copy($terminal, 	"$builddir/iso/terminal.lib");
-copy($shell, 		"$builddir/iso/shell.elf");
-copy($primes, 		"$builddir/iso/primes.elf");
-copy($listmode, 	"$builddir/iso/listmode.elf");
-copy($fwritetest, 	"$builddir/iso/fwrite.elf");
-copy($bkgrndtest, 	"$builddir/iso/bkgrnd.elf");
+build_cdimage(
+	name => "boot.iso",
+	boot_file => "$builddir/iso/isoboot.img", 
+	files => [@iso_files]
+);
 
-mkpath("$builddir/iso/drivers");
-copy($fat_drv, 		"$builddir/iso/drivers/fat.drv");
-copy($floppy_drv, 	"$builddir/iso/drivers/floppy.drv");
-copy($isa_dma, 		"$builddir/iso/drivers/isa_dma.drv");
-copy($vga_drv, 		"$builddir/iso/drivers/vga.drv");
-copy($vesa_drv, 	"$builddir/iso/drivers/vesa.drv");
-copy($mbr_drv, 		"$builddir/iso/drivers/mbr.drv");
-copy($i8042_drv, 	"$builddir/iso/drivers/i8042.drv");
-copy($ps2mouse_drv, "$builddir/iso/drivers/ps2mouse.drv");
+build_cdimage(
+	name => "jsd-os+limine.iso",
+	boot_file => ":limine:", 
+	files => [
+		@iso_files, 
+		"boot" => ["limine.cfg"], 
+		"system" => [
+			"$builddir/cdboot/init.rfs",
+			"$builddir/kernal.sys"
+		]
+	]
+);
 
-copy("fonts/font08.psf", "$builddir/iso/drivers/font08.psf");
-copy("fonts/font16.psf", "$builddir/iso/drivers/font16.psf");
-
-system("tools/mkisofs -U -b isoboot.img -hide isoboot.img -V \"JSD-OS\" -iso-level 3 -o $builddir/boot.iso \"$builddir/iso\"");
+mkpath("$builddir/limine-iso");
 
 sub build_fdimage
 {
@@ -246,6 +269,58 @@ sub build_fdimage
 	system("tools/bfi -t=144 -f=\"$imgfile\" -b=$boot_file $folder");
 }
 
+sub build_cdimage
+{
+	my %args = @_;
+	my $files = $args{files};
+    my $name = $args{name};
+	my $boot_file = $args{boot_file};
+	
+	my $folder = "$builddir/cd/$name.bld";
+	my $imgfile = "$builddir/$name";
+
+	mkpath("$folder");
+
+	my %file_hash = @$files;
+
+	keys %file_hash; # reset the internal iterator so a prior each() doesn't affect the loop
+	while(my($name, $dir) = each %file_hash) 
+	{
+		foreach my $file (@$dir) 
+		{
+			my ($filename, $d, undef) = fileparse($file);
+			mkpath("$folder/$name");
+			copy($file, "$folder/$name/$filename");
+		}
+	}
+
+	if($boot_file eq ":limine:")
+	{
+		mkpath("$folder/boot");
+		copy("tools/limine/LICENSE.md", "$folder/boot/LICENSE.md");
+		copy("tools/limine/limine.sys", "$folder/boot/limine.sys");
+		copy("tools/limine/limine-cd.bin", "$folder/boot/limine-cd.bin");
+		copy("tools/limine/limine-eltorito-efi.bin", "$folder/boot/limine-eltorito-efi.bin");
+
+		my $cwd = getcwd;
+
+		my $reldir = $folder;
+		$reldir =~ s/${cwd}//;
+		$reldir =~ s/\///;
+
+		system("tools/xorriso/xorriso -as mkisofs -b boot/limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot boot/limine-eltorito-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label \"$reldir\" -o $imgfile");
+	
+		system("$builddir/tools/limine-install \"$imgfile\"");
+	}
+	else
+	{
+		my ($bt_filename,$dir,undef) = fileparse($boot_file);
+		copy($boot_file, "$folder/$bt_filename");
+
+		unlink("$builddir/$name");
+		system("tools/mkisofs -U -b $bt_filename -hide $bt_filename -V \"JSD-OS\" -iso-level 3 -o $imgfile \"$folder\"");
+	}
+}
 
 sub build_static
 {
