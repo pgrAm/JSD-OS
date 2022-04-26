@@ -9,9 +9,11 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <array>
 #include <kernel/filesystem/fs_driver.h>
 #include <kernel/filesystem/util.h>
 #include <kernel/kassert.h>
+#include <kernel/util/unicode.h>
 
 #define FAT12_EOF 0xFF8
 #define FAT16_EOF 0xFFF8
@@ -112,10 +114,15 @@ enum directory_attributes
 	LFN = READ_ONLY | HIDDEN | SYSTEM | VOLUME_ID
 };
 
+struct __attribute__((packed)) fat_short_filename
+{
+	char root[8];
+	char ext[3];
+};
+
 struct __attribute__((packed)) fat_directory_entry
 {
-	char 		name[8];
-	char 		extension[3];
+	fat_short_filename name;
 	uint8_t 	attributes;
 	uint8_t		reserved;
 	uint8_t		created_time_ms;
@@ -127,6 +134,20 @@ struct __attribute__((packed)) fat_directory_entry
 	uint16_t	modified_date;
 	uint16_t	first_cluster;
 	uint32_t	file_size;
+};
+
+struct __attribute__((packed)) fat_lfn_entry
+{
+	constexpr static size_t num_chars = 13;
+
+	uint8_t sequence;
+	uint16_t chars0[5];
+	uint8_t attributes;
+	uint8_t type;
+	uint8_t short_checksum;
+	uint16_t chars1[6];
+	uint16_t zero;
+	uint16_t chars2[2];
 };
 
 fs_index fat_file_location(const fat_directory_entry& entry)
@@ -306,7 +327,7 @@ static fat_time time_t_time_to_fat_time(time_t time)
 static constexpr std::string_view read_field(const char* field, size_t size)
 {
 	const std::string_view f(field, size);
-	if(auto pos = f.find(' '); pos != std::string_view::npos)
+	if(auto pos = f.find(' '); pos != f.npos)
 	{
 		return f.substr(0, pos);
 	}
@@ -356,41 +377,46 @@ static fat_directory_entry fat_create_dir_entry(const file_handle& src)
 {
 	using namespace std::literals;
 
-	auto dot = src.name.find_last_of('.');
-	auto name = std::string_view{src.name}.substr(0, std::min(dot, 8u));
-	auto ext = dot == src.name.npos ? "" : std::string_view{src.name}.substr(dot+1, 3);
-
 	auto create = time_t_time_to_fat_time(src.time_created);
 	auto modify = time_t_time_to_fat_time(src.time_modified);
 
 	fat_directory_entry e{
-		.attributes = to_fat_flags(src.data.flags),
-		.reserved = 0,
-		.created_time_ms = 0,
-		.created_time = create.time,
-		.created_date = create.date,
-		.accessed_date = 0,
+		.attributes		  = to_fat_flags(src.data.flags),
+		.reserved		  = 0,
+		.created_time_ms  = 0,
+		.created_time	  = create.time,
+		.created_date	  = create.date,
+		.accessed_date	  = 0,
 		.first_cluster_hi = (uint16_t)(src.data.location_on_disk & 0xFFFF0000),
-		.modified_time = modify.time,
-		.modified_date = modify.date,
-		.first_cluster = (uint16_t)(src.data.location_on_disk & 0xFFFF),
-		.file_size = src.data.size,
+		.modified_time	  = modify.time,
+		.modified_date	  = modify.date,
+		.first_cluster	  = (uint16_t)(src.data.location_on_disk & 0xFFFF),
+		.file_size		  = src.data.size,
 	};
 
 	if(src.name == "."sv)
 	{
-		write_field(&e.name[0], "\x2e", 8);
-		write_field(&e.extension[0], "", 3);
+		write_field(&e.name.root[0], "\x2e", 8);
+		write_field(&e.name.ext[0], "", 3);
 	}
 	else if(src.name == ".."sv)
 	{
-		write_field(&e.name[0], "\x2e\x2e", 8);
-		write_field(&e.extension[0], "", 3);
+		write_field(&e.name.root[0], "\x2e\x2e", 8);
+		write_field(&e.name.ext[0], "", 3);
 	}
 	else
 	{
-		write_field(&e.name[0], name, 8);
-		write_field(&e.extension[0], ext, 3);
+		auto dot  = src.name.find_last_of('.');
+		auto name = dot == src.name.npos
+						? src.name
+						: std::string_view{src.name}.substr(0, dot);
+
+		auto ext = dot == src.name.npos
+					   ? ""
+					   : std::string_view{src.name}.substr(dot + 1);
+
+		write_field(&e.name.root[0], name, 8);
+		write_field(&e.name.ext[0], ext, 3);
 	}
 
 	return e;
@@ -398,20 +424,20 @@ static fat_directory_entry fat_create_dir_entry(const file_handle& src)
 
 static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& entry, size_t disk_id)
 {
-	if(entry.name[0] == 0) {
+	if(entry.name.root[0] == 0) {
 		return false;
 	} //end of directory
 
-	if(entry.name[0] == 0x2E) 
+	if(entry.name.root[0] == 0x2E) 
 	{
 		dest.name += '.';
-		if(entry.name[1] == 0x2E)
+		if(entry.name.root[1] == 0x2E)
 			dest.name += '.';
 	}
 	else
 	{
-		dest.name = read_field(entry.name, 8);
-		if(auto ext = read_field(entry.extension, 3); !ext.empty())
+		dest.name = read_field(entry.name.root, 8);
+		if(auto ext = read_field(entry.name.ext, 3); !ext.empty())
 		{
 			dest.name += '.';
 			dest.name += ext;
@@ -445,6 +471,8 @@ static void fat_read_dir(directory_stream* dest, const file_data_block* dir, con
 	fs::stream dir_stream{filesystem_create_stream(dir)};
 	k_assert(dir_stream);
 
+	std::string lfn{};
+
 	while(true)
 	{
 		fat_directory_entry entry;
@@ -454,12 +482,23 @@ static void fat_read_dir(directory_stream* dest, const file_data_block* dir, con
 			break;
 		}
 
-		if(entry.name[0] == 0) {
+		if(entry.name.root[0] == 0) {
 			break;
 		}
 
-		if(entry.attributes & LFN)
+		if((entry.attributes & LFN) == LFN)
 		{
+			const auto e = std::bit_cast<fat_lfn_entry>(entry);
+
+			if(e.sequence == 0xE5) continue;
+
+			using sv_type = std::basic_string_view<uint16_t>;
+
+			std::string lfn_buf = utf8_encode(utf16_decode(sv_type{&e.chars0[0], 5}));
+			lfn_buf += utf8_encode(utf16_decode(sv_type{&e.chars1[0], 6}));
+			lfn_buf += utf8_encode(utf16_decode(sv_type{&e.chars2[0], 2}));
+
+			lfn = lfn_buf + lfn;
 			continue;
 		}
 
@@ -471,6 +510,17 @@ static void fat_read_dir(directory_stream* dest, const file_data_block* dir, con
 
 		fat_format_data fdata{dir->location_on_disk, dir->flags};
 		memcpy(&out.data.format_data[0], &fdata, sizeof(fat_format_data));
+
+		if(!lfn.empty())
+		{
+			if(auto nul = lfn.find('\0'); nul != lfn.npos)
+			{
+				lfn.resize(nul);
+			}
+			out.name = std::move(lfn);
+
+			lfn.clear();
+		}
 
 		dest->file_list.push_back(out);
 	}
@@ -864,7 +914,7 @@ static void fat_update_file(const file_data_block* file, const filesystem_virtua
 			break;
 		}
 
-		if(entry.name[0] == 0)
+		if(entry.name.root[0] == 0)
 			break;
 
 		if(entry.attributes & LFN)
@@ -886,6 +936,61 @@ static void fat_update_file(const file_data_block* file, const filesystem_virtua
 	}
 }
 
+uint8_t fat_lfn_checksum(std::array<char, 11>&& name)
+{
+	uint8_t sum = 0;
+
+	for(auto c : name)
+	{
+		sum = ((sum & 1) << 7) + (sum >> 1) + c;
+	}
+
+	return sum;
+}
+
+static void fat_write_lfn_entries(fat_directory_entry entry,
+								  std::string_view long_name,
+								  fs::stream_ref dir_stream)
+{
+	auto checksum =
+		fat_lfn_checksum(std::bit_cast<std::array<char, 11>>(entry.name));
+
+	auto lfn = utf16_encode<uint16_t>(utf8_decode(long_name)) + '\0';
+	auto num_entries = (lfn.size() + (fat_lfn_entry::num_chars - 1)) /
+					   fat_lfn_entry::num_chars;
+
+	size_t num_chars_needed = num_entries * fat_lfn_entry::num_chars;
+
+	while(lfn.size() < num_chars_needed)
+	{
+		lfn.push_back(0xFFFF);
+	}
+		
+	auto lfn_it = lfn.end() - fat_lfn_entry::num_chars;
+	uint8_t sequence_number = 0x40 | (num_entries + 1);
+
+	for(size_t i = 0; i < num_entries; i++)
+	{
+		fat_lfn_entry e{
+			.sequence		= sequence_number,
+			.attributes		= LFN,
+			.type			= 0,
+			.short_checksum = checksum,
+			.zero			= 0,
+		};
+
+		sequence_number = num_entries - i;
+
+		memcpy(&e.chars0[0], lfn_it + 0, 5 * sizeof(uint16_t));
+		memcpy(&e.chars1[0], lfn_it + 5, 6 * sizeof(uint16_t));
+		memcpy(&e.chars2[0], lfn_it + 11, 2 * sizeof(uint16_t));
+
+		lfn_it -= fat_lfn_entry::num_chars;
+
+		dir_stream.write((uint8_t*)&e, sizeof(fat_lfn_entry));
+	}
+}
+
 static void fat_create_file(const char* name, size_t name_len, uint32_t flags, directory_stream* dir, const filesystem_virtual_drive* fd)
 {
 	fs::stream dir_stream{filesystem_create_stream(&dir->data)};
@@ -900,7 +1005,7 @@ static void fat_create_file(const char* name, size_t name_len, uint32_t flags, d
 			break;
 		}
 
-		if(entry.name[0] == 0)
+		if(entry.name.root[0] == 0)
 		{
 			dir_stream.seek(dir_stream.get_pos() - sizeof(fat_directory_entry));
 			
@@ -921,6 +1026,9 @@ static void fat_create_file(const char* name, size_t name_len, uint32_t flags, d
 			memcpy(&new_file.data.format_data[0], &fdata, sizeof(fat_format_data));
 
 			auto new_file_entry = fat_create_dir_entry(new_file);
+
+			fat_write_lfn_entries(new_file_entry, new_file.name, dir_stream);
+
 			dir_stream.write((uint8_t*)&new_file_entry, sizeof(fat_directory_entry));
 			dir_stream.write(0);
 
