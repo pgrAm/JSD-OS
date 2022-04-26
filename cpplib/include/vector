@@ -33,7 +33,7 @@ public:
 		__copy_init_range(m_begin, s, len);
 	}
 
-	constexpr vector(size_t count, const T& value = {})
+	constexpr explicit vector(size_t count, const T& value = {})
 	{
 		m_capacity = count;
 		m_begin = __allocate(m_capacity);

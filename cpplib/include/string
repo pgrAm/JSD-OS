@@ -670,19 +670,30 @@ constexpr bool operator==(const typename std::basic_string<C>::value_type* lhs,
 	return rhs.compare(lhs) == 0;
 }
 
-template <typename C>
+template<typename C>
 constexpr bool operator!=(const typename std::basic_string<C>::value_type* lhs,
-					   const std::basic_string<C>& rhs)
+						  const std::basic_string<C>& rhs)
 {
 	return rhs.compare(lhs) != 0;
 }
 
-template <typename C>
-constexpr std::basic_string<C> operator+(const std::basic_string<C>& lhs,
-												const typename std::basic_string<C>::value_type* rhs)
+template<typename C>
+constexpr std::basic_string<C>
+operator+(const std::basic_string<C>& lhs,
+		  const typename std::basic_string<C>::value_type* rhs)
 {
 	auto new_str = lhs;
 	return new_str.append(rhs);
+}
+
+template<typename C>
+constexpr std::basic_string<C>
+operator+(const std::basic_string<C>& lhs,
+		  const typename std::basic_string<C>::value_type rhs)
+{
+	auto new_str = lhs;
+	new_str.push_back(rhs);
+	return new_str;
 }
 #endif
 

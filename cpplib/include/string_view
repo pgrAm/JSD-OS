@@ -54,6 +54,16 @@ public:
 		return cbegin() + size();
 	}
 
+	constexpr const_iterator begin() const noexcept
+	{
+		return cbegin();
+	}
+
+	constexpr const_iterator end() const noexcept
+	{
+		return cend();
+	}
+
 	constexpr size_type size() const noexcept
 	{
 		return m_size;

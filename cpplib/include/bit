@@ -21,6 +21,12 @@ namespace std {
 	}
 
 	template<typename T>
+	constexpr int countl_one(T x) noexcept
+	{
+		return countl_zero(~x);
+	}
+
+	template<typename T>
 	constexpr int countr_zero(T x) noexcept
 	{
 		return __builtin_ctz(x);
