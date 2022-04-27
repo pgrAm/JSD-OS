@@ -179,9 +179,10 @@ static void execute_line(std::string_view line, fs::dir_stream_ref cwd)
 				print_strings("Processing file ", filename, ", set init drive\n");
 
 				process_init_file(dir, stream);
-				break;
+				return;
 			}
 		}
+		print_strings("Could not find ", filename, '\n');
 	}
 	else if(token == "execute"sv)
 	{
