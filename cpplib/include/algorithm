@@ -2,127 +2,139 @@
 #define STD_ALGORITHM_H
 
 #include <utility>
-namespace std {
-	template<class InputIt, class OutputIt>
-	OutputIt copy(InputIt first, InputIt last,
-				  OutputIt d_first)
+namespace std
+{
+template<class InputIt, class OutputIt>
+constexpr OutputIt copy(InputIt first, InputIt last, OutputIt d_first)
+{
+	while(first != last)
 	{
-		while(first != last) {
-			*d_first++ = *first++;
+		*d_first++ = *first++;
+	}
+	return d_first;
+}
+
+template<class BidirIt1, class BidirIt2>
+constexpr BidirIt2 copy_backward(BidirIt1 first, BidirIt1 last, BidirIt2 d_last)
+{
+	while(first != last)
+	{
+		*(--d_last) = *(--last);
+	}
+	return d_last;
+}
+
+template<class InputIt, class OutputIt, class UnaryPredicate>
+constexpr OutputIt copy_if(InputIt first, InputIt last, OutputIt d_first,
+						   UnaryPredicate pred)
+{
+	while(first != last)
+	{
+		if(pred(*first)) *d_first++ = *first;
+		first++;
+	}
+	return d_first;
+}
+
+template<class InputIt, class OutputIt>
+constexpr OutputIt move(InputIt first, InputIt last, OutputIt d_first)
+{
+	while(first != last)
+	{
+		*d_first++ = std::move(*first++);
+	}
+	return d_first;
+}
+
+template<class BidirIt1, class BidirIt2>
+constexpr BidirIt2 move_backward(BidirIt1 first, BidirIt1 last, BidirIt2 d_last)
+{
+	while(first != last)
+	{
+		*(--d_last) = std::move(*(--last));
+	}
+	return d_last;
+}
+
+template<class ForwardIt, class T>
+constexpr void fill(ForwardIt first, ForwardIt last, const T& value)
+{
+	for(; first != last; ++first)
+	{
+		*first = value;
+	}
+}
+
+template<class InputIt1, class InputIt2, class BinaryPredicate>
+constexpr bool equal(InputIt1 first1, InputIt1 last1, InputIt2 first2,
+					 BinaryPredicate p)
+{
+	for(; first1 != last1; ++first1, ++first2)
+	{
+		if(!p(*first1, *first2))
+		{
+			return false;
 		}
-		return d_first;
 	}
+	return true;
+}
 
-	template< class BidirIt1, class BidirIt2 >
-	BidirIt2 copy_backward(BidirIt1 first, BidirIt1 last, BidirIt2 d_last)
-	{
-		while(first != last) {
-			*(--d_last) = *(--last);
-		}
-		return d_last;
-	}
+template<class T>
+constexpr const T& min(const T& a, const T& b)
+{
+	return (b < a) ? b : a;
+}
 
-	template<class InputIt, class OutputIt, class UnaryPredicate>
-	OutputIt copy_if(InputIt first, InputIt last,
-					 OutputIt d_first, UnaryPredicate pred)
-	{
-		while(first != last) {
-			if(pred(*first))
-				*d_first++ = *first;
-			first++;
-		}
-		return d_first;
-	}
+template<class T>
+constexpr const T& max(const T& a, const T& b)
+{
+	return (b > a) ? b : a;
+}
 
-	template<class InputIt, class OutputIt>
-	OutputIt move(InputIt first, InputIt last, OutputIt d_first)
-	{
-		while(first != last) {
-			*d_first++ = std::move(*first++);
-		}
-		return d_first;
-	}
+template<class T, class Compare>
+constexpr const T& min(const T& a, const T& b, Compare comp)
+{
+	return (comp(b, a)) ? b : a;
+}
 
-	template< class BidirIt1, class BidirIt2 >
-	BidirIt2 move_backward(BidirIt1 first, BidirIt1 last,
-						   BidirIt2 d_last)
+template<class InputIt, class T>
+constexpr InputIt find(InputIt first, InputIt last, const T& value)
+{
+	for(; first != last; ++first)
 	{
-		while(first != last) {
-			*(--d_last) = std::move(*(--last));
-		}
-		return d_last;
-	}
-
-	template< class ForwardIt, class T >
-	void fill(ForwardIt first, ForwardIt last, const T& value)
-	{
-		for(; first != last; ++first) {
-			*first = value;
+		if(*first == value)
+		{
+			return first;
 		}
 	}
+	return last;
+}
 
-	template<class InputIt1, class InputIt2, class BinaryPredicate>
-	bool equal(InputIt1 first1, InputIt1 last1,
-			   InputIt2 first2, BinaryPredicate p)
+template<class InputIt, class UnaryPredicate>
+constexpr InputIt find_if(InputIt first, InputIt last, UnaryPredicate p)
+{
+	for(; first != last; ++first)
 	{
-		for(; first1 != last1; ++first1, ++first2) {
-			if(!p(*first1, *first2)) {
-				return false;
-			}
+		if(p(*first))
+		{
+			return first;
 		}
-		return true;
 	}
+	return last;
+}
 
-	template<class T>
-	const T& min(const T& a, const T& b)
+template<class InputIt, class UnaryPredicate>
+constexpr InputIt find_if_not(InputIt first, InputIt last, UnaryPredicate q)
+{
+	for(; first != last; ++first)
 	{
-		return (b < a) ? b : a;
-	}
-
-	template<class T>
-	const T& max(const T& a, const T& b)
-	{
-		return (b > a) ? b : a;
-	}
-
-	template<class T, class Compare>
-	const T& min(const T& a, const T& b, Compare comp)
-	{
-		return (comp(b, a)) ? b : a;
-	}
-
-	template<class InputIt, class T>
-	constexpr InputIt find(InputIt first, InputIt last, const T& value)
-	{
-		for(; first != last; ++first) {
-			if(*first == value) {
-				return first;
-			}
+		if(!q(*first))
+		{
+			return first;
 		}
-		return last;
 	}
-
-	template<class InputIt, class UnaryPredicate>
-	constexpr InputIt find_if(InputIt first, InputIt last, UnaryPredicate p)
-	{
-		for(; first != last; ++first) {
-			if(p(*first)) {
-				return first;
-			}
-		}
-		return last;
-	}
-
-	template<class InputIt, class UnaryPredicate>
-	constexpr InputIt find_if_not(InputIt first, InputIt last, UnaryPredicate q)
-	{
-		for(; first != last; ++first) {
-			if(!q(*first)) {
-				return first;
-			}
-		}
-		return last;
-	}
+	return last;
+}
 }
 
 #endif
