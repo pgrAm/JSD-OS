@@ -7,7 +7,7 @@
 class terminal
 {
 public:
-	static const int tab_size = 5;
+	static const int tab_size = 4;
 
 	enum open_mode {
 		CREATE_NEW = 0,

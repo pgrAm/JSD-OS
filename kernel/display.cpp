@@ -45,7 +45,7 @@ class kernel_terminal
 	}
 
 public:
-	static const int tab_size = 5;
+	static const int tab_size = 4;
 
 	kernel_terminal(const display_driver* driver, size_t rows, size_t cols) :
 		m_display(driver),
