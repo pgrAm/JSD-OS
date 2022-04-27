@@ -20,7 +20,7 @@ int main(int argc, char** argv)
 		else
 			printf("graphics ");
 
-		printf("%dx%d@%d", mode.width, mode.height, mode.bpp);
+		printf("%-4d x %-4d @ %-2d", mode.width, mode.height, mode.bpp);
 
 		if(i & 1)
 			putchar('\n');
