@@ -30,7 +30,7 @@ public:
 		m_begin = __allocate(m_capacity);
 		m_end = m_begin + len;
 
-		__copy_init_range(m_begin, s, len);
+		__copy_init_range(s, s + len, m_begin);
 	}
 
 	constexpr explicit vector(size_t count, const T& value = {})
@@ -39,11 +39,12 @@ public:
 		m_begin = __allocate(m_capacity);
 		m_end = m_begin + count;
 
-		__value_init_range(m_begin, value, count);
+		__value_init_range(m_begin, m_end, value);
 	}
 
 	~vector()
 	{
+		__destruct_range(m_begin, m_end);
 		__deallocate(m_begin);
 	}
 
@@ -96,12 +97,13 @@ public:
 	{
 		if(n > capacity())
 		{
-			auto sz = size();	
 			T* new_ptr = __allocate(n);
 
-			__move_init_range(new_ptr, m_begin, sz);
-
+			__move_init_range(m_begin, m_end, new_ptr);
+			__destruct_range(m_begin, m_end);
 			__deallocate(m_begin);
+
+			auto sz = size();
 
 			m_capacity = n;
 			m_begin = new_ptr;
@@ -125,7 +127,7 @@ public:
 		m_begin = __allocate(m_capacity);
 		m_end = m_begin + v.size();
 
-		__copy_init_range(m_begin, v.data(), v.size());
+		__copy_init_range(v.cbegin(), v.cend(), m_begin);
 	}
 
 	constexpr vector(vector&& v) noexcept : vector()
@@ -138,7 +140,7 @@ public:
 		clear();
 		reserve(v.size());
 
-		__copy_init_range(m_begin, v.data(), v.size());
+		__copy_init_range(v.cbegin(), v.cend(), m_begin);
 
 		m_end = m_begin + v.size();
 		return *this;
@@ -205,8 +207,8 @@ public:
 
 	constexpr void clear()
 	{
-		while(begin() != end())
-			pop_back();
+		__destruct_range(m_begin, m_end);
+		m_end = m_begin;
 	}
 
 	constexpr iterator erase(const_iterator pos)
@@ -221,7 +223,11 @@ public:
 	constexpr iterator insert(const_iterator pos, const T& value)
 	{
 		reserve(size() + 1);
-		std::move_backward(pos, cend(), end() + 1);
+		new(m_end) T{std::move(back())};
+		if(size() > 1)
+		{
+			std::move_backward(pos, cend() - 1, end());
+		}
 		++m_end;
 
 		auto index = (pos - cbegin());
@@ -231,7 +237,6 @@ public:
 
 		return it;
 	}
-
 
 private:
 	static T* __allocate(size_t size)
@@ -244,22 +249,31 @@ private:
 		::operator delete(ptr);
 	}
 
-	static void __move_init_range(T* dst, T* src, size_t size)
+	static void __destruct_range(iterator first, iterator last)
 	{
-		for(size_t i = 0; i < size; i++)
-			new(&dst[i]) T{std::move(src[i])};
+		while(first != last)
+			(first++)->~T();
 	}
 
-	static void __copy_init_range(T* dst, const T* src, size_t size)
+	static void __move_init_range(iterator first, iterator last,
+								  iterator d_first)
 	{
-		for(size_t i = 0; i < size; i++)
-			new(&dst[i]) T{src[i]};
+		while(first != last)
+			new(d_first++) T{std::move(*first++)};
 	}
 
-	static void __value_init_range(T* dst, const T& val, size_t size)
+	static void __copy_init_range(const_iterator first, const_iterator last,
+								  iterator d_first)
 	{
-		for(size_t i = 0; i < size; i++)
-			new(&dst[i]) T{val};
+		while(first != last)
+			new(d_first++) T{*first++};
+	}
+
+	static void __value_init_range(iterator first, iterator last,
+								   const T& val)
+	{
+		while(first != last)
+			new(first++) T{val};
 	}
 
 	T* m_begin;
