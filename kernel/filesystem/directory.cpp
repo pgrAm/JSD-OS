@@ -25,10 +25,10 @@ directory_stream* filesystem_open_directory_handle(const file_handle* f, int fla
 
 	directory_stream* d = new directory_stream{f->data};
 
-	auto drive = filesystem_get_drive(f->data.disk_id);
+	auto drive = filesystem_get_drive(d->data.disk_id);
 
 	k_assert(d);
-	drive->fs_driver->read_dir(d, &f->data, drive);
+	drive->fs_driver->read_dir(d, &d->data, drive);
 
 	return d;
 }
@@ -144,6 +144,8 @@ int filesystem_get_file_info(file_info* dst, const file_handle* src)
 	k_assert(dst);
 	k_assert(src);
 
+	k_assert(src->name.size() < MAX_PATH);
+
 	memcpy(dst->name, src->name.c_str(), src->name.size() + 1);
 	dst->name_len = src->name.size();
 
@@ -168,7 +170,7 @@ directory_stream* filesystem_open_directory(directory_stream* rel,
 	k_assert(rel);
 
 	if(auto f = find_file_by_path(rel, path, mode, IS_DIR))
-		return filesystem_open_directory_handle(&(*f), IS_DIR);
+		return filesystem_open_directory_handle(&(*f), 0);
 	else
 		return nullptr;
 }
@@ -206,7 +208,7 @@ const file_handle* syscall_get_file_in_dir(const directory_stream* d, size_t ind
 {
 	if(d != nullptr && index < d->file_list.size())
 	{
-		return &(d->file_list[index]);
+		return new file_handle{d->file_list[index]};
 	}
 
 	return nullptr;
