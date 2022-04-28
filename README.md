@@ -18,3 +18,7 @@ The actual meaning of the acronym is intentionally ambigous but might stand for 
 
 - POSIX/Unix Compatibility
 - Fair scheduling
+
+## What's with "EPSILON" in the release names
+
+The greek letter Epsilon is often used in mathematics to represent a very small positive value approaching zero, this represents the status of the OS at this point in time, not much, but more than nothing.
