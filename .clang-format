@@ -1,14 +1,14 @@
 # Format Style Options - Created with Clang Power Tools
 ---
-BasedOnStyle: Google
 AccessModifierOffset: -4
-AlignConsecutiveAssignments: Consecutive 
-AlignOperands: DontAlign
+AlignConsecutiveAssignments: Consecutive
+AlignOperands: Align
 AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: None
 AllowShortLoopsOnASingleLine: false
-BinPackArguments: false
-BinPackParameters: false
+BasedOnStyle: Google
+BinPackArguments: true
+BinPackParameters: true
 BraceWrapping: 
   AfterCaseLabel: true
   AfterClass: true
@@ -20,14 +20,19 @@ BraceWrapping:
   AfterStruct: true
   AfterUnion: true
   AfterExternBlock: true
+  BeforeCatch: false
   BeforeElse: true
+  IndentBraces: false
   SplitEmptyFunction: false
   SplitEmptyRecord: false
   SplitEmptyNamespace: false
+  BeforeLambdaBody: false
+  BeforeWhile: false
 BreakBeforeBraces: Allman
+BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: AfterColon
 BreakStringLiterals: false
-ColumnLimit: 100
+ColumnLimit: 80
 DeriveLineEnding: false
 DerivePointerAlignment: false
 EmptyLineBeforeAccessModifier: Leave
@@ -39,6 +44,8 @@ IndentRequires: true
 IndentWidth: 4
 MaxEmptyLinesToKeep: 2
 ObjCBlockIndentWidth: 4
+PenaltyBreakBeforeFirstCallParameter: 10000
+PenaltyReturnTypeOnItsOwnLine: 60
 ReflowComments: false
 SortIncludes: false
 SpaceAfterTemplateKeyword: false
