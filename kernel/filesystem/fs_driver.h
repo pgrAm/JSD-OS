@@ -28,14 +28,14 @@ void filesystem_read_from_disk(const filesystem_drive* d, size_t block, size_t o
 
 struct filesystem_driver
 {
-	int (*mount_disk)(filesystem_virtual_drive* d);
+	mount_status (*mount_disk)(filesystem_virtual_drive* d);
 	fs_index(*read_chunks)(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* fd);
 	fs_index(*write_chunks)(const uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* fd);
 	size_t(*allocate_chunks)(fs_index location, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* d);
 	void (*read_dir)(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
-	void (*write_dir)(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd);
 	void (*flush_file)(const file_data_block* file, const filesystem_virtual_drive* fd);
 	void (*create_file)(const char* name, size_t name_len, uint32_t flags, directory_stream* dir, const filesystem_virtual_drive* fd);
+	int (*delete_file)(const file_data_block* file, const filesystem_virtual_drive* fd);
 };
 
 struct disk_driver

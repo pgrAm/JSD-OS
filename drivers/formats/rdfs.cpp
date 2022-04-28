@@ -5,7 +5,7 @@
 #include <kernel/filesystem/fs_driver.h>
 #include "rdfs.h"
 
-static int rdfs_mount_disk(filesystem_virtual_drive* fd)
+static mount_status rdfs_mount_disk(filesystem_virtual_drive* fd)
 {
 	if(fd->block_size > 1)
 	{

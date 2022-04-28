@@ -552,11 +552,6 @@ void filesystem_read_from_disk(const filesystem_drive* disk,
 	}
 }
 
-void filesystem_raw_block_read(const filesystem_drive* d, size_t block, uint8_t* buf, size_t num_blocks)
-{
-	d->read_blocks(block, buf, num_blocks);
-}
-
 const file_handle* filesystem_get_root_directory(size_t drive_number)
 {
 	k_assert(drive_number < virtual_drives.size());

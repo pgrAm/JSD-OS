@@ -262,7 +262,7 @@ static void iso9660_read_dir(directory_stream* dest, const file_data_block* file
 	}
 }
 
-static int iso9660_mount_disk(filesystem_virtual_drive* fd)
+static mount_status iso9660_mount_disk(filesystem_virtual_drive* fd)
 {
 	iso9660_drive* f = new iso9660_drive{};
 	fd->fs_impl_data = f;

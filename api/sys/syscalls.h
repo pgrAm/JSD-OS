@@ -31,7 +31,7 @@ enum syscall_indices
 	SYSCALL_ALLOC_PAGES = 9,
 	SYSCALL_FREE_PAGES = 10,
 	SYSCALL_UNMAP_PAGES = 11,
-	SYSCALL_UNUSED1 = 12,
+	SYSCALL_DELETE_FILE = 12,
 	SYSCALL_OPEN_FILE_HANDLE = 13,
 	SYSCALL_OPEN_DIR_HANDLE = 14,
 	SYSCALL_GET_FILE_IN_DIR = 15,
@@ -237,6 +237,11 @@ static inline uint8_t* map_display_memory()
 static inline int close_dir(directory_stream* dir) 
 {
 	return (int)do_syscall_1(SYSCALL_CLOSE_DIR, (uint32_t)dir);
+}
+
+static inline int delete_file(const file_handle* f)
+{
+	return (int)do_syscall_1(SYSCALL_DELETE_FILE, (uint32_t)f);
 }
 
 static inline int dispose_file_handle(const file_handle *f)

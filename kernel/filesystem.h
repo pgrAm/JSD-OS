@@ -63,6 +63,7 @@ SYSCALL_HANDLER file_stream* syscall_open_file(directory_stream* rel, const char
 SYSCALL_HANDLER int syscall_read_file(void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_write_file(const void* dst, size_t len, file_stream* f);
 SYSCALL_HANDLER int syscall_close_file(file_stream* f);
+SYSCALL_HANDLER int syscall_delete_file(const file_handle* f);
 SYSCALL_HANDLER int syscall_dispose_file_handle(const file_handle* f);
 
 

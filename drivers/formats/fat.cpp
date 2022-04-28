@@ -20,15 +20,12 @@
 #define FAT32_EOF 0x0FFFFFF8
 #define exFAT_EOF 0xFFFFFFF8
 
+#define FREE_CLUSTER 0x00
+
 #define DEFAULT_SECTOR_SIZE 512
 
 #define FAT_ROOT_DIR_FLAG 0x80000000
 
-static int fat_mount_disk(filesystem_virtual_drive* d);
-static size_t fat_read(uint8_t* dest, size_t cluster, size_t offset, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* d);
-static size_t fat_write(const uint8_t* dest, size_t cluster, size_t offset, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* d);
-static void fat_read_dir(directory_stream* dest, const file_data_block* location, const filesystem_virtual_drive* fd);
-static void fat_write_dir(directory_stream* dest, const file_data_block* location, const filesystem_virtual_drive* fd);
 static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, const file_data_block* file, const filesystem_virtual_drive* d);
 static void fat_update_file(const file_data_block* file, const filesystem_virtual_drive* fd);
 
@@ -213,7 +210,8 @@ static inline size_t fat_cluster_to_block(const fat_drive* d, size_t cluster)
 	return (((cluster - 2) << d->sectors_per_cluster_log2) + d->datasector) << d->blocks_per_sector_log2;
 }
 
-static int fat_read_bios_block(const uint8_t* buffer, fat_drive* d, size_t block_size)
+static mount_status fat_read_bios_block(const uint8_t* buffer, fat_drive* d,
+										size_t block_size)
 {
 	bpb* bios_block = (bpb*)buffer;
 
@@ -428,10 +426,10 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 		return false;
 	} //end of directory
 
-	if(entry.name.root[0] == 0x2E) 
+	if(entry.name.root[0] == '\x2e') 
 	{
 		dest.name += '.';
-		if(entry.name.root[1] == 0x2E)
+		if(entry.name.root[1] == '\x2e')
 			dest.name += '.';
 	}
 	else
@@ -466,7 +464,9 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 	return true;
 }
 
-static void fat_read_dir(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
+static void fat_do_read_dir(std::vector<file_handle>& file_list,
+							const file_data_block* dir,
+							const filesystem_virtual_drive* fd)
 {
 	fs::stream dir_stream{filesystem_create_stream(dir)};
 	k_assert(dir_stream);
@@ -482,7 +482,11 @@ static void fat_read_dir(directory_stream* dest, const file_data_block* dir, con
 			break;
 		}
 
-		if(entry.name.root[0] == 0) {
+		if(entry.name.root[0] == 0) { break; }
+
+		if(entry.name.root[0] == '\xe5') 
+		{
+			lfn.clear();
 			break;
 		}
 
@@ -522,20 +526,15 @@ static void fat_read_dir(directory_stream* dest, const file_data_block* dir, con
 			lfn.clear();
 		}
 
-		dest->file_list.push_back(out);
+		file_list.push_back(out);
 	}
 }
 
-void fat_write_dir(directory_stream* dest, const file_data_block* dir, const filesystem_virtual_drive* fd)
+static void fat_read_dir(directory_stream* dest, const file_data_block* dir,
+						 const filesystem_virtual_drive* fd)
 {
-	fs::stream dir_stream{filesystem_create_stream(dir)};
-	k_assert(dir_stream);
-
-	for(auto&& entry : dest->file_list)
-	{
-		fat_directory_entry f = fat_create_dir_entry(entry);
-		dir_stream.write(&f, sizeof(fat_directory_entry));
-	}
+	k_assert(dest);
+	fat_do_read_dir(dest->file_list, dir, fd);
 }
 
 template<fat_type T>
@@ -634,7 +633,7 @@ static size_t fat_get_relative_cluster(size_t cluster, size_t num_clusters, cons
 	return cluster;
 }
 
-static int fat_mount_disk(filesystem_virtual_drive* d)
+static mount_status fat_mount_disk(filesystem_virtual_drive* d)
 {
 	auto boot_sector = std::make_unique<uint8_t[]>(DEFAULT_SECTOR_SIZE);
 
@@ -642,7 +641,7 @@ static int fat_mount_disk(filesystem_virtual_drive* d)
 
 	fat_drive* f = new fat_drive{};
 
-	int err = fat_read_bios_block(boot_sector.get(), f, d->block_size);
+	auto err = fat_read_bios_block(boot_sector.get(), f, d->block_size);
 
 	if(err != MOUNT_SUCCESS)
 	{
@@ -804,9 +803,24 @@ static size_t write_to_fat(size_t previous, size_t first_cluster, size_t num_clu
 	return 0;
 }
 
-static bool fat_cluster_free(size_t cluster, const filesystem_virtual_drive* f)
+static size_t write_to_fat(size_t cluster, size_t value,
+						   const filesystem_virtual_drive* fd)
 {
-	return fat_get_next_cluster(cluster, f) == 0;
+	return write_to_fat(cluster, value, 1, fd);
+}
+
+[[nodiscard]]
+static bool fat_cluster_is_free(size_t cluster, const filesystem_virtual_drive* f)
+{
+	return fat_get_next_cluster(cluster, f) == FREE_CLUSTER;
+}
+
+static void fat_mark_cluster_free(size_t cluster,
+								  const filesystem_virtual_drive* fd)
+{
+	fat_drive* f = (fat_drive*)fd->fs_impl_data;
+	write_to_fat(cluster, FREE_CLUSTER, fd);
+	f->free_clusters.emplace_back(cluster, 1u);
 }
 
 static size_t fat_claim_clusters(size_t last_cluster, size_t num_clusters, const filesystem_virtual_drive* d)
@@ -830,14 +844,14 @@ static size_t fat_claim_clusters(size_t last_cluster, size_t num_clusters, const
 
 	for(size_t cluster = 0; cluster < f->num_clusters; cluster++)
 	{
-		if(!fat_cluster_free(cluster, d))
+		if(!fat_cluster_is_free(cluster, d))
 			continue;
 
 		cluster_span span{cluster, 1};
 
 		while(span.num_clusters < num_clusters)
 		{
-			if(!fat_cluster_free(++cluster, d))
+			if(!fat_cluster_is_free(++cluster, d))
 			{
 				break;
 			}
@@ -894,6 +908,59 @@ static size_t fat_allocate_clusters(size_t start_cluster, size_t size_in_bytes, 
 
 	return size_in_bytes;
 }
+
+static int fat_delete_file(const file_data_block* file,
+						   const filesystem_virtual_drive* fd)
+{
+	auto fdata = std::bit_cast<fat_format_data>(file->format_data);
+
+	file_data_block dir_block{fdata.parent_dir, fd->id, 0, fdata.dir_flags};
+
+	fs::stream dir_stream{filesystem_create_stream(&dir_block)};
+	k_assert(dir_stream);
+
+	while(true)
+	{
+		fat_directory_entry entry;
+		if(dir_stream.read(&entry, sizeof(fat_directory_entry)) !=
+		   sizeof(fat_directory_entry))
+		{
+			break;
+		}
+
+		if(entry.name.root[0] == 0) break;
+
+		if(entry.attributes & LFN) continue;
+
+		if(fat_file_location(entry) == file->location_on_disk)
+		{
+			dir_stream.seek(dir_stream.get_pos() - sizeof(fat_directory_entry));
+
+			entry.name.root[0] = 0xE5; //set the file as deleted
+
+			dir_stream.write((uint8_t*)&entry, sizeof(fat_directory_entry));
+			break;
+		}
+	}
+
+	fat_drive* f = (fat_drive*)fd->fs_impl_data;
+
+	//make the file's clusters available
+	size_t cluster		= file->location_on_disk;
+	size_t num_clusters = f->num_clusters; //upper bound on num clusters
+	while(num_clusters)
+	{
+		size_t next_cluster = fat_get_next_cluster(cluster, fd);
+		if(next_cluster == f->eof_value) break;
+
+		fat_mark_cluster_free(cluster, fd);
+		cluster = next_cluster;
+		num_clusters--;
+	}
+
+	return 0;
+}
+
 
 //updates the directory entry after modifying a file
 static void fat_update_file(const file_data_block* file, const filesystem_virtual_drive* fd)
@@ -1056,9 +1123,9 @@ static const filesystem_driver fat_driver = {
 	fat_write,
 	fat_allocate_clusters,
 	fat_read_dir,
-	fat_write_dir,
 	fat_update_file,
-	fat_create_file
+	fat_create_file,
+	fat_delete_file
 };
 
 extern "C" void fat_init()

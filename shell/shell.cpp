@@ -213,9 +213,12 @@ int execute_line(std::string_view current_line)
 	}
 	else if("drive:"sv == keyword)
 	{
-		size_t drive = 0;
-		std::from_chars(keywords[1].cbegin(), keywords[1].cend(), drive);
-		select_drive(drive);
+		if(keywords.size() > 1)
+		{
+			size_t drive = 0;
+			std::from_chars(keywords[1].cbegin(), keywords[1].cend(), drive);
+			select_drive(drive);
+		}
 	}
 	else if("cls"sv == keyword || "clear"sv == keyword)
 	{
@@ -223,8 +226,11 @@ int execute_line(std::string_view current_line)
 	}
 	else if("echo" == keyword)
 	{
-		s_term.print_string(keywords[1]);
-		putchar('\n');
+		if(keywords.size() > 1)
+		{
+			s_term.print_string(keywords[1]);
+			putchar('\n');
+		}
 	}
 	else if("dir"sv == keyword || "ls"sv == keyword)
 	{
@@ -246,6 +252,7 @@ int execute_line(std::string_view current_line)
 		if(keywords.size() < 2)
 		{
 			printf("Not enough arguments\n");
+			return -1;
 		}
 
 		const auto& path = keywords[1];
@@ -272,6 +279,11 @@ int execute_line(std::string_view current_line)
 	}
 	else if("mode"sv == keyword)
 	{
+		if(keywords.size() < 2)
+		{
+			printf("Not enough arguments\n");
+			return -1;
+		}
 		unsigned int width = 0;
 		std::from_chars(keywords[1].cbegin(), keywords[1].cend(), width);
 		unsigned int height = 0;
@@ -292,6 +304,11 @@ int execute_line(std::string_view current_line)
 	}
 	else if("cat"sv == keyword || "type"sv == keyword)
 	{
+		if(keywords.size() < 2)
+		{
+			printf("Not enough arguments\n");
+			return -1;
+		}
 		const auto& arg = keywords[1];
 		file_info file;
 
@@ -324,6 +341,27 @@ int execute_line(std::string_view current_line)
 
 		find_path(dir.get(), keywords[1].data(), keywords[1].size(), FILE_CREATE, IS_DIR);
 	}
+	else if("del"sv == keyword || "delete"sv == keyword)
+	{
+		if(keywords.size() < 1)
+		{
+			printf("Incorrect number of arguments\n");
+			return -1;
+		}
+
+		file_h f_handle{
+			find_path(dir.get(), keywords[1].data(), keywords[1].size(), 0, 0)};
+		if(!f_handle)
+		{
+			file_error("Could not find file ", keywords[1]);
+			return -1;
+		}
+
+		if(delete_file(f_handle.get()) != 0)
+		{
+			file_error("Could not delete file ", keywords[1]);
+		}
+	}
 	else if("copy"sv == keyword)
 	{
 		if(keywords.size() < 3)
@@ -349,9 +387,8 @@ int execute_line(std::string_view current_line)
 			return -1;
 		}
 
-		auto dst_stream = file_ptr{open(dir.get(),
-							   dst.data(), dst.size(),
-							   FILE_WRITE | FILE_CREATE)};
+		auto dst_stream =
+			file_ptr{open(dir.get(), dst.data(), dst.size(), FILE_WRITE | FILE_CREATE)};
 		if(!dst_stream)
 		{
 			file_error("Could not create destination file ", dst);

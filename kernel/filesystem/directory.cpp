@@ -33,6 +33,40 @@ directory_stream* filesystem_open_directory_handle(const file_handle* f, int fla
 	return d;
 }
 
+int filesystem_delete_file(const file_handle* f)
+{
+	k_assert(f);
+	auto drive = filesystem_get_drive(f->data.disk_id);
+
+	if(drive->read_only)
+	{
+		return -1;
+	}
+
+	if(f->data.flags & IS_DIR)
+	{
+		using namespace std::literals;
+
+		fs::dir_stream dir{f, 0};
+
+		if(dir.get_ptr()->file_list.size() > 2)
+		{
+			return -1; //dir not empty!
+		}
+
+		for(auto f : dir.get_ptr()->file_list)
+		{
+			if(f.name != "."sv && f.name != ".."sv)
+			{
+				return -1;
+			}
+		}
+	}
+
+	k_assert(drive->fs_driver->delete_file);
+	return drive->fs_driver->delete_file(&f->data, drive);
+}
+
 template<typename I>
 static I find_file(I begin, I end, std::string_view fname)
 {
@@ -236,4 +270,10 @@ SYSCALL_HANDLER int syscall_dispose_file_handle(const file_handle* f)
 		delete f;
 	}
 	return 0;
+}
+
+
+int syscall_delete_file(const file_handle* f)
+{
+	return f ? filesystem_delete_file(f) : -1;
 }

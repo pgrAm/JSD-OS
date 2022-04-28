@@ -38,7 +38,7 @@ const void* syscall_table[] =
 	syscall_virtual_alloc,
 	syscall_free_pages,
 	syscall_unmap_user_pages,
-	_empty,
+	syscall_delete_file,
 	syscall_open_file_handle,
 	syscall_open_directory_handle,
 	syscall_get_file_in_dir,
