@@ -135,6 +135,40 @@ constexpr InputIt find_if_not(InputIt first, InputIt last, UnaryPredicate q)
 	}
 	return last;
 }
+
+template<class ForwardIt>
+constexpr ForwardIt max_element(ForwardIt first, ForwardIt last)
+{
+	if(first == last) return last;
+
+	ForwardIt largest = first;
+	++first;
+	for(; first != last; ++first)
+	{
+		if(*largest < *first)
+		{
+			largest = first;
+		}
+	}
+	return largest;
+}
+
+template<class ForwardIt, class Compare>
+constexpr ForwardIt max_element(ForwardIt first, ForwardIt last, Compare comp)
+{
+	if(first == last) return last;
+
+	ForwardIt largest = first;
+	++first;
+	for(; first != last; ++first)
+	{
+		if(comp(*largest, *first))
+		{
+			largest = first;
+		}
+	}
+	return largest;
+}
 }
 
 #endif
