@@ -224,6 +224,14 @@ constexpr inline bool operator!=(const std::basic_string_view<C>& lhs,
 	return lhs.compare(rhs) != 0;
 }
 
+template<typename C>
+constexpr inline bool operator<(const std::basic_string_view<C>& lhs,
+								const std::basic_string_view<C>& rhs)
+{
+	return lhs.compare(rhs) < 0;
+}
+
+
 template<class C>
 constexpr bool operator!=(std::type_identity_t<std::basic_string_view<C>> lhs,
 						  std::basic_string_view<C> rhs) noexcept {

@@ -1,0 +1,99 @@
+#ifndef STD_ITERATOR_TRAITS_H
+#define STD_ITERATOR_TRAITS_H
+namespace std
+{
+#include <type_traits>
+
+template<class Iter>
+struct iterator_traits;
+
+struct input_iterator_tag
+{
+};
+struct output_iterator_tag
+{
+};
+struct forward_iterator_tag : public input_iterator_tag
+{
+};
+struct bidirectional_iterator_tag : public forward_iterator_tag
+{
+};
+struct random_access_iterator_tag : public bidirectional_iterator_tag
+{
+};
+struct contiguous_iterator_tag : public random_access_iterator_tag
+{
+};
+
+template<class It>
+constexpr typename iterator_traits<It>::difference_type distance(It first,
+																 It last)
+{
+	using category = typename iterator_traits<It>::iterator_category;
+	static_assert(is_base_of_v<input_iterator_tag, category>);
+
+	if constexpr(is_base_of_v<random_access_iterator_tag, category>)
+	{
+		return last - first;
+	}
+	else
+	{
+		typename iterator_traits<It>::difference_type result = 0;
+		while(first != last)
+		{
+			++first;
+			++result;
+		}
+		return result;
+	}
+}
+
+template<class It, class Distance>
+constexpr void advance(It& it, Distance n)
+{
+	using category = typename iterator_traits<It>::iterator_category;
+	static_assert(is_base_of_v<input_iterator_tag, category>);
+
+	auto dist = typename iterator_traits<It>::difference_type(n);
+	if constexpr(is_base_of_v<random_access_iterator_tag, category>)
+	{
+		it += dist;
+	}
+	else
+	{
+		while(dist > 0)
+		{
+			--dist;
+			++it;
+		}
+		if constexpr(is_base_of_v<bidirectional_iterator_tag, category>)
+		{
+			while(dist < 0)
+			{
+				++dist;
+				--it;
+			}
+		}
+	}
+}
+
+template<class InputIt>
+constexpr InputIt next(InputIt it,
+					   typename iterator_traits<InputIt>::difference_type n = 1)
+{
+	advance(it, n);
+	return it;
+}
+
+template<class T>
+struct iterator_traits<T*>
+{
+	using difference_type	= ptrdiff_t;
+	using value_type		= remove_cv_t<T>;
+	using pointer			= T*;
+	using reference			= T&;
+	using iterator_category = random_access_iterator_tag;
+};
+}
+#endif

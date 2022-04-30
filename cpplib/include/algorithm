@@ -2,6 +2,9 @@
 #define STD_ALGORITHM_H
 
 #include <utility>
+#include <iterator>
+#include <functional>
+
 namespace std
 {
 template<class InputIt, class OutputIt>
@@ -169,6 +172,101 @@ constexpr ForwardIt max_element(ForwardIt first, ForwardIt last, Compare comp)
 	}
 	return largest;
 }
+
+template<class ForwardIt, class T>
+constexpr ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T& value)
+{
+	ForwardIt it;
+	typename iterator_traits<ForwardIt>::difference_type count, step;
+	count = distance(first, last);
+
+	while(count > 0)
+	{
+		it	 = first;
+		step = count / 2;
+		std::advance(it, step);
+		if(*it < value)
+		{
+			first = ++it;
+			count -= step + 1;
+		}
+		else
+			count = step;
+	}
+	return first;
 }
+
+template<class ForwardIt, class T, class Compare>
+constexpr ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T& value,
+								Compare cmp)
+{
+	ForwardIt it;
+	typename iterator_traits<ForwardIt>::difference_type count, step;
+	count = distance(first, last);
+
+	while(count > 0)
+	{
+		it	 = first;
+		step = count / 2;
+		advance(it, step);
+		if(cmp(*it, value))
+		{
+			first = ++it;
+			count -= step + 1;
+		}
+		else
+			count = step;
+	}
+	return first;
+}
+
+template<class ForwardIt1, class ForwardIt2>
+constexpr void iter_swap(ForwardIt1 a, ForwardIt2 b) 
+{
+	std::swap(*a, *b);
+}
+
+template<class ForwardIt, class UnaryPredicate>
+constexpr ForwardIt partition(ForwardIt first, ForwardIt last, UnaryPredicate p)
+{
+	first = find_if_not(first, last, p);
+	if(first == last) return first;
+
+	for(ForwardIt i = next(first); i != last; ++i)
+	{
+		if(p(*i))
+		{
+			iter_swap(i, first);
+			++first;
+		}
+	}
+	return first;
+}
+
+namespace __pvt
+{
+template<class It, class Compare = less<>>
+constexpr void quick_sort(It first, It last, Compare cmp = Compare{})
+{
+	auto N = distance(first, last);
+	if(N <= 1) return;
+	auto pivot = *next(first, N / 2);
+	auto middle1 =
+		partition(first, last,
+				  [pivot, cmp](const auto& elem) { return cmp(elem, pivot); });
+	auto middle2 =
+		partition(middle1, last,
+				  [pivot, cmp](const auto& elem) { return !cmp(pivot, elem); });
+	quick_sort(first, middle1, cmp);
+	quick_sort(middle2, last, cmp);
+}
+}
+template<class RandomIt, class Compare>
+constexpr void sort(RandomIt first, RandomIt last, Compare cmp)
+{
+	__pvt::quick_sort(first, last, cmp);
+}
+}
+
 
 #endif
