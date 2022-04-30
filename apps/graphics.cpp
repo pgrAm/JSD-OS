@@ -62,7 +62,7 @@ int main(int argc, char** argv)
 	if(set_display_mode(&requested, &actual) != 0)
 	{
 		s_term.set_mode(80, 25);
-		s_term.print_string("Could not set graphics mode\n");
+		s_term.print("Could not set graphics mode\n");
 		return 0;
 	}
 

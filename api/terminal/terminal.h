@@ -37,12 +37,16 @@ public:
 
 	void delete_chars(size_t num);
 
-	void print_string(const char* str, size_t length);
+	void print(const char* str, size_t length);
 
-	inline void print_string(std::string_view name)
+	inline void print(std::string_view name)
 	{
-		print_string(name.data(), name.size());
+		print(name.data(), name.size());
 	}
+
+	void print(char c);
+
+	uint8_t* get_underlying_buffer();
 
 	void clear();
 	void clear_row(size_t row);

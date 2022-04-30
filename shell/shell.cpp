@@ -13,32 +13,15 @@
 #include <memory>
 #include <array>
 
+#include <shell/util.h>
+#include <shell/shell.h>
+#include <shell/commands.h>
+
 terminal s_term{"terminal_1"};
 
-void splash_text(int w);
-
 std::string current_path{};
-char prompt_char = ']';
 
-std::vector<std::string> command_history;
-
-struct dir_deleter {
-	void operator()(directory_stream* b) { close_dir(b); }
-};
-
-using directory_ptr = std::unique_ptr <directory_stream, dir_deleter>;
-
-struct file_deleter {
-	void operator()(file_stream* b) { close(b); }
-};
-
-using file_ptr = std::unique_ptr <file_stream, file_deleter>;
-
-struct file_handle_deleter {
-	void operator()(const file_handle* f) { dispose_file_handle(f); }
-};
-
-using file_h = std::unique_ptr <const file_handle, file_handle_deleter>;
+static std::vector<std::string> command_history;
 
 file_h current_directory = nullptr;
 
@@ -46,72 +29,15 @@ size_t drive_index = 0;
 
 int cursor_x = 0, cursor_y = 0;
 
-void select_drive(size_t index)
+static void select_drive(size_t index)
 {
 	drive_index = index;
 	current_path.clear();
 	current_directory = file_h{get_root_directory(drive_index)};
 }
 
-void list_directory(const file_handle* dir_handle)
-{
-	if(dir_handle == nullptr)
-	{
-		printf("Invalid Directory\n");
-		return;
-	}
-
-	auto dir = directory_ptr{open_dir_handle(dir_handle, 0)};
-	if(!dir)
-	{
-		printf("Something didn't work\n");
-		return;
-	}
-
-	printf("\n Name     Type  Size   Created     Modified\n\n");
-
-	size_t total_bytes = 0;
-	size_t i = 0;
-	file_h f_handle = nullptr;
-
-	while((f_handle = file_h{get_file_in_dir(dir.get(), i++)}))
-	{
-		file_info f;
-		if(get_file_info(&f, f_handle.get()) != 0)
-		{
-			continue;
-		}
-
-		struct tm created = *localtime(&f.time_created);
-		struct tm modified = *localtime(&f.time_modified);
-
-		total_bytes += f.size;
-
-		std::string name = {f.name, f.name_len};
-
-		if(f.flags & IS_DIR)
-		{
-			printf(" %-9s (DIR)     -  %02d-%02d-%4d  %02d-%02d-%4d\n",
-				   name.c_str(),
-				   created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
-				   modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
-		}
-		else
-		{
-			auto dot = name.find_first_of('.');
-
-			printf(" %-10s %-3s  %5d  %02d-%02d-%4d  %02d-%02d-%4d\n",
-				   name.substr(0, dot).c_str(),
-				   name.substr(dot + 1).c_str(),
-				   f.size,
-				   created.tm_mon + 1, created.tm_mday, created.tm_year + 1900,
-				   modified.tm_mon + 1, modified.tm_mday, modified.tm_year + 1900);
-		}
-	}
-	printf("\n %5u Files   %5u Bytes\n\n", i - 1, total_bytes);
-}
-
-file_h find_file_in_dir(directory_stream* dir, file_info* f, const std::string_view name)
+file_h find_file_in_dir(directory_stream* dir, file_info* f,
+						const std::string_view name)
 {
 	file_h f_handle{find_path(dir, name.data(), name.size(), 0, 0)};
 	if(f_handle != nullptr)
@@ -124,45 +50,30 @@ file_h find_file_in_dir(directory_stream* dir, file_info* f, const std::string_v
 	return nullptr;
 }
 
-file_h find_file_in_dir(file_info* f,
-						const std::string_view name)
+file_h find_file_in_dir(file_info* f, const std::string_view name)
 {
-	auto dir = directory_ptr{open_dir_handle(current_directory.get(), 0)};
+	auto dir = directory_ptr{open_dir_handle(get_current_dir(), 0)};
 
 	return find_file_in_dir(dir.get(), f, name);
 }
 
-void print_mem()
+terminal& get_terminal()
 {
-	auto mem = get_free_memory();
+	return s_term;
+}
 
-	printf("Free memory %u:\n", mem);
-
-	if(auto GiBs = (mem / 0x40000000) % 0x400)
-	{
-		printf("\t%d GiB(s)\n", GiBs);
-	}
-	if(auto MiBs = (mem / 0x100000) % 0x400)
-	{
-		printf("\t%d MiB(s)\n", MiBs);
-	}
-	if(auto KiBs = (mem / 0x400) % 0x400)
-	{
-		printf("\t%d KiB(s)\n", KiBs);
-	}
-	if(auto Bs = mem % 0x400)
-	{
-		printf("\t%d B(s)\n", Bs);
-	}
+const file_handle* get_current_dir()
+{
+	return current_directory.get();
 }
 
 void clear_console()
 {
-	printf("\x1b[2J\x1b[1;1H");
+	print_strings("\x1b[2J\x1b[1;1H");
 	s_term.clear();
 }
 
-std::vector<std::string_view> tokenize(std::string_view input, char delim)
+static std::vector<std::string_view> tokenize(std::string_view input, char delim)
 {
 	std::vector<std::string_view> keywords;
 	size_t first = 0;
@@ -182,275 +93,7 @@ std::vector<std::string_view> tokenize(std::string_view input, char delim)
 	return keywords;
 }
 
-void file_error(std::string_view error, std::string_view file)
-{
-	s_term.print_string(error);
-	s_term.print_string(file);
-	putchar('\n');
-}
-
-struct command
-{
-	std::string_view name;
-	std::string_view usage;
-	std::string_view description;
-	size_t min_args;
-	int (*func)(const std::vector<std::string_view>& args);
-};
-
-struct alias
-{
-	std::string_view name;
-	std::string_view alias_of;
-};
-
-void print_help();
-
-constexpr std::array aliases = {
-	alias{"clear", "cls"}, alias{"ls", "dir"},	   alias{"cp", "copy"},
-	alias{"cat", "type"},  alias{"del", "delete"}, alias{"rm", "delete"},
-};
-
-constexpr std::array builtin_commands = {
-	command{"echo", "arg", "Writes text to the terminal", 2,
-			[](const auto& keywords)
-			{
-				s_term.print_string(keywords[1]);
-				putchar('\n');
-				return 0;
-			}},
-	command{"time", "", "Gets the current time", 1,
-			[](const auto& keywords)
-			{
-				printf("%u\n", time(nullptr));
-				return 0;
-			}},
-	command{"cls", "", "Clears the terminal", 1,
-			[](const auto& keywords)
-			{
-				clear_console();
-				return 0;
-			}},
-	command{"cd", "directory", "changes the current directory", 2,
-			[](const auto& keywords)
-			{
-				const auto& path = keywords[1];
-
-				auto dir =
-					directory_ptr{open_dir_handle(current_directory.get(), 0)};
-
-				file_info file;
-				file_h f_handle{
-					find_path(dir.get(), path.data(), path.size(), 0, 0)};
-
-				if(f_handle == nullptr)
-				{
-					file_error("Could not find path ", path);
-					return -1;
-				}
-
-				if(get_file_info(&file, f_handle.get()) != 0 ||
-				   !(file.flags & IS_DIR))
-				{
-					s_term.print_string(path);
-					printf(" is not a valid directory\n");
-					return -1;
-				}
-
-				current_path.assign(file.name, file.name_len);
-				current_directory = std::move(f_handle);
-				return 1;
-			}},
-	command{"dir", "[directory]", "lists a directory", 1,
-			[](const auto& keywords)
-			{
-				if(keywords.size() > 1)
-				{
-					auto dir = directory_ptr{
-						open_dir_handle(current_directory.get(), 0)};
-					file_h list_dir{find_path(dir.get(), keywords[1].data(),
-											  keywords[1].size(), 0, 0)};
-
-					list_directory(list_dir.get());
-				}
-				else
-				{
-					list_directory(current_directory.get());
-				}
-				return 0;
-			}},
-	command{"copy", "source destination", "Copies a file", 3,
-			[](const auto& keywords)
-			{
-				auto dir =
-					directory_ptr{open_dir_handle(current_directory.get(), 0)};
-
-				const auto& src = keywords[1];
-				const auto& dst = keywords[2];
-				file_info file;
-				auto src_handle = find_file_in_dir(dir.get(), &file, src);
-				if(!src_handle)
-				{
-					file_error("Could not find source file ", src);
-					return -1;
-				}
-
-				auto src_stream =
-					file_ptr{open_file_handle(src_handle.get(), 0)};
-				if(!src_stream)
-				{
-					file_error("Could not find open source file ", src);
-					return -1;
-				}
-
-				auto dst_stream =
-					file_ptr{open(dir.get(), dst.data(), dst.size(),
-								  FILE_WRITE | FILE_CREATE)};
-				if(!dst_stream)
-				{
-					file_error("Could not create destination file ", dst);
-					return -1;
-				}
-
-				auto dataBuf = std::make_unique<char[]>(file.size);
-
-				read(&dataBuf[0], file.size, src_stream.get());
-				write(&dataBuf[0], file.size, dst_stream.get());
-
-				return 0;
-			}},
-	command{"delete", "target", "Deletes a file", 2,
-			[](const auto& keywords)
-			{
-				auto dir =
-					directory_ptr{open_dir_handle(current_directory.get(), 0)};
-
-				file_h f_handle{find_path(dir.get(), keywords[1].data(),
-										  keywords[1].size(), 0, 0)};
-				if(!f_handle)
-				{
-					file_error("Could not find file ", keywords[1]);
-					return -1;
-				}
-
-				if(delete_file(f_handle.get()) != 0)
-				{
-					file_error("Could not delete file ", keywords[1]);
-				}
-			}},
-	command{"type", "target", "Writes a file to the terminal", 2,
-			[](const auto& keywords)
-			{
-				file_info file;
-				if(auto f_handle = find_file_in_dir(&file, keywords[1]))
-				{
-					auto fs = file_ptr{open_file_handle(f_handle.get(), 0)};
-					if(fs)
-					{
-						auto dataBuf = std::make_unique<char[]>(file.size);
-
-						read(&dataBuf[0], file.size, fs.get());
-
-						s_term.print_string(&dataBuf[0], file.size);
-
-						putchar('\n');
-
-						return 0;
-					}
-				}
-				file_error("Could not open file ", keywords[1]);
-				return -1;
-			}},
-	command{"mkdir", "name", "Creates a new directory", 2,
-			[](const auto& keywords)
-			{
-				auto dir =
-					directory_ptr{open_dir_handle(current_directory.get(), 0)};
-				return !!find_path(dir.get(), keywords[1].data(),
-								   keywords[1].size(), FILE_CREATE, IS_DIR)
-						   ? 0
-						   : -1;
-			}},
-	command{"mem", "", "Shows the amount of free memory", 1,
-			[](const auto& keywords)
-			{
-				print_mem();
-				return 0;
-			}},
-	command{"mode", "width height", "Changes the display mode of the terminal", 3,
-			[](const auto& keywords)
-			{
-				unsigned int width = 0;
-				std::from_chars(keywords[1].cbegin(), keywords[1].cend(),
-								width);
-				unsigned int height = 0;
-				std::from_chars(keywords[2].cbegin(), keywords[2].cend(),
-								height);
-
-				if(s_term.set_mode(width, height) == 0)
-				{
-					clear_console();
-				}
-				else
-				{
-					printf("Unable to set mode\n");
-					return -1;
-				}
-				return 0;
-			}},
-	command{"help", "", "Displays the help for the shell", 1,
-			[](const auto& keywords)
-			{
-				print_help();
-				return 0;
-			}},
-};
-
-constinit auto& longest_name =
-	*std::max_element(builtin_commands.begin(), builtin_commands.end(),
-					 [](auto&& a, auto&& b)
-					 { return a.name.size() < b.name.size(); });
-
-void print_help()
-{
-	for(auto&& cmd : builtin_commands)
-	{
-		s_term.print_string(" ");
-		s_term.print_string(cmd.name);
-		for(size_t i = 0; i < longest_name.name.size() - cmd.name.size(); i++)
-		{
-			s_term.print_string(" ");
-		}
-		s_term.print_string(" - ");
-		s_term.print_string(cmd.description);
-		s_term.print_string("\n");
-	}
-
-	for(auto&& al : aliases)
-	{
-		s_term.print_string(" ");
-		s_term.print_string(al.name);
-		for(size_t i = 0; i < longest_name.name.size() - al.name.size(); i++)
-		{
-			s_term.print_string(" ");
-		}
-		s_term.print_string(" - Alias of ");
-		s_term.print_string(al.alias_of);
-		s_term.print_string("\n");
-	}
-	s_term.print_string(" Use the command with -help or /? for more info\n");
-}
-
-void print_help(std::string_view cmd, const command& c)
-{
-	s_term.print_string("Usage: ");
-	s_term.print_string(cmd);
-	s_term.print_string(" ");
-	s_term.print_string(c.usage);
-	s_term.print_string("\n");
-}
-
-int execute_line(std::string_view current_line)
+static int execute_line(std::string_view current_line)
 {
 	using namespace std::literals;
 
@@ -461,43 +104,13 @@ int execute_line(std::string_view current_line)
 		return 0;
 	}
 
-	auto dir = directory_ptr{open_dir_handle(current_directory.get(), 0)};
-
 	auto keyword = keywords[0];
 
-	if(auto it =
-		   std::find_if(aliases.cbegin(), aliases.cend(),
-						[keyword](auto&& c) { return c.name == keyword; });
-	   it != aliases.cend())
-	{
-		keyword = it->alias_of;
-	}
+	auto cmd = run_command(keyword, keywords);
 
-	if(auto it =
-		   std::find_if(builtin_commands.cbegin(), builtin_commands.cend(),
-						[keyword](auto&& c) { return c.name == keyword; });
-	   it != builtin_commands.cend())
-	{
-		if(keywords.size() == 2 &&
-		   (keywords[1] == "-help" || keywords[1] == "/?"))
-		{
-			print_help(keyword, * it);
-			return 0;
-		}
-		if(keywords.size() >= it->min_args)
-		{
-			return it->func(keywords);
-		}
-		s_term.print_string("Incorrect number of arguments\n");
-		print_help(keyword, *it);
-		return -1;
-	}
+	if(cmd.found) return cmd.result;
 
-	if("time"sv == keyword)
-	{
-		printf("%u\n", time(nullptr));
-	}
-	else if("rd0:"sv == keyword)
+	if("rd0:"sv == keyword)
 	{
 		select_drive(0);
 	}
@@ -520,6 +133,8 @@ int execute_line(std::string_view current_line)
 	}
 	else
 	{
+		auto dir = directory_ptr{open_dir_handle(current_directory.get(), 0)};
+
 		file_info file;
 		if(auto file_h = find_file_in_dir(dir.get(), &file, keyword))
 		{
@@ -546,7 +161,7 @@ int execute_line(std::string_view current_line)
 										  keyword.data(), keyword.size(), 0)};
 					if(!f)
 					{
-						file_error("Could not open file ", keyword);
+						print_strings("Could not open file ", keyword, '\n');
 						return -1;
 					}
 
@@ -572,14 +187,16 @@ int execute_line(std::string_view current_line)
 	return 1;
 }
 
-void set_mouse_color(uint8_t color)
+static void set_mouse_color(uint8_t color)
 {
-	//auto coord = (cursor_x + cursor_y * s_term.width()) * sizeof(uint16_t) + 1;
+	auto coord = (cursor_x + cursor_y * s_term.width()) * sizeof(uint16_t) + 1;
 
-	//get_screen_buf()[coord] = (get_screen_buf()[coord] & 0x0F) | (color << 4);
+	auto buf = s_term.get_underlying_buffer();
+
+	buf[coord] = (buf[coord] & 0x0F) | (color << 4);
 }
 
-int get_command()
+static int get_command()
 {
 	std::string command_buffer;
 
@@ -638,7 +255,7 @@ int get_command()
 									command_buffer = command_history[++history_index];
 							}
 
-							s_term.print_string(command_buffer);
+							s_term.print(command_buffer);
 						}
 					}
 					else
@@ -674,40 +291,44 @@ int get_command()
 	return execute_line(command_buffer);
 }
 
-const char* drive_names[] = {"rd0", "fd0", "fd1"};
+using namespace std::literals;
 
-void prompt()
+constexpr std::array drive_names = {"rd0"sv, "fd0"sv, "fd1"sv};
+
+static void prompt()
 {
-	const char* drive = "?";
-	if(drive_index < (sizeof(drive_names) / sizeof(char*)))
+	char prompt_char = ']';
+
+	std::string_view drive = "?";
+	if(drive_index < drive_names.size())
 	{
 		drive = drive_names[drive_index];
 	}
 
-	//printf("\x1b[32;22m");
-	//printf("\x1b[37m@");
-	printf("\x1b[32;22m%s\x1b[37m %u:/%s%c", drive, drive_index, current_path.c_str(), prompt_char);
+	print_strings("\x1b[32;22m", drive, "\x1b[37m ");
+	printf("%u", drive_index);
+	print_strings(":/", current_path, prompt_char);
 }
 
-void splash_text(int w)
+static void splash_text(int w)
 {
-	printf("***");
+	print_strings("***");
 	for(int i = 3; i < ((w / 2) - 3); i++)
 	{
-		putchar(' ');
+		print_strings(' ');
 	}
-	printf("JSD/OS");
+	print_strings("JSD/OS");
 	for(int i = 3; i < ((w / 2) - 3); i++)
 	{
-		putchar(' ');
+		print_strings(' ');
 	}
-	printf("***");
+	print_strings("***");
 }
 
 int main(int argc, char** argv)
 {
 	set_stdout([](const char* buf, size_t size, void* impl) {
-					s_term.print_string(buf, size);
+					s_term.print(buf, size);
 			   });
 
 	s_term.clear();
@@ -721,13 +342,15 @@ int main(int argc, char** argv)
 
 	printf("EST Time: %s\n", ctime(&t_time));
 
-	printf("t=%u\n", clock_ticks(nullptr));
+	//printf("t=%u\n", clock_ticks(nullptr));
 
 	current_directory = file_h{get_root_directory(drive_index)};
 
 	if(current_directory == nullptr)
 	{
-		printf("Could not mount root directory for drive %u %s\n", drive_index, drive_names[drive_index]);
+		print_strings("Could not mount root directory for drive ");
+		printf("%d", drive_index);
+		print_strings(drive_names[drive_index], '\n');
 	}
 
 	for(;;)

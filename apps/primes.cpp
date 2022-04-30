@@ -18,7 +18,7 @@ terminal s_term{"terminal_1"};
 int main(int argc, char** argv)
 {
     set_stdout([](const char* buf, size_t size, void* impl) {
-        s_term.print_string(buf, size);
+        s_term.print(buf, size);
                });
 
     size_t number = 2;

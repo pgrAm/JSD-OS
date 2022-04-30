@@ -175,6 +175,11 @@ size_t terminal::cursor_pos()
 	return m_impl->m_state.cursor_pos;
 }
 
+uint8_t* terminal::get_underlying_buffer()
+{
+	return (uint8_t*)m_impl->m_screen_ptr;
+}
+
 void terminal::delete_chars(size_t num)
 {
 	auto cursor = cursor_pos();
@@ -187,7 +192,12 @@ void terminal::delete_chars(size_t num)
 	set_cursor_pos(cursor - num);
 }
 
-void terminal::print_string(const char* str, size_t length)
+void terminal::print(char c)
+{
+	print(&c, 1);
+}
+
+void terminal::print(const char* str, size_t length)
 {
 	size_t output_position = cursor_pos();
 

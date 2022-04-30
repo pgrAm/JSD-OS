@@ -25,14 +25,14 @@ my @driver_flags = (@kernel_flags, qw(-fPIC -fno-function-sections));
 my @shlib_flags = qw(-fPIC);
 my @user_flags = qw(-I api/ -nodefaultlibs);
 
-my @user_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a);
+my @user_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -mllvm -align-all-nofallthru-blocks=2 -O2 --gc-sections);
 my @shlib_ld_flags = qw(-O2 -shared --lto-O3 --gc-sections);
 my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O2 --gc-sections -T drivers/driver.ld);
 my @kernel_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a --lto-O2 -N -O2 -Ttext=0xF000 -T linker.ld -mllvm -align-all-nofallthru-blocks=2);
 
 mkpath("$builddir/tools");
 system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++20 -O2");
-system("clang tools/limine/limine-install.c -o $builddir/tools/limine-install.exe -O2");
+system("clang -D_CRT_SECURE_NO_WARNINGS tools/limine/limine-install.c -o $builddir/tools/limine-install.exe -O2");
 
 my @kernel_src = qw(	
 	kernel/kernel.asm
@@ -138,7 +138,7 @@ build_static("cppruntime.a", ["api/cppruntime.cpp"]);
 my $terminal = 
 build_shared("terminal.lib", ["api/terminal/terminal.cpp", "api/cppruntime.cpp"], [link_lib($clib)]);
 
-my $shell = build(name => "shell.elf", src => ["api/crt0.c", "api/crti.asm", "shell/shell.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
+my $shell = build(name => "shell.elf", src => ["api/crt0.c", "api/crti.asm", "shell/commands.cpp", "shell/shell.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
 
 my $primes = build(name => "primes.elf", src => ["api/crt0.c", "api/crti.asm", "apps/primes.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
 
@@ -415,7 +415,7 @@ sub build {
 
 	if(!$static)
 	{
-		system("strip --strip-unneeded $output_file");
+		#system("strip --strip-unneeded $output_file");
 	}
 
 	return $output_file;
