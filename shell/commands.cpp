@@ -94,226 +94,241 @@ struct alias
 	std::string_view alias_of;
 };
 
-constexpr std::array aliases = {
-	alias{"clear", "cls"}, alias{"ls", "dir"},	   alias{"cp", "copy"},
-	alias{"cat", "type"},  alias{"del", "delete"}, alias{"rm", "delete"},
-};
+constexpr auto aliases = []()
+{
+	std::array arr{
+		alias{"clear", "cls"}, alias{"ls", "dir"},	   alias{"cp", "copy"},
+		alias{"cat", "type"},  alias{"del", "delete"}, alias{"rm", "delete"},
+	};
+	std::sort(arr.begin(), arr.end(),
+			  [](auto&& a, auto&& b) { return a.name < b.name; });
+	return arr;
+}();
 
-constexpr std::array builtin_commands = {
-	command{"echo", "arg", "Writes text to the terminal", 2,
-			[](const auto& keywords)
-			{
-				print_strings(keywords[1], '\n');
-				return 0;
-			}},
-	command{"time", "", "Gets the current time", 1,
-			[](const auto& keywords)
-			{
-				printf("%u\n", time(nullptr));
-				return 0;
-			}},
-	command{"cls", "", "Clears the terminal", 1,
-			[](const auto& keywords)
-			{
-				clear_console();
-				return 0;
-			}},
-	command{"cd", "directory", "changes the current directory", 2,
-			[](const auto& keywords)
-			{
-				const auto& path = keywords[1];
-
-				auto dir =
-					directory_ptr{open_dir_handle(get_current_dir(), 0)};
-
-				file_info file;
-				file_h f_handle{
-					find_path(dir.get(), path.data(), path.size(), 0, 0)};
-
-				if(f_handle == nullptr)
+constexpr std::array builtin_commands = []()
+{
+	std::array arr{
+		command{"echo", "arg", "Writes text to the terminal", 2,
+				[](const auto& keywords)
 				{
-					print_strings("Could not find path ", path, '\n');
-					return -1;
-				}
-
-				if(get_file_info(&file, f_handle.get()) != 0 ||
-				   !(file.flags & IS_DIR))
+					print_strings(keywords[1], '\n');
+					return 0;
+				}},
+		command{"time", "", "Gets the current time", 1,
+				[](const auto& keywords)
 				{
-					print_strings(path);
-					printf(" is not a valid directory\n");
-					return -1;
-				}
-
-				current_path.assign(file.name, file.name_len);
-				current_directory = std::move(f_handle);
-				return 1;
-			}},
-	command{"dir", "[directory]", "Lists a directory", 1,
-			[](const auto& keywords)
-			{
-				if(keywords.size() > 1)
-				{
-					auto dir = directory_ptr{
-						open_dir_handle(get_current_dir(), 0)};
-					file_h list_dir{find_path(dir.get(), keywords[1].data(),
-											  keywords[1].size(), 0, 0)};
-
-					list_directory(list_dir.get());
-				}
-				else
-				{
-					list_directory(get_current_dir());
-				}
-				return 0;
-			}},
-	command{"copy", "source destination", "Copies a file", 3,
-			[](const auto& keywords)
-			{
-				auto dir =
-					directory_ptr{open_dir_handle(get_current_dir(), 0)};
-
-				const auto& src = keywords[1];
-				const auto& dst = keywords[2];
-				file_info file;
-				auto src_handle = find_file_in_dir(dir.get(), &file, src);
-				if(!src_handle)
-				{
-					print_strings("Could not find source file ", src, '\n');
-					return -1;
-				}
-
-				auto src_stream =
-					file_ptr{open_file_handle(src_handle.get(), 0)};
-				if(!src_stream)
-				{
-					print_strings("Could not find open source file ", src,
-								  '\n');
-					return -1;
-				}
-
-				auto dst_stream =
-					file_ptr{open(dir.get(), dst.data(), dst.size(),
-								  FILE_WRITE | FILE_CREATE)};
-				if(!dst_stream)
-				{
-					print_strings("Could not create destination file ", dst, '\n');
-					return -1;
-				}
-
-				auto dataBuf = std::make_unique<char[]>(file.size);
-
-				read(&dataBuf[0], file.size, src_stream.get());
-				write(&dataBuf[0], file.size, dst_stream.get());
-
-				return 0;
-			}},
-	command{"delete", "target", "Deletes a file", 2,
-			[](const auto& keywords)
-			{
-				auto dir =
-					directory_ptr{open_dir_handle(get_current_dir(), 0)};
-
-				file_h f_handle{find_path(dir.get(), keywords[1].data(),
-										  keywords[1].size(), 0, 0)};
-				if(!f_handle)
-				{
-					print_strings("Could not find file ", keywords[1], '\n');
-					return -1;
-				}
-
-				if(delete_file(f_handle.get()) != 0)
-				{
-					print_strings("Could not delete file ", keywords[1], '\n');
-				}
-				return 0;
-			}},
-	command{"type", "target", "Writes a file to the terminal", 2,
-			[](const auto& keywords)
-			{
-				file_info file;
-				if(auto f_handle = find_file_in_dir(&file, keywords[1]))
-				{
-					auto fs = file_ptr{open_file_handle(f_handle.get(), 0)};
-					if(fs)
-					{
-						auto dataBuf = std::make_unique<char[]>(file.size);
-
-						read(&dataBuf[0], file.size, fs.get());
-
-						print_strings(&dataBuf[0], file.size);
-
-						putchar('\n');
-
-						return 0;
-					}
-				}
-				print_strings("Could not open file ", keywords[1], '\n');
-				return -1;
-			}},
-	command{"mkdir", "name", "Creates a new directory", 2,
-			[](const auto& keywords)
-			{
-				auto dir =
-					directory_ptr{open_dir_handle(get_current_dir(), 0)};
-				return !!find_path(dir.get(), keywords[1].data(),
-								   keywords[1].size(), FILE_CREATE, IS_DIR)
-						   ? 0
-						   : -1;
-			}},
-	command{"mem", "", "Shows the amount of free memory", 1,
-			[](const auto& keywords)
-			{
-				auto mem = get_free_memory();
-
-				printf("Free memory %u:\n", mem);
-
-				if(auto GiBs = (mem / 0x40000000) % 0x400)
-				{
-					printf("\t%d GiB(s)\n", GiBs);
-				}
-				if(auto MiBs = (mem / 0x100000) % 0x400)
-				{
-					printf("\t%d MiB(s)\n", MiBs);
-				}
-				if(auto KiBs = (mem / 0x400) % 0x400)
-				{
-					printf("\t%d KiB(s)\n", KiBs);
-				}
-				if(auto Bs = mem % 0x400)
-				{
-					printf("\t%d B(s)\n", Bs);
-				}
-				return 0;
-			}},
-	command{"mode", "width height", "Changes the display mode of the terminal",
-			3,
-			[](const auto& keywords)
-			{
-				unsigned int width = 0;
-				std::from_chars(keywords[1].cbegin(), keywords[1].cend(),
-								width);
-				unsigned int height = 0;
-				std::from_chars(keywords[2].cbegin(), keywords[2].cend(),
-								height);
-
-				if(get_terminal().set_mode(width, height) == 0)
+					printf("%u\n", time(nullptr));
+					return 0;
+				}},
+		command{"cls", "", "Clears the terminal", 1,
+				[](const auto& keywords)
 				{
 					clear_console();
-				}
-				else
+					return 0;
+				}},
+		command{"cd", "directory", "Changes the current directory", 2,
+				[](const auto& keywords)
 				{
-					printf("Unable to set mode\n");
+					const auto& path = keywords[1];
+
+					auto dir =
+						directory_ptr{open_dir_handle(get_current_dir(), 0)};
+
+					file_info file;
+					file_h f_handle{
+						find_path(dir.get(), path.data(), path.size(), 0, 0)};
+
+					if(f_handle == nullptr)
+					{
+						print_strings("Could not find path ", path, '\n');
+						return -1;
+					}
+
+					if(get_file_info(&file, f_handle.get()) != 0 ||
+					   !(file.flags & IS_DIR))
+					{
+						print_strings(path);
+						printf(" is not a valid directory\n");
+						return -1;
+					}
+
+					current_path.assign(file.name, file.name_len);
+					current_directory = std::move(f_handle);
+					return 1;
+				}},
+		command{"dir", "[directory]", "Lists a directory", 1,
+				[](const auto& keywords)
+				{
+					if(keywords.size() > 1)
+					{
+						auto dir = directory_ptr{
+							open_dir_handle(get_current_dir(), 0)};
+						file_h list_dir{find_path(dir.get(), keywords[1].data(),
+												  keywords[1].size(), 0, 0)};
+
+						list_directory(list_dir.get());
+					}
+					else
+					{
+						list_directory(get_current_dir());
+					}
+					return 0;
+				}},
+		command{"copy", "source destination", "Copies a file", 3,
+				[](const auto& keywords)
+				{
+					auto dir =
+						directory_ptr{open_dir_handle(get_current_dir(), 0)};
+
+					const auto& src = keywords[1];
+					const auto& dst = keywords[2];
+					file_info file;
+					auto src_handle = find_file_in_dir(dir.get(), &file, src);
+					if(!src_handle)
+					{
+						print_strings("Could not find source file ", src, '\n');
+						return -1;
+					}
+
+					auto src_stream =
+						file_ptr{open_file_handle(src_handle.get(), 0)};
+					if(!src_stream)
+					{
+						print_strings("Could not find open source file ", src,
+									  '\n');
+						return -1;
+					}
+
+					auto dst_stream =
+						file_ptr{open(dir.get(), dst.data(), dst.size(),
+									  FILE_WRITE | FILE_CREATE)};
+					if(!dst_stream)
+					{
+						print_strings("Could not create destination file ", dst,
+									  '\n');
+						return -1;
+					}
+
+					auto dataBuf = std::make_unique<char[]>(file.size);
+
+					read(&dataBuf[0], file.size, src_stream.get());
+					write(&dataBuf[0], file.size, dst_stream.get());
+
+					return 0;
+				}},
+		command{"delete", "target", "Deletes a file", 2,
+				[](const auto& keywords)
+				{
+					auto dir =
+						directory_ptr{open_dir_handle(get_current_dir(), 0)};
+
+					file_h f_handle{find_path(dir.get(), keywords[1].data(),
+											  keywords[1].size(), 0, 0)};
+					if(!f_handle)
+					{
+						print_strings("Could not find file ", keywords[1],
+									  '\n');
+						return -1;
+					}
+
+					if(delete_file(f_handle.get()) != 0)
+					{
+						print_strings("Could not delete file ", keywords[1],
+									  '\n');
+					}
+					return 0;
+				}},
+		command{"type", "target", "Writes a file to the terminal", 2,
+				[](const auto& keywords)
+				{
+					file_info file;
+					if(auto f_handle = find_file_in_dir(&file, keywords[1]))
+					{
+						auto fs = file_ptr{open_file_handle(f_handle.get(), 0)};
+						if(fs)
+						{
+							auto dataBuf = std::make_unique<char[]>(file.size);
+
+							read(&dataBuf[0], file.size, fs.get());
+
+							print_strings(&dataBuf[0], file.size);
+
+							putchar('\n');
+
+							return 0;
+						}
+					}
+					print_strings("Could not open file ", keywords[1], '\n');
 					return -1;
-				}
-				return 0;
-			}},
-	command{"help", "", "Displays the help for the shell", 1,
-			[](const auto& keywords)
-			{
-				print_help();
-				return 0;
-			}},
-};
+				}},
+		command{"mkdir", "name", "Creates a new directory", 2,
+				[](const auto& keywords)
+				{
+					auto dir =
+						directory_ptr{open_dir_handle(get_current_dir(), 0)};
+					return !!find_path(dir.get(), keywords[1].data(),
+									   keywords[1].size(), FILE_CREATE, IS_DIR)
+							   ? 0
+							   : -1;
+				}},
+		command{"mem", "", "Shows the amount of free memory", 1,
+				[](const auto& keywords)
+				{
+					auto mem = get_free_memory();
+
+					printf("Free memory %u:\n", mem);
+
+					if(auto GiBs = (mem / 0x40000000) % 0x400)
+					{
+						printf("\t%d GiB(s)\n", GiBs);
+					}
+					if(auto MiBs = (mem / 0x100000) % 0x400)
+					{
+						printf("\t%d MiB(s)\n", MiBs);
+					}
+					if(auto KiBs = (mem / 0x400) % 0x400)
+					{
+						printf("\t%d KiB(s)\n", KiBs);
+					}
+					if(auto Bs = mem % 0x400)
+					{
+						printf("\t%d B(s)\n", Bs);
+					}
+					return 0;
+				}},
+		command{"mode", "width height",
+				"Changes the display mode of the terminal", 3,
+				[](const auto& keywords)
+				{
+					unsigned int width = 0;
+					std::from_chars(keywords[1].cbegin(), keywords[1].cend(),
+									width);
+					unsigned int height = 0;
+					std::from_chars(keywords[2].cbegin(), keywords[2].cend(),
+									height);
+
+					if(get_terminal().set_mode(width, height) == 0)
+					{
+						clear_console();
+					}
+					else
+					{
+						printf("Unable to set mode\n");
+						return -1;
+					}
+					return 0;
+				}},
+		command{"help", "", "Displays the help for the shell", 1,
+				[](const auto& keywords)
+				{
+					print_help();
+					return 0;
+				}},
+	};
+	std::sort(arr.begin(), arr.end(),
+			  [](auto&& a, auto&& b) { return a.name < b.name; });
+	return arr;
+}();
 
 constinit auto& longest_name =
 	*std::max_element(builtin_commands.begin(), builtin_commands.end(),
@@ -353,17 +368,18 @@ command_result run_command(std::string_view keyword,
 						   std::vector<std::string_view>& args)
 {
 	if(auto it =
-		   std::find_if(aliases.cbegin(), aliases.cend(),
-						[keyword](auto&& c) { return c.name == keyword; });
-	   it != aliases.cend())
+		   std::lower_bound(aliases.cbegin(), aliases.cend(), keyword,
+							[](auto& c, auto val) { return c.name < val; });
+	   it != aliases.cend() && it->name == keyword)
 	{
 		keyword = it->alias_of;
 	}
 
 	if(auto it =
-		   std::find_if(builtin_commands.cbegin(), builtin_commands.cend(),
-						[keyword](auto&& c) { return c.name == keyword; });
-	   it != builtin_commands.cend())
+		   std::lower_bound(builtin_commands.cbegin(), builtin_commands.cend(),
+							keyword,
+							[](auto& c, auto val) { return c.name < val; });
+	   it != builtin_commands.cend() && it->name == keyword)
 	{
 		if(args.size() == 2 && (args[1] == "-help" || args[1] == "/?"))
 		{
