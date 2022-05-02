@@ -13,9 +13,14 @@ file_h find_file_in_dir(directory_stream* dir, file_info* f,
 file_h find_file_in_dir(file_info* f, const std::string_view name);
 
 template<typename... Args>
-inline void print_strings(Args... args)
+inline void print_strings(Args&&... args)
 {
-	(get_terminal().print(args), ...);
+	(get_terminal().print(std::forward<Args>(args)), ...);
+}
+
+inline void print_chars(char c, size_t num)
+{
+	get_terminal().print(c, num);
 }
 
 #endif

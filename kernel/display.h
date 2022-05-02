@@ -51,9 +51,9 @@ void print_string(char c);
 void print_string(std::string_view str);
 
 template<typename... Args>
-inline void print_strings(Args... args)
+inline void print_strings(Args&&... args)
 {
-	(print_string(args), ...);
+	(print_string(std::forward<Args>(args)), ...);
 }
 
 

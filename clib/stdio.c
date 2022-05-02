@@ -22,19 +22,6 @@
 2^32-1 in base 8 has 11 digits (add 5 for trailing NUL and for slop) */
 #define		PR_BUFLEN	16
 
-//char blank_get_func(FILE* stream){return 0;};
-//void blank_print_func(FILE* stream, const char* c){};
-//void blank_print_len_func(FILE* stream, const char* c, size_t n){};
-//void blank_print_c_func(FILE* stream, const char c){};
-//
-//int blank_close_func(FILE* stream){ return 0;};
-//
-//char _stdin_get_func(FILE* stream){ return keybuf_pop(); };
-//
-//void _stdout_print_func(FILE* stream, const char* c){ print_string(c); };
-//void _stdout_print_len_func(FILE* stream, const char* c, size_t n){ print_string_len(c, n); };
-//void _stdout_print_c_func(FILE* stream, const char c){ print_char(c); };
-//
 #ifndef __KERNEL
 
 struct FILE
@@ -48,8 +35,6 @@ struct FILE
 static FILE m_stdout = {NULL, NULL, NULL};
 
 static FILE* stdout = &m_stdout;
-//static FILE* stdin = NULL;
-//static FILE* stderr = NULL;
 
 void set_stdout(void (*write)(const char* buf, size_t size, void* impl))
 {
@@ -71,196 +56,6 @@ void file_write(const char* buf, size_t size, FILE* f)
 	print_string_len(buf, size);
 }
 #endif
-//
-//void copy_stream(FILE* dest, FILE* src)
-//{
-//	dest->eof_indicator		= src->eof_indicator;		
-//	dest->error_indicator 	= src->error_indicator; 	
-//	dest->data				= src->data;	
-//	
-//	dest->close_func        = src->close_func;
-//	dest->print_func		= src->print_func;		
-//	dest->print_len_func	= src->print_len_func;	
-//	dest->print_c_func		= src->print_c_func;	
-//	dest->get_c_func		= src->get_c_func;		
-//}
-//
-//int fflush(FILE* stream )
-//{
-//	return 0;
-//}
-//
-//char _rs232_get_func(FILE* stream)
-//{ 
-//	return rs232_read_byte(stream->data); 
-//}
-//void _rs232_print_func(FILE* stream, const char* c)
-//{ 
-//	rs232_send_string(stream->data, c); 
-//}
-//
-//void _rs232_print_len_func(FILE* stream, const char* c, size_t n)
-//{ 
-//	rs232_send_string_len(stream->data, c, n); 
-//}
-//
-//void _rs232_print_c_func(FILE* stream, const char c)
-//{ 
-//	rs232_send_byte(stream->data, c); 
-//}
-
-//struct _internal_FILE _internal_stdout = 	{
-//							.eof_indicator = 0, 	
-//							.error_indicator = 0,
-//							.print_func = &_stdout_print_func,
-//							.print_len_func = &_stdout_print_len_func,
-//							.print_c_func = &_stdout_print_c_func,
-//							.get_c_func = &blank_get_func,
-//							.close_func = &blank_close_func
-//						};
-//
-//struct _internal_FILE _internal_stdin = 	
-//{ 	
-//	.buf = NULL,
-//	.bufsize = 0,
-//	.readptr = 0,
-//	.writeptr = 0
-//};		
-
-
-//struct _internal_FILE _internal_stderr = 	{ 
-//							.eof_indicator = 0, 	
-//							.error_indicator = 0,
-//							.print_func = &_stdout_print_func,
-//							.print_len_func = &_stdout_print_len_func,
-//							.print_c_func = &_stdout_print_c_func,
-//							.get_c_func = &blank_get_func,
-//							.close_func = &blank_close_func
-//						};									
-//
-////template, do not use without setting data
-//struct _internal_FILE _internal_serial = 	{ 	
-//							.eof_indicator = 0, 
-//							.error_indicator = 0,
-//							.data = (size_t)NULL,
-//							.print_func = &_rs232_print_func,
-//							.print_len_func = &_rs232_print_len_func,
-//							.print_c_func = &_rs232_print_c_func,
-//							.get_c_func = &_rs232_get_func,
-//							.close_func = &blank_close_func
-//						};
-						
-//struct _internal_FILE* stdout = 	&_internal_stdout;
-//struct _internal_FILE* stdin = &_internal_stdin;
-//struct _internal_FILE* stderr = 	&_internal_stderr;
-
-FILE* fopen (const char * filename, const char * mode)
-{
-	//char* keyword = strtok(filename, ":,");
-	//
-	////check list of predefined files
-	////TODO: make this use a hashtable
-	//if(strcmp(keyword, "COM1") == 0)
-	//{
-	//	FILE* com1 = (FILE*)malloc(sizeof(FILE)); 
-	//	
-	//	copy_stream(com1, &_internal_serial);
-	//	
-	//	com1->data = COM1;
-	//	
-	//	rs232_init(COM1, 38400);
-	//	
-	//	return com1;
-	//}
-	//else if(strcmp(keyword, "COM2") == 0)
-	//{
-	//	FILE* com2 = (FILE*)malloc(sizeof(FILE)); 
-	//	
-	//	copy_stream(com2, &_internal_serial);
-	//	
-	//	com2->data = COM2;
-	//	
-	//	rs232_init(COM2, 38400);
-	//	
-	//	return com2;
-	//}
-	//else //look in the current directory
-	//{
-	//	
-	//}
-	
-	return NULL;
-}
-
-void clearerr(FILE* stream)
-{
-	//stream->error_indicator = 0;
-	//stream->eof_indicator = 0;
-}
-
-int feof(FILE* stream)
-{
-	return 0;//(int)stream->eof_indicator;
-}
-
-int ferror(FILE* stream)
-{
-	return 0;//(int)stream->error_indicator;
-}
-				
-char *gets_s(char *str, size_t length) //!safe version of gets, if you provide a valid length it will not overflow
-{
-	char *c = str;
-	
-	char* end = c + length - 1;
-	
-	for(; c < end; c++)
-	{
-		//*c = stdin->get_c_func(stdin);
-		if(*c == '\n') 
-		{
-			*c = '\0';
-			return str;
-		}
-	}
-	
-	*(end) = '\0';
-	return str;
-}
-
-char *gets(char *str) //blatantly unsafe function please do not use: BUFFER OVERFLOW!!!
-{
-	//char *c = str;
-	
-	//*c = stdin->get_c_func(stdin);
-	//while(*(c++) != '\n')
-	//{
-	//	*c = stdin->get_c_func(stdin);
-	//}
-	//*c = '\0';
-	
-	return str;
-}
-
-/*int fputc(int character, FILE * stream)
-{
-	if(stream == stdin)
-	{
-		//if(stdin->writeptr < stdin->bufsize)
-		//{
-		//	stdin->buf[stdin->writeptr++] = character;
-		//}
-		//else
-		//{
-		//	stdin->writeptr = 0;
-		//	stdin->readptr = 0;
-		//}
-	}
-	
-	//stream->print_c_func(stream, (unsigned char)character);
-	
-	return character;
-}*/
 
 int putchar(int character)
 {
@@ -270,21 +65,6 @@ int putchar(int character)
 
 	return character;
 }
-
-/*int getc(FILE* stream)
-{
-	if(stream == stdin)
-	{
-		return wait_and_getkey();
-	}
-	
-	return 0;//stream->get_c_func(stdin);
-}
-
-int getchar()
-{
-	return getc(stdin);//stdin->get_c_func(stdin);
-}*/
 
 #define WRITECHAR(c, m) if(count < (m - 1)) { *ptr++ = c; } count++;
 
@@ -587,9 +367,4 @@ int printf(const char* format, ...)
 	va_end(args);
 	
 	return len;
-}
-
-int fclose(FILE* stream)
-{
-	return 0;//stream->close_func(stream);
 }

@@ -15,6 +15,8 @@ extern "C" {
 #define _HAVE_SIZE_T
 typedef uint32_t size_t;
 
+typedef size_t ptrdiff_t;
+
 #ifdef __cplusplus
 }
 #endif

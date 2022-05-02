@@ -8,11 +8,9 @@
 //#include <stdlib.h>
 
 #include <string.h>
+#include <assert.h>
 
 #define VERSION 	"1.1j"
-
-#define ALIGN_TYPE		size_t ///unsigned char[16] /// unsigned short
-#define ALIGN_INFO		sizeof(ALIGN_TYPE)	///< Alignment information is stored right before the pointer. This is the number of bytes of information stored there.
 
 #define USE_CASE1
 #define USE_CASE2
@@ -20,19 +18,21 @@
 #define USE_CASE4
 #define USE_CASE5
 
+using align_t = size_t;
+
 // This will conveniently align our pointer upwards
 [[nodiscard]] static inline uintptr_t ALIGN(uintptr_t ptr, size_t alignment)
 {
 	if(alignment > 1)
 	{
-		ptr = ptr + ALIGN_INFO;
-		uintptr_t diff = (uintptr_t)ptr & (alignment - 1);
+		uintptr_t nptr = ptr + sizeof(align_t);
+		align_t diff   = (uintptr_t)nptr & (alignment - 1);
 		if(diff != 0)
 		{
-			diff = alignment - diff;
-			ptr = ptr + diff;
+			nptr = nptr + (alignment - diff);
 		}
-		*((ALIGN_TYPE*)(ptr - ALIGN_INFO)) = diff + ALIGN_INFO;
+		memcpy((void*)(nptr - sizeof(align_t)), &diff, sizeof(align_t));
+		return nptr;
 	}
 	return ptr;
 }
@@ -41,11 +41,13 @@
 {
 	if(alignment > 1)
 	{
-		uintptr_t diff = *((ALIGN_TYPE*)((uintptr_t)ptr - ALIGN_INFO));
-		if(diff < (alignment + ALIGN_INFO))
+		align_t diff; 
+		memcpy(&diff, (void*)(ptr - sizeof(align_t)), sizeof(align_t));
+		if(diff != 0)
 		{
-			return (uintptr_t)ptr - diff;
+			diff = alignment - diff;
 		}
+		return (uintptr_t)ptr - (diff + sizeof(align_t));
 	}
 	return ptr;
 }
@@ -195,7 +197,7 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 	// For alignment, we adjust size so there's enough space to align.
 	if(m_alignment > 1)
 	{
-		size += m_alignment + ALIGN_INFO;
+		size += sizeof(align_t) + (m_alignment - 1);
 	}
 	// So, ideally, we really want an alignment of 0 or 1 in order
 	// to save space.

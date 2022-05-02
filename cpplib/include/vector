@@ -42,7 +42,7 @@ public:
 		__value_init_range(m_begin, m_end, value);
 	}
 
-	~vector()
+	constexpr ~vector()
 	{
 		__destruct_range(m_begin, m_end);
 		__deallocate(m_begin);
@@ -239,38 +239,39 @@ public:
 	}
 
 private:
-	static T* __allocate(size_t size)
+	constexpr static T* __allocate(size_t size)
 	{
 		return (T*)::operator new(sizeof(T) * size);
 	}
 
-	static void __deallocate(T* ptr)
+	constexpr static void __deallocate(T* ptr)
 	{
 		::operator delete(ptr);
 	}
 
-	static void __destruct_range(iterator first, iterator last)
+	constexpr static void __destruct_range(iterator first, iterator last)
 	{
 		while(first != last)
 			(first++)->~T();
 	}
 
-	static void __move_init_range(iterator first, iterator last,
-								  iterator d_first)
+	constexpr static void __move_init_range(iterator first, iterator last,
+											iterator d_first)
 	{
 		while(first != last)
 			new(d_first++) T{std::move(*first++)};
 	}
 
-	static void __copy_init_range(const_iterator first, const_iterator last,
-								  iterator d_first)
+	constexpr static void __copy_init_range(const_iterator first,
+											const_iterator last,
+											iterator d_first)
 	{
 		while(first != last)
 			new(d_first++) T{*first++};
 	}
 
-	static void __value_init_range(iterator first, iterator last,
-								   const T& val)
+	constexpr static void __value_init_range(iterator first, iterator last,
+											 const T& val)
 	{
 		while(first != last)
 			new(first++) T{val};

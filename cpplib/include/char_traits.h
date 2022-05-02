@@ -29,18 +29,13 @@ public:
 		return c1 < c2;
 	}
 
-	static constexpr int compare(const char_type* s1, const char_type* s2, size_t n)
+	static constexpr int compare(const char_type* s1, const char_type* s2,
+								 size_t n)
 	{
-		for(size_t i = 0; i < n; ++i)
+		for(; n; --n, ++s1, ++s2)
 		{
-			if(lt(s1[i], s2[i]))
-			{
-				return -1;
-			}
-			else if(lt(s2[i], s1[i]))
-			{
-				return 1;
-			}
+			if(lt(*s1, *s2)) return -1;
+			if(lt(*s2, *s1)) return 1;
 		}
 		return 0;
 	}

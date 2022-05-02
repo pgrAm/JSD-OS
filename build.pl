@@ -25,7 +25,7 @@ my @driver_flags = (@kernel_flags, qw(-fPIC -fno-function-sections));
 my @shlib_flags = qw(-fPIC);
 my @user_flags = qw(-I api/ -nodefaultlibs);
 
-my @user_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -mllvm -align-all-nofallthru-blocks=2 -O2 --gc-sections);
+my @user_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -mllvm -align-all-nofallthru-blocks=2 -O2 --lto-O2 --gc-sections);
 my @shlib_ld_flags = qw(-O2 -shared --lto-O3 --gc-sections);
 my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O2 --gc-sections -T drivers/driver.ld);
 my @kernel_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a --lto-O2 -N -O2 -Ttext=0xF000 -T linker.ld -mllvm -align-all-nofallthru-blocks=2);
@@ -156,7 +156,6 @@ mkpath("$builddir/cdboot");
 system("$builddir/tools/rdfs", "configs/fdboot/init.sys", $drv_lib, $fat_drv, $floppy_drv, $kb_drv, $isa_dma, "-o", "$builddir/fdboot/init.rfs");
 mkpath("$builddir/netboot");
 system("$builddir/tools/rdfs", "configs/netboot/init.sys", $ps2mouse_drv, $i8042_drv, $listmode, $vesa_drv, $drv_lib, $kb_drv, $shell, $graphicstest, $clib, $terminal, "-o", "$builddir/netboot/init.rfs");
-
 
 system("nasm boot/boot_sect.asm -i boot -f bin -o $builddir/boot_sect.bin");
 
@@ -415,7 +414,7 @@ sub build {
 
 	if(!$static)
 	{
-		#system("strip --strip-unneeded $output_file");
+		system("strip --strip-unneeded $output_file");
 	}
 
 	return $output_file;

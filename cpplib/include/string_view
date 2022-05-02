@@ -23,7 +23,7 @@ public:
 	using const_reference = const value_type&;
 	using const_pointer = const value_type*;
 	using traits_type = char_traits<value_type>;
-	static const size_type npos = -1;
+	static constexpr size_type npos = -1;
 
 	constexpr basic_string_view() noexcept :
 		m_data(nullptr),
@@ -99,6 +99,7 @@ public:
 	{
 		size_type lhs_sz = size();
 		size_type rhs_sz = s.size();
+
 		int result = traits_type::compare(data(), s.data(), min(lhs_sz, rhs_sz));
 		if(result != 0)
 			return result;
@@ -123,12 +124,12 @@ public:
 
 	constexpr bool starts_with(value_type c) const noexcept
 	{
-		return front() == c;
+		return !empty() && front() == c;
 	}
 
 	constexpr bool ends_with(value_type c) const noexcept
 	{
-		return back() == c;
+		return !empty() && back() == c;
 	}
 
 	constexpr size_type find_first_of( basic_string_view str, 
@@ -206,6 +207,8 @@ private:
 	size_type m_size;
 };
 
+namespace std
+{
 template <typename C>
 constexpr inline bool operator==(const std::basic_string_view<C>& lhs,
 								 const std::basic_string_view<C>& rhs)
@@ -266,32 +269,32 @@ constexpr bool operator==(std::basic_string_view<C> lhs,
 
 template <typename C>
 constexpr bool operator==(const std::basic_string_view<C>& lhs,
-					   const typename std::basic_string_view<C>::value_type* rhs)
+						  const typename std::basic_string_view<C>::value_type* rhs)
 {
 	return lhs.compare(rhs) == 0;
 }
 
 template <typename C>
 constexpr bool operator!=(const std::basic_string_view<C>& lhs,
-					   const typename std::basic_string_view<C>::value_type* rhs)
+						  const typename std::basic_string_view<C>::value_type* rhs)
 {
 	return lhs.compare(rhs) != 0;
 }
 
 template <typename C>
 constexpr bool operator==(const typename std::basic_string_view<C>::value_type* lhs,
-					   const std::basic_string_view<C> rhs)
+						  const std::basic_string_view<C> rhs)
 {
 	return rhs.compare(lhs) == 0;
 }
 
 template <typename C>
 constexpr bool operator!=(const typename std::basic_string_view<C>::value_type* lhs,
-					   const std::basic_string_view<C> rhs)
+						  const std::basic_string_view<C> rhs)
 {
 	return rhs.compare(lhs) != 0;
 }
-namespace std {
+
 inline namespace literals {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wuser-defined-literals"

@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <new>
+#include <string>
 
 #include <terminal/terminal.h>
 
@@ -155,6 +156,16 @@ terminal::~terminal()
 	delete m_impl;
 }
 
+void terminal::print(int number)
+{
+	print(std::to_string(number));
+}
+
+void terminal::print(unsigned int number)
+{
+	print(std::to_string(number));
+}
+
 void terminal::set_cursor_pos(size_t x, size_t y)
 {
 	m_impl->set_cursor_pos(x, y);
@@ -170,12 +181,12 @@ void terminal::set_color(uint8_t bgr, uint8_t fgr, uint8_t bright)
 	m_impl->set_color(bgr, fgr, bright);
 }
 
-size_t terminal::cursor_pos()
+size_t terminal::cursor_pos() const
 {
 	return m_impl->m_state.cursor_pos;
 }
 
-uint8_t* terminal::get_underlying_buffer()
+uint8_t* terminal::get_underlying_buffer() const
 {
 	return (uint8_t*)m_impl->m_screen_ptr;
 }
@@ -195,6 +206,12 @@ void terminal::delete_chars(size_t num)
 void terminal::print(char c)
 {
 	print(&c, 1);
+}
+
+void terminal::print(char c, size_t num)
+{
+	while(num--)
+		print(&c, 1);
 }
 
 void terminal::print(const char* str, size_t length)
@@ -260,12 +277,12 @@ int terminal::set_mode(size_t width, size_t height)
 	return err;
 }
 
-size_t terminal::width()
+size_t terminal::width() const
 {
 	return m_impl->m_state.width;
 }
 
-size_t terminal::height()
+size_t terminal::height() const
 {
 	return m_impl->m_state.height;
 }

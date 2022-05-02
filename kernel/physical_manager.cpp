@@ -13,14 +13,6 @@ typedef struct
 
 #define MAX_NUM_MEMORY_BLOCKS 128
 
-template<class Input, class Output>
-Output* mem_copy(Input* first, Input* last, Output* d_first)
-requires(std::is_trivially_copyable_v<Input>)
-{
-	return (Output*)memcpy(d_first, first, (last - first)*sizeof(Input));
-	//return std::copy(first, last, d_first);
-}
-
 struct block_list
 {
 	using iterator = memory_block*;
@@ -52,7 +44,7 @@ struct block_list
 
 		if(it < (end() - 1))
 		{
-			mem_copy(it + 1, end(), it);
+			std::copy(it + 1, end(), it);
 		}
 		--num_blocks;
 	}

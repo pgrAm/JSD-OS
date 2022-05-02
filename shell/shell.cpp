@@ -7,6 +7,7 @@
 #include <keyboard.h>
 #include <sys/syscalls.h>
 
+#include <string_view>
 #include <string>
 #include <vector>
 #include <charconv>
@@ -33,7 +34,7 @@ static void select_drive(size_t index)
 {
 	drive_index = index;
 	current_path.clear();
-	current_directory = file_h{get_root_directory(drive_index)};
+	current_directory.reset(get_root_directory(drive_index));
 }
 
 file_h find_file_in_dir(directory_stream* dir, file_info* f,
@@ -73,7 +74,8 @@ void clear_console()
 	s_term.clear();
 }
 
-static std::vector<std::string_view> tokenize(std::string_view input, char delim)
+constexpr static std::vector<std::string_view> tokenize(std::string_view input,
+														char delim)
 {
 	std::vector<std::string_view> keywords;
 	size_t first = 0;
@@ -84,7 +86,7 @@ static std::vector<std::string_view> tokenize(std::string_view input, char delim
 		{
 			keywords.emplace_back(input.substr(first, second - first));
 		}
-		if(second == std::string_view::npos)
+		if(second == input.npos)
 		{
 			break;
 		}
@@ -93,10 +95,12 @@ static std::vector<std::string_view> tokenize(std::string_view input, char delim
 	return keywords;
 }
 
+using namespace std::literals;
+
+constexpr std::array drive_names = {"rd0"sv, "fd0"sv, "fd1"sv};
+
 static int execute_line(std::string_view current_line)
 {
-	using namespace std::literals;
-
 	std::vector<std::string_view> keywords = tokenize(current_line, ' ');
 
 	if(keywords.empty())
@@ -104,31 +108,31 @@ static int execute_line(std::string_view current_line)
 		return 0;
 	}
 
-	auto keyword = keywords[0];
+	const auto keyword = keywords[0];
 
-	auto cmd = run_command(keyword, keywords);
+	if(auto cmd = run_command(keyword, keywords); cmd.found)
+	{
+		return cmd.result;
+	}
+	else if(keyword.ends_with(':'))
+	{
+		const auto drive_cmd = keyword.substr(0, keyword.size() - 1);
 
-	if(cmd.found) return cmd.result;
-
-	if("rd0:"sv == keyword)
-	{
-		select_drive(0);
-	}
-	else if("fd0:"sv == keyword)
-	{
-		select_drive(1);
-	}
-	else if("fd1:"sv == keyword)
-	{
-		select_drive(2);
-	}
-	else if("drive:"sv == keyword)
-	{
-		if(keywords.size() > 1)
+		if(auto it =
+			   std::find(drive_names.begin(), drive_names.end(), drive_cmd);
+		   it != drive_names.end())
 		{
-			size_t drive = 0;
-			std::from_chars(keywords[1].cbegin(), keywords[1].cend(), drive);
-			select_drive(drive);
+			select_drive(it - drive_names.begin());
+		}
+		else if("drive"sv == drive_cmd)
+		{
+			if(keywords.size() > 1)
+			{
+				size_t drive = 0;
+				std::from_chars(keywords[1].cbegin(), keywords[1].cend(),
+								drive);
+				select_drive(drive);
+			}
 		}
 	}
 	else
@@ -138,18 +142,18 @@ static int execute_line(std::string_view current_line)
 		file_info file;
 		if(auto file_h = find_file_in_dir(dir.get(), &file, keyword))
 		{
-			std::string_view name = {file.name, file.name_len};
+			const std::string_view name{file.name, file.name_len};
 
-			if(auto dot = name.find('.'); dot != std::string_view::npos)
+			if(auto dot = name.find('.'); dot != name.npos)
 			{
-				std::string_view extension = name.substr(dot + 1);
+				const std::string_view extension = name.substr(dot + 1);
 
 				if(filesystem_names_identical("elf", extension))
 				{
 					file_info fi;
 					get_file_info(&fi, file_h.get());
 
-					auto mode = (keywords.back() == "&") ? 0 : WAIT_FOR_PROCESS;
+					auto mode = keywords.back().ends_with('&') ? 0 : WAIT_FOR_PROCESS;
 
 					spawn_process(file_h.get(), dir.get(), mode);
 					return 0;
@@ -180,7 +184,7 @@ static int execute_line(std::string_view current_line)
 			}
 		}
 
-		printf("File or Command not found\n");
+		print_strings("File or Command not found\n");
 		return -1;
 	}
 
@@ -214,25 +218,15 @@ static int get_command()
 					if(e.control_index == 0) // x axis
 					{
 						set_mouse_color(0);
-						cursor_x = (cursor_x + e.data);
-
-						if(cursor_x < 0)
-							cursor_x = 0;
-						else if(cursor_x >= s_term.width())
-							cursor_x = s_term.width() - 1;
-
+						cursor_x = std::clamp(cursor_x + e.data, 0,
+											  (int)s_term.width() - 1);
 						set_mouse_color(7);
 					}
 					else if(e.control_index == 1) // y axis
 					{
 						set_mouse_color(0);
-						cursor_y = (cursor_y + e.data);
-
-						if(cursor_y < 0)
-							cursor_y = 0;
-						else if(cursor_y >= s_term.height())
-							cursor_y = s_term.height() - 1;
-
+						cursor_y = std::clamp(cursor_y + e.data, 0,
+											  (int)s_term.height() - 1);
 						set_mouse_color(7);
 					}
 				}
@@ -247,13 +241,15 @@ static int get_command()
 							if(e.data == VK_UP)
 							{
 								if(history_index > 0)
-									command_buffer = command_history[--history_index];
+									--history_index;
 							}
 							else
 							{
 								if(history_index < (command_history.size() - 1))
-									command_buffer = command_history[++history_index];
+									++history_index;
 							}
+
+							command_buffer = command_history[history_index];
 
 							s_term.print(command_buffer);
 						}
@@ -286,18 +282,14 @@ static int get_command()
 		}
 	}
 
-	command_history.push_back(command_buffer);
+	command_history.emplace_back(std::move(command_buffer));
 
-	return execute_line(command_buffer);
+	return execute_line(command_history.back());
 }
-
-using namespace std::literals;
-
-constexpr std::array drive_names = {"rd0"sv, "fd0"sv, "fd1"sv};
 
 static void prompt()
 {
-	char prompt_char = ']';
+	constexpr char prompt_char = ']';
 
 	std::string_view drive = "?";
 	if(drive_index < drive_names.size())
@@ -305,24 +297,17 @@ static void prompt()
 		drive = drive_names[drive_index];
 	}
 
-	print_strings("\x1b[32;22m", drive, "\x1b[37m ");
-	printf("%u", drive_index);
-	print_strings(":/", current_path, prompt_char);
+	print_strings("\x1b[32;22m", drive, "\x1b[37m ", drive_index, ":/",
+				  current_path, prompt_char);
 }
 
 static void splash_text(int w)
 {
-	print_strings("***");
-	for(int i = 3; i < ((w / 2) - 3); i++)
-	{
-		print_strings(' ');
-	}
+	print_chars('*', 3);
+	print_chars(' ', ((w / 2) - 6));
 	print_strings("JSD/OS");
-	for(int i = 3; i < ((w / 2) - 3); i++)
-	{
-		print_strings(' ');
-	}
-	print_strings("***");
+	print_chars(' ', ((w / 2) - 6));
+	print_chars('*', 3);
 }
 
 int main(int argc, char** argv)
@@ -336,21 +321,18 @@ int main(int argc, char** argv)
 
 	time_t t_time = time(nullptr);
 
-	printf("UTC Time: %s\n", asctime(gmtime(&t_time)));
-
-	printf("EPOCH TIME: %u\n", t_time);
-
-	printf("EST Time: %s\n", ctime(&t_time));
+	print_strings("UTC Time: ", asctime(gmtime(&t_time)), '\n');
+	print_strings("EPOCH TIME: ", (size_t)t_time, '\n');
+	print_strings("EST Time: ", ctime(&t_time), '\n');
 
 	//printf("t=%u\n", clock_ticks(nullptr));
 
-	current_directory = file_h{get_root_directory(drive_index)};
+	current_directory.reset(get_root_directory(drive_index));
 
 	if(current_directory == nullptr)
 	{
-		print_strings("Could not mount root directory for drive ");
-		printf("%d", drive_index);
-		print_strings(drive_names[drive_index], '\n');
+		print_strings("Could not mount root directory for drive ", drive_index, ' ',
+					  drive_names[drive_index], '\n');
 	}
 
 	for(;;)

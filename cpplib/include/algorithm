@@ -7,7 +7,7 @@
 
 namespace std
 {
-template<class InputIt, class OutputIt>
+template<typename InputIt, typename OutputIt>
 constexpr OutputIt copy(InputIt first, InputIt last, OutputIt d_first)
 {
 	while(first != last)
@@ -17,7 +17,7 @@ constexpr OutputIt copy(InputIt first, InputIt last, OutputIt d_first)
 	return d_first;
 }
 
-template<class BidirIt1, class BidirIt2>
+template<typename BidirIt1, typename BidirIt2>
 constexpr BidirIt2 copy_backward(BidirIt1 first, BidirIt1 last, BidirIt2 d_last)
 {
 	while(first != last)
@@ -27,7 +27,7 @@ constexpr BidirIt2 copy_backward(BidirIt1 first, BidirIt1 last, BidirIt2 d_last)
 	return d_last;
 }
 
-template<class InputIt, class OutputIt, class UnaryPredicate>
+template<typename InputIt, typename OutputIt, typename UnaryPredicate>
 constexpr OutputIt copy_if(InputIt first, InputIt last, OutputIt d_first,
 						   UnaryPredicate pred)
 {
@@ -39,7 +39,7 @@ constexpr OutputIt copy_if(InputIt first, InputIt last, OutputIt d_first,
 	return d_first;
 }
 
-template<class InputIt, class OutputIt>
+template<typename InputIt, typename OutputIt>
 constexpr OutputIt move(InputIt first, InputIt last, OutputIt d_first)
 {
 	while(first != last)
@@ -49,7 +49,7 @@ constexpr OutputIt move(InputIt first, InputIt last, OutputIt d_first)
 	return d_first;
 }
 
-template<class BidirIt1, class BidirIt2>
+template<typename BidirIt1, typename BidirIt2>
 constexpr BidirIt2 move_backward(BidirIt1 first, BidirIt1 last, BidirIt2 d_last)
 {
 	while(first != last)
@@ -59,7 +59,7 @@ constexpr BidirIt2 move_backward(BidirIt1 first, BidirIt1 last, BidirIt2 d_last)
 	return d_last;
 }
 
-template<class ForwardIt, class T>
+template<typename ForwardIt, typename T>
 constexpr void fill(ForwardIt first, ForwardIt last, const T& value)
 {
 	for(; first != last; ++first)
@@ -68,7 +68,7 @@ constexpr void fill(ForwardIt first, ForwardIt last, const T& value)
 	}
 }
 
-template<class InputIt1, class InputIt2, class BinaryPredicate>
+template<typename InputIt1, typename InputIt2, typename BinaryPredicate>
 constexpr bool equal(InputIt1 first1, InputIt1 last1, InputIt2 first2,
 					 BinaryPredicate p)
 {
@@ -82,25 +82,37 @@ constexpr bool equal(InputIt1 first1, InputIt1 last1, InputIt2 first2,
 	return true;
 }
 
-template<class T>
+template<typename T>
 constexpr const T& min(const T& a, const T& b)
 {
 	return (b < a) ? b : a;
 }
 
-template<class T>
+template<typename T>
 constexpr const T& max(const T& a, const T& b)
 {
 	return (b > a) ? b : a;
 }
 
-template<class T, class Compare>
+template<typename T, typename Compare>
 constexpr const T& min(const T& a, const T& b, Compare comp)
 {
 	return (comp(b, a)) ? b : a;
 }
 
-template<class InputIt, class T>
+template<typename T, typename Compare>
+constexpr const T& clamp(const T& v, const T& lo, const T& hi, Compare cmp)
+{
+	return cmp(v, lo) ? lo : cmp(hi, v) ? hi : v;
+}
+
+template<typename T>
+constexpr const T& clamp(const T& v, const T& lo, const T& hi)
+{
+	return clamp(v, lo, hi, less<T>{});
+}
+
+template<typename InputIt, typename T>
 constexpr InputIt find(InputIt first, InputIt last, const T& value)
 {
 	for(; first != last; ++first)
@@ -113,7 +125,7 @@ constexpr InputIt find(InputIt first, InputIt last, const T& value)
 	return last;
 }
 
-template<class InputIt, class UnaryPredicate>
+template<typename InputIt, typename UnaryPredicate>
 constexpr InputIt find_if(InputIt first, InputIt last, UnaryPredicate p)
 {
 	for(; first != last; ++first)
@@ -126,7 +138,7 @@ constexpr InputIt find_if(InputIt first, InputIt last, UnaryPredicate p)
 	return last;
 }
 
-template<class InputIt, class UnaryPredicate>
+template<typename InputIt, typename UnaryPredicate>
 constexpr InputIt find_if_not(InputIt first, InputIt last, UnaryPredicate q)
 {
 	for(; first != last; ++first)
@@ -139,7 +151,7 @@ constexpr InputIt find_if_not(InputIt first, InputIt last, UnaryPredicate q)
 	return last;
 }
 
-template<class ForwardIt>
+template<typename ForwardIt>
 constexpr ForwardIt max_element(ForwardIt first, ForwardIt last)
 {
 	if(first == last) return last;
@@ -156,7 +168,7 @@ constexpr ForwardIt max_element(ForwardIt first, ForwardIt last)
 	return largest;
 }
 
-template<class ForwardIt, class Compare>
+template<typename ForwardIt, typename Compare>
 constexpr ForwardIt max_element(ForwardIt first, ForwardIt last, Compare comp)
 {
 	if(first == last) return last;
@@ -173,7 +185,7 @@ constexpr ForwardIt max_element(ForwardIt first, ForwardIt last, Compare comp)
 	return largest;
 }
 
-template<class ForwardIt, class T>
+template<typename ForwardIt, typename T>
 constexpr ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T& value)
 {
 	ForwardIt it;
@@ -196,7 +208,7 @@ constexpr ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T& value)
 	return first;
 }
 
-template<class ForwardIt, class T, class Compare>
+template<typename ForwardIt, typename T, typename Compare>
 constexpr ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T& value,
 								Compare cmp)
 {
@@ -220,13 +232,13 @@ constexpr ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T& value,
 	return first;
 }
 
-template<class ForwardIt1, class ForwardIt2>
+template<typename ForwardIt1, typename ForwardIt2>
 constexpr void iter_swap(ForwardIt1 a, ForwardIt2 b) 
 {
 	std::swap(*a, *b);
 }
 
-template<class ForwardIt, class UnaryPredicate>
+template<typename ForwardIt, typename UnaryPredicate>
 constexpr ForwardIt partition(ForwardIt first, ForwardIt last, UnaryPredicate p)
 {
 	first = find_if_not(first, last, p);
@@ -245,7 +257,7 @@ constexpr ForwardIt partition(ForwardIt first, ForwardIt last, UnaryPredicate p)
 
 namespace __pvt
 {
-template<class It, class Compare = less<>>
+template<typename It, typename Compare = less<>>
 constexpr void quick_sort(It first, It last, Compare cmp = Compare{})
 {
 	auto N = distance(first, last);
@@ -261,7 +273,7 @@ constexpr void quick_sort(It first, It last, Compare cmp = Compare{})
 	quick_sort(middle2, last, cmp);
 }
 }
-template<class RandomIt, class Compare>
+template<typename RandomIt, typename Compare>
 constexpr void sort(RandomIt first, RandomIt last, Compare cmp)
 {
 	__pvt::quick_sort(first, last, cmp);

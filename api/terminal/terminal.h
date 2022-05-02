@@ -33,20 +33,26 @@ public:
 
 	void set_color(uint8_t bgr, uint8_t fgr, uint8_t bright);
 
-	size_t cursor_pos();
+	size_t cursor_pos() const;
 
 	void delete_chars(size_t num);
 
 	void print(const char* str, size_t length);
 
-	inline void print(std::string_view name)
+	inline void print(std::string_view text)
 	{
-		print(name.data(), name.size());
+		print(text.data(), text.size());
 	}
 
 	void print(char c);
 
-	uint8_t* get_underlying_buffer();
+	void print(int number);
+
+	void print(unsigned int number);
+
+	void print(char c, size_t num);
+
+	uint8_t* get_underlying_buffer() const;
 
 	void clear();
 	void clear_row(size_t row);
@@ -54,8 +60,8 @@ public:
 
 	int set_mode(size_t width, size_t height);
 
-	size_t width();
-	size_t height();
+	size_t width() const;
+	size_t height() const;
 
 private:
 	class impl;

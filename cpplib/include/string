@@ -30,7 +30,7 @@ public:
 	constexpr basic_string() noexcept
 	{
 		__set_short_size(0);
-		m_rep.s.data[0] = '\0';
+		m_rep.s.data[0] = value_type();
 		assert(!__is_long());
 	}
 
@@ -47,14 +47,14 @@ public:
 			m_rep.l.data = new value_type[new_cap];
 			__set_long_cap(new_cap);
 			memcpy(m_rep.l.data, s, len * sizeof(value_type));
-			m_rep.l.data[len] = '\0';
+			m_rep.l.data[len] = value_type();
 			assert(__is_long());
 		}
 		else
 		{
 			__set_short_size(len);
 			memcpy(&m_rep.s.data[0], s, len * sizeof(value_type));
-			m_rep.s.data[len] = '\0';
+			m_rep.s.data[len] = value_type();
 			assert(!__is_long());
 		}
 	}
@@ -75,7 +75,7 @@ public:
 		{
 			m_rep.l = str.m_rep.l;
 			str.__set_short_size(0);
-			str.m_rep.s.data[0] = '\0';
+			str.m_rep.s.data[0] = value_type();
 			assert(__is_long());
 			assert(!str.__is_long());
 		}
@@ -90,7 +90,7 @@ public:
 	{
 		const auto new_size = traits_type::length(s);
 		reserve(new_size);
-		__copy_from_null_terminated_string(s, new_size);
+		__copy_from_terminated_string(s, new_size);
 
 		return *this;
 	}
@@ -107,8 +107,7 @@ public:
 	{
 		const auto new_size = str.size();
 		reserve(new_size);
-
-		__copy_from_null_terminated_string(str.data(), new_size);
+		__copy_from_terminated_string(str.data(), new_size);
 
 		return *this;
 	}
@@ -169,7 +168,7 @@ public:
 	{
 		if(!str.__is_long())
 		{
-			__copy_from_null_terminated_string(str.data(), str.size());
+			__copy_from_terminated_string(str.data(), str.size());
 		}
 		else if(__is_long())
 		{
@@ -179,7 +178,7 @@ public:
 		{
 			m_rep.l = str.m_rep.l;
 			str.__set_short_size(0);
-			str.m_rep.s.data[0] = '\0';
+			str.m_rep.s.data[0] = value_type();
 			assert(__is_long());
 		}
 		return *this;
@@ -256,20 +255,7 @@ public:
 	{
 		if(n > capacity())
 		{
-			const auto old_size = size();
-			const auto new_cap = n + 1;
-			value_type* new_ptr = new value_type[new_cap];
-			memcpy(new_ptr, cbegin(), (old_size + 1) * sizeof(value_type));
-
-			if(__is_long())
-			{
-				delete[] m_rep.l.data;
-			}
-
-			m_rep.l.data = new_ptr;
-			m_rep.l.size = old_size;
-			__set_long_cap(new_cap);
-			assert(__is_long());
+			__reallocate(n);
 		}
 	}
 
@@ -297,13 +283,13 @@ public:
 		if(__is_long())
 		{
 			m_rep.l.data[m_rep.l.size++] = c;
-			m_rep.l.data[m_rep.l.size] = '\0';
+			m_rep.l.data[m_rep.l.size]	 = value_type();
 		}
 		else
 		{
 			m_rep.s.data[__get_short_size()] = c;
 			m_rep.s.inv_sz--;
-			m_rep.s.data[__get_short_size()] = '\0';
+			m_rep.s.data[__get_short_size()] = value_type();
 		}
 	}
 
@@ -316,16 +302,7 @@ public:
 		}
 		assert(new_size <= capacity());
 		memcpy(end(), str, count * sizeof(value_type));
-		if(__is_long())
-		{
-			m_rep.l.size = new_size;
-			m_rep.l.data[new_size] = '\0';
-		}
-		else
-		{
-			__set_short_size(new_size);
-			m_rep.s.data[new_size] = '\0';
-		}
+		__terminate_at(new_size);
 		return *this;
 	}
 
@@ -405,17 +382,17 @@ public:
 		{
 			m_rep.s.inv_sz++;
 		}
-		*end() = '\0';
+		*end() = value_type();
 	}
 
 	constexpr bool starts_with(value_type c) const noexcept
 	{
-		return front() == c;
+		return !empty() && front() == c;
 	}
 
 	constexpr bool ends_with(value_type c) const noexcept
 	{
-		return back() == c;
+		return !empty() && back() == c;
 	}
 
 	constexpr basic_string substr(size_t pos = 0, size_t count = npos) const
@@ -491,68 +468,85 @@ public:
 		if(__is_long())
 		{
 			m_rep.l.size = 0;
-			m_rep.l.data[0] = '\0';
+			m_rep.l.data[0] = value_type();
 		}
 		else
 		{
 			__set_short_size(0);			
-			m_rep.s.data[0] = '\0';
+			m_rep.s.data[0] = value_type();
 		}
 	}
 
 	constexpr void resize(size_t n)
 	{
-		reserve(n);
 		if(n > size())
 		{
-			memset(end(), '\0', n - size());
+			reserve(n);
+			memset(end(), value_type(), (n - size()) * sizeof(value_type));
 		}
-		if(__is_long())
-		{
-			m_rep.l.size = n;
-			m_rep.l.data[n] = '\0';
-		}
-		else
-		{
-			__set_short_size(n);
-			m_rep.s.data[n] = '\0';
-		}
+
+		__terminate_at(n);
 	}
 
 private:
 
-	constexpr void __copy_from_null_terminated_string(const value_type* data, size_type new_size) noexcept
+	constexpr void __reallocate(size_t n) __attribute__((noinline))
 	{
-		assert(capacity() >= new_size);
+		const auto old_size = size();
+		const auto new_cap	= n + 1;
+		value_type* new_ptr = new value_type[new_cap];
+		memcpy(new_ptr, cbegin(), (old_size + 1) * sizeof(value_type));
+
 		if(__is_long())
 		{
-			m_rep.l.size = new_size;
-			memcpy(m_rep.l.data, data, (new_size + 1) * sizeof(value_type));
-			assert(__is_long());
+			delete[] m_rep.l.data;
 		}
-		else
-		{
-			__set_short_size(new_size);
-			memcpy(&m_rep.s.data[0], data, (new_size + 1) * sizeof(value_type));
-			assert(!__is_long());
-		}
+
+		m_rep.l.data = new_ptr;
+		m_rep.l.size = old_size;
+		__set_long_cap(new_cap);
+		assert(__is_long());
 	}
 
-	constexpr void __copy_from_unterminated_string(const value_type* data, size_type new_size) noexcept
+	constexpr void __copy_from_terminated_string(const value_type* str,
+												 size_type new_size) noexcept
 	{
 		assert(capacity() >= new_size);
+		value_type* const dst = begin();
 		if(__is_long())
 		{
 			m_rep.l.size = new_size;
-			memcpy(m_rep.l.data, data, new_size * sizeof(value_type));
-			m_rep.l.data[new_size] = '\0';
 			assert(__is_long());
 		}
 		else
 		{
 			__set_short_size(new_size);
-			memcpy(&m_rep.s.data[0], data, new_size * sizeof(value_type));
-			m_rep.s.data[new_size] = '\0';
+			assert(!__is_long());
+		}
+		memcpy(dst, str, (new_size + 1) * sizeof(value_type));
+	}
+
+	constexpr void __copy_from_unterminated_string(const value_type* str,
+												   size_type new_size) noexcept
+	{
+		assert(capacity() >= new_size);
+		value_type* const dst = begin();
+		__terminate_at(new_size);
+		memcpy(dst, str, new_size * sizeof(value_type));
+	}
+
+	constexpr void __terminate_at(size_t n)
+	{
+		if(__is_long())
+		{
+			m_rep.l.size	= n;
+			m_rep.l.data[n] = value_type();
+			assert(__is_long());
+		}
+		else
+		{
+			__set_short_size(n);
+			m_rep.s.data[n] = value_type();
 			assert(!__is_long());
 		}
 	}
@@ -622,7 +616,10 @@ private:
 	__rep m_rep;
 };
 
-template <typename C>
+namespace std
+{
+
+template<typename C>
 constexpr std::basic_string<C> operator+(const std::basic_string<C>& lhs,
 										 const std::basic_string<C>& rhs)
 {
@@ -631,41 +628,39 @@ constexpr std::basic_string<C> operator+(const std::basic_string<C>& lhs,
 	return r;
 }
 
-template <typename C>
+template<typename C>
 constexpr bool operator==(const std::basic_string<C>& lhs,
 						  const std::basic_string<C>& rhs)
 {
-	if(lhs.size() != rhs.size())
-		return false;
+	if(lhs.size() != rhs.size()) return false;
 	return lhs.compare(rhs) == 0;
 }
 
-template <typename C>
+template<typename C>
 constexpr bool operator!=(const std::basic_string<C>& lhs,
-					   const std::basic_string<C>& rhs)
+						  const std::basic_string<C>& rhs)
 {
-	if(lhs.size() != rhs.size())
-		return true;
+	if(lhs.size() != rhs.size()) return true;
 	return lhs.compare(rhs) != 0;
 }
 
-template <typename C>
+template<typename C>
 constexpr bool operator==(const std::basic_string<C>& lhs,
-					   const typename std::basic_string<C>::value_type* rhs)
+						  const typename std::basic_string<C>::value_type* rhs)
 {
 	return lhs.compare(rhs) == 0;
 }
 
-template <typename C>
+template<typename C>
 constexpr bool operator!=(const std::basic_string<C>& lhs,
-					   const typename std::basic_string<C>::value_type* rhs)
+						  const typename std::basic_string<C>::value_type* rhs)
 {
 	return lhs.compare(rhs) != 0;
 }
 
-template <typename C>
+template<typename C>
 constexpr bool operator==(const typename std::basic_string<C>::value_type* lhs,
-					   const std::basic_string<C>& rhs)
+						  const std::basic_string<C>& rhs)
 {
 	return rhs.compare(lhs) == 0;
 }
@@ -694,6 +689,15 @@ operator+(const std::basic_string<C>& lhs,
 	auto new_str = lhs;
 	new_str.push_back(rhs);
 	return new_str;
+}
+
+std::string to_string(int value);
+std::string to_string(long value);
+std::string to_string(long long value);
+std::string to_string(unsigned value);
+std::string to_string(unsigned long value);
+std::string to_string(unsigned long long value);
+
 }
 #endif
 

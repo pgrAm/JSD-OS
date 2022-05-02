@@ -86,22 +86,20 @@ int strcasecmp(const char* s1, const char* s2)
 //    return dest;
 //}
 
-int memcmp (const void * ptr1, const void * ptr2, size_t num)
+int memcmp(const void* ptr1, const void* ptr2, size_t num)
 {
+	if(!num) return 0;
+
 	const unsigned char* ptra = (const unsigned char*)ptr1;
 	const unsigned char* ptrb = (const unsigned char*)ptr2;
 
-    while(num--) 
+	while(--num && *ptra == *ptrb)
 	{
-		unsigned char result = *ptra++ - *ptrb++;
+		ptra++;
+		ptrb++;
+	}
 
-		if(result != 0)
-		{
-			return result;
-		}
-    }
-	
-    return 0;
+	return (*((unsigned char*)ptra) - *((unsigned char*)ptrb));
 }
 
 /*

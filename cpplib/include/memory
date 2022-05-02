@@ -3,56 +3,92 @@
 
 #include <type_traits>
 #include <functional>
+namespace std
+{
 
 namespace __pvt
 {
-template <typename T, bool>
-struct dependent_type : public T {};
+template<typename T, bool>
+struct dependent_type : public T
+{
+};
 
-struct default_init_tag {};
-struct value_init_tag {};
+struct default_init_tag
+{
+};
+struct value_init_tag
+{
+};
 
-template <typename T, int Index, bool EmptyBase = std::is_empty_v<T> && !std::is_final_v<T>>
+template<typename T, int Index,
+		 bool EmptyBase = std::is_empty_v<T> && !std::is_final_v<T>>
 struct compressed_pair_element
 {
-	using reference = T&;
+	using reference		  = T&;
 	using const_reference = const T&;
 
-	constexpr explicit compressed_pair_element(default_init_tag) {}
-	constexpr explicit compressed_pair_element(value_init_tag) : value() {}
+	constexpr explicit compressed_pair_element(default_init_tag)
+	{
+	}
+	constexpr explicit compressed_pair_element(value_init_tag) : value()
+	{
+	}
 
-	template <typename U, typename = std::enable_if_t<!std::is_same_v<compressed_pair_element, std::decay_t<U>>>>
-	constexpr explicit compressed_pair_element(U&& u)
-		: value(std::forward<U>(u)) {}
+	template<typename U, typename = std::enable_if_t<!std::is_same_v<
+							 compressed_pair_element, std::decay_t<U>>>>
+	constexpr explicit compressed_pair_element(U&& u) :
+		value(std::forward<U>(u))
+	{
+	}
 
-	constexpr reference get() noexcept { return value; }
-	constexpr const_reference get() const noexcept { return value; }
+	constexpr reference get() noexcept
+	{
+		return value;
+	}
+	constexpr const_reference get() const noexcept
+	{
+		return value;
+	}
 
 private:
 	T value;
 };
 
-template <typename T, int Idx>
-struct compressed_pair_element<T, Idx, true> : private T {
-	using reference = T&;
+template<typename T, int Idx>
+struct compressed_pair_element<T, Idx, true> : private T
+{
+	using reference		  = T&;
 	using const_reference = const T&;
-	using value_type = T;
+	using value_type	  = T;
 
 	constexpr explicit compressed_pair_element() = default;
-	constexpr explicit compressed_pair_element(default_init_tag) {}
-	constexpr explicit compressed_pair_element(value_init_tag) : value_type() {}
+	constexpr explicit compressed_pair_element(default_init_tag)
+	{
+	}
+	constexpr explicit compressed_pair_element(value_init_tag) : value_type()
+	{
+	}
 
-	template <typename U, typename = std::enable_if_t<!std::is_same_v<compressed_pair_element, std::decay_t<U>>>>
-	constexpr explicit compressed_pair_element(U&& u) : value_type(std::forward<U>(u)) {}
+	template<typename U, typename = std::enable_if_t<!std::is_same_v<
+							 compressed_pair_element, std::decay_t<U>>>>
+	constexpr explicit compressed_pair_element(U&& u) :
+		value_type(std::forward<U>(u))
+	{
+	}
 
-	constexpr reference get() noexcept { return *this; }
-	constexpr const_reference get() const noexcept { return *this; }
+	constexpr reference get() noexcept
+	{
+		return *this;
+	}
+	constexpr const_reference get() const noexcept
+	{
+		return *this;
+	}
 };
 
-template <typename T1, typename T2>
-class compressed_pair 
-	: private compressed_pair_element<T1, 0>
-	, private compressed_pair_element<T2, 1>
+template<typename T1, typename T2>
+class compressed_pair : private compressed_pair_element<T1, 0>,
+						private compressed_pair_element<T2, 1>
 {
 public:
 	static_assert(!std::is_same_v<T1, T2>);
@@ -60,21 +96,26 @@ public:
 	using elem0_t = compressed_pair_element<T1, 0>;
 	using elem1_t = compressed_pair_element<T2, 1>;
 
-	template <typename = std::enable_if_t<
-		std::is_default_constructible_v<T1> &&
-		std::is_default_constructible_v<T2>>>
-	constexpr explicit compressed_pair()
-		: elem0_t(value_init_tag()), elem1_t(value_init_tag()) 
-	{}
+	template<typename = std::enable_if_t<std::is_default_constructible_v<T1> &&
+										 std::is_default_constructible_v<T2>>>
+	constexpr explicit compressed_pair() :
+		elem0_t(value_init_tag()), elem1_t(value_init_tag())
+	{
+	}
 
-	template <typename U1, typename U2>
-	constexpr explicit compressed_pair(U1&& t1, U2&& t2) 
-		: elem0_t(std::forward<U1>(t1)), elem1_t(std::forward<U2>(t2)) {}
+	template<typename U1, typename U2>
+	constexpr explicit compressed_pair(U1&& t1, U2&& t2) :
+		elem0_t(std::forward<U1>(t1)), elem1_t(std::forward<U2>(t2))
+	{
+	}
 
-	template <typename U>
-	constexpr explicit compressed_pair(U&& t1) : elem0_t(std::forward<U>(t1)), elem1_t(value_init_tag()) {}
+	template<typename U>
+	constexpr explicit compressed_pair(U&& t1) :
+		elem0_t(std::forward<U>(t1)), elem1_t(value_init_tag())
+	{
+	}
 
-	constexpr  typename elem0_t::reference first() noexcept
+	constexpr typename elem0_t::reference first() noexcept
 	{
 		return static_cast<elem0_t&>(*this).get();
 	}
@@ -94,8 +135,8 @@ public:
 		return static_cast<elem1_t const&>(*this).get();
 	}
 
-	constexpr void swap(compressed_pair& x)
-		noexcept(std::is_nothrow_swappable_v<T1> && std::is_nothrow_swappable_v<T2>)
+	constexpr void swap(compressed_pair& x) noexcept(
+		std::is_nothrow_swappable_v<T1>&& std::is_nothrow_swappable_v<T2>)
 	{
 		using std::swap;
 		swap(first(), x.first());
@@ -103,36 +144,39 @@ public:
 	}
 };
 
-template <typename T1, typename T2>
-inline constexpr void swap(compressed_pair<T1, T2>& x, compressed_pair<T1, T2>& y)
-	noexcept(std::is_nothrow_swappable_v<T1> && std::is_nothrow_swappable_v<T2>)
+template<typename T1, typename T2>
+inline constexpr void
+swap(compressed_pair<T1, T2>& x, compressed_pair<T1, T2>& y) noexcept(
+	std::is_nothrow_swappable_v<T1>&& std::is_nothrow_swappable_v<T2>)
 {
 	x.swap(y);
 }
 }
 
-namespace __pvt {
-template <typename D>
+namespace __pvt
+{
+template<typename D>
 struct unique_ptr_deleter_sfinae
 {
 	static_assert(!std::is_reference_v<D>);
-	using lval_ref_t = const D&;
+	using lval_ref_t	  = const D&;
 	using good_rval_ref_t = D&&;
 };
 
-template <typename D>
+template<typename D>
 struct unique_ptr_deleter_sfinae<D const&>
 {
-	using lval_ref_t = const D&;
+	using lval_ref_t	 = const D&;
 	using bad_rval_ref_t = const D&&;
 };
 
-template <typename D>
+template<typename D>
 struct unique_ptr_deleter_sfinae<D&>
 {
-	using lval_ref_t = D&;
+	using lval_ref_t	 = D&;
 	using bad_rval_ref_t = D&&;
 };
+}
 }
 
 namespace std {
