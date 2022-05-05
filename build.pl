@@ -5,15 +5,15 @@ use File::Path;
 use File::Copy;
 use Cwd;
 
+my $buildos = "linux";
 my $cc = "clang";
 my $cpp = "clang++";
 my $asm = "nasm";
 my $ld = "ld.lld";
 my $ar = "llvm-ar";
 
-my $builddir = getcwd . "/builddir";
+my $builddir = getcwd . "/build2";
 
-mkpath($builddir);
 
 my @common_flags = qw(-target i386-elf -Wuninitialized -Wall -fno-unwind-tables -fno-asynchronous-unwind-tables -march=i386 -O2 -mno-sse -mno-mmx -fomit-frame-pointer -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
 my @cpp_flags = qw(-std=c++20 -fno-rtti -fno-exceptions -I cpplib/include);
@@ -31,8 +31,13 @@ my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O
 my @kernel_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a --lto-O2 -N -O2 -Ttext=0xF000 -T linker.ld -mllvm -align-all-nofallthru-blocks=2);
 
 mkpath("$builddir/tools");
-system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++20 -O2");
-system("clang -D_CRT_SECURE_NO_WARNINGS tools/limine/limine-install.c -o $builddir/tools/limine-install.exe -O2");
+if ($buildos eq "linux") {
+	system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs -std=c++20 -O2");
+	system("clang tools/limine/limine-install.c -o $builddir/tools/limine-install -O2");
+} else {
+	system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++20 -O2");
+	system("clang -D_CRT_SECURE_NO_WARNINGS tools/limine/limine-install.c -o $builddir/tools/limine-install.exe -O2");
+}
 
 my @kernel_src = qw(	
 	kernel/kernel.asm
@@ -78,17 +83,17 @@ my @clib_src = qw(
 	clib/string.asm
 );
 
-my $boot_mapper = build(name => "boot_mapper.a", 
-						static => 'true',
-						src => ["kernel/boot_mapper.cpp"], 
-						flags => [@common_flags, @kernel_flags, "-fno-lto", "-fPIC"], 
-						ldflags => []);
-
-build(	name => "kernal.elf", 
-		src => [@kernel_src, @clib_src], 
-		flags => [@common_flags, @kernel_flags], 
-		ldflags => [@kernel_ld_flags, $boot_mapper]);
-
+#my $boot_mapper = build(name => "boot_mapper.a", 
+#						static => 'true',
+#						src => ["kernel/boot_mapper.cpp"], 
+#						flags => [@common_flags, @kernel_flags, "-fno-lto", "-fPIC"], 
+#						ldflags => []);
+#
+#build(	name => "kernal.elf", 
+#		src => [@kernel_src, @clib_src], 
+#		flags => [@common_flags, @kernel_flags], 
+#		ldflags => [@kernel_ld_flags, $boot_mapper]);
+#
 system("objcopy -O binary $builddir/kernal.elf $builddir/kernal.sys --set-section-flags .bss=alloc,load,contents --gap-fill 0");
 
 my $kb_drv = 
@@ -216,14 +221,16 @@ my @iso_files = (
 
 mkpath("$builddir/iso");
 
-build_fdimage(
-	name => "iso/isoboot.img",
-	boot_file => "$builddir/boot_sect.bin", 
-	files => [
-		"$builddir/cdboot/init.rfs",
-		"$builddir/kernal.sys",
-	]
-);
+if ($buildos != "linux") {
+	build_fdimage(
+		name => "iso/isoboot.img",
+		boot_file => "$builddir/boot_sect.bin", 
+		files => [
+			"$builddir/cdboot/init.rfs",
+			"$builddir/kernal.sys",
+		]
+	);
+}
 
 build_cdimage(
 	name => "boot.iso",
@@ -306,19 +313,26 @@ sub build_cdimage
 		my $reldir = $folder;
 		$reldir =~ s/${cwd}//;
 		$reldir =~ s/\///;
-
-		system("tools/xorriso/xorriso -as mkisofs -b boot/limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot boot/limine-eltorito-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label \"$reldir\" -o $imgfile");
+		if ($buildos eq "linux") {
+			system("xorriso -as mkisofs -b boot/limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot boot/limine-eltorito-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label \"$reldir\" -o $imgfile");
+		} else {
+			system("tools/xorriso/xorriso -as mkisofs -b boot/limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot boot/limine-eltorito-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label \"$reldir\" -o $imgfile");
+		}
 	
 		system("$builddir/tools/limine-install \"$imgfile\"");
 	}
 	else
 	{
-		my ($bt_filename,$dir,undef) = fileparse($boot_file);
-		copy($boot_file, "$folder/$bt_filename");
+		if ($buildos eq "linux") {
+		} else {
+			my ($bt_filename,$dir,undef) = fileparse($boot_file);
+			copy($boot_file, "$folder/$bt_filename");
 
-		unlink("$builddir/$name");
-		system("tools/mkisofs -U -b $bt_filename -hide $bt_filename -V \"JSD-OS\" -iso-level 3 -o $imgfile \"$folder\"");
+			unlink("$builddir/$name");
+			system("tools/mkisofs -U -b $bt_filename -hide $bt_filename -V \"JSD-OS\" -iso-level 3 -o $imgfile \"$folder\"");
+		}
 	}
+
 }
 
 sub build_static

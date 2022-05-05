@@ -1,11 +1,9 @@
 project('jsd-os', ['c', 'cpp'])
-
 nasm = find_program('nasm', required: true)
-
 asm_gen = generator(nasm,
   output : '@BASENAME@.o',
   arguments : [
-    '-f elf',
+    '-f', 'elf',
     '@INPUT@',
     '-o', '@OUTPUT@'])
 
@@ -15,7 +13,6 @@ kernel_asm = asm_gen.process([
 	'kernel/paging.asm',
 	'kernel/syscall.asm'
 ])
-
 kernel_src = [	
 	'kernel/kernel.c',
 	'kernel/memorymanager.cpp',
@@ -44,7 +41,6 @@ kernel_src = [
 	'drivers/cmos.cpp',
 	'drivers/pit.cpp'
 ]	
-
 clib_src = [	
 	'clib/string.c',
 	'clib/stdio.c',
@@ -53,11 +49,50 @@ clib_src = [
 	'clib/stdlib.cpp',
 	'clib/liballoc.cpp',
 ]
-
 clib_asm = asm_gen.process([
 	'clib/string.asm'
 ])
 
 
-executable('kernal.elf', kernel_asm, kernel_src, clib_asm, clib_src, include_directories: ['kernel', 'clib/include', 'cpplib/include'] )
+common_flags = [
+		'-target', 'i386-unknown-elf',
+		'-Wuninitialized',
+		'-Wall',
+		'-fno-unwind-tables',
+		'-fno-asynchronous-unwind-tables',
+		'-march=i386',
+		'-mno-sse',
+		'-mno-mmx',
+		'-I ./',
+		'-D__I386_ONLY',
+	]
+c_args = common_flags + [
+		'-std=c99',
+		'-Wc++-compat',
+	]
+cpp_args = common_flags + [
+		'-std=c++20',
+		'-fno-rtti',
+		'-fno-exceptions',
+	]
+linker_script_flags = ['-L' + meson.source_root(), '-Tlinker.ld']
+linker_script_deps = meson.source_root() / 'linker.ld'
+boot_mapper = static_library('boot_mapper', 
+	'kernel/boot_mapper.cpp',
+	c_args: c_args + ['-fPIC', '-D__KERNEL', '-mno-implicit-float'],
+	cpp_args: cpp_args +  ['-fPIC', '-D__KERNEL', '-mno-implicit-float'],
+	include_directories: ['kernel', 'clib/include', 'cpplib/include'])
+
+executable('kernal.elf', 
+	kernel_asm,
+	kernel_src,
+	clib_asm,
+	clib_src,
+	c_args: c_args + ['-D__KERNEL', '-mno-implicit-float'],
+	cpp_args: cpp_args + ['-DTESTING', '-D__KERNEL', '-mno-implicit-float'],
+	link_args: linker_script_flags + ['-Wl,-z,notext', '-Wl,--lto-O2', '-Wl,-N', '-Wl,-Ttext=0xF000'],
+	include_directories: ['kernel', 'clib/include', 'cpplib/include'],
+	link_depends: linker_script_deps, 
+	link_with: boot_mapper
+)
 
