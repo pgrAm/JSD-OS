@@ -55,7 +55,6 @@ clib_asm = asm_gen.process([
 
 
 common_flags = [
-		'-target', 'i386-unknown-elf',
 		'-Wuninitialized',
 		'-Wall',
 		'-fno-unwind-tables',
@@ -65,6 +64,9 @@ common_flags = [
 		'-mno-mmx',
 		'-I ./',
 		'-D__I386_ONLY',
+		'-O2',
+		'-fomit-frame-pointer',
+		'-nodefaultlibs'
 	]
 c_args = common_flags + [
 		'-std=c99',
@@ -75,24 +77,73 @@ cpp_args = common_flags + [
 		'-fno-rtti',
 		'-fno-exceptions',
 	]
-linker_script_flags = ['-L' + meson.source_root(), '-Tlinker.ld']
+
+common_linker_flags = ['-Wl,--gc-sections', '-Wl,--lto-O2', '-Wl,-mllvm,-align-all-nofallthru-blocks=2', '-L' + meson.source_root()]
+
+kernel_flags = ['-D __KERNEL', '-mno-implicit-float']
+kernel_include = ['kernel', 'clib/include', 'cpplib/include']
+
 linker_script_deps = meson.source_root() / 'linker.ld'
+
 boot_mapper = static_library('boot_mapper', 
 	'kernel/boot_mapper.cpp',
-	c_args: c_args + ['-fPIC', '-D__KERNEL', '-mno-implicit-float'],
-	cpp_args: cpp_args +  ['-fPIC', '-D__KERNEL', '-mno-implicit-float'],
-	include_directories: ['kernel', 'clib/include', 'cpplib/include'])
+	c_args: c_args + kernel_flags + ['-fPIC', '-fno-lto'],
+	cpp_args: cpp_args + ['-fPIC', '-fno-lto'],
+	include_directories: kernel_include,
+	pic: true
+)
 
 executable('kernal.elf', 
 	kernel_asm,
 	kernel_src,
 	clib_asm,
 	clib_src,
-	c_args: c_args + ['-D__KERNEL', '-mno-implicit-float'],
-	cpp_args: cpp_args + ['-DTESTING', '-D__KERNEL', '-mno-implicit-float'],
-	link_args: linker_script_flags + ['-Wl,-z,notext', '-Wl,--lto-O2', '-Wl,-N', '-Wl,-Ttext=0xF000'],
-	include_directories: ['kernel', 'clib/include', 'cpplib/include'],
+	include_directories: kernel_include,
+	c_args: c_args + kernel_flags + ['-flto'],
+	cpp_args: cpp_args + kernel_flags + ['-flto'],
+	link_args: ['-Tlinker.ld'] + common_linker_flags + ['-Wl,-N','-Wl,-z,notext', '-Wl,-Ttext=0xF000'],
 	link_depends: linker_script_deps, 
 	link_with: boot_mapper
 )
 
+driver_linker_script_flags = common_linker_flags + ['-s', '-Tdrivers/driver.ld']
+driver_linker_script_deps = meson.source_root() / 'drivers' / 'driver.ld'
+
+driver_map = {}
+drivers = [
+		['AT_kbrd', ['drivers/at_kbrd.cpp'], []],
+        ['isa_dma', ['drivers/isa_dma.cpp'], []],
+		['drvlib', ['drivers/drvlib.cpp'], []],
+		['pci', ['drivers/pci.cpp'], ['drvlib']],
+		['floppy', ['drivers/floppy.cpp'], ['drvlib', 'isa_dma']],
+		['vga', ['drivers/display/vga/vga.cpp'], ['drvlib']],
+		['mbr', ['drivers/formats/mbr.cpp'], ['drvlib']],
+		['ata', ['drivers/ata.cpp'], ['drvlib', 'pci']],
+		['fat', ['drivers/formats/fat.cpp'], ['drvlib']],
+		['iso9660', ['drivers/formats/iso9660.cpp'], ['drvlib']],
+		['i8042', ['drivers/i8042.cpp'], ['drvlib']],
+		['ps2mouse', ['drivers/ps2mouse.cpp'], ['drvlib']],
+		]
+
+foreach d : drivers
+
+deps = []
+foreach dep : d[2]
+	deps += driver_map.get(dep)
+endforeach
+
+drv = shared_library(d[0], d[1],
+	c_args: c_args + kernel_flags + ['-flto'],
+	cpp_args: cpp_args + kernel_flags + ['-flto'],
+	include_directories: kernel_include,
+	link_args: driver_linker_script_flags,
+	link_depends: driver_linker_script_deps,
+	link_with: deps,
+	name_prefix: '',
+	name_suffix: 'drv',
+	override_options: 'b_lundef=false'
+)
+
+driver_map += {d[0] : drv}
+
+endforeach

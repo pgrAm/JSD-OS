@@ -5,7 +5,6 @@ use File::Path;
 use File::Copy;
 use Cwd;
 
-my $buildos = "linux";
 my $cc = "clang";
 my $cpp = "clang++";
 my $asm = "nasm";
@@ -15,7 +14,7 @@ my $ar = "llvm-ar";
 my $builddir = getcwd . "/build2";
 
 
-my @common_flags = qw(-target i386-elf -Wuninitialized -Wall -fno-unwind-tables -fno-asynchronous-unwind-tables -march=i386 -O2 -mno-sse -mno-mmx -fomit-frame-pointer -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
+my @common_flags = qw(--target=i386-baremetal-elf -Wuninitialized -Wall -fno-unwind-tables -fno-asynchronous-unwind-tables -march=i386 -O2 -mno-sse -mno-mmx -fomit-frame-pointer -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
 my @cpp_flags = qw(-std=c++20 -fno-rtti -fno-exceptions -I cpplib/include);
 my @c_flags = qw(-std=c99 -Wc++-compat);
 my @asm_flags = qw(-f elf);
@@ -31,7 +30,7 @@ my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O
 my @kernel_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a --lto-O2 -N -O2 -Ttext=0xF000 -T linker.ld -mllvm -align-all-nofallthru-blocks=2);
 
 mkpath("$builddir/tools");
-if ($buildos eq "linux") {
+if ($^O eq "linux") {
 	system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs -std=c++20 -O2");
 	system("clang tools/limine/limine-install.c -o $builddir/tools/limine-install -O2");
 } else {
@@ -94,27 +93,27 @@ my @clib_src = qw(
 #		flags => [@common_flags, @kernel_flags], 
 #		ldflags => [@kernel_ld_flags, $boot_mapper]);
 #
-system("objcopy -O binary $builddir/kernal.elf $builddir/kernal.sys --set-section-flags .bss=alloc,load,contents --gap-fill 0");
+system("objcopy -x -S -O binary $builddir/kernal.elf $builddir/kernal.sys --set-section-flags .bss=alloc,load,contents --gap-fill 0");
 
-my $kb_drv = 
-build_driver("AT_kbrd.drv", ["drivers/at_kbrd.cpp"]);
-my $isa_dma = 
-build_driver("isa_dma.drv", ["drivers/isa_dma.cpp"]);
-my $drv_lib = 
-build_driver("drvlib.lib", ["drivers/drvlib.cpp"]);
-my $pci_drv = 
-build_driver("pci.drv", ["drivers/pci.cpp"], [link_lib($drv_lib)]);
+my $kb_drv = "$builddir/AT_kbrd.drv";
+#build_driver("AT_kbrd.drv", ["drivers/at_kbrd.cpp"]);
+my $isa_dma =  "$builddir/isa_dma.drv";
+#build_driver("isa_dma.drv", ["drivers/isa_dma.cpp"]);
+my $drv_lib = "$builddir/drvlib.drv";
+#build_driver("drvlib.lib", ["drivers/drvlib.cpp"]);
+my $pci_drv = "$builddir/pci.drv";
+#build_driver("pci.drv", ["drivers/pci.cpp"], [link_lib($drv_lib)]);
 
-my $floppy_drv = build_driver("floppy.drv", ["drivers/floppy.cpp"], [link_lib($drv_lib), link_lib($isa_dma)]);
-my $vga_drv = build_driver("vga.drv", 		["drivers/display/vga/vga.cpp"], [link_lib($drv_lib)]);
-my $mbr_drv = build_driver("mbr.drv", 		["drivers/formats/mbr.cpp"], 	[link_lib($drv_lib)]);
-my $ata_drv = build_driver("ata.drv", 		["drivers/ata.cpp"], 			[link_lib($drv_lib), link_lib($pci_drv)]);
+my $floppy_drv = "$builddir/floppy.drv";#build_driver("floppy.drv", ["drivers/floppy.cpp"], [link_lib($drv_lib), link_lib($isa_dma)]);
+my $vga_drv = "$builddir/vga.drv";#build_driver("vga.drv", 		["drivers/display/vga/vga.cpp"], [link_lib($drv_lib)]);
+my $mbr_drv = "$builddir/mbr.drv";#build_driver("mbr.drv", 		["drivers/formats/mbr.cpp"], 	[link_lib($drv_lib)]);
+my $ata_drv = "$builddir/ata.drv";#build_driver("ata.drv", 		["drivers/ata.cpp"], 			[link_lib($drv_lib), link_lib($pci_drv)]);
 #my $ahci_drv = build_driver("ahci.drv", 	["drivers/ahci.cpp"], 			[link_lib($drv_lib), link_lib($pci_drv)]);
-my $fat_drv = build_driver("fat.drv", 		["drivers/formats/fat.cpp"], 	[link_lib($drv_lib)]);
-my $iso_drv = build_driver("iso9660.drv",	["drivers/formats/iso9660.cpp"],[link_lib($drv_lib)]);
+my $fat_drv = "$builddir/fat.drv";#build_driver("fat.drv", 		["drivers/formats/fat.cpp"], 	[link_lib($drv_lib)]);
+my $iso_drv = "$builddir/iso9660.drv";#build_driver("iso9660.drv",	["drivers/formats/iso9660.cpp"],[link_lib($drv_lib)]);
 
-my $i8042_drv = build_driver("i8042.drv",	["drivers/i8042.cpp"], [link_lib($drv_lib)]);
-my $ps2mouse_drv = build_driver("ps2mouse.drv",	["drivers/ps2mouse.cpp"], [link_lib($drv_lib)]);
+my $i8042_drv = "$builddir/i8042.drv";#build_driver("i8042.drv",	["drivers/i8042.cpp"], [link_lib($drv_lib)]);
+my $ps2mouse_drv = "$builddir/ps2mouse.drv";#build_driver("ps2mouse.drv",	["drivers/ps2mouse.cpp"], [link_lib($drv_lib)]);
 
 my @libemu_src = qw(	
 	drivers/display/vesa/libx86emu/api.c
@@ -221,7 +220,7 @@ my @iso_files = (
 
 mkpath("$builddir/iso");
 
-if ($buildos != "linux") {
+if ($^O ne "linux") {
 	build_fdimage(
 		name => "iso/isoboot.img",
 		boot_file => "$builddir/boot_sect.bin", 
@@ -313,7 +312,7 @@ sub build_cdimage
 		my $reldir = $folder;
 		$reldir =~ s/${cwd}//;
 		$reldir =~ s/\///;
-		if ($buildos eq "linux") {
+		if ($^O eq "linux") {
 			system("xorriso -as mkisofs -b boot/limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot boot/limine-eltorito-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label \"$reldir\" -o $imgfile");
 		} else {
 			system("tools/xorriso/xorriso -as mkisofs -b boot/limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot boot/limine-eltorito-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label \"$reldir\" -o $imgfile");
@@ -323,7 +322,7 @@ sub build_cdimage
 	}
 	else
 	{
-		if ($buildos eq "linux") {
+		if ($^O eq "linux") {
 		} else {
 			my ($bt_filename,$dir,undef) = fileparse($boot_file);
 			copy($boot_file, "$folder/$bt_filename");
