@@ -13,7 +13,7 @@ my $ar = "llvm-ar";
 
 my $builddir = getcwd . "/build2";
 
-
+=begin
 my @common_flags = qw(--target=i386-baremetal-elf -Wuninitialized -Wall -fno-unwind-tables -fno-asynchronous-unwind-tables -march=i386 -O2 -mno-sse -mno-mmx -fomit-frame-pointer -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
 my @cpp_flags = qw(-std=c++20 -fno-rtti -fno-exceptions -I cpplib/include);
 my @c_flags = qw(-std=c99 -Wc++-compat);
@@ -28,7 +28,7 @@ my @user_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -mllvm -align-all-nof
 my @shlib_ld_flags = qw(-O2 -shared --lto-O3 --gc-sections);
 my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O2 --gc-sections -T drivers/driver.ld);
 my @kernel_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a --lto-O2 -N -O2 -Ttext=0xF000 -T linker.ld -mllvm -align-all-nofallthru-blocks=2);
-
+=cut
 mkpath("$builddir/tools");
 if ($^O eq "linux") {
 	system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs -std=c++20 -O2");
@@ -37,7 +37,7 @@ if ($^O eq "linux") {
 	system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++20 -O2");
 	system("clang -D_CRT_SECURE_NO_WARNINGS tools/limine/limine-install.c -o $builddir/tools/limine-install.exe -O2");
 }
-
+=begin
 my @kernel_src = qw(	
 	kernel/kernel.asm
 	kernel/interrupt.asm
@@ -82,17 +82,18 @@ my @clib_src = qw(
 	clib/string.asm
 );
 
-#my $boot_mapper = build(name => "boot_mapper.a", 
-#						static => 'true',
-#						src => ["kernel/boot_mapper.cpp"], 
-#						flags => [@common_flags, @kernel_flags, "-fno-lto", "-fPIC"], 
-#						ldflags => []);
-#
-#build(	name => "kernal.elf", 
-#		src => [@kernel_src, @clib_src], 
-#		flags => [@common_flags, @kernel_flags], 
-#		ldflags => [@kernel_ld_flags, $boot_mapper]);
-#
+my $boot_mapper = build(name => "boot_mapper.a", 
+						static => 'true',
+						src => ["kernel/boot_mapper.cpp"], 
+						flags => [@common_flags, @kernel_flags, "-fno-lto", "-fPIC"], 
+						ldflags => []);
+
+build(	name => "kernal.elf", 
+		src => [@kernel_src, @clib_src], 
+		flags => [@common_flags, @kernel_flags], 
+		ldflags => [@kernel_ld_flags, $boot_mapper]);
+
+=cut
 system("objcopy -x -S -O binary $builddir/kernal.elf $builddir/kernal.sys --set-section-flags .bss=alloc,load,contents --gap-fill 0");
 
 my $kb_drv = "$builddir/AT_kbrd.drv";
@@ -115,6 +116,7 @@ my $iso_drv = "$builddir/iso9660.drv";#build_driver("iso9660.drv",	["drivers/for
 my $i8042_drv = "$builddir/i8042.drv";#build_driver("i8042.drv",	["drivers/i8042.cpp"], [link_lib($drv_lib)]);
 my $ps2mouse_drv = "$builddir/ps2mouse.drv";#build_driver("ps2mouse.drv",	["drivers/ps2mouse.cpp"], [link_lib($drv_lib)]);
 
+=begin
 my @libemu_src = qw(	
 	drivers/display/vesa/libx86emu/api.c
 	drivers/display/vesa/libx86emu/decode.c 
@@ -123,36 +125,34 @@ my @libemu_src = qw(
 	drivers/display/vesa/libx86emu/ops2.c	
 	drivers/display/vesa/libx86emu/prim_ops.c
 );
-
 my $libemu = build(	static => 'true',
 					name => "libx86emu.drv.a", 
 					src => \@libemu_src,
 					flags => [@common_flags, @driver_flags, "-fvisibility=hidden", "-std=gnu99", "-I", "drivers/display/vesa/"], 
 					ldflags => []);
+=cut
 
-my $vesa_drv = build_driver("vesa.drv", 
-							["drivers/display/vesa/vesa.cpp"], 
-							[$libemu, link_lib($drv_lib)]);
+my $vesa_drv = "$builddir/vesa.drv"; # build_driver("vesa.drv", 
+							#["drivers/display/vesa/vesa.cpp"], 
+							#[$libemu, link_lib($drv_lib)]);
 
-my $clib = build_shared("clib.lib", \@clib_src);
-my $kb = 
-build_static("keyboard.a", ["api/keyboard.c"]);
-my $cppr = 
-build_static("cppruntime.a", ["api/cppruntime.cpp"]);
-my $terminal = 
-build_shared("terminal.lib", ["api/terminal/terminal.cpp", "api/cppruntime.cpp"], [link_lib($clib)]);
+my $clib = "$builddir/clib.lib"; # build_shared("clib.lib", \@clib_src);
+#my $kb = build_static("keyboard.a", ["api/keyboard.c"]);
+#my $cppr = build_static("cppruntime.a", ["api/cppruntime.cpp"]);
+my $terminal = "$builddir/terminal.lib";
+# build_shared("terminal.lib", ["api/terminal/terminal.cpp", "api/cppruntime.cpp"], [link_lib($clib)]);
 
-my $shell = build(name => "shell.elf", src => ["api/crt0.c", "api/crti.asm", "shell/commands.cpp", "shell/shell.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
+my $shell = "$builddir/shell.elf"; #build(name => "shell.elf", src => ["api/crt0.c", "api/crti.asm", "shell/commands.cpp", "shell/shell.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
 
-my $primes = build(name => "primes.elf", src => ["api/crt0.c", "api/crti.asm", "apps/primes.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
+my $primes =  "$builddir/primes.elf";#build(name => "primes.elf", src => ["api/crt0.c", "api/crti.asm", "apps/primes.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
 
-my $bkgrndtest = build(name => "bkgrnd.elf", src => ["api/crt0.c", "api/crti.asm", "apps/bkgrnd.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
+my $bkgrndtest = "$builddir/bkgrnd.elf"; #build(name => "bkgrnd.elf", src => ["api/crt0.c", "api/crti.asm", "apps/bkgrnd.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
 
-my $listmode = build(name => "listmode.elf", src => ["api/crt0.c", "api/crti.asm", "apps/listmode.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
+my $listmode = "$builddir/listmode.elf"; #build(name => "listmode.elf", src => ["api/crt0.c", "api/crti.asm", "apps/listmode.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
 
-my $graphicstest = build(name => "graphics.elf", src => ["api/crt0.c", "api/crti.asm", "apps/graphics.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
+my $graphicstest = "$builddir/graphics.elf"; #build(name => "graphics.elf", src => ["api/crt0.c", "api/crti.asm", "apps/graphics.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), link_lib($terminal), $kb, $cppr]);
 
-my $fwritetest = build(name => "fwrite.elf", src => ["api/crt0.c", "api/crti.asm", "apps/fwrite.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), $cppr]);
+my $fwritetest = "$builddir/fwrite.elf"; #build(name => "fwrite.elf", src => ["api/crt0.c", "api/crti.asm", "apps/fwrite.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), $cppr]);
 
 mkpath("$builddir/fdboot");
 system("$builddir/tools/rdfs", "configs/cdboot/init.sys", $drv_lib, $iso_drv, $ata_drv, $kb_drv, $pci_drv, "-o", "$builddir/cdboot/init.rfs");
@@ -333,6 +333,7 @@ sub build_cdimage
 	}
 
 }
+=begin
 
 sub build_static
 {
@@ -432,5 +433,6 @@ sub build {
 
 	return $output_file;
 }
+=cut
 
 
