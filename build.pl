@@ -106,6 +106,7 @@ my $mbr_drv = build_driver("mbr.drv", 		["drivers/formats/mbr.cpp"], 	[link_lib(
 my $ata_drv = build_driver("ata.drv", 		["drivers/ata.cpp"], 			[link_lib($drv_lib), link_lib($pci_drv)]);
 #my $ahci_drv = build_driver("ahci.drv", 	["drivers/ahci.cpp"], 			[link_lib($drv_lib), link_lib($pci_drv)]);
 my $fat_drv = build_driver("fat.drv", 		["drivers/formats/fat.cpp"], 	[link_lib($drv_lib)]);
+my $ext2_drv = build_driver("ext2.drv", 	["drivers/formats/ext2.cpp"], 	[link_lib($drv_lib)]);
 my $iso_drv = build_driver("iso9660.drv",	["drivers/formats/iso9660.cpp"],[link_lib($drv_lib)]);
 
 my $i8042_drv = build_driver("i8042.drv",	["drivers/i8042.cpp"], [link_lib($drv_lib)]);
@@ -153,7 +154,7 @@ my $fwritetest = build(name => "fwrite.elf", src => ["api/crt0.c", "api/crti.asm
 mkpath("$builddir/fdboot");
 system("$builddir/tools/rdfs", "configs/cdboot/init.sys", $drv_lib, $iso_drv, $ata_drv, $kb_drv, $pci_drv, "-o", "$builddir/cdboot/init.rfs");
 mkpath("$builddir/cdboot");
-system("$builddir/tools/rdfs", "configs/fdboot/init.sys", $drv_lib, $fat_drv, $floppy_drv, $kb_drv, $isa_dma, "-o", "$builddir/fdboot/init.rfs");
+system("$builddir/tools/rdfs", "configs/fdboot/init.sys", $drv_lib, $ext2_drv, $fat_drv, $floppy_drv, $kb_drv, $isa_dma, "-o", "$builddir/fdboot/init.rfs");
 mkpath("$builddir/netboot");
 system("$builddir/tools/rdfs", "configs/netboot/init.sys", $ps2mouse_drv, $i8042_drv, $listmode, $vesa_drv, $drv_lib, $kb_drv, $shell, $graphicstest, $clib, $terminal, "-o", "$builddir/netboot/init.rfs");
 
@@ -202,6 +203,7 @@ my @iso_files = (
 	],
 	"/drivers" => [
 		$fat_drv, 		
+		$ext2_drv, 		
 		$floppy_drv, 
 		$isa_dma, 		
 		$vga_drv, 		
