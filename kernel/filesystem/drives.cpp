@@ -487,13 +487,14 @@ void filesystem_write_to_disk(const filesystem_drive* disk,
 
 	if(blocks.num_full_chunks)
 	{
-		if(!disk->needs_buffer())
+		//if(!disk->needs_buffer())
+		/*if(!disk->needs_buffer() && disk->block_size() == 1)
 		{
 			disk->write_blocks(block, buf, blocks.num_full_chunks);
 			buf += disk->blocks_to_bytes(blocks.num_full_chunks);
 			block += blocks.num_full_chunks;
 		}
-		else
+		else*/
 		{
 			auto num_chunks = blocks.num_full_chunks;
 			while(num_chunks--)
@@ -529,18 +530,18 @@ void filesystem_read_from_disk(const filesystem_drive* disk,
 
 	if(blocks.num_full_chunks)
 	{
-		if(!disk->needs_buffer())
+		/*if(!disk->needs_buffer() && disk->read_only())
 		{
 			disk->read_blocks(block, buf, blocks.num_full_chunks);
 			buf += disk->blocks_to_bytes(blocks.num_full_chunks);
 			block += blocks.num_full_chunks;
 		}
-		else
+		else*/
 		{
 			auto num_chunks = blocks.num_full_chunks;
 			while(num_chunks--)
 			{
-				disk->read_from_block(block, 0, buf, disk->block_size());
+				disk->read_from_block(block++, 0, buf, disk->block_size());
 				buf += disk->block_size();
 			}
 		}

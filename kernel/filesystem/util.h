@@ -70,6 +70,12 @@ T align_power_2(T x, T align)
 	k_assert(std::has_single_bit(align));
 	return x & ~(align - 1);
 }
+
+template<typename T>
+T round_up(T x, T align)
+{
+	return ((x + (align - 1)) / align) * align;
+}
 };
 #endif
 
