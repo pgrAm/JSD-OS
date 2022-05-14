@@ -11,6 +11,7 @@ The actual meaning of the acronym is intentionally ambigous but might stand for 
 - [x] Low Memory footprint < 1MB for a base system
 - [x] Highly modular, don't use what you don't need
 - [x] Mutitasking using CuFS
+- [ ] Zero Screen Tearing by default
 - [ ] SMP support
 - [ ] AMD64 version
 
