@@ -113,7 +113,7 @@ int find_free_and_mark(uint8_t* arr, int bits)
 
 struct ext2fs
 {
-	std::unique_ptr<superblock> sb;
+	superblock sb;
 	std::unique_ptr<blkgrp[]> blkgrps;
 	size_t block_size;
 	size_t log2_block_size;
@@ -151,17 +151,17 @@ struct ext2fs
 
 	void locate_inode(uint32_t ino, inode* i) const
 	{
-		auto blkgrp = (ino - 1) / sb->inodes_per_group;
-		auto idx	= (ino - 1) % sb->inodes_per_group;
-		read(blkgrps[blkgrp].inode_table, idx * sb->inode_size, (uint8_t*)i,
+		auto blkgrp = (ino - 1) / sb.inodes_per_group;
+		auto idx	= (ino - 1) % sb.inodes_per_group;
+		read(blkgrps[blkgrp].inode_table, idx * sb.inode_size, (uint8_t*)i,
 			 sizeof(inode));
 	}
 
 	void update_inode(uint32_t ino, const inode* i) const
 	{
-		auto blkgrp = (ino - 1) / sb->inodes_per_group;
-		auto idx	= (ino - 1) % sb->inodes_per_group;
-		write(blkgrps[blkgrp].inode_table, idx * sb->inode_size, (uint8_t*)i,
+		auto blkgrp = (ino - 1) / sb.inodes_per_group;
+		auto idx	= (ino - 1) % sb.inodes_per_group;
+		write(blkgrps[blkgrp].inode_table, idx * sb.inode_size, (uint8_t*)i,
 			  sizeof(inode));
 	}
 
@@ -177,14 +177,14 @@ struct ext2fs
 
 			read(b.inode_bitmap, 0, &temp[0], block_size);
 
-			int bit = find_free_and_mark(&temp[0], sb->inodes_per_group);
+			int bit = find_free_and_mark(&temp[0], sb.inodes_per_group);
 
 			write(b.inode_bitmap, 0, &temp[0], block_size);
 
 			b.free_inodes_count--;
-			sb->free_inodes_count--;
+			sb.free_inodes_count--;
 
-			return bit + i * sb->inodes_per_group + 1;
+			return bit + i * sb.inodes_per_group + 1;
 		}
 
 		return 0;
@@ -202,14 +202,14 @@ struct ext2fs
 
 			read(b.block_bitmap, 0, &temp[0], block_size);
 
-			int bit = find_free_and_mark(&temp[0], sb->blocks_per_group);
+			int bit = find_free_and_mark(&temp[0], sb.blocks_per_group);
 
 			write(b.block_bitmap, 0, &temp[0], block_size);
 
 			b.free_blocks_count--;
-			sb->free_blocks_count--;
+			sb.free_blocks_count--;
 
-			return bit + i * sb->blocks_per_group;
+			return bit + i * sb.blocks_per_group;
 		}
 
 		return 0;
@@ -296,16 +296,15 @@ struct __attribute__((packed)) ext2_format_data
 static mount_status ext2_mount_disk(filesystem_virtual_drive* d)
 {
 	auto fs = new ext2fs;
-	fs->sb	= std::make_unique<superblock>();
 	fs->d	= d;
 	filesystem_read(d, 1024 / d->block_size, 1024 % d->block_size,
-					(uint8_t*)fs->sb.get(), sizeof(superblock));
-	if(fs->sb->magic != 0xEF53)
+					(uint8_t*)&fs->sb, sizeof(superblock));
+	if(fs->sb.magic != 0xEF53)
 	{
 		delete fs;
 		return MOUNT_FAILURE;
 	}
-	fs->block_size		= 1024 << fs->sb->log_block_size;
+	fs->block_size		= 1024 << fs->sb.log_block_size;
 	fs->log2_block_size = std::countr_zero(fs->block_size);
 
 	fs->d_blocks_per_block_log2 =
@@ -317,8 +316,8 @@ static mount_status ext2_mount_disk(filesystem_virtual_drive* d)
 
 	fs->ptrs_per_block_log2 = std::countr_zero(fs->ptrs_per_block);
 
-	fs->num_blkgrps = (fs->sb->blocks_count + fs->sb->blocks_per_group - 1) /
-					  fs->sb->blocks_per_group;
+	fs->num_blkgrps = (fs->sb.blocks_count + fs->sb.blocks_per_group - 1) /
+					  fs->sb.blocks_per_group;
 	fs->blkgrps = std::make_unique<blkgrp[]>(fs->num_blkgrps);
 	fs->read((fs->block_size == 1024 ? 2 : 1), 0, (uint8_t*)fs->blkgrps.get(),
 			 sizeof(blkgrp) * fs->num_blkgrps);
