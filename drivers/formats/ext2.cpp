@@ -115,22 +115,38 @@ struct ext2fs
 {
 	std::unique_ptr<superblock> sb;
 	std::unique_ptr<blkgrp[]> blkgrps;
-	size_t blks, num_blkgrps;
+	size_t block_size;
+	size_t log2_block_size;
+	size_t d_blocks_per_block_log2;
+	size_t ptrs_per_block;
+	size_t ptrs_per_block_log2;
+	size_t ptrs_per_ind_block;
+	size_t num_blkgrps;
 	filesystem_virtual_drive* d;
 
-	void read(size_t block, size_t offset, uint8_t* data, size_t count) const
+	void read(size_t block, size_t offset, void* data, size_t count) const
 	{
-		auto byte = uint64_t(block) * blks + offset;
-		filesystem_read(d, byte / d->block_size, byte % d->block_size, data,
-						count);
+		filesystem_read(d, block << d_blocks_per_block_log2, offset,
+						(uint8_t*)data, count);
 	}
 
-	void write(size_t block, size_t offset, const uint8_t* data,
+	uint32_t read32(size_t block, size_t offset) const
+	{
+		uint32_t data;
+		read(block, offset, &data, sizeof(uint32_t));
+		return data;
+	}
+
+	void write(size_t block, size_t offset, const void* data,
 			   size_t count) const
 	{
-		auto byte = uint64_t(block) * blks + offset;
-		filesystem_write(d, byte / d->block_size, byte % d->block_size, data,
-						 count);
+		filesystem_write(d, block << d_blocks_per_block_log2, offset,
+						 (uint8_t*)data, count);
+	}
+
+	void write32(size_t block, size_t offset, uint32_t value) const
+	{
+		write(block, offset, &value, sizeof(uint32_t));
 	}
 
 	void locate_inode(uint32_t ino, inode* i) const
@@ -151,7 +167,7 @@ struct ext2fs
 
 	size_t allocate_inode()
 	{
-		auto temp = std::make_unique<uint8_t[]>(blks);
+		auto temp = std::make_unique<uint8_t[]>(block_size);
 
 		for(size_t i = 0; i < num_blkgrps; i++)
 		{
@@ -159,9 +175,11 @@ struct ext2fs
 
 			if(b.free_inodes_count == 0) continue;
 
-			read(b.inode_bitmap, 0, &temp[0], blks);
+			read(b.inode_bitmap, 0, &temp[0], block_size);
 
 			int bit = find_free_and_mark(&temp[0], sb->inodes_per_group);
+
+			write(b.inode_bitmap, 0, &temp[0], block_size);
 
 			b.free_inodes_count--;
 			sb->free_inodes_count--;
@@ -174,7 +192,7 @@ struct ext2fs
 
 	size_t allocate_block()
 	{
-		auto temp = std::make_unique<uint8_t[]>(blks);
+		auto temp = std::make_unique<uint8_t[]>(block_size);
 
 		for(size_t i = 0; i < num_blkgrps; i++)
 		{
@@ -182,9 +200,11 @@ struct ext2fs
 
 			if(b.free_blocks_count == 0) continue;
 
-			read(b.block_bitmap, 0, &temp[0], blks);
+			read(b.block_bitmap, 0, &temp[0], block_size);
 
 			int bit = find_free_and_mark(&temp[0], sb->blocks_per_group);
+
+			write(b.block_bitmap, 0, &temp[0], block_size);
 
 			b.free_blocks_count--;
 			sb->free_blocks_count--;
@@ -195,58 +215,77 @@ struct ext2fs
 		return 0;
 	}
 
-	uint32_t get_block_n(const inode& i, uint32_t n) const
-	{
-		auto s		 = blks / 4;
-		uint32_t blk = 0;
-		if(n < 12)
-		{
-			blk = i.block[n];
-		}
-		else if((n -= 12) < s)
-		{
-			read(i.block[EXT2_IND_BLOCK], n * 4, (uint8_t*)&blk, 4);
-		}
-		else if((n -= s) < (s * s))
-		{
-			read(i.block[EXT2_DIND_BLOCK], (n / s) * 4, (uint8_t*)&blk, 4);
-			read(blk, (n % s) * 4, (uint8_t*)&blk, 4);
-		}
-		else
-		{ // not tested
-			n -= s * s;
-			read(i.block[EXT2_TIND_BLOCK], (n / s / s) * 4, (uint8_t*)&blk, 4);
-			read(blk, (n / s % s) * 4, (uint8_t*)&blk, 4);
-			read(blk, (n % s) * 4, (uint8_t*)&blk, 4);
-		}
-		return blk;
-	}
+	uint32_t get_block_n(const inode& i, uint32_t n) const;
 
-	void set_block_n(inode& i, uint32_t n, uint32_t blk)
-	{
-		auto s = blks / 4;
-		if(n < 12)
-		{
-			i.block[n] = blk;
-		}
-		else if((n -= 12) < s)
-		{
-			write(i.block[EXT2_IND_BLOCK], n * 4, (uint8_t*)&blk, 4);
-		}
-		else if((n -= s) < (s * s))
-		{
-			read(i.block[EXT2_DIND_BLOCK], (n / s) * 4, (uint8_t*)&blk, 4);
-			write(blk, (n % s) * 4, (uint8_t*)&blk, 4);
-		}
-		else
-		{ // not tested
-			n -= s * s;
-			read(i.block[EXT2_TIND_BLOCK], (n / s / s) * 4, (uint8_t*)&blk, 4);
-			read(blk, (n / s % s) * 4, (uint8_t*)&blk, 4);
-			write(blk, (n % s) * 4, (uint8_t*)&blk, 4);
-		}
-	}
+	void set_block_n(inode& i, uint32_t n, uint32_t blk) const;
 };
+
+uint32_t ext2fs::get_block_n(const inode& i, uint32_t n) const
+{
+	if(n < EXT2_NDIR_BLOCKS)
+	{
+		return i.block[n];
+	}
+	else if((n -= EXT2_NDIR_BLOCKS) < ptrs_per_block)
+	{
+		const size_t off = n * sizeof(uint32_t);
+		return read32(i.block[EXT2_IND_BLOCK], off);
+	}
+	else if((n -= ptrs_per_block) < ptrs_per_ind_block)
+	{
+		const size_t i_blk	= (n >> ptrs_per_block_log2) * sizeof(uint32_t);
+		const size_t di_blk = (n & (ptrs_per_block - 1)) * sizeof(uint32_t);
+
+		uint32_t blk = read32(i.block[EXT2_DIND_BLOCK], i_blk);
+		return read32(blk, di_blk);
+	}
+	else
+	{ // not tested
+		n -= ptrs_per_ind_block;
+
+		const size_t nds	= n >> ptrs_per_block_log2;
+		const size_t i_blk	= (nds >> ptrs_per_block_log2) * sizeof(uint32_t);
+		const size_t di_blk = (nds & (ptrs_per_block - 1)) * sizeof(uint32_t);
+		const size_t ti_blk = (n & (ptrs_per_block - 1)) * sizeof(uint32_t);
+
+		uint32_t blk = read32(i.block[EXT2_TIND_BLOCK], i_blk);
+		return read32(read32(blk, di_blk), ti_blk);
+	}
+}
+
+void ext2fs::set_block_n(inode& i, uint32_t n, uint32_t blk) const
+{
+	if(n < EXT2_NDIR_BLOCKS)
+	{
+		i.block[n] = blk;
+		return;
+	}
+	else if((n -= EXT2_NDIR_BLOCKS) < ptrs_per_block)
+	{
+		write32(i.block[EXT2_IND_BLOCK], n * sizeof(uint32_t), blk);
+		return;
+	}
+	else if((n -= ptrs_per_block) < ptrs_per_ind_block)
+	{
+		const size_t i_blk	= (n >> ptrs_per_block_log2) * sizeof(uint32_t);
+		const size_t di_blk = (n & (ptrs_per_block - 1)) * sizeof(uint32_t);
+
+		uint32_t b = read32(i.block[EXT2_DIND_BLOCK], i_blk);
+		write32(b, di_blk, blk);
+	}
+	else
+	{ // not tested
+		n -= ptrs_per_ind_block;
+
+		const size_t nds	= n >> ptrs_per_block_log2;
+		const size_t i_blk	= (nds >> ptrs_per_block_log2) * sizeof(uint32_t);
+		const size_t di_blk = (nds & (ptrs_per_block - 1)) * sizeof(uint32_t);
+		const size_t ti_blk = (n & (ptrs_per_block - 1)) * sizeof(uint32_t);
+
+		uint32_t b = read32(i.block[EXT2_TIND_BLOCK], i_blk);
+		write32(read32(b, di_blk), ti_blk, blk);
+	}
+}
 
 struct __attribute__((packed)) ext2_format_data
 {
@@ -266,11 +305,22 @@ static mount_status ext2_mount_disk(filesystem_virtual_drive* d)
 		delete fs;
 		return MOUNT_FAILURE;
 	}
-	fs->blks		= 1024 << fs->sb->log_block_size;
+	fs->block_size		= 1024 << fs->sb->log_block_size;
+	fs->log2_block_size = std::countr_zero(fs->block_size);
+
+	fs->d_blocks_per_block_log2 =
+		std::countr_zero(fs->block_size / d->block_size);
+
+	fs->ptrs_per_block = fs->block_size / sizeof(uint32_t);
+	fs->ptrs_per_ind_block =
+		fs->ptrs_per_block * fs->ptrs_per_block;
+
+	fs->ptrs_per_block_log2 = std::countr_zero(fs->ptrs_per_block);
+
 	fs->num_blkgrps = (fs->sb->blocks_count + fs->sb->blocks_per_group - 1) /
 					  fs->sb->blocks_per_group;
 	fs->blkgrps = std::make_unique<blkgrp[]>(fs->num_blkgrps);
-	fs->read((fs->blks == 1024 ? 2 : 1), 0, (uint8_t*)fs->blkgrps.get(),
+	fs->read((fs->block_size == 1024 ? 2 : 1), 0, (uint8_t*)fs->blkgrps.get(),
 			 sizeof(blkgrp) * fs->num_blkgrps);
 	d->root_dir = {
 		.name		   = {},
@@ -299,7 +349,7 @@ static size_t ext2_read(uint8_t* buf, size_t start_cluster, size_t offset,
 	if(offset)
 	{
 		// handle first unaligned section
-		size_t count = std::min(size, fs->blks - offset);
+		size_t count = std::min(size, fs->block_size - offset);
 		fs->read(fs->get_block_n(inod, start_cluster), offset, buf, count);
 		buf += count;
 		size -= count;
@@ -308,15 +358,15 @@ static size_t ext2_read(uint8_t* buf, size_t start_cluster, size_t offset,
 	}
 	if(!size) return br;
 
-	auto blocks = size / fs->blks;
+	auto blocks = size >> fs->log2_block_size;
 	for(size_t i = 0; i < blocks; i++)
 	{
 		// read aligned blocks
-		fs->read(fs->get_block_n(inod, start_cluster), 0, buf, fs->blks);
-		buf += fs->blks;
-		size -= fs->blks;
+		fs->read(fs->get_block_n(inod, start_cluster), 0, buf, fs->block_size);
+		buf += fs->block_size;
+		size -= fs->block_size;
 		start_cluster++;
-		br += fs->blks;
+		br += fs->block_size;
 	}
 	if(!size) return br;
 
@@ -340,7 +390,7 @@ static size_t ext2_write(const uint8_t* buf, size_t start_cluster,
 	if(offset)
 	{
 		// handle first unaligned section
-		size_t count = std::min(size, fs->blks - offset);
+		size_t count = std::min(size, fs->block_size - offset);
 		fs->write(fs->get_block_n(inod, start_cluster), offset, buf, count);
 		buf += count;
 		size -= count;
@@ -349,15 +399,15 @@ static size_t ext2_write(const uint8_t* buf, size_t start_cluster,
 	}
 	if(!size) return bw;
 
-	auto blocks = size / fs->blks;
+	auto blocks = size >> fs->log2_block_size;
 	for(size_t i = 0; i < blocks; i++)
 	{
 		// write aligned blocks
-		fs->write(fs->get_block_n(inod, start_cluster), 0, buf, fs->blks);
-		buf += fs->blks;
-		size -= fs->blks;
+		fs->write(fs->get_block_n(inod, start_cluster), 0, buf, fs->block_size);
+		buf += fs->block_size;
+		size -= fs->block_size;
 		start_cluster++;
-		bw += fs->blks;
+		bw += fs->block_size;
 	}
 	if(!size) return bw;
 
@@ -378,11 +428,16 @@ static size_t ext2_allocate_blocks(size_t start_block, size_t size_in_bytes,
 	inode inod;
 	fs->locate_inode(fdata.curr_inode, &inod);
 
-	const size_t blocks_needed = (size_in_bytes + (fs->blks - 1)) / fs->blks;
+	const size_t blocks_needed =
+		(size_in_bytes + (fs->block_size - 1)) >> fs->log2_block_size;
 
-	for(size_t i = 0; i < blocks_needed; i++)
+	const size_t blocks_allocated =
+		(inod.size + (fs->block_size - 1)) >> fs->log2_block_size;
+
+	for(size_t i = blocks_allocated; i < (blocks_needed - blocks_allocated);
+		i++)
 	{
-		fs->set_block_n(inod, i + start_block, fs->allocate_block());
+		fs->set_block_n(inod, i, fs->allocate_block());
 	}
 
 	fs->update_inode(fdata.curr_inode, &inod);
@@ -411,14 +466,14 @@ static void ext2_read_dir(directory_stream* dest, const file_data_block* dir,
 	inode inod;
 	fs->locate_inode(fdata.curr_inode, &inod);
 
-	auto blocks_to_read = inod.size / fs->blks;
-	auto temp			= std::make_unique<uint8_t[]>(fs->blks);
+	auto blocks_to_read = inod.size >> fs->log2_block_size;
+	auto temp			= std::make_unique<uint8_t[]>(fs->block_size);
 
 	for(size_t i = 0; i < blocks_to_read; i++)
 	{
 		auto blk = fs->get_block_n(inod, i);
-		fs->read(blk, 0, temp.get(), fs->blks);
-		for(size_t j = 0; j < fs->blks;)
+		fs->read(blk, 0, temp.get(), fs->block_size);
+		for(size_t j = 0; j < fs->block_size;)
 		{
 			dirent* d = (dirent*)(temp.get() + j);
 
@@ -454,15 +509,15 @@ static size_t get_last_entry_in_dir(const inode& inod, dirent* d,
 {
 	auto fs = (ext2fs*)fd->fs_impl_data;
 
-	auto num_blocks = inod.size / fs->blks;
+	auto num_blocks = inod.size >> fs->log2_block_size;
 
 	auto blk = fs->get_block_n(inod, num_blocks - 1);
 
-	for(size_t j = 0; j < fs->blks;)
+	for(size_t j = 0; j < fs->block_size;)
 	{
 		fs->read(blk, j, (uint8_t*)d, sizeof(dirent));
 
-		if(j + d->rec_len == fs->blks)
+		if(j + d->rec_len == fs->block_size)
 		{
 			return j;
 		}
@@ -533,7 +588,7 @@ static void ext2_create_file(const char* name, size_t name_len, uint32_t flags,
 	inode inod;
 	fs->locate_inode(fdata.curr_inode, &inod);
 
-	size_t i_block = inod.size / fs->blks;
+	size_t i_block = inod.size >> fs->log2_block_size;
 
 	dirent new_entry = {
 		.inode	   = new_fdata.curr_inode,
@@ -555,10 +610,7 @@ static void ext2_create_file(const char* name, size_t name_len, uint32_t flags,
 		if(last_entry.rec_len - real_size >= new_entry.rec_len)
 		{
 			last_entry.rec_len = real_size;
-			fs->write(block, end_offset, (uint8_t*)&last_entry, sizeof(dirent));
-
-			dirent tmp;
-			fs->read(block, end_offset, (uint8_t*)&tmp, sizeof(dirent));
+			fs->write(block, end_offset, &last_entry, sizeof(dirent));
 
 			end_offset += real_size;
 		}
@@ -568,23 +620,23 @@ static void ext2_create_file(const char* name, size_t name_len, uint32_t flags,
 		}
 	}
 
-	if(end_offset == 0 || last_entry.rec_len < new_entry.rec_len)
+	if(end_offset == 0)
 	{
 		block = fs->allocate_block();
 
 		fs->set_block_n(inod, i_block, block);
 
-		inod.size += fs->blks;
+		inod.size += fs->block_size;
 
 		end_offset = 0;
 
 		fs->update_inode(fdata.curr_inode, &inod);
 	}
 
-	new_entry.rec_len = fs->blks - end_offset;
+	new_entry.rec_len = fs->block_size - end_offset;
 
-	fs->write(block, end_offset, (uint8_t*)&new_entry, sizeof(dirent));
-	fs->write(block, end_offset + sizeof(dirent), (uint8_t*)name, name_len);
+	fs->write(block, end_offset, &new_entry, sizeof(dirent));
+	fs->write(block, end_offset + sizeof(dirent), name, name_len);
 
 	dir->file_list.push_back(new_file);
 }
