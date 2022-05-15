@@ -125,6 +125,11 @@ struct filesystem_drive
 		return !!(m_driver.allocate_buffer);
 	}
 
+	bool supports_byte_access() const
+	{
+		return m_minimum_block_size == 1 && !needs_buffer();
+	}
+
 	size_t index() const
 	{
 		return m_index;
@@ -160,6 +165,9 @@ struct filesystem_drive
 						 uint8_t* buf,
 						 size_t num_bytes) const;
 
+	void block_flush(size_t block, size_t num_blocks) const;
+	void block_invalidate(size_t block, size_t num_blocks) const;
+
 private:
 
 	void* m_drv_impl_data;
@@ -174,6 +182,7 @@ private:
 		size_t index;
 		uint8_t* data = nullptr;
 		bool dirty = false;
+		bool valid = false;
 		std::unique_ptr<sync::upgradable_shared_mutex> mtx = std::make_unique<sync::upgradable_shared_mutex>();
 	};
 
@@ -371,6 +380,43 @@ filesystem_drive* filesystem_add_drive(const disk_driver* disk_drv, void* driver
 	return drives.back();
 }
 
+void filesystem_drive::block_flush(size_t index, size_t num_blocks) const
+{
+	cache_write_mutex.lock_shared();
+
+	for(auto it = block_cache.buf_begin(); it != block_cache.buf_end(); ++it)
+	{
+		if(index + num_blocks < it->index) continue;
+		if(index > it->index + m_num_blocks_per_cache) continue;
+
+		sync::unique_lock lock{*it->mtx};
+		if(it->dirty)
+		{
+			write_blocks(it->index, it->data, m_num_blocks_per_cache);
+			it->dirty = false;
+		}
+	}
+
+	cache_write_mutex.unlock_shared();
+}
+
+void filesystem_drive::block_invalidate(size_t index, size_t num_blocks) const
+{
+	cache_write_mutex.lock_shared();
+
+	for(auto it = block_cache.buf_begin(); it != block_cache.buf_end(); ++it)
+	{
+		if(index + num_blocks < it->index) continue;
+		if(index > it->index + m_num_blocks_per_cache) continue;
+
+		sync::unique_lock lock{*it->mtx};
+		it->valid = false;
+	}
+
+	cache_write_mutex.unlock_shared();
+}
+
+
 template<typename T>
 T filesystem_drive::block_rw(size_t index, bool write_all) const
 {
@@ -380,7 +426,7 @@ T filesystem_drive::block_rw(size_t index, bool write_all) const
 
 	auto it = std::find_if(block_cache.buf_begin(),
 						   block_cache.buf_end(), [block](auto&& c) {
-							   return block == c.index && (!!c.data);
+							   return block == c.index && (!!c.valid);
 						   });
 
 	if(it == block_cache.buf_end())
@@ -397,9 +443,6 @@ T filesystem_drive::block_rw(size_t index, bool write_all) const
 
 			if(!item.data)
 			{
-				//it doesn't matter what this value is, as long as it isn't nullptr
-				item.data = (uint8_t*)1;
-
 				cache_write_mutex.unlock();
 
 				item.data = allocate_buffer(blocks_to_bytes(m_num_blocks_per_cache));
@@ -420,6 +463,8 @@ T filesystem_drive::block_rw(size_t index, bool write_all) const
 			{
 				read_blocks(item.index, item.data, m_num_blocks_per_cache);
 			}
+
+			item.valid = true;
 
 			return {item, std::move(lock)};
 		}
@@ -475,6 +520,11 @@ void filesystem_write_to_disk(const filesystem_drive* disk,
 {
 	k_assert(disk);
 	k_assert(!disk->read_only());
+	if(disk->supports_byte_access())
+	{
+		disk->write_blocks(block_num + offset, buf, num_bytes);
+		return;
+	}
 
 	auto blocks = filesystem_chunkify(offset, num_bytes, disk->block_size() - 1, disk->block_size_log2());
 	auto block = block_num + blocks.start_chunk;
@@ -487,14 +537,15 @@ void filesystem_write_to_disk(const filesystem_drive* disk,
 
 	if(blocks.num_full_chunks)
 	{
-		//if(!disk->needs_buffer())
-		/*if(!disk->needs_buffer() && disk->block_size() == 1)
+		if(!disk->needs_buffer() && blocks.num_full_chunks > 1)
 		{
+			disk->block_invalidate(block, blocks.num_full_chunks);
+
 			disk->write_blocks(block, buf, blocks.num_full_chunks);
 			buf += disk->blocks_to_bytes(blocks.num_full_chunks);
 			block += blocks.num_full_chunks;
 		}
-		else*/
+		else
 		{
 			auto num_chunks = blocks.num_full_chunks;
 			while(num_chunks--)
@@ -518,6 +569,11 @@ void filesystem_read_from_disk(const filesystem_drive* disk,
 							   size_t num_bytes)
 {
 	k_assert(disk);
+	if(disk->supports_byte_access())
+	{
+		disk->read_blocks(block_num + offset, buf, num_bytes);
+		return;
+	}
 
 	auto blocks = filesystem_chunkify(offset, num_bytes, disk->block_size() - 1, disk->block_size_log2());
 	auto block = block_num + blocks.start_chunk;
@@ -530,13 +586,15 @@ void filesystem_read_from_disk(const filesystem_drive* disk,
 
 	if(blocks.num_full_chunks)
 	{
-		/*if(!disk->needs_buffer() && disk->read_only())
+		if(!disk->needs_buffer() && blocks.num_full_chunks > 1)
 		{
+			disk->block_flush(block, blocks.num_full_chunks);
+
 			disk->read_blocks(block, buf, blocks.num_full_chunks);
 			buf += disk->blocks_to_bytes(blocks.num_full_chunks);
 			block += blocks.num_full_chunks;
 		}
-		else*/
+		else
 		{
 			auto num_chunks = blocks.num_full_chunks;
 			while(num_chunks--)

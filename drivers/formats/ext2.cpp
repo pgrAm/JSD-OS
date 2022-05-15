@@ -545,7 +545,7 @@ static void ext2_create_file(const char* name, size_t name_len, uint32_t flags,
 	dirent last_entry;
 	size_t end_offset = i_block == 0 ? 0 : get_last_entry_in_dir(inod, &last_entry, fd);
 
-	size_t block = fs->get_block_n(inod, i_block - 1);
+	size_t block = i_block == 0 ? 0 : fs->get_block_n(inod, i_block - 1);
 
 	if(end_offset != 0 && last_entry.inode != 0)
 	{
@@ -572,7 +572,7 @@ static void ext2_create_file(const char* name, size_t name_len, uint32_t flags,
 	{
 		block = fs->allocate_block();
 
-		fs->set_block_n(inod, i_block + 1, block);
+		fs->set_block_n(inod, i_block, block);
 
 		inod.size += fs->blks;
 
@@ -592,12 +592,12 @@ static void ext2_create_file(const char* name, size_t name_len, uint32_t flags,
 static const filesystem_driver ext2_driver = {
 	ext2_mount_disk,
 	ext2_read,
-	ext2_write,
+	ext2_write, 
 	ext2_allocate_blocks,
 	ext2_read_dir,
 	ext2_update_file,
 	ext2_create_file,
-	//NULL
+	nullptr,
 };
 
 extern "C" void ext2_init()
