@@ -11,7 +11,19 @@ my $asm = "nasm";
 my $ld = "ld.lld";
 my $ar = "llvm-ar";
 
-my $builddir = getcwd . "/build2";
+my $cwd = getcwd;
+
+if($#ARGV >= 1)
+{
+	$cwd = $ARGV[0]
+}
+
+my $builddir = $cwd . "/build2";
+
+if($#ARGV >= 2)
+{
+	$builddir = $ARGV[1]
+}
 
 =begin
 my @common_flags = qw(--target=i386-baremetal-elf -Wuninitialized -Wall -fno-unwind-tables -fno-asynchronous-unwind-tables -march=i386 -O2 -mno-sse -mno-mmx -fomit-frame-pointer -I ./ -Werror=implicit-function-declaration -flto -I clib/include -D__I386_ONLY);
@@ -28,7 +40,7 @@ my @user_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -mllvm -align-all-nof
 my @shlib_ld_flags = qw(-O2 -shared --lto-O3 --gc-sections);
 my @driver_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a -O2 -shared --lto-O2 --gc-sections -T drivers/driver.ld);
 my @kernel_ld_flags = qw(-L./ -l:libclang_rt.builtins-i386.a --lto-O2 -N -O2 -Ttext=0xF000 -T linker.ld -mllvm -align-all-nofallthru-blocks=2);
-=cut
+
 mkpath("$builddir/tools");
 if ($^O eq "linux") {
 	system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs -std=c++20 -O2");
@@ -37,7 +49,7 @@ if ($^O eq "linux") {
 	system("clang++ tools/rdfs.cpp -o $builddir/tools/rdfs.exe -std=c++20 -O2");
 	system("clang -D_CRT_SECURE_NO_WARNINGS tools/limine/limine-install.c -o $builddir/tools/limine-install.exe -O2");
 }
-=begin
+
 my @kernel_src = qw(	
 	kernel/kernel.asm
 	kernel/interrupt.asm
@@ -154,21 +166,21 @@ my $graphicstest = "$builddir/graphics.elf"; #build(name => "graphics.elf", src 
 
 my $fwritetest = "$builddir/fwrite.elf"; #build(name => "fwrite.elf", src => ["api/crt0.c", "api/crti.asm", "apps/fwrite.cpp", "api/crtn.asm"], flags => [@common_flags, @user_flags], ldflags => [@user_ld_flags, "--image-base=0x8000000", link_lib($clib), $cppr]);
 
-mkpath("$builddir/fdboot");
-system("$builddir/tools/rdfs", "configs/cdboot/init.sys", $drv_lib, $iso_drv, $ata_drv, $kb_drv, $pci_drv, "-o", "$builddir/cdboot/init.rfs");
-mkpath("$builddir/cdboot");
-system("$builddir/tools/rdfs", "configs/fdboot/init.sys", $drv_lib, $fat_drv, $floppy_drv, $kb_drv, $isa_dma, "-o", "$builddir/fdboot/init.rfs");
-mkpath("$builddir/netboot");
-system("$builddir/tools/rdfs", "configs/netboot/init.sys", $ps2mouse_drv, $i8042_drv, $listmode, $vesa_drv, $drv_lib, $kb_drv, $shell, $graphicstest, $clib, $terminal, "-o", "$builddir/netboot/init.rfs");
+#mkpath("$builddir/fdboot");
+#system("$builddir/tools/rdfs", "configs/cdboot/init.sys", $drv_lib, $iso_drv, $ata_drv, $kb_drv, $pci_drv, "-o", "$builddir/cdboot/init.rfs");
+#mkpath("$builddir/cdboot");
+#system("$builddir/tools/rdfs", "configs/fdboot/init.sys", $drv_lib, $fat_drv, $floppy_drv, $kb_drv, $isa_dma, "-o", "$builddir/fdboot/init.rfs");
+#mkpath("$builddir/netboot");
+#system("$builddir/tools/rdfs", "configs/netboot/init.sys", $ps2mouse_drv, $i8042_drv, $listmode, $vesa_drv, $drv_lib, $kb_drv, $shell, $graphicstest, $clib, $terminal, "-o", "$builddir/netboot/init.rfs");
 
-system("nasm boot/boot_sect.asm -i boot -f bin -o $builddir/boot_sect.bin");
+#system("nasm boot/boot_sect.asm -i boot -f bin -o $builddir/boot_sect.bin");
 
 build_fdimage(
 	name => "os.vfd",
 	boot_file => "$builddir/boot_sect.bin", 
 	files => [
 		"configs/fdboot/fdboot.sys",
-		"$builddir/fdboot/init.rfs",
+		"$builddir/configs/fdboot/init.rfs",
 		"$builddir/kernal.sys",
 		$shell,
 		"fonts/font08.psf",
@@ -225,7 +237,7 @@ if ($^O ne "linux") {
 		name => "iso/isoboot.img",
 		boot_file => "$builddir/boot_sect.bin", 
 		files => [
-			"$builddir/cdboot/init.rfs",
+			"$builddir/configs/cdboot/init.rfs",
 			"$builddir/kernal.sys",
 		]
 	);
@@ -244,7 +256,7 @@ build_cdimage(
 		@iso_files, 
 		"boot" => ["limine.cfg"], 
 		"system" => [
-			"$builddir/cdboot/init.rfs",
+			"$builddir/configs/cdboot/init.rfs",
 			"$builddir/kernal.sys"
 		]
 	]
@@ -306,8 +318,6 @@ sub build_cdimage
 		copy("tools/limine/limine.sys", "$folder/boot/limine.sys");
 		copy("tools/limine/limine-cd.bin", "$folder/boot/limine-cd.bin");
 		copy("tools/limine/limine-eltorito-efi.bin", "$folder/boot/limine-eltorito-efi.bin");
-
-		my $cwd = getcwd;
 
 		my $reldir = $folder;
 		$reldir =~ s/${cwd}//;

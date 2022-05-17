@@ -13,6 +13,13 @@ kernel_asm = asm_gen.process([
 	'kernel/paging.asm',
 	'kernel/syscall.asm'
 ])
+
+boot = custom_target('boot_sect',
+  output : 'boot_sect.bin',
+  input : 'boot/boot_sect.asm',
+  command : ['nasm', '@INPUT@', '-i', meson.source_root() / 'boot', '-f', 'bin', '-o', '@OUTPUT@'], 
+  build_by_default: true)
+
 kernel_src = [	
 	'kernel/kernel.c',
 	'kernel/memorymanager.cpp',
@@ -88,7 +95,7 @@ kernel_include = clib_include + ['kernel']
 linker_script_deps = meson.source_root() / 'linker.ld'
 
 rdfs = executable('rdfs', 'tools/rdfs.cpp', cpp_args: ['-std=c++20', '-O2'], native : true)
-limine_install = executable('limine-install', 'tools/limine/limine-install.c', native : true)
+limine_install = executable('limine-install', 'tools/limine/limine-install.c', c_args: ['-O2'], native : true)
 
 boot_mapper = static_library('boot_mapper', 
 	'kernel/boot_mapper.cpp',
@@ -208,7 +215,7 @@ terminal = shared_library('terminal',
 crti = asm_gen.process(['api/crti.asm'])
 crtn = asm_gen.process(['api/crtn.asm'])
 
-executable('shell.elf', 
+shell = executable('shell.elf', 
 	crti, ['api/crt0.c', 'shell/commands.cpp', 'shell/shell.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -235,7 +242,7 @@ executable('bkgrnd.elf',
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
-executable('listmode.elf', 
+listmode = executable('listmode.elf', 
 	crti, ['api/crt0.c', 'apps/listmode.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -244,7 +251,7 @@ executable('listmode.elf',
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
-executable('graphics.elf', 
+graphics = executable('graphics.elf', 
 	crti, ['api/crt0.c', 'apps/graphics.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -261,3 +268,9 @@ executable('fwrite.elf',
 	link_args: ['-s', '-Wl,--image-base=0x8000000'] + common_linker_flags,
 	link_with: [clib, terminal, cpp_runtime]
 )
+
+rdfs_command = [rdfs, '@INPUT@', '-o', '@OUTPUT@']
+
+subdir('configs/cdboot')
+subdir('configs/fdboot')
+subdir('configs/netboot')
