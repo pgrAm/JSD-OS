@@ -169,9 +169,9 @@ template<typename Functor>
 	};
 
 	__asm__ volatile("movl %0, %%esp\n"
-					 "push %1\n"
-					 "call %P2"
-					 :: "r"(stack_addr), "r"(&lambda), "i"(adapter) : );
+					 "pushl %1\n"
+					 "call *%2"
+					 :: "r"(stack_addr), "r"(&lambda), "r"(adapter) : );
 	__builtin_unreachable();
 }
 

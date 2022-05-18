@@ -2,6 +2,7 @@ ENTRY(start)
 phys = 0xF000;
 SECTIONS
 {
+  . = 0xF000;
   .text phys : AT(phys) {
     code = .;
     *(.text)

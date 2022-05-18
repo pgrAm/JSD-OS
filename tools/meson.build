@@ -1,0 +1,2 @@
+rdfs = executable('rdfs', 'rdfs.cpp', cpp_args: ['-std=c++20', '-O2'], native : true)
+limine_install = executable('limine-install', 'limine/limine-install.c', c_args: ['-O2'], native : true)
