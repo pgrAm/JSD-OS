@@ -60,9 +60,9 @@ clib_asm = asm_gen.process([
 	'clib/string.asm'
 ])
 
-
 common_flags = [
 		'-Wuninitialized',
+		'-Wconversion',
 		'-Wall',
 		'-fno-unwind-tables',
 		'-fno-asynchronous-unwind-tables',
@@ -94,8 +94,7 @@ kernel_include = clib_include + ['kernel']
 
 linker_script_deps = meson.source_root() / 'linker.ld'
 
-rdfs = executable('rdfs', 'tools/rdfs.cpp', cpp_args: ['-std=c++20', '-O2'], native : true)
-limine_install = executable('limine-install', 'tools/limine/limine-install.c', c_args: ['-O2'], native : true)
+subdir('tools')
 
 boot_mapper = static_library('boot_mapper', 
 	'kernel/boot_mapper.cpp',
@@ -105,7 +104,7 @@ boot_mapper = static_library('boot_mapper',
 	pic: true
 )
 
-executable('kernal.elf', 
+kernal = executable('kernal.elf', 
 	kernel_asm,
 	kernel_src,
 	clib_asm,
@@ -117,6 +116,19 @@ executable('kernal.elf',
 	link_depends: linker_script_deps, 
 	link_with: boot_mapper
 )
+
+kernal_sys = custom_target('kernal',
+	output : 'kernal.bin',
+	input : kernal,
+	command : [
+		'objcopy', 
+		'-x', 
+		'-S', '-O', 'binary', 
+		'@INPUT@', '@OUTPUT@',
+		'--set-section-flags', '.bss=alloc,load,contents',
+		'--gap-fill', '0'
+	], 
+	build_by_default: true)
 
 driver_linker_script_flags = common_linker_flags + ['-s', '-Tdrivers/driver.ld']
 driver_linker_script_deps = meson.source_root() / 'drivers' / 'driver.ld'
@@ -130,7 +142,7 @@ lib_emu = static_library('x86emu',
 		'drivers/display/vesa/libx86emu/ops2.c',
 		'drivers/display/vesa/libx86emu/prim_ops.c'
 	],
-	c_args: c_args + kernel_flags + ['-flto', '-fvisibility=hidden', '-std=gnu99'],
+	c_args: c_args + kernel_flags + ['-Wno-conversion', '-flto', '-fvisibility=hidden', '-std=gnu99'],
 	include_directories: kernel_include + ['drivers/display/vesa/'],
 	pic: true
 )
@@ -224,7 +236,7 @@ shell = executable('shell.elf',
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
-executable('primes.elf', 
+primes = executable('primes.elf', 
 	crti, ['api/crt0.c', 'apps/primes.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -233,7 +245,7 @@ executable('primes.elf',
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
-executable('bkgrnd.elf', 
+bkgrndtest = executable('bkgrnd.elf', 
 	crti, ['api/crt0.c', 'apps/bkgrnd.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -274,3 +286,45 @@ rdfs_command = [rdfs, '@INPUT@', '-o', '@OUTPUT@']
 subdir('configs/cdboot')
 subdir('configs/fdboot')
 subdir('configs/netboot')
+
+fs = import('fs')
+
+iso_contents = [
+	['LICENSE.txt', meson.source_root() / 'LICENSE.txt'],
+	['cdboot.sys', meson.source_root() / 'configs/cdboot/cdboot.sys'],
+	[graphics.name(), graphics],
+	[fs.name(clib.path()), clib],
+	[fs.name(terminal.path()), terminal],
+	[shell.name(), shell],
+	[primes.name(), primes],
+	[bkgrndtest.name(), bkgrndtest],
+	['drivers/' + fs.name(driver_map.get('fat').path()), driver_map.get('fat')],
+	['drivers/' + fs.name(driver_map.get('floppy').path()), driver_map.get('floppy')],
+	['drivers/' + fs.name(driver_map.get('isa_dma').path()), driver_map.get('isa_dma')],
+	['drivers/' + fs.name(driver_map.get('vga').path()), driver_map.get('vga')],
+	['drivers/' + fs.name(driver_map.get('vesa').path()), driver_map.get('vesa')],
+	['drivers/' + fs.name(driver_map.get('mbr').path()), driver_map.get('mbr')],
+	['drivers/' + fs.name(driver_map.get('i8042').path()), driver_map.get('i8042')],
+	['drivers/' + fs.name(driver_map.get('ps2mouse').path()), driver_map.get('ps2mouse')],
+	['drivers/font08.psf', meson.source_root() / 'fonts/font08.psf'],
+	['drivers/font16.psf', meson.source_root() / 'fonts/font16.psf'],
+#] + [
+	['boot/limine.cfg', meson.source_root() / 'limine.cfg'],
+	['system/init.rfs', cdrfs],
+	['system/kernal.sys', kernal_sys]
+]
+
+iso_files = []
+iso_cmd = []
+iso_index = 0
+foreach file : iso_contents
+	iso_files += file[1]
+	iso_cmd += file[0] + '=@INPUT' + iso_index.to_string() + '@'
+	iso_index += 1
+endforeach
+
+iso = custom_target('boot_iso',
+  output : 'jsd-os+limine.iso',
+  input : iso_files,
+  command : ['perl', meson.source_root() / 'tools/buildiso.pl', '-d', '@OUTDIR@', '-o', '@OUTPUT@'] + iso_cmd, 
+  build_by_default: true)
