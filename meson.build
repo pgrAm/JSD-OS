@@ -1,11 +1,10 @@
 project('jsd-os', ['c', 'cpp'])
 nasm = find_program('nasm', required: true)
-asm_gen = generator(nasm,
-  output : '@BASENAME@.o',
-  arguments : [
-    '-f', 'elf',
-    '@INPUT@',
-    '-o', '@OUTPUT@'])
+asm_gen = generator(
+	nasm,
+	output : '@BASENAME@.o',
+	arguments : ['-f', 'elf', '@INPUT@', '-o', '@OUTPUT@']
+)
 
 kernel_asm = asm_gen.process([
 	'kernel/kernel.asm',
@@ -14,11 +13,13 @@ kernel_asm = asm_gen.process([
 	'kernel/syscall.asm'
 ])
 
-boot = custom_target('boot_sect',
-  output : 'boot_sect.bin',
-  input : 'boot/boot_sect.asm',
-  command : ['nasm', '@INPUT@', '-i', meson.source_root() / 'boot', '-f', 'bin', '-o', '@OUTPUT@'], 
-  build_by_default: true)
+boot = custom_target(
+	'boot_sect',
+	output : 'boot_sect.bin',
+	input : 'boot/boot_sect.asm',
+	command : ['nasm', '@INPUT@', '-i', meson.source_root() / 'boot', '-f', 'bin', '-o', '@OUTPUT@'], 
+	build_by_default: true
+)
 
 kernel_src = [	
 	'kernel/kernel.c',
@@ -96,7 +97,8 @@ linker_script_deps = meson.source_root() / 'linker.ld'
 
 subdir('tools')
 
-boot_mapper = static_library('boot_mapper', 
+boot_mapper = static_library(
+	'boot_mapper', 
 	'kernel/boot_mapper.cpp',
 	c_args: c_args + kernel_flags + ['-fno-lto'],
 	cpp_args: cpp_args + ['-fno-lto'],
@@ -104,11 +106,14 @@ boot_mapper = static_library('boot_mapper',
 	pic: true
 )
 
-kernal = executable('kernal.elf', 
-	kernel_asm,
-	kernel_src,
-	clib_asm,
-	clib_src,
+kernal = executable(
+	'kernal.elf', 
+	[
+		kernel_asm,
+		kernel_src,
+		clib_asm,
+		clib_src
+	],
 	include_directories: kernel_include,
 	c_args: c_args + kernel_flags + ['-flto'],
 	cpp_args: cpp_args + kernel_flags + ['-flto'],
@@ -117,7 +122,8 @@ kernal = executable('kernal.elf',
 	link_with: boot_mapper
 )
 
-kernal_sys = custom_target('kernal',
+kernal_sys = custom_target(
+	'kernal',
 	output : 'kernal.bin',
 	input : kernal,
 	command : [
@@ -128,12 +134,14 @@ kernal_sys = custom_target('kernal',
 		'--set-section-flags', '.bss=alloc,load,contents',
 		'--gap-fill', '0'
 	], 
-	build_by_default: true)
+	build_by_default: true
+)
 
 driver_linker_script_flags = common_linker_flags + ['-s', '-Tdrivers/driver.ld']
 driver_linker_script_deps = meson.source_root() / 'drivers' / 'driver.ld'
 
-lib_emu = static_library('x86emu', 
+lib_emu = static_library(
+	'x86emu', 
 	[
 		'drivers/display/vesa/libx86emu/api.c',
 		'drivers/display/vesa/libx86emu/decode.c',
@@ -150,7 +158,7 @@ lib_emu = static_library('x86emu',
 driver_map = {}
 drivers = [
 		['AT_kbrd', ['drivers/at_kbrd.cpp'], []],
-        ['isa_dma', ['drivers/isa_dma.cpp'], []],
+		['isa_dma', ['drivers/isa_dma.cpp'], []],
 		['drvlib', ['drivers/drvlib.cpp'], []],
 		['pci', ['drivers/pci.cpp'], ['drvlib']],
 		['floppy', ['drivers/floppy.cpp'], ['drvlib', 'isa_dma']],
@@ -171,7 +179,8 @@ foreach dep : d[2]
 	deps += driver_map.get(dep)
 endforeach
 
-drv = shared_library(d[0], d[1],
+drv = shared_library(
+	d[0], d[1],
 	c_args: c_args + kernel_flags + ['-flto'],
 	cpp_args: cpp_args + kernel_flags + ['-flto'],
 	include_directories: kernel_include,
@@ -187,23 +196,25 @@ driver_map += {d[0] : drv}
 
 endforeach
 
-cpp_runtime = static_library('cppruntime', 
+cpp_runtime = static_library(
+	'cppruntime', 
 	['api/cppruntime.cpp'],
 	cpp_args: cpp_args + ['-flto'],
 	include_directories: clib_include + ['api/'],
 	pic: true
 )
 
-kbrd = static_library('keyboard', 
+kbrd = static_library(
+	'keyboard', 
 	['api/keyboard.c'],
 	c_args: c_args + ['-flto'],
 	include_directories: clib_include + ['api/'],
 	pic: true
 )
 
-clib = shared_library('clib',	
-	clib_asm,
-	clib_src,
+clib = shared_library(
+	'clib',	
+	[clib_asm, clib_src],
 	c_args: c_args + ['-flto'],
 	cpp_args: cpp_args + ['-flto'],
 	include_directories: clib_include + ['api/'],
@@ -213,7 +224,8 @@ clib = shared_library('clib',
 	override_options: 'b_lundef=false'
 )
 
-terminal = shared_library('terminal',	
+terminal = shared_library(
+	'terminal',	
 	['api/terminal/terminal.cpp', 'api/cppruntime.cpp'],
 	c_args: c_args + ['-flto'],
 	cpp_args: cpp_args + ['-flto'],
@@ -227,7 +239,8 @@ terminal = shared_library('terminal',
 crti = asm_gen.process(['api/crti.asm'])
 crtn = asm_gen.process(['api/crtn.asm'])
 
-shell = executable('shell.elf', 
+shell = executable(
+	'shell.elf', 
 	crti, ['api/crt0.c', 'shell/commands.cpp', 'shell/shell.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -236,7 +249,8 @@ shell = executable('shell.elf',
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
-primes = executable('primes.elf', 
+primes = executable(
+	'primes.elf', 
 	crti, ['api/crt0.c', 'apps/primes.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -245,7 +259,8 @@ primes = executable('primes.elf',
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
-bkgrndtest = executable('bkgrnd.elf', 
+bkgrndtest = executable(
+	'bkgrnd.elf', 
 	crti, ['api/crt0.c', 'apps/bkgrnd.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -254,7 +269,8 @@ bkgrndtest = executable('bkgrnd.elf',
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
-listmode = executable('listmode.elf', 
+listmode = executable(
+	'listmode.elf', 
 	crti, ['api/crt0.c', 'apps/listmode.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -263,7 +279,8 @@ listmode = executable('listmode.elf',
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
-graphics = executable('graphics.elf', 
+graphics = executable(
+	'graphics.elf', 
 	crti, ['api/crt0.c', 'apps/graphics.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -272,7 +289,8 @@ graphics = executable('graphics.elf',
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
-executable('fwrite.elf', 
+executable(
+	'fwrite.elf', 
 	crti, ['api/crt0.c', 'apps/fwrite.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto'],
@@ -324,7 +342,8 @@ foreach file : iso_contents
 endforeach
 
 iso = custom_target('boot_iso',
-  output : 'jsd-os+limine.iso',
-  input : iso_files,
-  command : ['perl', meson.source_root() / 'tools/buildiso.pl', '-d', '@OUTDIR@', '-o', '@OUTPUT@'] + iso_cmd, 
-  build_by_default: true)
+	output : 'jsd-os+limine.iso',
+	input : iso_files,
+	command : ['perl', meson.source_root() / 'tools/buildiso.pl', '-d', '@OUTDIR@', '-o', '@OUTPUT@'] + iso_cmd, 
+	build_by_default: true
+)

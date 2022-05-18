@@ -4,8 +4,8 @@ use File::Copy;
 
 my $toolsdir = dirname(__FILE__);
 
-my $imgfile = "jsd-os+limine.iso";
-my $output_path = "test_iso";
+my $imgfile = "";
+my $output_path = "";
 
 my @args = ();
 
