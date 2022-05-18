@@ -58,7 +58,7 @@ inline fs_chunks filesystem_chunkify(size_t offset, size_t length, size_t chunk_
 inline fs_chunks filesystem_chunkify(size_t offset, size_t length, size_t chunk_size)
 {
 	k_assert(std::has_single_bit(chunk_size));
-	return filesystem_chunkify(offset, length, chunk_size - 1, std::countr_zero(chunk_size));
+	return filesystem_chunkify(offset, length, chunk_size - 1, (size_t)std::countr_zero(chunk_size));
 }
 
 #ifdef __cplusplus
