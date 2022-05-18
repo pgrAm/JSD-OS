@@ -17,7 +17,7 @@ namespace std {
 	template<typename T>
 	constexpr int countl_zero(T x) noexcept
 	{
-		return __builtin_clz(x);
+		return __builtin_clz(static_cast<unsigned int>(x));
 	}
 
 	template<typename T>
@@ -29,7 +29,7 @@ namespace std {
 	template<typename T>
 	constexpr int countr_zero(T x) noexcept
 	{
-		return __builtin_ctz(x);
+		return __builtin_ctz(static_cast<unsigned int>(x));
 	}
 
 	template <typename T>

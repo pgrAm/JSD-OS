@@ -23,7 +23,7 @@ public:
 	using const_reference = const value_type&;
 	using const_pointer = const value_type*;
 	using traits_type = char_traits<value_type>;
-	static constexpr size_type npos = -1;
+	static constexpr size_type npos = static_cast<size_type>(-1);
 
 	constexpr basic_string_view() noexcept :
 		m_data(nullptr),
@@ -139,8 +139,8 @@ public:
 		{
 			for(auto c = str.cbegin(); c < str.cend(); c++)
 			{
-				if(*c == *it)
-					return it - cbegin();
+				if(*c == *it) 
+					return static_cast<size_t>(it - cbegin());
 			}
 		}
 
@@ -151,8 +151,8 @@ public:
 	{
 		for(auto it = cbegin() + pos; it < cend(); it++)
 		{
-			if(c == *it)
-				return it - cbegin();
+			if(c == *it) 
+				return static_cast<size_t>(it - cbegin());
 		}
 
 		return npos;
@@ -162,8 +162,8 @@ public:
 	{
 		for(auto it = cbegin() + pos; it < cend(); it++)
 		{
-			if(c != *it)
-				return it - cbegin();
+			if(c != *it) 
+				return static_cast<size_t>(it - cbegin());
 		}
 
 		return npos;
@@ -179,8 +179,8 @@ public:
 	{
 		for(auto it = cend() - 1; it >= cbegin() + pos; --it)
 		{
-			if(c == *it)
-				return it - cbegin();
+			if(c == *it) 
+				return static_cast<size_t>(it - cbegin());
 		}
 
 		return npos;

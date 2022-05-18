@@ -70,7 +70,7 @@ public:
 
 	constexpr size_t size() const
 	{
-		return cend() - cbegin();
+		return static_cast<size_t>(cend() - cbegin());
 	}
 
 	constexpr size_t length() const
