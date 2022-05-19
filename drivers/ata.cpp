@@ -12,6 +12,7 @@
 #include <drivers/ata_cmd.h>
 
 #include <vector>
+#include <bit>
 
 #define IDE_ATA        0x00
 #define IDE_ATAPI      0x01
@@ -108,6 +109,24 @@ static ata_channel channels[2];
 static ata_drive ide_drives[4];
 static constinit sync::mutex irq_mtx[2];
 static constinit sync::condition_variable irq_condition[2];
+
+template<size_t N, typename Func, typename Buf>
+ata_error foreach_n_sectors(ata_drive& drive, size_t lba, size_t num_sectors,
+							Buf* buffer, size_t sector_size,
+							Func f) requires(std::has_single_bit(N + 1))
+{
+	while(num_sectors)
+	{
+		size_t sectors = num_sectors & N;
+		if(auto err = f(drive, lba, (uint8_t)sectors, buffer);
+		   err != ata_error::NONE)
+			return err;
+		lba += sectors;
+		num_sectors -= sectors;
+		buffer += sectors * sector_size;
+	}
+	return ata_error::NONE;
+}
 
 static void ata_wait_irq(size_t index)
 {
@@ -292,7 +311,8 @@ static ata_addressing_mode ata_setup_transfer(ata_drive& drive, size_t lba, uint
 	return adress_mode;
 }
 
-static ata_error ata_do_read(ata_drive& drive, uint8_t num_sectors, uint32_t lba, uint8_t* buffer)
+static ata_error ata_do_read(ata_drive& drive, size_t lba, uint8_t num_sectors,
+							 uint8_t* buffer)
 {
 	k_assert(buffer);
 
@@ -321,7 +341,8 @@ static ata_error ata_do_read(ata_drive& drive, uint8_t num_sectors, uint32_t lba
 	return ata_error::NONE;
 }
 
-static ata_error ata_do_write(ata_drive& drive, uint8_t num_sectors, uint32_t lba, const uint8_t* buffer)
+static ata_error ata_do_write(ata_drive& drive, size_t lba, uint8_t num_sectors,
+							  const uint8_t* buffer)
 {
 	k_assert(buffer);
 
@@ -445,7 +466,8 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 	return ata_error::NONE;
 }
 
-static ata_error ata_read_sectors(ata_drive& drive, uint8_t num_sectors, uint32_t lba, uint8_t* buffer)
+static ata_error ata_read_sectors(ata_drive& drive, size_t num_sectors,
+								  uint32_t lba, uint8_t* buffer)
 {
 	if(!drive.exists)
 	{
@@ -460,20 +482,20 @@ static ata_error ata_read_sectors(ata_drive& drive, uint8_t num_sectors, uint32_
 		auto err = ata_error::NONE;
 		if(drive.type == ata_drive_type::ATA)
 		{
-			err = ata_do_read(drive, num_sectors, lba, buffer);
+			foreach_n_sectors<255>(drive, lba, num_sectors, buffer,
+								   ATA_SECTOR_SIZE, ata_do_read);
 		}
 		else if(drive.type == ata_drive_type::ATAPI)
 		{
-			for(size_t i = 0; i < num_sectors; i++)
-			{
-				err = ata_atapi_read(drive, lba + i, 1, buffer + (i * ATAPI_SECTOR_SIZE));
-			}
+			foreach_n_sectors<255>(drive, lba, num_sectors, buffer,
+								   ATAPI_SECTOR_SIZE, ata_atapi_read);
 		}
 		return ata_print_error(drive, err);
 	}
 }
 
-static ata_error ata_write_sectors(ata_drive& drive, uint8_t num_sectors, uint32_t lba, const uint8_t* buffer)
+static ata_error ata_write_sectors(ata_drive& drive, size_t num_sectors,
+								   uint32_t lba, const uint8_t* buffer)
 {
 	if(!drive.exists)
 	{
@@ -488,7 +510,8 @@ static ata_error ata_write_sectors(ata_drive& drive, uint8_t num_sectors, uint32
 		auto err = ata_error::NONE;
 		if(drive.type == ata_drive_type::ATA)
 		{
-			err = ata_do_write(drive, num_sectors, lba, buffer);
+			err = foreach_n_sectors<255>(drive, lba, num_sectors, buffer,
+										 ATA_SECTOR_SIZE, ata_do_write);
 		}
 		else if(drive.type == ata_drive_type::ATAPI)
 		{
