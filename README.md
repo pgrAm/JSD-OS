@@ -20,6 +20,21 @@ The actual meaning of the acronym is intentionally ambigous but might stand for 
 - POSIX/Unix Compatibility
 - Fair scheduling
 
-## What's with "EPSILON" in the release names
+## Building
+
+requires clang (might work on gcc), meson, perl, objcopy & xorriso
+
+make sure you initialize your git submodules before building
+
+```
+meson setup [build directory] --cross-file mesoncross.ini
+meson compile -C [build directory]
+```
+
+this will generate an iso file in the build directory you can run on hardware or your favourite emulator
+
+## FAQ
+
+### What's with "EPSILON" in the release names?
 
 The greek letter Epsilon is often used in mathematics to represent a very small positive value approaching zero, this represents the status of the OS at this point in time, not much, but more than nothing.
