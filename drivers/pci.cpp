@@ -23,9 +23,9 @@ static void pci_scan_bus(pci_func f, size_t d_class, size_t d_subclass, size_t b
 static inline constexpr uint32_t pci_get_addr(pci_device device, size_t field)
 {
 	return 0x80000000 
-		| (device.bus << 16) 
-		| (device.slot << 11) 
-		| (device.func << 8) 
+		| ((uint32_t)device.bus << 16u) 
+		| ((uint32_t)device.slot << 11u) 
+		| ((uint32_t)device.func << 8u) 
 		| ((field) & 0xFC);
 }
 

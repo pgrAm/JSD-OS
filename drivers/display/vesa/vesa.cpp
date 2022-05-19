@@ -164,8 +164,8 @@ static unsigned memio_handler(x86emu_t * emu, u32 addr, u32 * val, unsigned type
 {
 	emu->mem->invalid = 0;
 
-	uint32_t bits = type & 0xFF;
-	type &= ~0xFF;
+	uint32_t bits = type & 0xFFu;
+	type &= ~0xFFu;
 
 	switch(type)
 	{
@@ -208,13 +208,13 @@ static unsigned memio_handler(x86emu_t * emu, u32 addr, u32 * val, unsigned type
 		switch(bits)
 		{
 		case X86EMU_MEMIO_8:
-			*val = inb(addr);
+			*val = inb((uint16_t)addr);
 			break;
 		case X86EMU_MEMIO_16:
-			*val = inw(addr);
+			*val = inw((uint16_t)addr);
 			break;
 		case X86EMU_MEMIO_32:
-			*val = ind(addr);
+			*val = ind((uint16_t)addr);
 			break;
 		}
 		break;
@@ -222,13 +222,13 @@ static unsigned memio_handler(x86emu_t * emu, u32 addr, u32 * val, unsigned type
 		switch(bits)
 		{
 		case X86EMU_MEMIO_8:
-			outb(addr, *val);
+			outb((uint16_t)addr, (uint8_t)*val);
 			break;
 		case X86EMU_MEMIO_16:
-			outw(addr, *val);
+			outw((uint16_t)addr, (uint16_t)*val);
 			break;
 		case X86EMU_MEMIO_32:
-			outd(addr, *val);
+			outd((uint16_t)addr, (uint32_t)*val);
 			break;
 		}
 		break;
@@ -250,7 +250,7 @@ static x86emu_t* int10h_start(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx
 	x86emu_set_memio_handler(emu, &memio_handler);
 
 	x86emu_set_seg_register(emu, emu->x86.R_CS_SEL, 0);
-	x86emu_set_seg_register(emu, emu->x86.R_SS_SEL, virtual_stack_end / 0x10);
+	x86emu_set_seg_register(emu, emu->x86.R_SS_SEL, (uint16_t)(virtual_stack_end / 0x10));
 	x86emu_set_seg_register(emu, emu->x86.R_ES_SEL, es);
 
 	virtual_bootsector[0] = 0x90; //nop
@@ -576,7 +576,7 @@ static void vesa_set_diplay_offset(size_t offset, bool on_retrace)
 {
 	uint16_t bl = on_retrace ? 0x80 : 0x00;
 
-	auto& mode = (*available_modes)[current_mode_index];
+	auto& mode = (*available_modes)[(size_t)current_mode_index];
 
 	if(!vesa_pm_interface)
 	{
@@ -586,7 +586,8 @@ static void vesa_set_diplay_offset(size_t offset, bool on_retrace)
 
 		auto pixel_pitch = mode.pitch / bytes_pp;
 
-		int10h(0x4F07, bl, pixel_offset % pixel_pitch, pixel_offset / pixel_pitch, 0, 0);
+		int10h(0x4F07, bl, uint16_t(pixel_offset % pixel_pitch),
+			   uint16_t(pixel_offset / pixel_pitch), 0, 0);
 		return;
 	}
 
@@ -779,9 +780,9 @@ static bool vesa_set_mode(size_t index)
 {
 	auto& m = (*vesa_modes)[index];
 
-	if(vesa_do_mode_switch(m.index, m.is_vesa))
+	if(vesa_do_mode_switch((uint16_t)m.index, m.is_vesa))
 	{
-		current_mode_index = index;
+		current_mode_index = (int)index;
 		return true;
 	}
 
@@ -792,7 +793,7 @@ static uint8_t* vesa_get_framebuffer()
 {
 	if(current_mode_index != -1)
 	{
-		return (uint8_t*)(*vesa_modes)[current_mode_index].fb_addr;
+		return (uint8_t*)(*vesa_modes)[(size_t)current_mode_index].fb_addr;
 	}
 	return nullptr;
 }

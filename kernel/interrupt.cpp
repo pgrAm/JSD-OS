@@ -201,29 +201,29 @@ static constexpr std::string_view exception_messages[] =
 	"Reserved"
 };
 
-void isr_install_handler(size_t vector, irq_func r, bool user)
+void isr_install_handler(uint8_t vector, irq_func r, bool user)
 {
 	idt_install_handler(vector, (void*)r, user ? IDT_SEGMENT_USER : IDT_SEGMENT_KERNEL, IDT_SOFTWARE_INTERRUPT);
 }
 
-void isr_uninstall_handler(size_t vector)
+void isr_uninstall_handler(uint8_t vector)
 {
 	idt_install_handler(vector, nullptr, IDT_SEGMENT_KERNEL, 0);
 }
 
-void irq_install_handler(size_t irq, irq_func handler)
+void irq_install_handler(uint8_t irq, irq_func handler)
 {
 	idt_install_handler(32 + irq, (void*)handler, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
 }
 
 // This clears the handler for a given IRQ
-void irq_uninstall_handler(size_t irq)
+void irq_uninstall_handler(uint8_t irq)
 {
 	auto irq_func = irq < 8 ? irq_stub1 : irq_stub2;
 	idt_install_handler(32 + irq, (void*)irq_func, IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
 }
 
-void irq_enable(size_t irq, bool enabled)
+void irq_enable(uint8_t irq, bool enabled)
 {
 	auto port = PIC1_COMMAND_PORT;
 	if(irq >= 8)
@@ -234,15 +234,15 @@ void irq_enable(size_t irq, bool enabled)
 
 	if(enabled)
 	{
-		outb(port + 1, inb(port + 1) & ~(1 << irq));
+		outb(port + 1, inb(port + 1) & ~(uint8_t)(1 << irq));
 	}
 	else
 	{
-		outb(port + 1, inb(port + 1) | (1 << irq));
+		outb(port + 1, inb(port + 1) | (uint8_t)(1 << irq));
 	}
 }
 
-bool irq_is_requested(size_t irq)
+bool irq_is_requested(uint8_t irq)
 {
 	auto port = PIC1_COMMAND_PORT;
 	if(irq >= 8)
@@ -257,7 +257,7 @@ bool irq_is_requested(size_t irq)
 	return inb(port) & irq_mask;
 }
 
-INT_CALLABLE void acknowledge_irq(size_t irq)
+INT_CALLABLE void acknowledge_irq(uint8_t irq)
 {
 	if(irq >= 8)
 	{
@@ -370,9 +370,10 @@ void interrupts_init()
 
 	memset(&idt, 0, sizeof(idt));
 
+	static_assert(handlers.size() <= (uint8_t)~0);
 	for(size_t i = 0; i < handlers.size(); i++)
 	{
-		idt_install_handler(i, (void*)handlers[i], IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
+		idt_install_handler((uint8_t)i, (void*)handlers[i], IDT_SEGMENT_KERNEL, IDT_HARDWARE_INTERRUPT);
 	}
 
 	// Points the processor's internal register to the new IDT

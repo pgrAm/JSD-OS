@@ -52,13 +52,14 @@ tick_t pit_get_ticks()
 	return time_val;
 }
 
+//divisor in the range 0x01-0x10000
 static void pit_set_irq_period(uint32_t divisor)
 {
-	outb(0x43, 0x36);             			// Set our command byte 0x36
-	outb(0x40, divisor & 0xFF);  			// Set low byte of divisor
-	outb(0x40, divisor >> 8);     			// Set high byte of divisor
+	outb(0x43, 0x36);					   // Set our command byte 0x36
+	outb(0x40, (uint8_t)(divisor & 0xFF)); // Set low byte of divisor
+	outb(0x40, (uint8_t)(divisor >> 8));   // Set high byte of divisor
 
-	pit_timer_divisor = divisor - 1;
+	pit_timer_divisor = (uint16_t)(divisor - 1);
 }
 
 static INTERRUPT_HANDLER void pit_irq(interrupt_frame* r)

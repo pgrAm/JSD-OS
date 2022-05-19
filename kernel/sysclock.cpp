@@ -23,17 +23,18 @@ struct tm sysclock_time;
 
 size_t sysclock_get_rate()
 {
-	return pit_get_tick_rate();
+	return static_cast<size_t>(pit_get_tick_rate());
 }
 
 clock_t sysclock_get_ticks()
 {
-	return pit_get_ticks();
+	return static_cast<clock_t>(pit_get_ticks());
 }
 
 SYSCALL_HANDLER time_t sysclock_get_master_time(void)
 {
-	return sysclock_begin_time + (pit_get_ticks() / pit_get_tick_rate());
+	return sysclock_begin_time +
+		   static_cast<time_t>(pit_get_ticks() / pit_get_tick_rate());
 }
 
 SYSCALL_HANDLER clock_t syscall_get_ticks(size_t* rate)
@@ -69,13 +70,14 @@ void sysclock_init()
 
 	const time_t rtc_time = mktime(&sysclock_time); //Set our epoch time based on what we read from the RTC
 
-	sysclock_begin_time = rtc_time - (sample / tick_rate);
+	sysclock_begin_time = rtc_time - static_cast<time_t>(sample / tick_rate);
 }
 
 void sysclock_sleep(size_t time, clock_unit unit)
 {
 	clock_t begin = sysclock_get_ticks();
-	clock_t timer_end = begin + (time * pit_get_tick_rate()) / unit;
+	clock_t timer_end = begin
+					  + static_cast<clock_t>((time * pit_get_tick_rate()) / unit);
 	while(sysclock_get_ticks() < timer_end);
 }
 

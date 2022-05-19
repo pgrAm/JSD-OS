@@ -144,14 +144,16 @@ static inline int close(file_stream* file)
 	return (int)do_syscall_1(SYSCALL_CLOSE, (uint32_t)file);
 }
 
-static inline int read(void* dst, size_t len, file_stream* file)
+static inline size_t read(void* dst, size_t len, file_stream* file)
 {
-	return (int)do_syscall_3(SYSCALL_READ, (uint32_t)dst, (uint32_t)len, (uint32_t)file);
+	return (size_t)do_syscall_3(SYSCALL_READ, (uint32_t)dst, (uint32_t)len,
+								(uint32_t)file);
 }
 
-static inline int write(const void* dst, size_t len, file_stream* file)
+static inline size_t write(const void* dst, size_t len, file_stream* file)
 {
-	return (int)do_syscall_3(SYSCALL_WRITE, (uint32_t)dst, (uint32_t)len, (uint32_t)file);
+	return (size_t)do_syscall_3(SYSCALL_WRITE, (uint32_t)dst, (uint32_t)len,
+								(uint32_t)file);
 }
 
 static inline void spawn_process(const file_handle* file, directory_stream* cwd, int flags)
@@ -224,7 +226,7 @@ static inline int get_display_mode(int index, display_mode* actual)
 	return (int)do_syscall_2(SYSCALL_GET_DISPLAY_MODE, (uint32_t)index, (uint32_t)actual);
 }
 
-static inline int set_display_cursor(int offset)
+static inline int set_display_cursor(size_t offset)
 {
 	return (int)do_syscall_1(SYSCALL_SET_DISPLAY_CURSOR, (uint32_t)offset);
 }
@@ -288,16 +290,17 @@ static inline int get_input_event(input_event* e, bool wait)
 	return (int)do_syscall_2(SYSCALL_GET_INPUT_EVENT, (uint32_t)e, (uint32_t)wait);
 }
 
-static inline uintptr_t create_shared_buffer(const char* name, size_t name_len, size_t size)
+static inline uintptr_t create_shared_buffer(const char* name, size_t name_len,
+											 size_t size)
 {
-	return (int)do_syscall_3(SYSCALL_CREATE_SHARED_BUFFER,
-							 (uint32_t)name, (uint32_t)name_len, (uint32_t)size);
+	return (uintptr_t)do_syscall_3(SYSCALL_CREATE_SHARED_BUFFER, (uint32_t)name,
+								   (uint32_t)name_len, (uint32_t)size);
 }
 
 static inline uintptr_t open_shared_buffer(const char* name, size_t name_len)
 {
-	return (int)do_syscall_2(SYSCALL_OPEN_SHARED_BUFFER,
-							 (uint32_t)name, (uint32_t)name_len);
+	return (uintptr_t)do_syscall_2(SYSCALL_OPEN_SHARED_BUFFER, (uint32_t)name,
+								   (uint32_t)name_len);
 }
 
 static inline void close_shared_buffer(uintptr_t buf_handle)

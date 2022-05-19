@@ -621,8 +621,8 @@ void heap_allocator::free_bytes(void* to_free)
 	{
 		if(l_bestBet != NULL)
 		{
-			int bestSize = l_bestBet->size - l_bestBet->usage;
-			int majSize = maj->size - maj->usage;
+			size_t bestSize = l_bestBet->size - l_bestBet->usage;
+			size_t majSize	= maj->size - maj->usage;
 
 			if(majSize > bestSize) l_bestBet = maj;
 		}
@@ -640,7 +640,7 @@ void heap_allocator::free_bytes(void* to_free)
 
 void* heap_allocator::calloc_bytes(size_t nobj, size_t size)
 {
-	int real_size = nobj * size;
+	size_t real_size = nobj * size;
 
 	void* p = malloc_bytes(real_size);
 

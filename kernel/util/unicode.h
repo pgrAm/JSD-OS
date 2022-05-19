@@ -14,25 +14,25 @@ inline static std::string utf8_encode(std::basic_string_view<char32_t> input)
 	{
 		if(c <= 0x7Fu)
 		{
-			out.push_back(c);
+			out.push_back((char)c);
 		}
 		else if(c <= 0x7FFu)
 		{
-			out.push_back(0xC0u | ((c >> 6) & 0x1Fu));
-			out.push_back(0x80u | ((c >> 0) & 0x3Fu));
+			out.push_back((char)(0xC0u | ((c >> 6) & 0x1Fu)));
+			out.push_back((char)(0x80u | ((c >> 0) & 0x3Fu)));
 		}
 		else if(c <= 0xFFFF)
 		{
-			out.push_back(0xE0u | ((c >> 12) & 0x0Fu));
-			out.push_back(0x80u | ((c >> 6) & 0x3Fu));
-			out.push_back(0x80u | ((c >> 0) & 0x3Fu));
+			out.push_back((char)(0xE0u | ((c >> 12) & 0x0Fu)));
+			out.push_back((char)(0x80u | ((c >> 6) & 0x3Fu)));
+			out.push_back((char)(0x80u | ((c >> 0) & 0x3Fu)));
 		}
 		else if(c <= 0x10FFFF)
 		{
-			out.push_back(0xF0u | ((c >> 18) & 0x07u));
-			out.push_back(0x80u | ((c >> 12) & 0x3Fu));
-			out.push_back(0x80u | ((c >> 6) & 0x3Fu));
-			out.push_back(0x80u | ((c >> 0) & 0x3Fu));
+			out.push_back((char)(0xF0u | ((c >> 18) & 0x07u)));
+			out.push_back((char)(0x80u | ((c >> 12) & 0x3Fu)));
+			out.push_back((char)(0x80u | ((c >> 6) & 0x3Fu)));
+			out.push_back((char)(0x80u | ((c >> 0) & 0x3Fu)));
 		}
 		else
 		{
@@ -49,8 +49,10 @@ inline std::basic_string<char32_t> utf8_decode(std::string_view input)
 	size_t num_chars	 = 0;
 	char32_t next_output = 0;
 
-	for(uint8_t c : input)
+	for(auto chr : input)
 	{
+		auto c = static_cast<uint8_t>(chr);
+
 		if((c & 0x80) == 0)
 		{
 			out.push_back(c);
@@ -68,7 +70,7 @@ inline std::basic_string<char32_t> utf8_decode(std::string_view input)
 		}
 		else
 		{
-			num_chars	= std::countl_one(c);
+			num_chars	= (size_t)std::countl_one(c);
 			next_output = c & (0xFFu >> (num_chars + 1));
 			--num_chars;
 		}
@@ -85,7 +87,7 @@ inline std::basic_string<OutChar> utf16_encode(std::basic_string_view<char32_t> 
 	{
 		if(c <= 0xFFFFu)
 		{
-			out.push_back(c);
+			out.push_back((OutChar)c);
 		}
 		else
 		{

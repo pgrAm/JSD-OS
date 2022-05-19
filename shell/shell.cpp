@@ -122,7 +122,7 @@ static int execute_line(std::string_view current_line)
 			   std::find(drive_names.begin(), drive_names.end(), drive_cmd);
 		   it != drive_names.end())
 		{
-			select_drive(it - drive_names.begin());
+			select_drive((size_t)(it - drive_names.begin()));
 		}
 		else if("drive"sv == drive_cmd)
 		{
@@ -193,11 +193,11 @@ static int execute_line(std::string_view current_line)
 
 static void set_mouse_color(uint8_t color)
 {
-	auto coord = (cursor_x + cursor_y * s_term.width()) * sizeof(uint16_t) + 1;
+	auto coord = (cursor_x + cursor_y * (int)s_term.width()) * (int)sizeof(uint16_t) + 1;
 
 	auto buf = s_term.get_underlying_buffer();
 
-	buf[coord] = (buf[coord] & 0x0F) | (color << 4);
+	buf[coord] = (uint8_t)(buf[coord] & 0x0Fu) | (uint8_t)(color << 4);
 }
 
 static int get_command()
@@ -301,12 +301,12 @@ static void prompt()
 				  current_path, prompt_char);
 }
 
-static void splash_text(int w)
+static void splash_text(size_t w)
 {
 	print_chars('*', 3);
-	print_chars(' ', ((w / 2) - 6));
+	print_chars(' ', ((w / 2) - 6u));
 	print_strings("JSD/OS");
-	print_chars(' ', ((w / 2) - 6));
+	print_chars(' ', ((w / 2) - 6u));
 	print_chars('*', 3);
 }
 

@@ -76,30 +76,30 @@ static uint8_t last_key = 0;
 
 static INTERRUPT_HANDLER void AT_keyboard_handler(interrupt_frame* r)
 {
-	const uint8_t key = inb(0x60);
+	const uint8_t key_data = inb(0x60);
 	acknowledge_irq(1);
 
-	uint8_t lookup = 0;
-	bool pressed = false;
-
-	if(key < 0xE0)
+	if(key_data < 0xE0)
 	{
-		lookup += (key & 0x7f);
-		pressed = !(key & 0x80);
+		uint8_t lookup = (key_data & 0x7f);
+		auto key_state =
+			!(key_data & 0x80) ? event_type::KEY_DOWN : event_type::KEY_UP;
 
 		if(last_key == 0xE0)
 		{
 			lookup += 128;
 		}
 
-		handle_input_event(input_event{0, 0,
-				   key_translation_table[lookup],
-				   pressed ? event_type::KEY_DOWN : event_type::KEY_UP,
-				   sysclock_get_ticks()
-						   });
+		handle_input_event(input_event{
+			0,
+			0,
+			key_translation_table[lookup],
+			key_state,
+			sysclock_get_ticks(),
+		});
 	}
 
-	last_key = key;
+	last_key = key_data;
 }
 
 extern "C" void AT_kbrd_init()

@@ -64,7 +64,7 @@ struct filesystem_drive
 		, m_driver(disk_drv)
 		, m_index(index)
 		, m_minimum_block_size(block_size)
-		, m_blocksz_log2(std::countr_zero(block_size))
+		, m_blocksz_log2((size_t)std::countr_zero(block_size))
 		, m_num_blocks(num_blocks)
 		, m_num_blocks_per_cache(calc_block_ratio(block_size, default_cache_size))
 		, block_cache{8}

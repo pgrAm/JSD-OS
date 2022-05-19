@@ -51,7 +51,7 @@ tss* create_TSS(uintptr_t stack_addr)
 
 	memset(n_tss, 0, sizeof(tss));
 
-	n_tss->stack_seg = ((uintptr_t)&gdt_data_location - (uintptr_t)&gdt_location);
+	n_tss->stack_seg = (uint16_t)((uintptr_t)&gdt_data_location - (uintptr_t)&gdt_location);
 	n_tss->esp0 = stack_addr;
 
 	auto tss_addr = (uintptr_t)n_tss;
@@ -63,7 +63,8 @@ tss* create_TSS(uintptr_t stack_addr)
 	gdt_tss_location.base_high = (tss_addr >> 24) & 0xFF;
 	gdt_tss_location.granularity = ((sizeof(tss) >> 16) & 0x0F) | 0x40;
 
-	uint16_t tss_seg = ((uintptr_t)&gdt_tss_location - (uintptr_t)&gdt_location) | 3;
+	uint16_t tss_seg =
+		(uint16_t)((uintptr_t)&gdt_tss_location - (uintptr_t)&gdt_location) | 3;
 	
 	load_TSS(tss_seg);
 

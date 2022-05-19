@@ -214,13 +214,13 @@ void isa_dma_begin_transfer(uint8_t channel, uint8_t mode, const uint8_t* buf, s
 
 	size--;
 
-	outb(mask_register[channel],	0x04 | channel);
-	outb(clear_register[channel],	0x00);
-	outb(mode_register[channel],	mode + channel);
-	outb(adress_port[channel],		offset & 0x00FF);
-	outb(adress_port[channel],		(offset & 0xFF00) >> 8);
-	outb(page_port[channel],		physbuf >> 16);
-	outb(count_port[channel],		size & 0x00FF);
-	outb(count_port[channel],		(size & 0xFF00) >> 8);
-	outb(mask_register[channel],	channel);
+	outb(mask_register[channel],  0x04 | channel);
+	outb(clear_register[channel], 0x00);
+	outb(mode_register[channel],  mode + channel);
+	outb(adress_port[channel],	  offset & 0x00FF);
+	outb(adress_port[channel],	  (uint8_t)(offset & 0xFF00) >> 8);
+	outb(page_port[channel],	  (uint8_t)(physbuf >> 16));
+	outb(count_port[channel],	  size & 0x00FF);
+	outb(count_port[channel],	  (size & 0xFF00) >> 8);
+	outb(mask_register[channel],  channel);
 }

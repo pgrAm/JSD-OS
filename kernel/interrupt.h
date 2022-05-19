@@ -11,10 +11,10 @@ extern "C" {
 #include <drivers/portio.h>
 typedef struct
 {
-    uint32_t gs, fs, es, ds;      /* pushed the segs last */
+	uint32_t gs, fs, es, ds;      /* pushed the segs last */
 	uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;  /* pushed by 'pusha' */
-    uint32_t int_no, err_code;    /* our 'push byte #' and ecodes do this */
-    uint32_t eip, cs, eflags, sp, ss;   /* pushed by the processor automatically */ 
+	uint32_t int_no, err_code;    /* our 'push byte #' and ecodes do this */
+	uint32_t eip, cs, eflags, sp, ss;   /* pushed by the processor automatically */ 
 } __attribute__((packed)) interrupt_info;
 
 #define IDT_INT_PRESENT	0x80
@@ -28,26 +28,26 @@ typedef struct
 
 typedef struct
 {
-    uint32_t ip;
-    uint32_t cs;
-    uint32_t flags;
-    uint32_t sp;
-    uint32_t ss;
+	uint32_t ip;
+	uint32_t cs;
+	uint32_t flags;
+	uint32_t sp;
+	uint32_t ss;
 } interrupt_frame;
 
 #define INTERRUPT_HANDLER __attribute__((interrupt))
 
 typedef INTERRUPT_HANDLER void (irq_func)(interrupt_frame* r);
 
-INT_CALLABLE void acknowledge_irq(size_t irq);
+INT_CALLABLE void acknowledge_irq(uint8_t irq);
 void interrupts_init();
-void isr_install_handler(size_t vector, irq_func r, bool user);
-void isr_uninstall_handler(size_t irq);
-void irq_install_handler(size_t irq, irq_func r);
-void irq_uninstall_handler(size_t irq);
-void irq_enable(size_t irq, bool enabled);
+void isr_install_handler(uint8_t vector, irq_func r, bool user);
+void isr_uninstall_handler(uint8_t irq);
+void irq_install_handler(uint8_t irq, irq_func r);
+void irq_uninstall_handler(uint8_t irq);
+void irq_enable(uint8_t irq, bool enabled);
 
-bool irq_is_requested(size_t irq);
+bool irq_is_requested(uint8_t irq);
 
 #ifdef __cplusplus
 }

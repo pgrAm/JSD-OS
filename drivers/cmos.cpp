@@ -32,13 +32,13 @@ clock_t cmos_get_date_time(struct tm* result)
 		century = cmos_get_register(century_register);
 	}
 
-	uint8_t last_second;
-	uint8_t last_minute;
-	uint8_t last_hour;
-	uint8_t last_day;
-	uint8_t last_month;
-	uint8_t last_year;
-	uint8_t last_century;
+	int last_second;
+	int last_minute;
+	int last_hour;
+	int last_day;
+	int last_month;
+	int last_year;
+	int last_century;
 
 	do
 	{
@@ -111,6 +111,8 @@ clock_t cmos_get_date_time(struct tm* result)
 
 	result->tm_mon -= 1;
 	result->tm_year -= 1900;
+
+	result->tm_isdst = 0;
 
 	return sample_time;
 }

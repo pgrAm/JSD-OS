@@ -38,7 +38,7 @@ typedef struct display_driver display_driver;
 
 void display_add_driver(const display_driver* d, bool use_as_default);
 
-SYSCALL_HANDLER int set_cursor_offset(int offset);
+SYSCALL_HANDLER int set_cursor_offset(size_t offset);
 SYSCALL_HANDLER int set_display_mode(const display_mode* requested, display_mode* actual);
 SYSCALL_HANDLER int get_display_mode(int index, display_mode* result);
 SYSCALL_HANDLER uint8_t* map_display_memory(void);

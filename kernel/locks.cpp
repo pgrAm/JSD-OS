@@ -2,6 +2,9 @@
 #include "task.h"
 
 #include <stdio.h>
+#include <bit>
+
+using cas_type = decltype(lockable_val::value);
 
 #ifdef SYNC_HAS_CAS_FUNC
 static inline bool tas_aquire(uint8_t* l)
@@ -14,9 +17,13 @@ static inline void tas_release(uint8_t* l)
 	__atomic_store_n(l, 0, __ATOMIC_RELEASE);
 }
 
-static inline int cas_func(lockable_val* ptr, int oldval, int newval)
+template<typename T>
+static inline int cas_func(lockable_val* ptr, T oldval, T newval)
 {
-	return __sync_val_compare_and_swap(&ptr->value, oldval, newval);
+	return std::bit_cast<T>(
+		__sync_val_compare_and_swap(&ptr->value,
+									std::bit_cast<cas_type>(oldval),
+									std::bit_cast<cas_type>(newval)));
 }
 
 #else
@@ -47,15 +54,13 @@ static inline void atomic_lock_release(int_lock l, uint8_t* tas_lock)
 	unlock_interrupts(l);
 }
 
-static inline int cas_func(lockable_val* ptr, int oldval, int newval)
+template<typename T>
+static inline T cas_func(lockable_val* ptr, T oldval, T newval)
 {
 	int_lock l = atomic_lock_aquire(&ptr->tas_lock);
 
-	int old_ptr_val = ptr->value;
-	if(old_ptr_val == oldval)
-	{
-		ptr->value = newval;
-	}
+	T old_ptr_val = std::bit_cast<T>(ptr->value);
+	if(old_ptr_val == oldval) { ptr->value = std::bit_cast<int>(newval); }
 
 	atomic_lock_release(l, &ptr->tas_lock);
 
@@ -64,7 +69,7 @@ static inline int cas_func(lockable_val* ptr, int oldval, int newval)
 
 #endif
 
-static inline bool do_try_lock_mutex(kernel_mutex* m, int* pid)
+static inline bool do_try_lock_mutex(kernel_mutex* m, task_id* pid)
 {
 	*pid = cas_func(&m->ownerPID, INVALID_PID, get_running_process());
 	return *pid == INVALID_PID;
@@ -72,13 +77,13 @@ static inline bool do_try_lock_mutex(kernel_mutex* m, int* pid)
 
 bool kernel_try_lock_mutex(kernel_mutex* m)
 {
-	int pid;
+	task_id pid;
 	return do_try_lock_mutex(m, &pid);
 }
 
 void kernel_lock_mutex(kernel_mutex* m)
 {
-	int pid;
+	task_id pid;
 	while(!do_try_lock_mutex(m, &pid))
 	{
 		switch_to_task(pid);
@@ -87,7 +92,8 @@ void kernel_lock_mutex(kernel_mutex* m)
 
 void kernel_unlock_mutex(kernel_mutex* m)
 {
-	__atomic_store_n(&m->ownerPID.value, INVALID_PID, __ATOMIC_RELEASE);
+	__atomic_store_n(&m->ownerPID.value, std::bit_cast<cas_type>(INVALID_PID),
+					 __ATOMIC_RELEASE);
 	switch_to_active_task();
 }
 

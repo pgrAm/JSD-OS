@@ -167,7 +167,7 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, directo
 				base_adress = 0;
 			}
 
-			for(int i = 0; i < file_header.pgh_entries; i++)
+			for(size_t i = 0; i < file_header.pgh_entries; i++)
 			{
 				//seek ahead to the program header table
 				f.seek(file_header.pgh_offset + i * sizeof(ELF_program_header32));

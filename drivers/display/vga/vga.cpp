@@ -66,7 +66,7 @@ static void write_regs(const uint8_t* regs)
 	outb(VGA_MISC_WRITE, *regs);
 	regs++;
 	//write SEQUENCER regs
-	for (size_t i = 0; i < VGA_NUM_SEQ_REGS; i++)
+	for(uint8_t i = 0; i < VGA_NUM_SEQ_REGS; i++)
 	{
 		outb(VGA_SEQ_INDEX, i);
 		outb(VGA_SEQ_DATA, *regs);
@@ -83,21 +83,21 @@ static void write_regs(const uint8_t* regs)
 	//assert(!(regs[0x11] & 0x80));
 
 	//write CRTC regs
-	for (size_t i = 0; i < VGA_NUM_CRTC_REGS; i++)
+	for (uint8_t i = 0; i < VGA_NUM_CRTC_REGS; i++)
 	{
 		outb(VGA_CRTC_INDEX, i);
 		outb(VGA_CRTC_DATA, *regs);
 		regs++;
 	}
 	// write GRAPHICS CONTROLLER regs
-	for (size_t i = 0; i < VGA_NUM_GC_REGS; i++)
+	for(uint8_t i = 0; i < VGA_NUM_GC_REGS; i++)
 	{
 		outb(VGA_GC_INDEX, i);
 		outb(VGA_GC_DATA, *regs);
 		regs++;
 	}
 	// write ATTRIBUTE CONTROLLER regs
-	for (size_t i = 0; i < VGA_NUM_AC_REGS; i++)
+	for(uint8_t i = 0; i < VGA_NUM_AC_REGS; i++)
 	{
 		(void)inb(VGA_INSTAT_READ);
 		outb(VGA_AC_INDEX, i);
@@ -112,7 +112,7 @@ static void write_regs(const uint8_t* regs)
 static void set_plane(uint8_t p)
 {
 	p &= 3;
-	uint8_t pmask = 1 << p;
+	uint8_t pmask = (uint8_t)(1 << p);
 	// set read plane 
 	outb(VGA_GC_INDEX, 4);
 	outb(VGA_GC_DATA, p);
@@ -299,8 +299,8 @@ static void vga_set_display_offset(size_t offset, bool on_retrace)
 		while((inb(INPUT_STATUS_1) & VRETRACE));
 	}
 
-	outw(VGA_CRTC_INDEX, HIGH_ADDRESS | (offset & 0xff00));
-	outw(VGA_CRTC_INDEX, LOW_ADDRESS | (offset << 8));
+	outw(VGA_CRTC_INDEX, (uint16_t)(HIGH_ADDRESS | (offset & 0xff00)));
+	outw(VGA_CRTC_INDEX, (uint16_t)(LOW_ADDRESS | (offset << 8)));
 }
 
 static display_driver vga_driver =

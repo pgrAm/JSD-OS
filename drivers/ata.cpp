@@ -218,8 +218,8 @@ static ata_error ata_print_error(const ata_drive& drive, ata_error err)
 static ata_addressing_mode ata_setup_transfer(ata_drive& drive, size_t lba, uint8_t numsects)
 {
 	uint8_t		lba_io[6];
-	uint32_t	channel = drive.channel;
 
+	auto channel	   = drive.channel;
 	uint16_t base_port = channels[channel].base;
 	uint16_t crtl_port = channels[channel].ctrl;
 
@@ -256,8 +256,8 @@ static ata_addressing_mode ata_setup_transfer(ata_drive& drive, size_t lba, uint
 	else
 	{
 		adress_mode = ata_addressing_mode::CHS;
-		uint8_t sect = (lba % 63) + 1;
-		uint16_t cyl = (lba + 1 - sect) / (16 * 63);
+		uint8_t sect = uint8_t((lba % 63) + 1);
+		uint16_t cyl = uint16_t((lba + 1 - sect) / (16 * 63));
 		lba_io[0] = sect;
 		lba_io[1] = (cyl >> 0) & 0xFF;
 		lba_io[2] = (cyl >> 8) & 0xFF;
@@ -270,9 +270,9 @@ static ata_addressing_mode ata_setup_transfer(ata_drive& drive, size_t lba, uint
 	// wait for the drive to be ready
 	while(inb(base_port + ATA_REG_STATUS) & ATA_SR_BSY);
 
-	auto mode = (adress_mode == ata_addressing_mode::CHS) ? 0xA0 : 0xE0;
+	uint8_t mode = (adress_mode == ata_addressing_mode::CHS) ? 0xA0u : 0xE0u;
 
-	outb(base_port + ATA_REG_HDDEVSEL, mode | (drive.drive << 4) | head);
+	outb(base_port + ATA_REG_HDDEVSEL, mode | (uint8_t)(drive.drive << 4) | head);
 	ata_delay400(channel);
 
 	if(adress_mode == ata_addressing_mode::LBA48)
@@ -378,8 +378,8 @@ static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
 
 static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sectors, uint8_t* buffer)
 {
-	uint32_t channel = drive.channel;
-	uint32_t words = ATAPI_SECTOR_SIZE / sizeof(uint16_t);
+	auto channel = drive.channel;
+	uint32_t num_words = ATAPI_SECTOR_SIZE / sizeof(uint16_t);
 
 	//irq_condition[channel].unavailable = 1;
 
@@ -387,7 +387,7 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 	uint16_t ctrl_port = channels[channel].ctrl;
 
 	// select the drive:
-	outb(base_port + ATA_REG_HDDEVSEL, drive.drive << 4);
+	outb(base_port + ATA_REG_HDDEVSEL, (uint8_t)(drive.drive << 4));
 	// wait 400ns for select to complete:
 	ata_delay400(channel);
 
@@ -398,8 +398,8 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 	outb(base_port + ATA_REG_FEATURES, 0);
 
 	// send the size of buffer:
-	outb(base_port + ATA_REG_LBA1, (words * sizeof(uint16_t)) & 0xFF);
-	outb(base_port + ATA_REG_LBA2, (words * sizeof(uint16_t)) >> 8);
+	outb(base_port + ATA_REG_LBA1, (uint8_t)((num_words * sizeof(uint16_t)) & 0xFF));
+	outb(base_port + ATA_REG_LBA2, (uint8_t)((num_words * sizeof(uint16_t)) >> 8));
 
 	// send the packet command:
 	outb(base_port + ATA_REG_COMMAND, ATA_CMD_PACKET);
@@ -433,8 +433,8 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 		{
 			return err;
 		}
-		insw(base_port, (uint16_t*)buffer, words);
-		buffer += (words * sizeof(uint16_t));
+		insw(base_port, (uint16_t*)buffer, num_words);
+		buffer += (num_words * sizeof(uint16_t));
 	}
 
 	ata_wait_irq(channel);
@@ -498,10 +498,8 @@ static ata_error ata_write_sectors(ata_drive& drive, uint8_t num_sectors, uint32
 	}
 }
 
-static void ata_write_blocks(void* drv_data,
-							 size_t block_number,
-							 const uint8_t* buffer,
-							 size_t num_blocks)
+static void ata_write_blocks(void* drv_data, size_t block_number,
+							 const uint8_t* buffer, size_t num_blocks)
 {
 	ata_drive* drive = (ata_drive*)drv_data;
 	if(auto err = ata_write_sectors(*drive, num_blocks, block_number, buffer);
@@ -511,10 +509,8 @@ static void ata_write_blocks(void* drv_data,
 	}
 }
 
-static void ata_read_blocks(void* drv_data,
-							size_t block_number,
-							uint8_t* buffer,
-							size_t num_blocks)
+static void ata_read_blocks(void* drv_data, size_t block_number,
+							uint8_t* buffer, size_t num_blocks)
 {
 	ata_drive* drive = (ata_drive*)drv_data;
 	if(auto err = ata_read_sectors(*drive, num_blocks, block_number, buffer);
@@ -587,7 +583,7 @@ static size_t ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 	}
 
 	size_t num_drives = 0;
-	for(size_t channel = 0; channel < 2; channel++)
+	for(uint8_t channel = 0; channel < 2; channel++)
 	{
 		uint16_t base_port = channels[channel].base;
 		uint16_t ctrl_port = channels[channel].ctrl;
@@ -595,12 +591,12 @@ static size_t ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 		outb(ctrl_port, 0x00);
 		ata_delay400(channel);
 
-		for(size_t index = 0; index < 2; index++)
+		for(uint8_t index = 0; index < 2; index++)
 		{
 			auto& drive = ide_drives[num_drives];
 
 			//select the drive
-			outb(base_port + ATA_REG_HDDEVSEL, 0xA0 | (index << 4));
+			outb(base_port + ATA_REG_HDDEVSEL, 0xA0 | (uint8_t)(index << 4));
 			ata_delay400(channel);
 
 			ata_wait_ready(channel);
@@ -677,8 +673,8 @@ static size_t ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 			// read the model string
 			for(size_t k = 0; k < 40; k += 2)
 			{
-				drive.model[k + 0] = ident_buf[ATA_IDENT_MODEL + k + 1];
-				drive.model[k + 1] = ident_buf[ATA_IDENT_MODEL + k + 0];
+				drive.model[k + 0] = (char)ident_buf[ATA_IDENT_MODEL + k + 1];
+				drive.model[k + 1] = (char)ident_buf[ATA_IDENT_MODEL + k + 0];
 			}
 			drive.model[40] = '\0'; // terminate string.
 
@@ -741,7 +737,7 @@ static INTERRUPT_HANDLER void ata_irq_handler(interrupt_frame* r)
 
 	//outb(channels[0].bus_master + 0x2, inb(channels[0].bus_master + 0x2) | 4);
 
-	acknowledge_irq(channels[0].irq);
+	acknowledge_irq((uint8_t)channels[0].irq);
 }
 
 extern "C" int ata_init()
@@ -791,22 +787,22 @@ extern "C" int ata_init()
 		if(bar0 == 0 || bar0 == 1)
 			bar0 = 0x1F0;
 		else
-			bar0 &= ~1;
+			bar0 &= ~1u;
 
 		if(bar1 == 0 || bar1 == 1)
-			bar1 = 0x3F6;
+			bar1 = 0x3F6u;
 		else
-			bar1 &= ~1;
+			bar1 &= ~1u;
 
 		if(bar2 == 0 || bar2 == 1)
-			bar2 = 0x170;
+			bar2 = 0x170u;
 		else
-			bar2 &= ~1;
+			bar2 &= ~1u;
 
 		if(bar3 == 0 || bar3 == 1)
-			bar3 = 0x376;
+			bar3 = 0x376u;
 		else
-			bar3 &= ~1;
+			bar3 &= ~1u;
 
 		auto interrupt_line = pci_read<uint8_t>(device, PCI_INTERRUPT_LINE);
 
@@ -814,7 +810,9 @@ extern "C" int ata_init()
 		{
 			irq_install_handler(interrupt_line, ata_irq_handler);
 		}
-		if(!ata_initialize_drives(bar0, bar1, bar2, bar3, bar4, interrupt_line, device))
+		if(!ata_initialize_drives((uint16_t)bar0, (uint16_t)bar1,
+								  (uint16_t)bar2, (uint16_t)bar3,
+								  (uint16_t)bar4, interrupt_line, device))
 		{
 			//disable the PCI device if no drives found
 			pci_write<uint16_t>(device, PCI_COMMAND,

@@ -28,7 +28,7 @@ void reserve_boot_mem()
 	{
 		if(memmap[i].m_type != 1)
 		{
-			physical_memory_reserve(memmap[i].m_addr, memmap[i].m_length);
+			physical_memory_reserve((uintptr_t)memmap[i].m_addr, (size_t)memmap[i].m_length);
 		}
 	}
 }

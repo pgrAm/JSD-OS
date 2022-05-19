@@ -36,27 +36,29 @@ extern void enable_paging(void);
 extern void disable_paging(void);
 extern void* get_page_directory(void);
 
+#ifdef __cplusplus
+enum page_flags : uintptr_t
+#else
 enum page_flags
+#endif
 {
-    PAGE_PRESENT = 0x01,
-    PAGE_RW = 0x02,
-    PAGE_USER = 0x04,
+	PAGE_PRESENT = 0x01u,
+	PAGE_RW = 0x02u,
+	PAGE_USER = 0x04u,
 
-    // OS specific
+	// OS specific
+	PAGE_RESERVED = 0x800u, // bit 11
+	PAGE_MAP_ON_ACCESS = 0x400u, // bit 10
 
-    PAGE_RESERVED = 0x800, // bit 11
-    PAGE_MAP_ON_ACCESS = 0x400, // bit 10
-
-
-    PAGE_ALLOCATED = PAGE_RESERVED | PAGE_PRESENT
+	PAGE_ALLOCATED = PAGE_RESERVED | PAGE_PRESENT
 };
 
-#define PAGE_SIZE 4096
-#define PAGE_TABLE_SIZE 1024
+#define PAGE_SIZE 0x1000u
+#define PAGE_TABLE_SIZE 0x400u
 
 inline size_t memmanager_minimum_pages(size_t bytes)
 {
-    return (bytes + (PAGE_SIZE - 1)) / PAGE_SIZE;
+	return (bytes + (PAGE_SIZE - 1)) / PAGE_SIZE;
 }
 
 

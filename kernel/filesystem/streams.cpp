@@ -83,7 +83,7 @@ int filesystem_close_file(file_stream* s)
 	return 0;
 }
 
-int filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
+size_t filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
 {
 	k_assert(dst_buf);
 	k_assert(s);
@@ -92,7 +92,7 @@ int filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
 	{
 		if(s->seekpos >= s->file.size)
 		{
-			return -1; // EOF
+			return 0; // EOF
 		}
 
 		if(s->seekpos + len > s->file.size)
@@ -123,7 +123,7 @@ void filesystem_allocate_space(file_stream* s, fs_index location, size_t request
 	s->file.size = std::min(allocated_size, requested_size);
 }
 
-int filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
+size_t filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
 {
 	k_assert(dst_buf);
 	k_assert(s);
@@ -161,7 +161,7 @@ void filesystem_seek_file(file_stream* f, size_t pos)
 	f->seekpos = pos;
 }
 
-SYSCALL_HANDLER int syscall_read_file(void* dst, size_t len, file_stream* f)
+SYSCALL_HANDLER size_t syscall_read_file(void* dst, size_t len, file_stream* f)
 {
 	if(f == nullptr || dst == nullptr)
 	{
@@ -170,7 +170,8 @@ SYSCALL_HANDLER int syscall_read_file(void* dst, size_t len, file_stream* f)
 	return filesystem_read_file(dst, len, f);
 }
 
-SYSCALL_HANDLER int syscall_write_file(const void* dst, size_t len, file_stream* f)
+SYSCALL_HANDLER size_t syscall_write_file(const void* dst, size_t len,
+										  file_stream* f)
 {
 	if(f == nullptr || dst == nullptr || (f->file.flags & IS_READONLY))
 	{

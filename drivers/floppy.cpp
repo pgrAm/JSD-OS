@@ -35,7 +35,7 @@ static uint8_t floppy_getbyte();
 static void floppy_reset(uint8_t driveNum);
 static bool floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head);
 
-enum floppy_registers
+enum floppy_registers : uint16_t
 {
    DIGITAL_OUTPUT_REGISTER          = 0x3F2,
    MAIN_STATUS_REGISTER             = 0x3F4, // read-only
@@ -43,7 +43,7 @@ enum floppy_registers
    CONFIGURATION_CONTROL_REGISTER   = 0x3F7, // write-only
 };
 
-enum floppy_commands
+enum floppy_commands : uint8_t
 {
    READ_TRACK 			= 2,	// generates IRQ6
    SPECIFY 				= 3,	// * set drive parameters
@@ -172,10 +172,10 @@ extern "C" void floppy_init()
 
 	floppy_configure();
 
-	for(int i = 0; i < num_floppy_drives; i++)
+	for(size_t i = 0; i < num_floppy_drives; i++)
 	{
-		floppy_reset(i);
-		floppy_drives[i].drive_index = i;
+		floppy_reset((uint8_t)i);
+		floppy_drives[i].drive_index = (uint8_t)i;
 
 		filesystem_add_drive(&floppy_driver, &floppy_drives[i],
 							 FLOPPY_BYTES_PER_SECTOR,
@@ -208,7 +208,7 @@ static bool floppy_do_rw(const floppy_drive* d, floppy_commands cmd, chs_locatio
 	k_assert(loc.sector > 0);
 
 	floppy_sendbyte(MFM_BIT | MT_BIT | cmd);
-	floppy_sendbyte(loc.head << 2 | d->drive_index);
+	floppy_sendbyte((uint8_t)(loc.head << 2) | d->drive_index);
 	floppy_sendbyte(loc.cylinder);
 	floppy_sendbyte(loc.head);
 	floppy_sendbyte(loc.sector);
@@ -335,14 +335,14 @@ static uint8_t floppy_getbyte()
 		inb(0x80); //delay
 	}
 
-	return -1; //read timeout 
+	return 0xFF; //read timeout 
 }
 
 static void floppy_motor_on(uint8_t driveNum)
 {
 	if(!motor_is_ready[driveNum])
 	{
-		outb(DIGITAL_OUTPUT_REGISTER, (0x10 << driveNum) | 0x0c | (driveNum & 0x03));
+		outb(DIGITAL_OUTPUT_REGISTER, (uint8_t)(0x10 << driveNum) | 0x0c | (driveNum & 0x03));
 		sysclock_sleep(500, MILLISECONDS);			// wait 500ms for motor to spin up
 		motor_is_ready[driveNum] = true;
 	}
@@ -422,7 +422,7 @@ static bool floppy_seek(uint8_t driveNum, uint8_t cylinder, uint8_t head)
 		floppy_motor_on(driveNum);
 
 		floppy_sendbyte(SEEK);
-		floppy_sendbyte(head << 2 | driveNum);
+		floppy_sendbyte((uint8_t)(head << 2) | driveNum);
 		floppy_sendbyte(cylinder);
 
 		wait_for_irq6();// wait for operation to complete

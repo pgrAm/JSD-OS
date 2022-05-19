@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 typedef int64_t time_t;  
-typedef time_t clock_t;
+typedef uint64_t clock_t;
 
 struct tm 
 {

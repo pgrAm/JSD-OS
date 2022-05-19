@@ -23,7 +23,8 @@ void draw_gradient(size_t begin, size_t end, display_mode& actual, uint32_t* mem
 		{
 			auto c = x * 255 / actual.width;
 
-			mem[offset++] = from_rgb(c, cy, 255 - c);
+			mem[offset++] =
+				from_rgb((uint8_t)c, (uint8_t)cy, (uint8_t)(255 - c));
 		}
 		offset += ddpl - actual.width;
 	}
@@ -88,8 +89,8 @@ int main(int argc, char** argv)
 
 						if(cursor_x < 0)
 							cursor_x = 0;
-						else if(cursor_x >= (actual.width - 32))
-							cursor_x = actual.width - 32;
+						else if(cursor_x >= (actual.width - 32u))
+							cursor_x = (int)(actual.width - 32u);
 					}
 					else if(e.control_index == 1) // y axis
 					{
@@ -97,8 +98,8 @@ int main(int argc, char** argv)
 
 						if(cursor_y < 0)
 							cursor_y = 0;
-						else if(cursor_y >= (actual.height - 32))
-							cursor_y = actual.height - 32;
+						else if(cursor_y >= (actual.height - 32u))
+							cursor_y = (int)(actual.height - 32u);
 					}
 				}
 			}
@@ -115,7 +116,8 @@ int main(int argc, char** argv)
 
 		draw_gradient(0, actual.height, actual, mem + page_begin / 4);
 
-		draw_fill(cursor_x, cursor_y, 32, 32, actual, mem + page_begin / 4);
+		draw_fill((size_t)cursor_x, (size_t)cursor_y, 32, 32, actual,
+				  mem + page_begin / 4);
 
 		set_display_offset(page_begin, true);
 	}

@@ -26,7 +26,7 @@ template<typename T, size_t Radix>
 static constexpr size_t num_digits(T number)
 {
 	size_t count = 0;
-	do
+	do 
 	{
 		number /= Radix;
 		count++;
@@ -43,7 +43,7 @@ static std::string m_to_string(T value) requires(std::is_integral_v<T>)
 	auto it = str.end();
 	do
 	{
-		auto digit = (T)value % 10;
+		auto digit = static_cast<char>((T)value % 10);
 		*(--it)	   = digit + '0';
 
 		value = (T)value / 10;

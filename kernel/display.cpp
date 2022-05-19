@@ -175,13 +175,13 @@ private:
 uint8_t k_terminal_mem[sizeof(kernel_terminal)];
 kernel_terminal* k_terminal = nullptr;
 
-SYSCALL_HANDLER int set_cursor_offset(int offset)
+SYSCALL_HANDLER int set_cursor_offset(size_t offset)
 {
 	default_driver->set_cursor_offset(offset);
 	return 0;
 }
 
-static void initialize_terminal(int col, int row)
+static void initialize_terminal(size_t col, size_t row)
 {
 	//size_t p = 0;
 

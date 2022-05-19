@@ -211,7 +211,7 @@ static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
 	while(!eof)
 	{
 		char c;
-		if(f.read(&c, sizeof(char)) == -1)
+		if(f.read(&c, sizeof(char)) != sizeof(char))
 		{
 			eof = true;
 			c = '\n';

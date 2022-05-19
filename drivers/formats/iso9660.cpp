@@ -290,9 +290,9 @@ static mount_status iso9660_mount_disk(filesystem_virtual_drive* fd)
 	}
 
 	f->sector_size = descriptor.logical_block_size.get();
-	f->sector_size_log2 = std::countr_zero(f->sector_size);
+	f->sector_size_log2 = (size_t)std::countr_zero(f->sector_size);
 	f->blocks_per_sector = f->sector_size / fd->block_size;
-	f->blocks_per_sector_log2 = std::countr_zero(f->blocks_per_sector);
+	f->blocks_per_sector_log2 = (size_t)std::countr_zero(f->blocks_per_sector);
 
 	if(f->sector_size < fd->block_size)
 	{

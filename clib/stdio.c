@@ -9,14 +9,14 @@
 #include <kernel/sys/syscalls.h>
 #endif
 
-#define		PR_LJ	0x01	// left justify */
-#define		PR_CA	0x02	// use A-F instead of a-f for hex */
-#define		PR_SG	0x04	// signed numeric conversion (%d vs. %u) */
-#define		PR_32	0x08	// long (32-bit) numeric conversion */
-#define		PR_16	0x10	// short (16-bit) numeric conversion */
-#define		PR_WS	0x20	// PR_SG set and num was < 0 */
-#define		PR_LZ	0x40	// pad left with '0' instead of ' ' */
-#define		PR_FP	0x80	// pointers are far */
+#define		PR_LJ	0x01u	// left justify */
+#define		PR_CA	0x02u	// use A-F instead of a-f for hex */
+#define		PR_SG	0x04u	// signed numeric conversion (%d vs. %u) */
+#define		PR_32	0x08u	// long (32-bit) numeric conversion */
+#define		PR_16	0x10u	// short (16-bit) numeric conversion */
+#define		PR_WS	0x20u	// PR_SG set and num was < 0 */
+#define		PR_LZ	0x40u	// pad left with '0' instead of ' ' */
+#define		PR_FP	0x80u	// pointers are far */
 
 /* largest number handled is 2^32-1, lowest radix handled is 8.
 2^32-1 in base 8 has 11 digits (add 5 for trailing NUL and for slop) */
@@ -71,8 +71,8 @@ int putchar(int character)
 int vsnprintf(char *buffer, size_t n, const char *fmt, va_list args)
 {
 	unsigned state = 0, flags = 0, radix = 0, actual_wd = 0, count = 0, given_wd = 0;
-	unsigned char* where = NULL;
-	unsigned char buf[PR_BUFLEN];
+	char* where = NULL;
+	char buf[PR_BUFLEN];
 
 	char* ptr = buffer;
 
@@ -119,7 +119,7 @@ int vsnprintf(char *buffer, size_t n, const char *fmt, va_list args)
 		case 2: /* STATE 2: AWAITING (NUMERIC) FIELD WIDTH */
 			if(*fmt >= '0' && *fmt <= '9')
 			{
-				given_wd = 10 * given_wd + (*fmt - '0');
+				given_wd = 10 * given_wd + (unsigned int)(*fmt - '0');
 				break;
 			}
 			state++; /* not field width: advance state to check if it's a modifier */
@@ -168,28 +168,28 @@ DO_NUM:			/* load the value to be printed. l=long=32 bits: */
 					long num = 0;
 					if(flags & PR_32)
 					{
-						num = va_arg(args, unsigned long);
+						num = (long)va_arg(args, unsigned long);
 					}
 					else if(flags & PR_16) /* h=short=16 bits (signed or unsigned) */
 					{
 						if(flags & PR_SG)
 						{
-							num = va_arg(args, int);
+							num = (long)va_arg(args, int);
 						}
 						else
 						{
-							num = va_arg(args, unsigned int);
+							num = (long)va_arg(args, unsigned int);
 						}
 					}
 					else /* no h nor l: sizeof(int) bits (signed or unsigned) */
 					{
 						if(flags & PR_SG)
 						{
-							num = va_arg(args, int);
+							num = (long)va_arg(args, int);
 						}
 						else
 						{
-							num = va_arg(args, unsigned int);
+							num = (long)va_arg(args, unsigned int);
 						}
 					}
 
@@ -202,39 +202,42 @@ DO_NUM:			/* load the value to be printed. l=long=32 bits: */
 						}
 					}
 
-					do /* convert binary to octal/decimal/hex ASCII. The math here is _always_ unsigned */
 					{
-						unsigned long temp;
-
-						temp = (unsigned long)num % radix;
-						where--;
-						if(temp < 10)
+						//convert binary to octal/decimal/hex ASCII.
+						//The math here is _always_ unsigned
+						unsigned long u_num = (unsigned long)num;
+						do 
 						{
-							*where = temp + '0';
-						}
-						else if(flags & PR_CA)
-						{
-							*where = temp - 10 + 'A';
-						}
-						else
-						{
-							*where = temp - 10 + 'a';
-						}
-						num = (unsigned long)num / radix;
-					} while(num != 0);
+							unsigned long digit = (unsigned long)num % radix;
+							where--;
+							if(digit < 10)
+							{
+								*where = (char)(digit + '0');
+							}
+							else if(flags & PR_CA)
+							{
+								*where = (char)(digit - 10 + 'A');
+							}
+							else
+							{
+								*where = (char)(digit - 10 + 'a');
+							}
+							u_num = u_num / radix;
+						} while(u_num != 0);
+					}
 				}
 				goto EMIT;
 			case 'c':
 				flags &= ~PR_LZ; /* disallow pad-left-with-zeroes for %c */
 				where--;
-				*where = (unsigned char)va_arg(args, unsigned int);
+				*where = (char)va_arg(args, unsigned int);
 				actual_wd = 1;
 				goto EMIT2;
 			case 's':
 				flags &= ~PR_LZ; /* disallow pad-left-with-zeroes for %s */
-				where = va_arg(args, unsigned char *);
+				where = va_arg(args, char*);
 EMIT:
-				actual_wd = strlen((char*)where);
+				actual_wd = strlen(where);
 				if(flags & PR_WS)
 				{
 					actual_wd++;
@@ -289,7 +292,7 @@ EMIT2:			/* pad on left with spaces or zeroes (for right justify) */
 	}
 	
 	buffer[count] = '\0';
-	return count;
+	return (int)count;
 }
 
 int puts(const char* str)
@@ -348,7 +351,7 @@ int fprintf(FILE * stream, const char * format, ...)
 	va_start(args, format);
 	
 	int len = vsnprintf(buffer, 128, format, args);
-	file_write(buffer, len, stream);
+	file_write(buffer, (size_t)len, stream);
 	
 	va_end(args);
 	
@@ -362,7 +365,7 @@ int printf(const char* format, ...)
 	va_start(args, format);
 	
 	int len = vsnprintf(buffer, 128, format, args);
-	file_write(buffer, len, stdout);
+	file_write(buffer, (size_t)len, stdout);
 
 	va_end(args);
 	

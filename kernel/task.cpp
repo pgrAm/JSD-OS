@@ -23,7 +23,7 @@ struct __attribute__((packed)) TCB //tcb man, tcb...
 	uintptr_t esp0;
 	uintptr_t cr3;
 	tss* tss_ptr;
-	size_t pid;
+	task_id pid;
 	process* p_data;
 };
 
@@ -33,7 +33,7 @@ struct process
 	void* user_stack_top = nullptr;
 	uintptr_t address_space = 0;
 	std::vector<dynamic_object_ptr> objects;
-	int parent_pid = INVALID_PID;
+	task_id parent_pid = INVALID_PID;
 	TCB tc_block;
 };
 
@@ -45,9 +45,9 @@ extern TCB* current_task_TCB;
 
 static std::vector<TCB*> running_tasks;
 
-static size_t active_process = 0;
+static task_id active_process = 0;
 
-[[noreturn]] void switch_to_task_no_return(int pid)
+[[noreturn]] void switch_to_task_no_return(task_id pid)
 {
 	k_assert(running_tasks[pid]->pid != INVALID_PID);
 
@@ -55,7 +55,7 @@ static size_t active_process = 0;
 	__builtin_unreachable();
 }
 
-int get_running_process()
+task_id get_running_process()
 {
 	if (current_task_TCB == nullptr)
 	{
@@ -64,17 +64,17 @@ int get_running_process()
 	return current_task_TCB->pid;
 }
 
-int get_active_process()
+task_id get_active_process()
 {
 	return active_process;
 }
 
-int task_is_running(int pid)
+task_id task_is_running(task_id pid)
 {
 	return (get_running_process() == pid);
 }
 
-int this_task_is_active()
+task_id this_task_is_active()
 {
 	return task_is_running(active_process);
 }
@@ -84,7 +84,7 @@ void run_next_task()
 	int_lock l = lock_interrupts();
 	//lock tasks
 	active_process = (active_process + 1) % running_tasks.size();
-	int next = active_process;
+	task_id next   = active_process;
 	//unlock tasks
 	unlock_interrupts(l);
 	
@@ -96,8 +96,8 @@ void run_background_tasks()
 	int_lock l = lock_interrupts();
 	//lock tasks
 
-	int pid = get_running_process();
-	int next = pid;
+	task_id pid	 = get_running_process();
+	task_id next = pid;
 
 	size_t i = running_tasks.size() - 1;
 	while(i--)
@@ -177,7 +177,7 @@ template<typename Functor>
 
 SYSCALL_HANDLER void exit_process(int val)
 {
-	int current_pid = current_task_TCB->pid;
+	auto current_pid = current_task_TCB->pid;
 
 	process* current_process = running_tasks[current_pid]->p_data;
 
@@ -209,7 +209,7 @@ SYSCALL_HANDLER void exit_process(int val)
 		memmanager_destroy_memory_space(memspace);
 		unlock_interrupts(l);
 	
-		int next_pid = current_process->parent_pid;
+		task_id next_pid = current_process->parent_pid;
 		running_tasks[current_pid]->pid = INVALID_PID;
 
 		if(active_process == current_pid)
@@ -272,7 +272,7 @@ extern "C" SYSCALL_HANDLER void spawn_process(const file_handle* file,
 	stack_ptr->eip = (uintptr_t)start_user_process; //this is where the new process will start executing
 	stack_ptr->flags = (uintptr_t)0x0200; //flags are all off, except interrupt
 
-	size_t new_process = newTask->tc_block.pid;
+	task_id new_process = newTask->tc_block.pid;
 
 	//lock tasks
 	running_tasks.push_back(&newTask->tc_block);
@@ -296,7 +296,7 @@ extern "C" SYSCALL_HANDLER void spawn_process(const file_handle* file,
 	}
 }
 
-void switch_to_task(int pid)
+void switch_to_task(task_id pid)
 {
 	if (running_tasks[pid]->pid != INVALID_PID && !task_is_running(pid))
 	{

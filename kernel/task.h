@@ -10,7 +10,9 @@
 extern "C" {
 #endif
 
-#define INVALID_PID (~(size_t)0x0)
+typedef size_t task_id;
+
+#define INVALID_PID (~(task_id)0x0)
 typedef struct process process;
 
 struct dynamic_object;
@@ -23,12 +25,12 @@ SYSCALL_HANDLER void exit_process(int val);
 void run_next_task();
 void run_background_tasks();
 void setup_first_task();
-int task_is_running(int pid);
-int this_task_is_active();
-void switch_to_task(int pid);
+task_id task_is_running(task_id pid);
+task_id this_task_is_active();
+void switch_to_task(task_id pid);
 void switch_to_active_task();
-int get_active_process();
-int get_running_process();
+task_id get_active_process();
+task_id get_running_process();
 
 #ifdef __cplusplus
 }

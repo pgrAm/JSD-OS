@@ -100,7 +100,7 @@ static const uint16_t ordinal_date[2][12] = {
 
 time_t mktime(struct tm* timeptr)
 {
-	uint32_t actual_year = timeptr->tm_year + 1900;
+	int actual_year = timeptr->tm_year + 1900;
 
 	time_t unix_time = THE_MOMENT_OF_CREATION; //set the timestamp to January 1, 1970
 	
@@ -111,7 +111,7 @@ time_t mktime(struct tm* timeptr)
 
 	unix_time += ordinal_date[is_leap_year(actual_year)][timeptr->tm_mon] * 86400;
 	
-	uint32_t last_year = actual_year - 1;
+	int last_year = actual_year - 1;
 
 	//there were 477 leap years between 0 AD and the beginning of time, so subtract that
 	unix_time += (((actual_year - THE_BEGINNING_OF_TIME) * 365) + ((last_year / 4) - (last_year / 100) + (last_year / 400) - LEAP_DAYS_BEFORE_EPOCH)) * 86400;
@@ -141,7 +141,7 @@ struct tm* gmtime(const time_t* timer)
 
 	time_t days_since_1bc = DAYS_BEFORE_EPOCH + days;
 
-	const int year_of_last_cycle = YEARS_PER_CYCLE * (days_since_1bc / GREGORIAN_CYCLE);
+	const int year_of_last_cycle = YEARS_PER_CYCLE * (int)(days_since_1bc / GREGORIAN_CYCLE);
 	const int days_since_cycle = days_since_1bc % GREGORIAN_CYCLE;
 
 	const int last_centennial	= year_of_last_cycle 
@@ -158,7 +158,7 @@ struct tm* gmtime(const time_t* timer)
 
 	date_ret.tm_yday = day_of_year;
 
-	uint32_t month = 0; //the current month
+	int month = 0; //the current month
 	time_t dpm; //number of days in the current month
 		
 	while(day_of_year >= (dpm = (time_t)days_per_month[is_leap_year(current_year)][month])) //this has a constant running time but it still sucks

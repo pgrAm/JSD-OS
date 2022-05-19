@@ -30,7 +30,7 @@ namespace std
 		unsigned int n = 0;
 		while(str < last && isdigit(*str))
 		{
-			n = (n * 10) + *str - '0';
+			n = (n * 10) + static_cast<unsigned int>(*str - '0');
 			str++;
 		}
 

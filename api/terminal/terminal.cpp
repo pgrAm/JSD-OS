@@ -121,7 +121,8 @@ public:
 		m_state.bgr_color = bgr;
 		m_state.is_bright = bright;
 
-		m_state.color = ((bgr & 0x0f) << 4) | ((fgr + (bright & 0x01) * 8) & 0x0f);
+		m_state.color = (uint8_t)((bgr & 0x0f) << 4) |
+						(uint8_t)((fgr + (bright & 0x01) * 8) & 0x0f);
 		m_state.clear_val = {'\0', m_state.color};
 	}
 
@@ -289,7 +290,7 @@ size_t terminal::height() const
 
 int terminal::impl::handle_escape_sequence(const char* sequence)
 {
-	static uint16_t cursorstore = 0;
+	static size_t cursorstore = 0;
 
 	char* seq = (char*)sequence;
 
@@ -305,7 +306,7 @@ int terminal::impl::handle_escape_sequence(const char* sequence)
 			seq++;
 			while(isdigit(*seq))
 			{
-				args[argnum] = args[argnum] * 10 + *seq - '0';
+				args[argnum] = args[argnum] * 10 + (unsigned int)(*seq - '0');
 				seq++;
 			}
 			argnum++;
@@ -325,9 +326,9 @@ int terminal::impl::handle_escape_sequence(const char* sequence)
 			set_cursor_pos(args[0] - 1, args[1] - 1);
 			break;
 		case 'm': //SGR
-			for(int i = 0; i < argnum; i++)
+			for(size_t i = 0; i < argnum; i++)
 			{
-				int comm = args[i];
+				auto comm = args[i];
 
 				if(comm == 1)
 				{
@@ -374,7 +375,7 @@ int terminal::impl::handle_char(char source, text_char* dest, size_t pos)
 	case '\r':
 		return 0;
 	case '\n':
-		return m_state.width - (pos % m_state.width);
+		return (int)(m_state.width - (pos % m_state.width));
 		break;
 	case '\t':
 		return tab_size - (pos % tab_size);

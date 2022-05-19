@@ -10,14 +10,14 @@ extern "C" {
 
 inline int cmos_get_update_flag() 
 {
-      outb(0x70, 0x0A);
-      return (inb(0x71) & 0x80);
+	  outb(0x70, 0x0A);
+	  return (inb(0x71) & 0x80);
 }
 
-inline uint8_t cmos_get_register(int reg) 
+inline uint8_t cmos_get_register(uint8_t reg) 
 {
-      outb(0x70, reg);
-      return inb(0x71);
+	  outb(0x70, reg);
+	  return inb(0x71);
 }
 
 clock_t cmos_get_date_time(struct tm* result);
