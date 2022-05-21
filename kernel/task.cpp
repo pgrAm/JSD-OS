@@ -351,6 +351,24 @@ extern "C" SYSCALL_HANDLER task_id spawn_thread(void* function_ptr)
 	return new_task->tc_block.tid;
 }
 
+extern "C" SYSCALL_HANDLER void yield_to(task_id tid)
+{
+	auto is_active = this_task_is_active();
+
+	if(tid < running_tasks.size() && is_active)
+	{
+		switch_to_task(tid);
+	}
+	else if(is_active)
+	{
+		run_background_tasks();
+	}
+	else
+	{
+		switch_to_active_task();
+	}
+}
+
 extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 												 directory_stream* cwd,
 												 int flags)

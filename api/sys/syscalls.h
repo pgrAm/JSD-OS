@@ -54,6 +54,7 @@ enum syscall_indices
 	SYSCALL_MAP_SHARED_BUFFER	 = 33,
 	SYSCALL_SPAWN_THREAD		 = 34,
 	SYSCALL_EXIT_THREAD			 = 35,
+	SYSCALL_YIELD				 = 36,
 };
 
 struct file_handle;
@@ -325,6 +326,11 @@ static inline task_id spawn_thread(void (*func)())
 static inline void exit_thread(int code)
 {
 	do_syscall_1(SYSCALL_EXIT_THREAD, (uintptr_t)code);
+}
+
+static inline void yield_to(task_id id)
+{
+	do_syscall_1(SYSCALL_YIELD, (uintptr_t)id);
 }
 
 #ifdef __cplusplus

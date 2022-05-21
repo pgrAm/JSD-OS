@@ -12,11 +12,21 @@ int main(int argc, char** argv)
 	auto tid = spawn_thread(
 		[]()
 		{
-			printf("this is a test from another thread!\n");
+			for(size_t i = 0; i < 10; i++)
+			{
+				printf("this is a test from another thread!\n");
+				yield_to(INVALID_TASK_ID);
+			}
 			exit_thread(0);
 		});
 
 	printf("Spawned new thread tid = %d\n", tid);
+
+	for(size_t i = 0; i < 10; i++)
+	{
+		printf("main thread\n", tid);
+		yield_to(tid);
+	}
 
 	return 0;
 }

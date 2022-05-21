@@ -23,6 +23,7 @@ SYSCALL_HANDLER void exit_process(int val);
 
 SYSCALL_HANDLER task_id spawn_thread(void* function_ptr);
 SYSCALL_HANDLER void exit_thread(int val);
+SYSCALL_HANDLER void yield_to(task_id task);
 
 void run_next_task();
 void run_background_tasks();
