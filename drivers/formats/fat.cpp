@@ -117,6 +117,16 @@ struct __attribute__((packed)) fat_short_filename
 	char ext[3];
 };
 
+static constexpr fat_short_filename dot_dir{
+	.root = {'\x2e', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+	.ext = {' ', ' ', ' '},
+};
+
+static constexpr fat_short_filename dot_dot_dir{
+	.root = {'\x2e', '\x2e', ' ', ' ', ' ', ' ', ' ', ' '},
+	.ext  = {' ', ' ', ' '},
+};
+
 struct __attribute__((packed)) fat_directory_entry
 {
 	fat_short_filename name;
@@ -243,9 +253,10 @@ static mount_status fat_read_bios_block(const uint8_t* buffer, fat_drive* d,
 	d->reserved_sectors		= bios_block->reserved_sectors;
 	d->blocks_per_sector	= d->bytes_per_sector / block_size;
 
-	d->blocks_per_sector_log2 = std::countr_zero(d->blocks_per_sector);
-	d->sectors_per_cluster_log2 = std::countr_zero(d->sectors_per_cluster);
-	d->cluster_size_log2 = std::countr_zero(d->cluster_size);
+	d->blocks_per_sector_log2 = (size_t)std::countr_zero(d->blocks_per_sector);
+	d->sectors_per_cluster_log2 =
+		(size_t)std::countr_zero(d->sectors_per_cluster);
+	d->cluster_size_log2 = (size_t)std::countr_zero(d->cluster_size);
 
 	d->fat_block = d->reserved_sectors * d->blocks_per_sector;
 
@@ -313,7 +324,7 @@ static fat_time time_t_time_to_fat_time(time_t time)
 	auto ftime = gmtime(&time);
 
 	return {
-		.date = (uint16_t)((ftime->tm_mday & 0x001Fu)
+		.date = (uint16_t)((ftime->tm_mday & 0x001F)
 						| (((ftime->tm_mon + 1) << 5) & 0x01E0)
 						| (((ftime->tm_year + 80) << 9) & 0xFE00)),
 		.time = (uint16_t)(((ftime->tm_sec >> 1) & 0x001F)
@@ -332,7 +343,7 @@ static constexpr std::string_view read_field(const char* field, size_t size)
 	return f;
 }
 
-static void write_field(char* field, std::string_view src, size_t size)
+static inline void write_field(char* field, std::string_view src, size_t size)
 {
 	memcpy(field, src.data(), src.size());
 	if(src.size() < size)
@@ -371,14 +382,44 @@ static constexpr uint8_t to_fat_flags(uint32_t flags)
 	return fat_flags;
 }
 
+static constexpr fat_short_filename
+get_short_filename(std::string_view src_name)
+{
+	//using namespace std::literals;
+	//
+	//if(src_name == "."sv)
+	//{
+	//	return dot_dir;
+	//}
+	//else if(src_name == ".."sv)
+	//{
+	//	return dot_dot_dir;
+	//}
+	//else
+	//{
+		const auto dot = src_name.find_last_of('.');
+
+		auto root = dot == src_name.npos ? src_name : src_name.substr(0, dot);
+
+		fat_short_filename name;
+		write_field(&name.root[0], root, 8);
+
+		if(dot != src_name.npos)
+		{
+			auto ext = src_name.substr(dot + 1);
+			write_field(&name.ext[0], ext, 3);
+		}
+		return name;
+	//}
+}
+
 static fat_directory_entry fat_create_dir_entry(const file_handle& src)
 {
-	using namespace std::literals;
-
 	auto create = time_t_time_to_fat_time(src.time_created);
 	auto modify = time_t_time_to_fat_time(src.time_modified);
 
-	fat_directory_entry e{
+	return fat_directory_entry{
+		.name = get_short_filename(src.name),
 		.attributes		  = to_fat_flags(src.data.flags),
 		.reserved		  = 0,
 		.created_time_ms  = 0,
@@ -391,33 +432,27 @@ static fat_directory_entry fat_create_dir_entry(const file_handle& src)
 		.first_cluster	  = (uint16_t)(src.data.location_on_disk & 0xFFFF),
 		.file_size		  = src.data.size,
 	};
+}
 
-	if(src.name == "."sv)
-	{
-		write_field(&e.name.root[0], "\x2e", 8);
-		write_field(&e.name.ext[0], "", 3);
-	}
-	else if(src.name == ".."sv)
-	{
-		write_field(&e.name.root[0], "\x2e\x2e", 8);
-		write_field(&e.name.ext[0], "", 3);
-	}
-	else
-	{
-		auto dot  = src.name.find_last_of('.');
-		auto name = dot == src.name.npos
-						? src.name
-						: std::string_view{src.name}.substr(0, dot);
+static constexpr fat_directory_entry
+fat_create_dir_entry(const file_data_block& data, fat_short_filename name, time_t created)
+{
+	auto create = time_t_time_to_fat_time(created);
 
-		auto ext = dot == src.name.npos
-					   ? ""
-					   : std::string_view{src.name}.substr(dot + 1);
-
-		write_field(&e.name.root[0], name, 8);
-		write_field(&e.name.ext[0], ext, 3);
-	}
-
-	return e;
+	return fat_directory_entry{
+		.name			  = name,
+		.attributes		  = to_fat_flags(data.flags),
+		.reserved		  = 0,
+		.created_time_ms  = 0,
+		.created_time	  = create.time,
+		.created_date	  = create.date,
+		.accessed_date	  = 0,
+		.first_cluster_hi = (uint16_t)(data.location_on_disk & 0xFFFF0000),
+		.modified_time	  = create.time,
+		.modified_date	  = create.date,
+		.first_cluster	  = (uint16_t)(data.location_on_disk & 0xFFFF),
+		.file_size		  = data.size,
+	};
 }
 
 static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& entry, size_t disk_id)
@@ -426,13 +461,13 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 		return false;
 	} //end of directory
 
-	if(entry.name.root[0] == '\x2e') 
-	{
-		dest.name += '.';
-		if(entry.name.root[1] == '\x2e')
-			dest.name += '.';
-	}
-	else
+	//if(entry.name.root[0] == '\x2e') 
+	//{
+	//	dest.name += '.';
+	//	if(entry.name.root[1] == '\x2e')
+	//		dest.name += '.';
+	//}
+	//else
 	{
 		dest.name = read_field(entry.name.root, 8);
 		if(auto ext = read_field(entry.name.ext, 3); !ext.empty())
@@ -589,11 +624,11 @@ void fat_set_next_cluster<FAT_12>(size_t cluster, size_t next, const filesystem_
 
 	if(cluster & 0x01)
 	{
-		value = (value & 0x000F) | (next << 4);
+		value = (value & 0x000Fu) | (uint16_t)(next << 4);
 	}
 	else
 	{
-		value = (value & 0xF000) | (next & 0x0FFF);
+		value = (value & 0xF000u) | (next & 0x0FFFu);
 	}
 
 	filesystem_write(fd, fat_sector, offset, (uint8_t*)&value, sizeof(uint16_t));
@@ -936,7 +971,7 @@ static int fat_delete_file(const file_data_block* file,
 		{
 			dir_stream.seek(dir_stream.get_pos() - sizeof(fat_directory_entry));
 
-			entry.name.root[0] = 0xE5; //set the file as deleted
+			entry.name.root[0] = '\xE5'; //set the file as deleted
 
 			dir_stream.write((uint8_t*)&entry, sizeof(fat_directory_entry));
 			break;
@@ -1009,7 +1044,7 @@ uint8_t fat_lfn_checksum(std::array<char, 11>&& name)
 
 	for(auto c : name)
 	{
-		sum = ((sum & 1) << 7) + (sum >> 1) + c;
+		sum = (uint8_t)(((uint8_t)(sum & 1) << 7) + (uint8_t)(sum >> 1) + c);
 	}
 
 	return sum;
@@ -1034,7 +1069,7 @@ static void fat_write_lfn_entries(fat_directory_entry entry,
 	}
 		
 	auto lfn_it = lfn.end() - fat_lfn_entry::num_chars;
-	uint8_t sequence_number = 0x40 | (num_entries + 1);
+	uint8_t sequence_number = 0x40 | (uint8_t)(num_entries + 1);
 
 	for(size_t i = 0; i < num_entries; i++)
 	{
@@ -1046,7 +1081,7 @@ static void fat_write_lfn_entries(fat_directory_entry entry,
 			.zero			= 0,
 		};
 
-		sequence_number = num_entries - i;
+		sequence_number = (uint8_t)(num_entries - i);
 
 		memcpy(&e.chars0[0], lfn_it + 0, 5 * sizeof(uint16_t));
 		memcpy(&e.chars1[0], lfn_it + 5, 6 * sizeof(uint16_t));
@@ -1105,11 +1140,12 @@ static void fat_create_file(const char* name, size_t name_len, uint32_t flags, d
 			{
 				fs::stream f{filesystem_create_stream(&new_file.data)};
 				k_assert(f);
-			
-				file_handle up_dir{"..", dir->data, ts, ts};
-			
-				auto up = fat_create_dir_entry(up_dir);
-				f.write((uint8_t*)&up, sizeof(fat_directory_entry));
+
+				fat_directory_entry ents[] = {
+					fat_create_dir_entry(new_file.data, dot_dir, ts),
+					fat_create_dir_entry(dir->data, dot_dot_dir, ts),
+				}; 
+				f.write((uint8_t*)&ents[0], sizeof(ents));
 				f.write(0);
 			}
 			break;
