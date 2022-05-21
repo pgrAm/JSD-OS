@@ -5,23 +5,25 @@
 #include <stdint.h>
 #include <kernel/syscall.h>
 #include <kernel/filesystem.h>
+#include <common/task_data.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef size_t task_id;
-
-#define INVALID_PID (~(task_id)0x0)
 typedef struct process process;
 
 struct dynamic_object;
 typedef struct dynamic_object dynamic_object;
 
-#define WAIT_FOR_PROCESS 0x01
 
-SYSCALL_HANDLER void spawn_process(const file_handle* file, directory_stream* cwd, int flags);
+SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
+									  directory_stream* cwd, int flags);
 SYSCALL_HANDLER void exit_process(int val);
+
+SYSCALL_HANDLER task_id spawn_thread(void* function_ptr);
+SYSCALL_HANDLER void exit_thread(int val);
+
 void run_next_task();
 void run_background_tasks();
 void setup_first_task();

@@ -59,7 +59,9 @@ const void* syscall_table[] =
 	create_shared_buffer,
 	open_shared_buffer,
 	close_shared_buffer,
-	map_shared_buffer
+	map_shared_buffer,
+	spawn_thread,
+	exit_thread,
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

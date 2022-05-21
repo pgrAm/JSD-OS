@@ -290,6 +290,16 @@ graphics = executable(
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
+threads = executable(
+	'threads.elf', 
+	crti, ['api/crt0.c', 'apps/threads.cpp'], crtn,
+	include_directories: clib_include + ['api/'],
+	c_args: c_args + ['-flto'],
+	cpp_args: cpp_args + ['-flto'],
+	link_args: ['-s', '-Wl,--image-base=0x8000000'] + common_linker_flags,
+	link_with: [clib, terminal, kbrd, cpp_runtime]
+)
+
 executable(
 	'fwrite.elf', 
 	crti, ['api/crt0.c', 'apps/fwrite.cpp'], crtn,
@@ -315,7 +325,9 @@ iso_contents = [
 	[fs.name(clib.path()), clib],
 	[fs.name(terminal.path()), terminal],
 	[shell.name(), shell],
+	[listmode.name(), listmode],
 	[primes.name(), primes],
+	[threads.name(), threads],
 	[bkgrndtest.name(), bkgrndtest],
 	['drivers/' + fs.name(driver_map.get('fat').path()), driver_map.get('fat')],
 	['drivers/' + fs.name(driver_map.get('floppy').path()), driver_map.get('floppy')],

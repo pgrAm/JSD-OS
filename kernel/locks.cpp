@@ -71,8 +71,8 @@ static inline T cas_func(lockable_val* ptr, T oldval, T newval)
 
 static inline bool do_try_lock_mutex(kernel_mutex* m, task_id* pid)
 {
-	*pid = cas_func(&m->ownerPID, INVALID_PID, get_running_process());
-	return *pid == INVALID_PID;
+	*pid = cas_func(&m->ownerPID, INVALID_TASK_ID, get_running_process());
+	return *pid == INVALID_TASK_ID;
 }
 
 bool kernel_try_lock_mutex(kernel_mutex* m)
@@ -92,7 +92,7 @@ void kernel_lock_mutex(kernel_mutex* m)
 
 void kernel_unlock_mutex(kernel_mutex* m)
 {
-	__atomic_store_n(&m->ownerPID.value, std::bit_cast<cas_type>(INVALID_PID),
+	__atomic_store_n(&m->ownerPID.value, std::bit_cast<cas_type>(INVALID_TASK_ID),
 					 __ATOMIC_RELEASE);
 	switch_to_active_task();
 }

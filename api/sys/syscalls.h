@@ -8,6 +8,7 @@
 #include <virtual_keys.h>
 #include <common/display_mode.h>
 #include <common/input_event.h>
+#include <common/task_data.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,44 +16,44 @@ extern "C" {
 #include <stdbool.h>
 #endif
 
-#define WAIT_FOR_PROCESS 0x01
-
 enum syscall_indices
 {
-	SYSCALL_FIND_PATH = 0,
-	SYSCALL_OPEN = 1,
-	SYSCALL_CLOSE = 2,
-	SYSCALL_READ = 3,
-	SYSCALL_EXIT = 4,
-	SYSCALL_SPAWN = 5,
-	SYSCALL_TIME = 6,
-	SYSCALL_TICKS = 7,
-	SYSCALL_TIMEZONE = 8,
-	SYSCALL_ALLOC_PAGES = 9,
-	SYSCALL_FREE_PAGES = 10,
-	SYSCALL_UNMAP_PAGES = 11,
-	SYSCALL_DELETE_FILE = 12,
-	SYSCALL_OPEN_FILE_HANDLE = 13,
-	SYSCALL_OPEN_DIR_HANDLE = 14,
-	SYSCALL_GET_FILE_IN_DIR = 15,
-	SYSCALL_GET_FILE_INFO = 16,
-	SYSCALL_GET_ROOT_DIR = 17,
-	SYSCALL_SET_DISPLAY_MODE = 18,
-	SYSCALL_MAP_DISPLAY_MEMORY = 19,
-	SYSCALL_GET_DISPLAY_MODE = 20,
-	SYSCALL_CLOSE_DIR = 21,
-	SYSCALL_SET_DISPLAY_CURSOR = 22,
-	SYSCALL_GET_KEYSTATE = 23,
-	SYSCALL_GET_FREE_MEM = 24,
-	SYSCALL_IOPL = 25,
-	SYSCALL_SET_DISPLAY_OFFSET = 26,
-	SYSCALL_GET_INPUT_EVENT = 27,
-	SYSCALL_WRITE = 28,
-	SYSCALL_DISPOSE_FILE_HANDLE = 29,
+	SYSCALL_FIND_PATH			 = 0,
+	SYSCALL_OPEN				 = 1,
+	SYSCALL_CLOSE				 = 2,
+	SYSCALL_READ				 = 3,
+	SYSCALL_EXIT				 = 4,
+	SYSCALL_SPAWN				 = 5,
+	SYSCALL_TIME				 = 6,
+	SYSCALL_TICKS				 = 7,
+	SYSCALL_TIMEZONE			 = 8,
+	SYSCALL_ALLOC_PAGES			 = 9,
+	SYSCALL_FREE_PAGES			 = 10,
+	SYSCALL_UNMAP_PAGES			 = 11,
+	SYSCALL_DELETE_FILE			 = 12,
+	SYSCALL_OPEN_FILE_HANDLE	 = 13,
+	SYSCALL_OPEN_DIR_HANDLE		 = 14,
+	SYSCALL_GET_FILE_IN_DIR		 = 15,
+	SYSCALL_GET_FILE_INFO		 = 16,
+	SYSCALL_GET_ROOT_DIR		 = 17,
+	SYSCALL_SET_DISPLAY_MODE	 = 18,
+	SYSCALL_MAP_DISPLAY_MEMORY	 = 19,
+	SYSCALL_GET_DISPLAY_MODE	 = 20,
+	SYSCALL_CLOSE_DIR			 = 21,
+	SYSCALL_SET_DISPLAY_CURSOR	 = 22,
+	SYSCALL_GET_KEYSTATE		 = 23,
+	SYSCALL_GET_FREE_MEM		 = 24,
+	SYSCALL_IOPL				 = 25,
+	SYSCALL_SET_DISPLAY_OFFSET	 = 26,
+	SYSCALL_GET_INPUT_EVENT		 = 27,
+	SYSCALL_WRITE				 = 28,
+	SYSCALL_DISPOSE_FILE_HANDLE	 = 29,
 	SYSCALL_CREATE_SHARED_BUFFER = 30,
-	SYSCALL_OPEN_SHARED_BUFFER = 31,
-	SYSCALL_CLOSE_SHARED_BUFFER = 32,
-	SYSCALL_MAP_SHARED_BUFFER = 33
+	SYSCALL_OPEN_SHARED_BUFFER	 = 31,
+	SYSCALL_CLOSE_SHARED_BUFFER	 = 32,
+	SYSCALL_MAP_SHARED_BUFFER	 = 33,
+	SYSCALL_SPAWN_THREAD		 = 34,
+	SYSCALL_EXIT_THREAD			 = 35,
 };
 
 struct file_handle;
@@ -156,9 +157,11 @@ static inline size_t write(const void* dst, size_t len, file_stream* file)
 								(uint32_t)file);
 }
 
-static inline void spawn_process(const file_handle* file, directory_stream* cwd, int flags)
+static inline task_id spawn_process(const file_handle* file,
+									directory_stream* cwd, int flags)
 {
-	do_syscall_3(SYSCALL_SPAWN, (uint32_t)file, (uint32_t)cwd, (uint32_t)flags);
+	return (task_id)do_syscall_3(SYSCALL_SPAWN, (uint32_t)file, (uint32_t)cwd,
+								 (uint32_t)flags);
 }
 
 static inline time_t master_time()
@@ -312,6 +315,16 @@ static inline void* map_shared_buffer(uintptr_t buf_handle, size_t size, int fla
 {
 	return (void*)do_syscall_3(SYSCALL_MAP_SHARED_BUFFER,
 							   (uint32_t)buf_handle, (uint32_t)size, (uint32_t)flags);
+}
+
+static inline task_id spawn_thread(void (*func)())
+{
+	return (task_id)do_syscall_1(SYSCALL_SPAWN_THREAD, (uintptr_t)func);
+}
+
+static inline void exit_thread(int code)
+{
+	do_syscall_1(SYSCALL_EXIT_THREAD, (uintptr_t)code);
 }
 
 #ifdef __cplusplus

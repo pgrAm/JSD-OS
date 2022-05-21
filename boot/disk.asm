@@ -10,14 +10,16 @@ disk_load:
 		push    cx									; save # of sectors
 		
 		xor     dx, dx                              ; prepare dx:ax for operation
-		div     word [bp_sectors_per_track]			; calculate
-		inc     dl                                  ; adjust for sector 0
+		div     word [bp_sectors_per_track]			; ax(trk) = ax(lba) / spt, dx(sec) = ax % spt
+		inc     dx                                  ; adjust for sector 0
 		mov     cl, dl
 		
 		xor     dx, dx                              ; prepare dx:ax for operation
-		div     word [bp_heads_per_cylinder]		; calculate
+		div     word [bp_heads_per_cylinder]		; ax(cyl) = ax(trk) / hpc, dx(hd) = ax % hpc
 		mov     dh, dl
 		
+		; al = cylinder, dh = head, cl = sector
+
 	; the track/cylinder number is a 10 bit value taken from the 2 high 
 	; order bits of CL and the 8 bits in CH (low order 8 bits of track)
 		mov     ch, al
