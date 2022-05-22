@@ -33,7 +33,7 @@ meson compile -C [build directory]
 
 this will generate an iso file in the build directory you can run on hardware or your favourite emulator
 
-Most linux distros seems to have a pretty old version of meson in their repo, if your distro does not have a version that meets the minimum requirements a workaround is to install via pip ```pip3 install --user meson```
+Most linux distros seems to have a pretty old version of meson in their repo, if your distro does not have a version that meets the minimum requirements, a workaround is to install via pip ```pip3 install --user meson```
 
 ## FAQ
 
