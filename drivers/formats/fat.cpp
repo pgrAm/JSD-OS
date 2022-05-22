@@ -319,17 +319,15 @@ static time_t fat_time_to_time_t(fat_time t)
 	return mktime(&file_time);
 }
 
-static fat_time time_t_time_to_fat_time(time_t time)
+static constexpr fat_time time_t_time_to_fat_time(const tm& time)
 {
-	auto ftime = gmtime(&time);
-
 	return {
-		.date = (uint16_t)((ftime->tm_mday & 0x001F)
-						| (((ftime->tm_mon + 1) << 5) & 0x01E0)
-						| (((ftime->tm_year + 80) << 9) & 0xFE00)),
-		.time = (uint16_t)(((ftime->tm_sec >> 1) & 0x001F)
-						| ((ftime->tm_sec << 5) & 0x07E0)
-						| ((ftime->tm_hour << 11) & 0x07E0))
+		.date = (uint16_t)((time.tm_mday & 0x001F)
+						| (((time.tm_mon + 1) << 5) & 0x01E0)
+						| (((time.tm_year + 80) << 9) & 0xFE00)),
+		.time = (uint16_t)(((time.tm_sec >> 1) & 0x001F)
+						| ((time.tm_sec << 5) & 0x07E0)
+						| ((time.tm_hour << 11) & 0x07E0))
 	};
 }
 
@@ -425,8 +423,8 @@ get_short_filename(std::string_view src_name)
 
 static fat_directory_entry fat_create_dir_entry(const file_handle& src)
 {
-	auto create = time_t_time_to_fat_time(src.time_created);
-	auto modify = time_t_time_to_fat_time(src.time_modified);
+	auto create = time_t_time_to_fat_time(*gmtime(&src.time_created));
+	auto modify = time_t_time_to_fat_time(*gmtime(&src.time_modified));
 
 	return fat_directory_entry{
 		.name = get_short_filename(src.name),
@@ -445,7 +443,7 @@ static fat_directory_entry fat_create_dir_entry(const file_handle& src)
 }
 
 static constexpr fat_directory_entry
-fat_create_dir_entry(const file_data_block& data, fat_short_filename name, time_t created)
+fat_create_dir_entry(const file_data_block& data, fat_short_filename name, const tm& created)
 {
 	auto create = time_t_time_to_fat_time(created);
 
@@ -1036,7 +1034,8 @@ static void fat_update_file(const file_data_block* file, const filesystem_virtua
 		{
 			dir_stream.seek(dir_stream.get_pos() - sizeof(fat_directory_entry));
 
-			auto mod = time_t_time_to_fat_time(time(nullptr));
+			auto curr_time = time(nullptr);
+			auto mod = time_t_time_to_fat_time(*gmtime(&curr_time));
 
 			entry.file_size = file->size;
 			entry.modified_date = mod.date;
@@ -1151,9 +1150,11 @@ static void fat_create_file(const char* name, size_t name_len, uint32_t flags, d
 				fs::stream f{filesystem_create_stream(&new_file.data)};
 				k_assert(f);
 
+				auto tms = gmtime(&ts);
+
 				fat_directory_entry ents[] = {
-					fat_create_dir_entry(new_file.data, dot_dir, ts),
-					fat_create_dir_entry(dir->data, dot_dot_dir, ts),
+					fat_create_dir_entry(new_file.data, dot_dir, *tms),
+					fat_create_dir_entry(dir->data, dot_dot_dir, *tms),
 				}; 
 				f.write((uint8_t*)&ents[0], sizeof(ents));
 				f.write(0);
