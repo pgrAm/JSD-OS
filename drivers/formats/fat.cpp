@@ -343,11 +343,21 @@ static constexpr std::string_view read_field(const char* field, size_t size)
 	return f;
 }
 
-static inline void write_field(char* field, std::string_view src, size_t size)
+static constexpr void write_field(char* field, std::string_view src,
+								  size_t size)
 {
-	memcpy(field, src.data(), src.size());
-	if(src.size() < size)
-		memset(field + src.size(), ' ', size - src.size());
+	if(std::is_constant_evaluated())
+	{
+		std::copy(src.begin(), src.end(), field);
+		if(src.size() < size)
+			std::fill(field + src.size(), field + size - src.size(), ' ');
+	}
+	else
+	{
+		memcpy(field, src.data(), src.size());
+		if(src.size() < size)
+			memset(field + src.size(), ' ', size - src.size());
+	}
 }
 
 static constexpr uint32_t fat_convert_flags(uint8_t fat_flags)
