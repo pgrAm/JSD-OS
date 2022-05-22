@@ -1,4 +1,6 @@
-project('jsd-os', ['c', 'cpp'])
+project('jsd-os', ['c', 'cpp'], 
+	meson_version: '>=0.56.2'
+)
 nasm = find_program('nasm', required: true)
 asm_gen = generator(
 	nasm,
@@ -17,7 +19,7 @@ boot = custom_target(
 	'boot_sect',
 	output : 'boot_sect.bin',
 	input : 'boot/boot_sect.asm',
-	command : ['nasm', '@INPUT@', '-i', meson.source_root() / 'boot', '-f', 'bin', '-o', '@OUTPUT@'], 
+	command : ['nasm', '@INPUT@', '-i', meson.project_source_root() / 'boot', '-f', 'bin', '-o', '@OUTPUT@'], 
 	build_by_default: true
 )
 
@@ -88,12 +90,12 @@ cpp_args = common_flags + [
 
 clib_include = ['clib/include', 'cpplib/include']
 
-common_linker_flags = ['-Wl,--gc-sections', '-Wl,--lto-O2', '-Wl,-mllvm,-align-all-nofallthru-blocks=2', '-L' + meson.source_root()]
+common_linker_flags = ['-Wl,--gc-sections', '-Wl,--lto-O2', '-Wl,-mllvm,-align-all-nofallthru-blocks=2', '-L' + meson.project_source_root()]
 
 kernel_flags = ['-D __KERNEL', '-mno-implicit-float']
 kernel_include = clib_include + ['kernel']
 
-linker_script_deps = meson.source_root() / 'linker.ld'
+linker_script_deps = meson.project_source_root() / 'linker.ld'
 
 subdir('tools')
 
@@ -138,7 +140,7 @@ kernal_sys = custom_target(
 )
 
 driver_linker_script_flags = common_linker_flags + ['-s', '-Tdrivers/driver.ld']
-driver_linker_script_deps = meson.source_root() / 'drivers' / 'driver.ld'
+driver_linker_script_deps = meson.project_source_root() / 'drivers' / 'driver.ld'
 
 lib_emu = static_library(
 	'x86emu', 
@@ -319,8 +321,8 @@ subdir('configs/netboot')
 fs = import('fs')
 
 iso_contents = [
-	['LICENSE.txt', meson.source_root() / 'LICENSE.txt'],
-	['cdboot.sys', meson.source_root() / 'configs/cdboot/cdboot.sys'],
+	['LICENSE.txt', meson.project_source_root() / 'LICENSE.txt'],
+	['cdboot.sys', meson.project_source_root() / 'configs/cdboot/cdboot.sys'],
 	[graphics.name(), graphics],
 	[fs.name(clib.full_path()), clib],
 	[fs.name(terminal.full_path()), terminal],
@@ -338,10 +340,10 @@ iso_contents = [
 	['drivers/' + fs.name(driver_map.get('i8042').full_path()), driver_map.get('i8042')],
 	['drivers/' + fs.name(driver_map.get('ps2mouse').full_path()), driver_map.get('ps2mouse')],
 	['drivers/' + fs.name(driver_map.get('ext2').full_path()), driver_map.get('ext2')],
-	['drivers/font08.psf', meson.source_root() / 'fonts/font08.psf'],
-	['drivers/font16.psf', meson.source_root() / 'fonts/font16.psf'],
+	['drivers/font08.psf', meson.project_source_root() / 'fonts/font08.psf'],
+	['drivers/font16.psf', meson.project_source_root() / 'fonts/font16.psf'],
 #] + [
-	['boot/limine.cfg', meson.source_root() / 'limine.cfg'],
+	['boot/limine.cfg', meson.project_source_root() / 'limine.cfg'],
 	['system/init.rfs', cdrfs],
 	['system/kernal.sys', kernal_sys]
 ]
@@ -358,6 +360,6 @@ endforeach
 iso = custom_target('boot_iso',
 	output : 'jsd-os+limine.iso',
 	input : iso_files,
-	command : ['perl', meson.source_root() / 'tools/buildiso.pl', '-d', '@OUTDIR@', '-o', '@OUTPUT@'] + iso_cmd, 
+	command : ['perl', meson.project_source_root() / 'tools/buildiso.pl', '-d', '@OUTDIR@', '-o', '@OUTPUT@'] + iso_cmd, 
 	build_by_default: true
 )
