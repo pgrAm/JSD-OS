@@ -22,9 +22,9 @@ The actual meaning of the acronym is intentionally ambigous but might stand for 
 
 ## Building
 
-requires clang (might work on gcc), meson, perl, objcopy & xorriso
+requires clang (might work on gcc), nasm, meson, perl, objcopy & xorriso
 
-make sure you initialize your git submodules before building
+make sure you initialize your git submodules before building (``git submodule update --recursive --init``)
 
 ```
 meson setup [build directory] --cross-file mesoncross.ini
