@@ -208,7 +208,7 @@ DO_NUM:			/* load the value to be printed. l=long=32 bits: */
 						unsigned long u_num = (unsigned long)num;
 						do 
 						{
-							unsigned long digit = (unsigned long)num % radix;
+							unsigned long digit = u_num % radix;
 							where--;
 							if(digit < 10)
 							{
