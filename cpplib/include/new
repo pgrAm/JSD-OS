@@ -1,8 +1,20 @@
 #ifndef STD_NEW_H
 #define STD_NEW_H
 
-inline void* operator new(size_t, void* p)   throw() { return p; }
-inline void* operator new[](size_t, void* p) throw() { return p; }
+namespace std
+{
+enum class align_val_t : size_t
+{
+};
+}
+
+[[nodiscard]] void* operator new(size_t count);
+[[nodiscard]] void* operator new[](size_t count);
+[[nodiscard]] void* operator new(size_t count, std::align_val_t align);
+[[nodiscard]] void* operator new[](size_t count, std::align_val_t align);
+
+[[nodiscard]] inline void* operator new(size_t, void* p)   throw() { return p; }
+[[nodiscard]] inline void* operator new[](size_t, void* p) throw() { return p; }
 inline void  operator delete  (void*, void*) throw() {};
 inline void  operator delete[](void*, void*) throw() {};
 

@@ -8,6 +8,7 @@ extern "C" {
 
 int atoi(const char* str);
 
+void* aligned_alloc(size_t alignment, size_t size);
 void* malloc(size_t size);
 void* realloc(void* ptr, size_t size);
 void* calloc(size_t, size_t);

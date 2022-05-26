@@ -114,7 +114,8 @@ kernal = executable(
 		kernel_asm,
 		kernel_src,
 		clib_asm,
-		clib_src
+		clib_src,
+		'cpplib/cppruntime.cpp'
 	],
 	include_directories: kernel_include,
 	c_args: c_args + kernel_flags + ['-flto'],
@@ -201,7 +202,7 @@ endforeach
 
 cpp_runtime = static_library(
 	'cppruntime', 
-	['api/cppruntime.cpp'],
+	['cpplib/cppruntime.cpp'],
 	cpp_args: cpp_args + ['-flto'],
 	include_directories: clib_include + ['api/'],
 	pic: true
@@ -229,7 +230,7 @@ clib = shared_library(
 
 terminal = shared_library(
 	'terminal',	
-	['api/terminal/terminal.cpp', 'api/cppruntime.cpp'],
+	['api/terminal/terminal.cpp', 'cpplib/cppruntime.cpp'],
 	c_args: c_args + ['-flto'],
 	cpp_args: cpp_args + ['-flto'],
 	include_directories: clib_include + ['api/'],

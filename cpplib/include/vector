@@ -7,6 +7,7 @@ extern "C" {
 #include <algorithm>
 #include <utility>
 #include <new>
+#include <assert.h>
 
 namespace std {
 	template<class T> class vector;
@@ -197,11 +198,13 @@ public:
 
 	constexpr const T& back() const
 	{
+		assert(!empty());
 		return *(m_end - 1);
 	}
 
 	constexpr T& back()
 	{
+		assert(!empty());
 		return *(m_end - 1);
 	}
 
@@ -241,7 +244,8 @@ public:
 private:
 	constexpr static T* __allocate(size_t size)
 	{
-		return (T*)::operator new(sizeof(T) * size);
+		return (T*)::operator new(sizeof(T) * size,
+								  std::align_val_t{alignof(T)});
 	}
 
 	constexpr static void __deallocate(T* ptr)

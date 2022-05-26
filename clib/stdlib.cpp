@@ -100,6 +100,11 @@ static heap_allocator library_allocator{
 
 constexpr size_t clib_default_align = 4;
 
+void* aligned_alloc(size_t alignment, size_t size)
+{
+	return library_allocator.malloc_bytes(size, alignment);
+}
+
 void* malloc(size_t n)
 {
 	return library_allocator.malloc_bytes(n, clib_default_align);

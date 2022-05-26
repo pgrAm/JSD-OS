@@ -17,6 +17,8 @@ typedef uint32_t size_t;
 
 typedef intptr_t ptrdiff_t;
 
+typedef long double max_align_t;
+
 #ifdef __cplusplus
 }
 #endif
