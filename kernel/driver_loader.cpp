@@ -78,9 +78,22 @@ static void load_driver(fs::dir_stream_ref cwd, const std::string_view filename,
 
 static constexpr std::array func_list
 {
+	func_info{"_Znwj"sv, (void*)static_cast<void* (*)(size_t)>(::operator new)},
+	func_info{"_Znaj"sv, (void*)static_cast<void* (*)(size_t)>(::operator new[])},
+	func_info{"_ZdlPv"sv,
+			  (void*)static_cast<void (*)(void*)>(::operator delete)},
+	func_info{"_ZdaPv"sv,
+			  (void*)static_cast<void (*)(void*)>(::operator delete[])},
+	func_info{"_ZnwjSt11align_val_t"sv,
+			  (void*)static_cast<void* (*)(size_t, std::align_val_t)>(
+				  ::operator new)},
+	func_info{"_ZnajSt11align_val_t"sv,
+			  (void*)static_cast<void* (*)(size_t, std::align_val_t)>(
+				  ::operator new[])},
 	func_info{"printf"sv,						(void*)&printf},
 	func_info{"puts"sv,							(void*)&puts},
 	func_info{"time"sv,							(void*)&time},
+	func_info{"aligned_alloc"sv,				(void*)&aligned_alloc},
 	func_info{"malloc"sv,						(void*)&malloc},
 	func_info{"calloc"sv,						(void*)&calloc},
 	func_info{"free"sv,							(void*)&free},
@@ -257,27 +270,4 @@ extern "C" void load_drivers()
 
 	print_string("Can't find init.sys!\n");
 	while(true);
-}
-
-#include <stddef.h>
-#include <stdlib.h>
-
-void* operator new (size_t size)
-{
-	return malloc(size);
-}
-
-void* operator new[](size_t size)
-{
-	return malloc(size);
-}
-
-void operator delete(void* p)
-{
-	free(p);
-}
-
-void operator delete[](void* p)
-{
-	free(p);
 }

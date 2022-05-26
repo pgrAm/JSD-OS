@@ -3,7 +3,6 @@ fdrfs = custom_target(
     output : 'init.rfs',
     input : [
 		'init.sys',
-		driver_map.get('drvlib'),
 		driver_map.get('fat'),
 		driver_map.get('floppy'),
 		driver_map.get('AT_kbrd'),
