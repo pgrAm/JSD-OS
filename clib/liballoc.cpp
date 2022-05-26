@@ -23,33 +23,22 @@ using align_t = size_t;
 // This will conveniently align our pointer upwards
 [[nodiscard]] static inline uintptr_t ALIGN(uintptr_t ptr, size_t alignment)
 {
-	if(alignment > 1)
-	{
-		uintptr_t nptr = ptr + sizeof(align_t);
-		align_t diff   = (uintptr_t)nptr & (alignment - 1);
-		if(diff != 0)
-		{
-			nptr = nptr + (alignment - diff);
-		}
-		memcpy((void*)(nptr - sizeof(align_t)), &diff, sizeof(align_t));
-		return nptr;
-	}
-	return ptr;
+	uintptr_t nptr = ptr + sizeof(align_t);
+	align_t diff   = (uintptr_t)nptr & (alignment - 1);
+
+	align_t offset = (diff != 0) ? (alignment - diff) : 0;
+
+	nptr += offset;
+
+	memcpy((void*)(nptr - sizeof(align_t)), &offset, sizeof(align_t));
+	return nptr;
 }
 
-[[nodiscard]] static inline uintptr_t UNALIGN(uintptr_t ptr, size_t alignment)
+[[nodiscard]] static inline uintptr_t UNALIGN(uintptr_t ptr)
 {
-	if(alignment > 1)
-	{
-		align_t diff; 
-		memcpy(&diff, (void*)(ptr - sizeof(align_t)), sizeof(align_t));
-		if(diff != 0)
-		{
-			diff = alignment - diff;
-		}
-		return (uintptr_t)ptr - (diff + sizeof(align_t));
-	}
-	return ptr;
+	align_t offset;
+	memcpy(&offset, (void*)(ptr - sizeof(align_t)), sizeof(align_t));
+	return (uintptr_t)ptr - (offset + sizeof(align_t));
 }
 
 #define LIBALLOC_MAGIC	0xc001c0de
@@ -190,15 +179,13 @@ heap_allocator::major_block* heap_allocator::allocate_new_page(size_t size)
 	return maj;
 }
 
-void* heap_allocator::malloc_bytes(size_t req_size)
+void* heap_allocator::malloc_bytes(size_t req_size, size_t align)
 {
 	unsigned long size = req_size;
 
 	// For alignment, we adjust size so there's enough space to align.
-	if(m_alignment > 1)
-	{
-		size += sizeof(align_t) + (m_alignment - 1);
-	}
+	size += sizeof(align_t) + (align - 1);
+
 	// So, ideally, we really want an alignment of 0 or 1 in order
 	// to save space.
 
@@ -213,7 +200,7 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 		FLUSH();
 #endif
 		unlock();
-		return malloc_bytes(1);
+		return malloc_bytes(1, align);
 	}
 
 	if(l_memRoot == NULL)
@@ -336,7 +323,8 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 			l_inuse += size;
 
-			uintptr_t p = ALIGN((uintptr_t)maj->first + sizeof(minor_block), m_alignment);
+			uintptr_t p =
+				ALIGN((uintptr_t)maj->first + sizeof(minor_block), align);
 
 #ifdef DEBUG
 			printf("CASE 2: returning %x\n", p);
@@ -371,7 +359,8 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 			l_inuse += size;
 
-			uintptr_t p = ALIGN((uintptr_t)(maj->first) + sizeof(minor_block), m_alignment);
+			uintptr_t p =
+				ALIGN((uintptr_t)(maj->first) + sizeof(minor_block), align);
 
 #ifdef DEBUG
 			printf("CASE 3: returning %x\n", p);
@@ -417,7 +406,8 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 					l_inuse += size;
 
-					uintptr_t p = ALIGN((uintptr_t)min + sizeof(minor_block), m_alignment);
+					uintptr_t p =
+						ALIGN((uintptr_t)min + sizeof(minor_block), align);
 #ifdef DEBUG
 					printf("CASE 4.1: returning %x\n", p);
 					FLUSH();
@@ -456,7 +446,8 @@ void* heap_allocator::malloc_bytes(size_t req_size)
 
 					l_inuse += size;
 
-					uintptr_t p = ALIGN((uintptr_t)new_min + sizeof(minor_block), m_alignment);
+					uintptr_t p =
+						ALIGN((uintptr_t)new_min + sizeof(minor_block), align);
 #ifdef DEBUG
 					printf("CASE 4.2: returning %x\n", p);
 					FLUSH();
@@ -531,7 +522,7 @@ void heap_allocator::free_bytes(void* to_free)
 		return;
 	}
 
-	uintptr_t ptr = UNALIGN((uintptr_t)to_free, m_alignment);
+	uintptr_t ptr = UNALIGN((uintptr_t)to_free);
 
 	lock();		// lockit
 
@@ -638,18 +629,18 @@ void heap_allocator::free_bytes(void* to_free)
 	unlock();		// release the lock
 }
 
-void* heap_allocator::calloc_bytes(size_t nobj, size_t size)
+void* heap_allocator::calloc_bytes(size_t nobj, size_t size, size_t align)
 {
 	size_t real_size = nobj * size;
 
-	void* p = malloc_bytes(real_size);
+	void* p = malloc_bytes(real_size, align);
 
 	liballoc_memset(p, 0, real_size);
 
 	return p;
 }
 
-void* heap_allocator::realloc_bytes(void* p, size_t size)
+void* heap_allocator::realloc_bytes(void* p, size_t size, size_t align)
 {
 	// Honour the case of size == 0 => free old and return NULL
 	if(size == 0)
@@ -659,10 +650,10 @@ void* heap_allocator::realloc_bytes(void* p, size_t size)
 	}
 
 	// In the case of a NULL pointer, return a simple malloc.
-	if(p == nullptr) return malloc_bytes(size);
+	if(p == nullptr) return malloc_bytes(size, align);
 
 	// Unalign the pointer if required.
-	uintptr_t ptr = UNALIGN((uintptr_t)p, m_alignment);
+	uintptr_t ptr = UNALIGN((uintptr_t)p);
 
 	lock();		// lockit
 
@@ -728,7 +719,7 @@ void* heap_allocator::realloc_bytes(void* p, size_t size)
 	unlock();
 
 	// If we got here then we're reallocating to a block bigger than us.
-	void* new_block = malloc_bytes(size);					// We need to allocate new memory
+	void* new_block = malloc_bytes(size, align);					// We need to allocate new memory
 	liballoc_memcpy(new_block, p, real_size);
 	free_bytes(p);
 

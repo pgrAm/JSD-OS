@@ -6,10 +6,10 @@
 class __attribute__((visibility("hidden"))) heap_allocator
 {
 public:
-	void* malloc_bytes(size_t req_size);
+	void* malloc_bytes(size_t req_size, size_t align);
 	void free_bytes(void* ptr);
-	void* calloc_bytes(size_t nobj, size_t size);
-	void* realloc_bytes(void* p, size_t size);
+	void* calloc_bytes(size_t nobj, size_t size, size_t align);
+	void* realloc_bytes(void* p, size_t size, size_t align);
 
 	constexpr heap_allocator(int (*lock_func)(),
 				   int (*unlock_func)(),
@@ -27,8 +27,6 @@ private:
 
 	struct major_block* l_memRoot = nullptr;	///< The root memory block acquired from the system.
 	struct major_block* l_bestBet = nullptr;	///< The major with the most free memory.
-
-	const size_t m_alignment = 4;
 
 	const size_t l_pageSize = 4096;		///< The size of an individual page. Set up in liballoc_init.
 	const size_t l_pageCount = 16;		///< The number of pages to request per chunk. Set up in liballoc_init.

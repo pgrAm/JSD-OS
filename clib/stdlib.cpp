@@ -92,25 +92,27 @@ static int liballoc_free(void* p, size_t n)
 }
 
 static heap_allocator library_allocator{
-	liballoc_lock, 
+	liballoc_lock,
 	liballoc_unlock,
-	liballoc_alloc, 
-	liballoc_free
+	liballoc_alloc,
+	liballoc_free,
 };
+
+constexpr size_t clib_default_align = 4;
 
 void* malloc(size_t n)
 {
-	return library_allocator.malloc_bytes(n);
+	return library_allocator.malloc_bytes(n, clib_default_align);
 }
 
 void* realloc(void* ptr, size_t size)
 {
-	return library_allocator.realloc_bytes(ptr, size);
+	return library_allocator.realloc_bytes(ptr, size, clib_default_align);
 }
 
 void* calloc(size_t num, size_t size)
 {
-	return library_allocator.calloc_bytes(num, size);
+	return library_allocator.calloc_bytes(num, size, clib_default_align);
 }
 
 void free(void* p)
