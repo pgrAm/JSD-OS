@@ -23,6 +23,8 @@ static std::vector<uintptr_t>* pages_mapped;
 static std::vector<uintptr_t>* pages_allocated;
 static hash_map<uintptr_t, uintptr_t>* mapping_cache;
 
+static x86emu_t* emu_instance = nullptr;
+
 struct __attribute__((packed)) far_ptr
 {
 	uint16_t offset;
@@ -48,42 +50,9 @@ struct __attribute__((packed)) far_ptr
 	return len;
 }*/
 
-static void* translate_virtual_far_ptr(far_ptr t)
-{
-	uint32_t addr = (uint32_t)t.access();
-
-	if(addr >= low_page_begin && addr <= low_page_end)
-	{
-		return virtual_bootsector + (addr - low_page_begin);
-	}
-	if(addr >= virtual_stack_begin && addr <= virtual_stack_end)
-	{
-		return virtual_stack + (addr - virtual_stack_begin);
-	}
-
-	if(memmanager_get_physical(addr) == addr)
-	{
-		return (void*)addr;
-	}
-
-	uintptr_t page_addr = addr & ~(PAGE_SIZE - 1);
-	uintptr_t page_offset = addr - page_addr;
-
-	auto vaddr = (uintptr_t)memmanager_map_to_new_pages(page_addr, 1, PAGE_PRESENT | PAGE_RW);
-
-	if(vaddr)
-	{
-		return (void*)(vaddr + page_offset);
-	}
-	else
-	{
-		k_assert(false);
-		return nullptr;
-	}
-}
-
 static void* map_address(uint32_t addr, bool write = false)
 {
+
 	if(addr >= low_page_begin && addr <= low_page_end)
 	{
 		return virtual_bootsector + (addr - low_page_begin);
@@ -92,13 +61,6 @@ static void* map_address(uint32_t addr, bool write = false)
 	{
 		return virtual_stack + (addr - virtual_stack_begin);
 	}
-	
-	//allow touching the BDA
-	//if(addr < 0x500)
-	//	return (void*)addr;
-	//allow touching the EBDA
-	//if(addr >= 0x80000 && addr < 0x100000)
-	//	return (void*)addr;
 
 	uintptr_t page_addr = addr & ~(PAGE_SIZE - 1);
 	uintptr_t page_offset = addr - page_addr;
@@ -108,16 +70,6 @@ static void* map_address(uint32_t addr, bool write = false)
 		void* ret = (void*)(vaddr + page_offset);
 		return ret;
 	}
-
-	//if(!write && memmanager_get_physical(page_addr) == page_addr)
-	//{
-	//	return (void*)addr;
-	//}
-
-	//if(write)
-	//	ser_printf("writing %X\r\n", addr);
-	//else
-	//	ser_printf("reading %X\r\n", addr);
 
 	if(page_addr < 0x1000 || (page_addr >= 0x80000 && page_addr < 0x100000))
 	{
@@ -133,7 +85,6 @@ static void* map_address(uint32_t addr, bool write = false)
 		if(physical_memory_allocate_in_range(page_addr, page_addr + PAGE_SIZE,
 											 PAGE_SIZE, PAGE_SIZE))
 		{
-			//ser_printf("mapping %X to %X page\r\n", page_addr, vaddr);
 			vaddr = (uintptr_t)memmanager_map_to_new_pages(page_addr, 1, PAGE_PRESENT | PAGE_RW);
 			k_assert(vaddr);
 		}
@@ -148,16 +99,22 @@ static void* map_address(uint32_t addr, bool write = false)
 	return (void*)(vaddr + page_offset);
 }
 
+static void* translate_virtual_far_ptr(far_ptr t)
+{
+	return map_address(std::bit_cast<uint32_t>(t.access()));
+}
+
 template<typename T> static uint32_t mem_read(uint32_t addr)
 {
-	T val = *(T*)map_address(addr);
+	T val;
+	memcpy(&val, map_address(addr), sizeof(T));
 	return val;
 }
 
 template<typename T> static void mem_write(uint32_t addr, uint32_t val)
 {
-	T tval = (T)val;
-	*(T*)map_address(addr, true) = tval;
+	T tval = static_cast<T>(val);
+	memcpy(map_address(addr, true), &tval, sizeof(T));
 }
 
 static unsigned memio_handler(x86emu_t * emu, u32 addr, u32 * val, unsigned type)
@@ -237,71 +194,36 @@ static unsigned memio_handler(x86emu_t * emu, u32 addr, u32 * val, unsigned type
 	return 0;
 }
 
-static x86emu_t* int10h_start(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint16_t es, uint16_t di)
+static void int10h_start(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint16_t es, uint16_t di)
 {
-	//ser_printf("int 10h; ax = %X\r\n", ax);
-
-	pages_mapped = new std::vector<uintptr_t>();
-	pages_allocated = new std::vector<uintptr_t>();
-	mapping_cache = new hash_map<uintptr_t, uintptr_t>();
-
-	auto emu = x86emu_new(X86EMU_PERM_RWX, X86EMU_PERM_RWX);
-
-	x86emu_set_memio_handler(emu, &memio_handler);
-
-	x86emu_set_seg_register(emu, emu->x86.R_CS_SEL, 0);
-	x86emu_set_seg_register(emu, emu->x86.R_SS_SEL, (uint16_t)(virtual_stack_end / 0x10));
-	x86emu_set_seg_register(emu, emu->x86.R_ES_SEL, es);
+	x86emu_set_seg_register(emu_instance, emu_instance->x86.R_CS_SEL, 0);
+	x86emu_set_seg_register(emu_instance, emu_instance->x86.R_SS_SEL,
+							(uint16_t)(virtual_stack_end / 0x10));
+	x86emu_set_seg_register(emu_instance, emu_instance->x86.R_ES_SEL, es);
 
 	virtual_bootsector[0] = 0x90; //nop
 	virtual_bootsector[1] = 0xF4; //hlt
-	emu->x86.R_IP = 0x7C00;
-	emu->x86.R_AX = ax;
-	emu->x86.R_BX = bx;
-	emu->x86.R_CX = cx;
-	emu->x86.R_DX = dx;
-	emu->x86.R_DI = di;
-	x86emu_intr_raise(emu, 0x10, INTR_TYPE_SOFT, 0);
-	x86emu_run(emu, X86EMU_RUN_LOOP);
-
-	return emu;
-}
-
-
-static void int10h_cleanup(x86emu_t* emu)
-{
-	x86emu_done(emu);
-
-	for(auto page : *pages_mapped)
-	{
-		memmanager_unmap_pages((void*)page, 1);
-	}
-
-	for(auto page : *pages_allocated)
-	{
-		memmanager_free_pages((void*)page, 1);
-	}
-
-	delete pages_allocated;
-	delete pages_mapped;
-	delete mapping_cache;
+	emu_instance->x86.R_IP = 0x7C00;
+	emu_instance->x86.R_AX = ax;
+	emu_instance->x86.R_BX = bx;
+	emu_instance->x86.R_CX = cx;
+	emu_instance->x86.R_DX = dx;
+	emu_instance->x86.R_DI = di;
+	x86emu_intr_raise(emu_instance, 0x10, INTR_TYPE_SOFT, 0);
+	x86emu_run(emu_instance, X86EMU_RUN_LOOP);
 }
 
 static uint16_t int10h(uint16_t ax, uint16_t bx, uint16_t cx, uint16_t dx, uint16_t es, uint16_t di)
 { 
-	//ser_printf("int 10h; ax = %X\r\n", ax);
+	int10h_start(ax, bx, cx, dx, es, di);
 
-	auto emu = int10h_start(ax, bx, cx, dx, es, di);
-	auto result_ax = emu->x86.R_AX;
-
-	int10h_cleanup(emu);
-
-	return result_ax;
+	return emu_instance->x86.R_AX;
 }
 
 //based on SDL_MasksToPixelFormatEnum from SDL2
-static display_format vesa_format_from_masks(	size_t bpp, uint32_t r_mask, uint32_t g_mask, 
-												uint32_t b_mask, uint32_t a_mask)
+constexpr static display_format
+vesa_format_from_masks(size_t bpp, uint32_t r_mask, uint32_t g_mask,
+					   uint32_t b_mask, uint32_t a_mask)
 {
 	switch(bpp) 
 	{
@@ -613,15 +535,15 @@ static void vesa_set_diplay_offset(size_t offset, bool on_retrace)
 
 static bool vesa_get_pm_interface()
 {
-	auto emu = int10h_start(0x4f0A, 0, 0, 0, 0, 0);
+	int10h_start(0x4f0A, 0, 0, 0, 0, 0);
 
-	bool success = emu->x86.R_AX == 0x4f;
+	bool success = emu_instance->x86.R_AX == 0x4f;
 
 	if(success)
 	{
-		size_t table_size = emu->x86.R_CX;
+		size_t table_size = emu_instance->x86.R_CX;
 
-		far_ptr table_ptr{emu->x86.R_DI, emu->x86.R_ES};
+		far_ptr table_ptr{emu_instance->x86.R_DI, emu_instance->x86.R_ES};
 
 		uint8_t* func_table = (uint8_t*)translate_virtual_far_ptr(table_ptr);
 
@@ -641,8 +563,6 @@ static bool vesa_get_pm_interface()
 		}
 		while(true);*/
 	}
-
-	int10h_cleanup(emu);
 
 	return success;
 }
@@ -713,7 +633,6 @@ static bool vesa_populate_modes()
 		auto b_mask = gen_mask<uint32_t>(mode_info->blue_mask) << mode_info->blue_position;
 		auto a_mask = gen_mask<uint32_t>(mode_info->reserved_mask) << mode_info->reserved_position;
 
-
 		auto frame_buffer = (mode_info->framebuffer != 0)
 			? mode_info->framebuffer
 			: (uintptr_t)far_ptr { 0, mode_info->segment_a }.access();
@@ -743,7 +662,6 @@ static bool vesa_populate_modes()
 			mode,
 			true
 		});
-
 
 		/*printf("%dx%dx%d, %d, %d\n", 
 			   mode_info->width,
@@ -831,17 +749,41 @@ extern "C" void vesa_init()
 	//rs232_init(serial_port, 9600);
 
 	virtual_bootsector = new uint8_t[low_page_end - low_page_begin];
-	virtual_stack = new uint8_t[virtual_stack_end - virtual_stack_begin];
+	virtual_stack	   = new uint8_t[virtual_stack_end - virtual_stack_begin];
 
 	available_modes = new std::vector<display_mode>();
-	vesa_modes = new std::vector<vesa_mode>();
+	vesa_modes		= new std::vector<vesa_mode>();
+
+	pages_mapped	= new std::vector<uintptr_t>();
+	pages_allocated = new std::vector<uintptr_t>();
+	mapping_cache	= new hash_map<uintptr_t, uintptr_t>();
+
+	emu_instance = x86emu_new(X86EMU_PERM_RWX, X86EMU_PERM_RWX);
+
+	x86emu_set_memio_handler(emu_instance, &memio_handler);
 
 	if(!vesa_populate_modes())
 	{
+		x86emu_done(emu_instance);
 		delete[] virtual_stack;
 		delete[] virtual_bootsector;
 		delete available_modes;
 		delete vesa_modes;
+
+		for(auto page : *pages_mapped)
+		{
+			memmanager_unmap_pages((void*)page, 1);
+		}
+
+		for(auto page : *pages_allocated)
+		{
+			memmanager_free_pages((void*)page, 1);
+		}
+
+		delete pages_allocated;
+		delete pages_mapped;
+		delete mapping_cache;
+
 		return;
 	}
 
