@@ -74,7 +74,7 @@ static const virtual_keycode key_translation_table[] = {
 
 static uint8_t last_key = 0;
 
-static INTERRUPT_HANDLER void AT_keyboard_handler(interrupt_frame* r)
+static INTERRUPT_HANDLER void at_keyboard_handler(interrupt_frame* r)
 {
 	const uint8_t key_data = inb(0x60);
 	acknowledge_irq(1);
@@ -102,7 +102,7 @@ static INTERRUPT_HANDLER void AT_keyboard_handler(interrupt_frame* r)
 	last_key = key_data;
 }
 
-extern "C" void AT_kbrd_init()
+extern "C" void at_kbrd_init()
 {
-	irq_install_handler(1, AT_keyboard_handler);
+	irq_install_handler(1, at_keyboard_handler);
 }

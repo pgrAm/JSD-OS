@@ -160,7 +160,7 @@ lib_emu = static_library(
 
 driver_map = {}
 drivers = [
-		['AT_kbrd', ['drivers/at_kbrd.cpp'], []],
+		['at_kbrd', ['drivers/at_kbrd.cpp'], []],
 		['isa_dma', ['drivers/isa_dma.cpp'], []],
 		['pci', ['drivers/pci.cpp'], []],
 		['floppy', ['drivers/floppy.cpp'], ['isa_dma']],
@@ -215,6 +215,14 @@ kbrd = static_library(
 	pic: true
 )
 
+clib_static = static_library(
+	'clib',	
+	[clib_asm, clib_src],
+	c_args: c_args + ['-flto', '-Os'],
+	cpp_args: cpp_args + ['-flto', '-Os'],
+	include_directories: clib_include + ['api/'],
+)
+
 clib = shared_library(
 	'clib',	
 	[clib_asm, clib_src],
@@ -241,6 +249,16 @@ terminal = shared_library(
 
 crti = asm_gen.process(['api/crti.asm'])
 crtn = asm_gen.process(['api/crtn.asm'])
+
+init_loader = executable(
+	'init.elf', 
+	crti, ['api/crt0.c', 'apps/init.cpp'], crtn,
+	include_directories: clib_include + ['api/'],
+	c_args: c_args + ['-flto', '-Os'],
+	cpp_args: cpp_args + ['-flto', '-Os'],
+	link_args: ['-s', '-Wl,--image-base=0x8000000'] + common_linker_flags,
+	link_with: [clib_static, cpp_runtime]
+)
 
 shell = executable(
 	'shell.elf', 

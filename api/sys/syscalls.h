@@ -55,6 +55,8 @@ enum syscall_indices
 	SYSCALL_SPAWN_THREAD		 = 34,
 	SYSCALL_EXIT_THREAD			 = 35,
 	SYSCALL_YIELD				 = 36,
+	SYSCALL_LOAD_DRIVER			 = 37,
+	SYSCALL_DIAGNOSTIC_MESSAGE	 = 38,
 };
 
 struct file_handle;
@@ -331,6 +333,16 @@ static inline void exit_thread(int code)
 static inline void yield_to(task_id id)
 {
 	do_syscall_1(SYSCALL_YIELD, (uintptr_t)id);
+}
+
+static inline int load_driver(directory_stream* rel, const file_handle* file)
+{
+	return (int)do_syscall_2(SYSCALL_LOAD_DRIVER, (uintptr_t)rel, (uintptr_t)file);
+}
+
+static inline void diagnostic_message(const char* data, size_t len)
+{
+	do_syscall_2(SYSCALL_DIAGNOSTIC_MESSAGE, (uintptr_t)data, (uintptr_t)len);
 }
 
 #ifdef __cplusplus

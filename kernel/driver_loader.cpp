@@ -33,47 +33,62 @@ static dynamic_object::sym_map driver_lib_set{32};
 static dynamic_object::sym_map driver_symbol_map{32};
 static dynamic_object::sym_map driver_glob_data_symbol_map{};
 
-static void load_driver(fs::dir_stream_ref cwd, const std::string_view filename, const std::string_view func_name)
+extern "C" SYSCALL_HANDLER int load_driver(directory_stream* cwd,
+											const file_handle* file)
 {
-	k_assert(cwd);
-
-	dynamic_object ob {	
-		&driver_lib_set, 
-		&driver_symbol_map, 
-		&driver_glob_data_symbol_map
-	};
-
-	auto f = cwd.find_file_by_path(filename);
-	if(!f)
+	if(!this_task_is_active())
 	{
-		print_strings("Can't find driver ", filename, '\n');
-		return;
+		return -1;
 	}
 
-	std::string_view lib_path{};
-	if(auto slash = filename.find_last_of('/'); slash != std::string_view::npos)
-	{
-		lib_path = filename.substr(0, slash);
-	}
+	assert(cwd);
+	assert(file);
+
+	std::string_view filename{file->name};
+
+	auto slash = filename.find_last_of('/');
+	if(slash == std::string_view::npos)
+		slash = 0;
+	else
+		slash++;
+
+	auto lib_path = slash != std::string_view::npos ? filename.substr(0, slash)
+													: std::string_view{};
+
+	auto dot			  = filename.find_first_of('.');
+	std::string init_func = std::string{filename.substr(slash, dot - slash)};
+	init_func += "_init"sv;
+
+	//TODO: really gotta find a better way of doing this
+	for(auto& c : init_func)
+		c = (char)tolower(c);
 
 	fs::dir_stream lib_dir{cwd, lib_path, 0};
 
-	if(load_elf(&(*f), &ob, false, lib_dir ? lib_dir.get_ptr() : cwd.get_ptr()))
+	dynamic_object ob{
+		&driver_lib_set,
+		&driver_symbol_map,
+		&driver_glob_data_symbol_map,
+	};
+
+	if(load_elf(file, &ob, false, lib_dir ? lib_dir.get_ptr() : cwd))
 	{
 		uint32_t func_address;
-		if(ob.symbol_map->lookup(func_name, &func_address))
+		if(ob.symbol_map->lookup(init_func, &func_address))
 		{
-			((driver_init_func)func_address)(cwd.get_ptr());
+			((driver_init_func)func_address)(cwd);
 		}
 		else
 		{
-			print_string("Can't find function\n");
+			return -1;
 		}
 	}
 	else
 	{
-		print_strings("Can't find ", filename, '\n');
+		return -1;
 	}
+
+	return 0;
 }
 
 static constexpr std::array func_list
@@ -139,120 +154,18 @@ static constexpr std::array func_list
 #ifndef NDEBUG
 	func_info{"__kassert_fail"sv,				(void*)&__kassert_fail},
 #endif
+	func_info{"clock"sv, (void*)&clock},
+
 };
-
-static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f);
-
-static void execute_line(std::string_view line, fs::dir_stream_ref cwd)
-{
-	auto space = line.find_first_of(' ');
-	auto token = line.substr(0, space);
-
-	if(line.size() >= 2 && line[0] == '/' && line[1] == '/')
-	{
-	}
-	else if(token == "load_driver"sv)
-	{
-		auto filename = line.substr(space + 1);
-		auto slash = filename.find_last_of('/');
-
-		if(slash == std::string_view::npos)
-			slash = 0;
-		else
-			slash++;
-
-		auto dot = filename.find_first_of('.');
-		std::string init_func = std::string{filename.substr(slash, dot - slash)};
-		init_func += "_init"sv;
-
-		print_strings("Loading driver "sv, filename, ", calling ", init_func, '\n');
-
-		load_driver(cwd, filename, init_func);
-	}
-	else if(token == "load_file"sv)
-	{
-		auto filename = line.substr(space + 1);
-
-		size_t num_drives = filesystem_get_num_drives();
-
-		for(size_t drive = 0; drive < num_drives; drive++)
-		{
-			auto root = filesystem_get_root_directory(drive);
-
-			if(!root)
-				continue;
-
-			fs::dir_stream dir{root, 0};
-
-			if(!dir)
-				continue;
-
-			if(fs::stream stream{dir.get_ptr(), filename}; !!stream)
-			{
-				print_strings("Processing file ", filename, ", set init drive\n");
-
-				process_init_file(dir, stream);
-				return;
-			}
-		}
-		print_strings("Could not find ", filename, '\n');
-	}
-	else if(token == "execute"sv)
-	{
-		auto filename = line.substr(space + 1);
-		auto f = cwd.find_file_by_path(filename);
-
-		if(!f)
-		{
-			print_strings("Can't find ", filename, '\n');
-		}
-		else
-		{
-			print_strings("Executing ", filename, '\n');
-
-			spawn_process(&(*f), cwd.get_ptr(), WAIT_FOR_PROCESS);
-		}
-	}
-}
-
-static void process_init_file(fs::dir_stream_ref cwd, fs::stream_ref f)
-{
-	k_assert(cwd);
-
-	std::string buffer;
-	bool eof = false;
-	while(!eof)
-	{
-		char c;
-		if(f.read(&c, sizeof(char)) != sizeof(char))
-		{
-			eof = true;
-			c = '\n';
-		}
-		switch(c)
-		{
-		case '\r':
-			continue;
-		case '\n':
-			execute_line(buffer, cwd);
-			buffer.clear();
-			continue;
-		default:
-			buffer += c;
-		}
-	}
-}
 
 extern "C" void load_drivers()
 {
-	print_string("Loading drivers\n"sv);
-
 	for(auto&& func : func_list)
 	{
 		driver_symbol_map.insert(func.name, (uintptr_t)func.address);
 	}
 
-	std::string_view init_path = "init.sys";
+	std::string_view init_path = "init.elf";
 
 	fs::dir_stream cwd{filesystem_get_root_directory(0), 0};
 
@@ -262,12 +175,13 @@ extern "C" void load_drivers()
 		while(true);
 	}
 
-	if(fs::stream f{cwd.get_ptr(), init_path, 0}; !!f)
+	auto f = cwd.find_file_by_path(init_path);
+
+	if(!f)
 	{
-		process_init_file(cwd, f);
-		return;
+		print_string("Corrupted boot drive!\n");
+		while(true);
 	}
 
-	print_string("Can't find init.sys!\n");
-	while(true);
+	spawn_process(&(*f), cwd.get_ptr(), WAIT_FOR_PROCESS);
 }

@@ -7,6 +7,7 @@
 #include <kernel/sysclock.h>
 #include <kernel/display.h>
 #include <kernel/shared_mem.h>
+#include <kernel/driver_loader.h>
 #include <kernel/input.h>
 
 //A syscall is accomplished by
@@ -19,6 +20,11 @@ SYSCALL_HANDLER int _empty()
 { 
 	return 0;
 }
+
+SYSCALL_HANDLER void diagnostic_print(const char* data, size_t len)
+{
+	print_string_len(data, len);
+};
 
 extern SYSCALL_HANDLER int iopl(int val);
 
@@ -63,6 +69,8 @@ const void* syscall_table[] =
 	spawn_thread,
 	exit_thread,
 	yield_to,
+	load_driver,
+	diagnostic_print,
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);

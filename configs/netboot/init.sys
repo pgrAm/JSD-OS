@@ -1,4 +1,4 @@
-load_driver AT_kbrd.drv
+load_driver at_kbrd.drv
 load_driver vesa.drv
 load_driver i8042.drv
 load_driver ps2mouse.drv

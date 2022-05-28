@@ -1,4 +1,4 @@
-load_driver AT_kbrd.drv
+load_driver at_kbrd.drv
 load_driver floppy.drv
 load_driver fat.drv
 load_file fdboot.sys
