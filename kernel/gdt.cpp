@@ -6,12 +6,12 @@
 
 struct __attribute__((packed)) gdt_entry
 {
-	uint16_t limit_low; 
-	uint16_t base_low;  
-	uint8_t  base_middle;
+	uint16_t limit_lo; 
+	uint16_t base_lo;  
+	uint8_t  base_mid;
 	uint8_t  access;
 	uint8_t  granularity;
-	uint8_t  base_high; 
+	uint8_t  base_hi; 
 };
 
 struct __attribute__((packed)) gdt_descriptor
@@ -35,6 +35,7 @@ extern "C"
 	extern gdt_descriptor gdt_descriptor_location;
 	extern gdt_entry gdt_location;
 	extern gdt_entry gdt_data_location;
+	extern gdt_entry gdt_tls_data;
 	extern gdt_entry gdt_tss_location;
 }
 
@@ -56,11 +57,11 @@ tss* create_TSS(uintptr_t stack_addr)
 
 	auto tss_addr = (uintptr_t)n_tss;
 
-	gdt_tss_location.limit_low = sizeof(tss) & 0x0000FFFF;
-	gdt_tss_location.base_low = tss_addr & 0x0000FFFF;
-	gdt_tss_location.base_middle = (tss_addr >> 16) & 0xFF;
+	gdt_tss_location.limit_lo = sizeof(tss) & 0x0000FFFF;
+	gdt_tss_location.base_lo = tss_addr & 0x0000FFFF;
+	gdt_tss_location.base_mid = (tss_addr >> 16) & 0xFF;
 	gdt_tss_location.access = 0x89;
-	gdt_tss_location.base_high = (tss_addr >> 24) & 0xFF;
+	gdt_tss_location.base_hi = (tss_addr >> 24) & 0xFF;
 	gdt_tss_location.granularity = ((sizeof(tss) >> 16) & 0x0F) | 0x40;
 
 	uint16_t tss_seg =

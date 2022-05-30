@@ -57,6 +57,8 @@ enum syscall_indices
 	SYSCALL_YIELD				 = 36,
 	SYSCALL_LOAD_DRIVER			 = 37,
 	SYSCALL_DIAGNOSTIC_MESSAGE	 = 38,
+	SYSCALL_CURRENT_PROCESS_INFO = 39,
+	SYSCALL_SET_TLS_ADDR		 = 40,
 };
 
 struct file_handle;
@@ -320,9 +322,9 @@ static inline void* map_shared_buffer(uintptr_t buf_handle, size_t size, int fla
 							   (uint32_t)buf_handle, (uint32_t)size, (uint32_t)flags);
 }
 
-static inline task_id spawn_thread(void (*func)())
+static inline task_id sys_spawn_thread(void (*func)(task_id), void* tls_ptr)
 {
-	return (task_id)do_syscall_1(SYSCALL_SPAWN_THREAD, (uintptr_t)func);
+	return (task_id)do_syscall_2(SYSCALL_SPAWN_THREAD, (uintptr_t)func, (uintptr_t)tls_ptr);
 }
 
 static inline void exit_thread(int code)
@@ -344,6 +346,17 @@ static inline void diagnostic_message(const char* data, size_t len)
 {
 	do_syscall_2(SYSCALL_DIAGNOSTIC_MESSAGE, (uintptr_t)data, (uintptr_t)len);
 }
+
+static inline void get_process_info(process_info* data)
+{
+	do_syscall_1(SYSCALL_CURRENT_PROCESS_INFO, (uintptr_t)data);
+}
+
+static inline void set_tls_addr(void* tls_ptr)
+{
+	do_syscall_1(SYSCALL_SET_TLS_ADDR, (uintptr_t)tls_ptr);
+}
+
 
 #ifdef __cplusplus
 }

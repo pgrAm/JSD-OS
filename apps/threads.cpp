@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <terminal/terminal.h>
 #include <sys/syscalls.h>
+#include <thread.h>
 
 terminal s_term{"terminal_1"};
+
+thread_local int tls_test = 0;
 
 int main(int argc, char** argv)
 {
@@ -12,19 +15,21 @@ int main(int argc, char** argv)
 	auto tid = spawn_thread(
 		[]()
 		{
+			tls_test = 1;
 			for(size_t i = 0; i < 10; i++)
 			{
-				printf("this is a test from another thread!\n");
+				printf("TLS data = %d, this is a test from another thread!\n",
+					   tls_test);
+
 				yield_to(INVALID_TASK_ID);
 			}
-			exit_thread(0);
 		});
 
 	printf("Spawned new thread tid = %d\n", tid);
 
 	for(size_t i = 0; i < 10; i++)
 	{
-		printf("main thread\n", tid);
+		printf("TLS data = %d, main thread\n", tls_test);
 		yield_to(tid);
 	}
 

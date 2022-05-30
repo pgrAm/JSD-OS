@@ -55,7 +55,7 @@ clib_src = [
 	'clib/string.c',
 	'clib/stdio.c',
 	'clib/ctype.c',
-	'clib/time.c',
+	'clib/time.cpp',
 	'clib/stdlib.cpp',
 	'clib/liballoc.cpp',
 ]
@@ -199,6 +199,14 @@ driver_map += {d[0] : drv}
 
 endforeach
 
+threadlib = static_library(
+	'threadlib', 
+	['api/thread.cpp'],
+	cpp_args: cpp_args + ['-flto'],
+	include_directories: clib_include + ['api/'],
+	pic: true
+)
+
 cpp_runtime = static_library(
 	'cppruntime', 
 	['cpplib/cppruntime.cpp'],
@@ -317,7 +325,7 @@ threads = executable(
 	c_args: c_args + ['-flto'],
 	cpp_args: cpp_args + ['-flto'],
 	link_args: ['-s', '-Wl,--image-base=0x8000000'] + common_linker_flags,
-	link_with: [clib, terminal, kbrd, cpp_runtime]
+	link_with: [clib, terminal, kbrd, cpp_runtime, threadlib]
 )
 
 executable(

@@ -107,17 +107,22 @@ int __cxa_atexit(void (*f)(void*), void* objptr, void* dso) {
 
 void __cxa_finalize(void* f) {
 	size_t i = __atexitFuncCount;
-	if(!f) {
-		while(i--) {
-			if(__atexitFuncs[i].destructorFunc) {
+	if(!f)
+	{
+		while(i--)
+		{
+			if(__atexitFuncs[i].destructorFunc)
+			{
 				(*__atexitFuncs[i].destructorFunc)(__atexitFuncs[i].objPtr);
 			}
 		}
 		return;
 	}
 
-	for(; i >= 0; i--) {
-		if(__atexitFuncs[i].destructorFunc == f) {
+	while(i--)
+	{
+		if(__atexitFuncs[i].destructorFunc == f)
+		{
 			(*__atexitFuncs[i].destructorFunc)(__atexitFuncs[i].objPtr);
 			__atexitFuncs[i].destructorFunc = 0;
 		}

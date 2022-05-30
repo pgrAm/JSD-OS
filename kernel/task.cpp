@@ -10,7 +10,6 @@
 #include <kernel/dynamic_object.h>
 #include <kernel/tss.h>
 #include <kernel/kassert.h>
-
 #include <vector>
 #include <memory>
 
@@ -25,6 +24,11 @@ struct __attribute__((packed)) TCB //tcb man, tcb...
 	uintptr_t esp0;
 	uintptr_t cr3;
 	tss* tss_ptr;
+
+	uint32_t tls_gdt_hi;
+	uint16_t tls_base_lo;
+	uint16_t unused;
+
 	task_id tid;
 	task* t_data;
 };
@@ -57,23 +61,26 @@ struct process
 class task
 {
 public:
-	task(task_id _tid, process* parent, uintptr_t _user_stack_top,
-		 uintptr_t _kernel_stack_top)
+	constexpr task(task_id _tid, process* parent, uintptr_t _user_stack_top,
+				   uintptr_t _kernel_stack_top,
+				   uintptr_t tls_ptr,
+				   tss* _tss = current_TSS,
+				   uintptr_t pdir = std::bit_cast<uintptr_t>(get_page_directory()))
 		: kernel_stack_top{_kernel_stack_top}
 		, user_stack_top{_user_stack_top}
 		, p_data{parent}
 		, tc_block{
 			.esp	 = _kernel_stack_top + PAGE_SIZE - sizeof(stack_items),
 			.esp0	 = _kernel_stack_top + PAGE_SIZE,
-			.cr3	 = (uintptr_t)get_page_directory(),
-			.tss_ptr = current_TSS,
+			.cr3	 = pdir,
+			.tss_ptr = _tss,
+			.tls_gdt_hi =
+				(tls_ptr & 0xFF000000) | 0x00CFF200 | ((tls_ptr >> 16) & 0xFF),
+			.tls_base_lo = static_cast<uint16_t>(tls_ptr & 0xFFFF),
 			.tid	 = _tid,
 			.t_data	 = this,
 		}
-	{
-		sync::lock_guard l{parent->mtx};
-		parent->tasks.push_back(this);
-	}
+	{}
 
 	uintptr_t kernel_stack_top = (uintptr_t)nullptr;
 	uintptr_t user_stack_top   = (uintptr_t)nullptr;
@@ -84,8 +91,21 @@ public:
 extern "C" [[noreturn]] void run_user_code(void* address, void* stack);
 extern "C" [[noreturn]] void switch_task_no_return(TCB* t);
 extern "C" void switch_task(TCB* t);
+extern uint8_t* const init_stack;
+uint8_t* spare_stack = nullptr;
 
-extern TCB* current_task_TCB;
+constinit process init_process{.pid = 0};
+constinit task init_task{
+	0,
+	&init_process,
+	0,//std::bit_cast<uintptr_t>(nullptr),
+	0,//std::bit_cast<uintptr_t>(init_stack),
+	0,
+	nullptr,
+	0,
+};
+
+TCB* current_task_TCB = &init_task.tc_block;
 
 static std::vector<TCB*> running_tasks;
 
@@ -101,10 +121,6 @@ static task_id active_process = 0;
 
 task_id get_running_process()
 {
-	if (current_task_TCB == nullptr)
-	{
-		return 0;
-	}
 	return current_task_TCB->tid;
 }
 
@@ -120,8 +136,7 @@ task_id task_is_running(task_id tid)
 
 task_id this_task_is_active()
 {
-	return current_task_TCB == nullptr ||
-		   current_task_TCB->t_data->p_data->pid == active_process;
+	return current_task_TCB->t_data->p_data->pid == active_process;
 	//return task_is_running(active_process);
 }
 
@@ -161,22 +176,20 @@ void run_background_tasks()
 	unlock_interrupts(l);
 }
 
-extern uint8_t* init_stack;
-
-uint8_t* spare_stack = nullptr;
-
 void setup_first_task()
 {
-	uintptr_t esp0 = (uintptr_t)init_stack + PAGE_SIZE;
-	current_TSS	   = create_TSS(esp0);
+	uintptr_t esp0	 = std::bit_cast<uintptr_t>(init_stack) + PAGE_SIZE;
+	current_TSS = create_TSS(esp0);
 
-	process* new_process = new process{};
-	auto new_task		 = new task{(task_id)running_tasks.size(), new_process,
-								(uintptr_t) nullptr, (uintptr_t)init_stack};
+	init_task.kernel_stack_top = esp0;
+	init_task.tc_block.esp0	   = esp0;
+	init_task.tc_block.esp	   = esp0 - sizeof(stack_items);
+	init_task.tc_block.tss_ptr = current_TSS;
+	init_task.tc_block.cr3	   = (uintptr_t)get_page_directory();
 
-	new_process->pid = new_task->tc_block.tid;
-
-	running_tasks.push_back(&new_task->tc_block);
+	sync::lock_guard l{init_process.mtx};
+	init_process.tasks.push_back(&init_task);
+	running_tasks.push_back(&init_task.tc_block);
 
 	active_process	 = 0;
 	current_task_TCB = running_tasks.back();
@@ -317,15 +330,36 @@ SYSCALL_HANDLER void exit_process(int val)
 	end_last_task(last_task);
 }
 
-task* create_new_task(process* parent, void* execution_addr)
+SYSCALL_HANDLER void get_process_info(process_info* data)
+{
+	*data = process_info{
+		.pid = current_task_TCB->t_data->p_data->pid,
+		.tls = current_task_TCB->t_data->p_data->objects[0]->tls_image,
+	};
+}
+
+SYSCALL_HANDLER void set_tls_addr(void* ptr)
+{
+	auto tls_ptr = std::bit_cast<uintptr_t>(ptr);
+
+	current_task_TCB->tls_gdt_hi =
+		(tls_ptr & 0xFF000000) | 0x00CFF200 | ((tls_ptr >> 16) & 0xFF);
+	current_task_TCB->tls_base_lo = static_cast<uint16_t>(tls_ptr & 0xFFFF);
+}
+
+task* create_new_task(process* parent, void* execution_addr, void* tls_ptr)
 {
 	uintptr_t user_stack_top =
 		(uintptr_t)memmanager_virtual_alloc(nullptr, 1, PAGE_RW | PAGE_USER);
 	uintptr_t kernel_stack_top =
 		(uintptr_t)memmanager_virtual_alloc(nullptr, 1, PAGE_RW | PAGE_PRESENT);
 
-	auto new_task = new task{running_tasks.size(), parent, user_stack_top,
-							kernel_stack_top};
+	auto new_task =
+		new task{running_tasks.size(), parent, user_stack_top, kernel_stack_top,
+				 std::bit_cast<uintptr_t>(tls_ptr)};
+
+	sync::lock_guard l{parent->mtx};
+	parent->tasks.push_back(new_task);
 
 	//we are setting up the stack of the new process
 	//these will be pop'ed into registers later
@@ -336,17 +370,21 @@ task* create_new_task(process* parent, void* execution_addr)
 	stack_ptr->eip	 = (uintptr_t)run_user_code; 
 	stack_ptr->flags = (uintptr_t)0x0200; //flags are all off, except interrupt
 
+	//pass this on the user stack
+	*(task_id*)(new_task->user_stack_top + PAGE_SIZE - sizeof(task_id)) =
+		new_task->tc_block.tid;
+
 	//lock tasks
 	running_tasks.push_back(&new_task->tc_block);
 	//unlock tasks
 	return new_task;
 }
 
-extern "C" SYSCALL_HANDLER task_id spawn_thread(void* function_ptr)
+extern "C" SYSCALL_HANDLER task_id spawn_thread(void* function_ptr, void* tls_ptr)
 {
 	auto parent_process = current_task_TCB->t_data->p_data;
 
-	auto new_task = create_new_task(parent_process, function_ptr);
+	auto new_task = create_new_task(parent_process, function_ptr, tls_ptr);
 
 	return new_task->tc_block.tid;
 }
@@ -402,7 +440,7 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 		return INVALID_TASK_ID;
 	}
 
-	auto new_task = create_new_task(new_process, new_process->objects[0]->entry_point);
+	auto new_task = create_new_task(new_process, new_process->objects[0]->entry_point, nullptr);
 
 	auto new_pid = new_task->tc_block.tid;
 
@@ -421,8 +459,8 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 		
 		//unlock tasks
 		unlock_interrupts(l);
-		
-		switch_to_task(new_pid);
+
+		switch_task(&new_task->tc_block);
 	}
 
 	return new_pid;
@@ -430,7 +468,7 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 
 void switch_to_task(task_id tid)
 {
-	if (running_tasks[tid]->tid != INVALID_TASK_ID && !task_is_running(tid))
+	if(running_tasks[tid]->tid != INVALID_TASK_ID && !task_is_running(tid))
 	{
 		switch_task(running_tasks[tid]);
 	}

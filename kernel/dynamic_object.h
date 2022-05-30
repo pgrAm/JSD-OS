@@ -4,21 +4,24 @@
 
 #include <stddef.h>
 #include <kernel/util/hash.h>
+#include <common/task_data.h>
 
 #include <vector>
 
-typedef struct
+struct segment
 {
 	void* pointer;
 	size_t num_pages;
-} segment;
+};
 
 struct dynamic_object
 {
-	using sym_map = hash_map<std::string, uintptr_t>;
+	using sym_map = hash_map<std::string_view, uintptr_t>;
 
 	void* entry_point = nullptr;
 	std::vector<segment> segments;
+
+	tls_image_data tls_image;
 
 	void* linker_data = nullptr;
 

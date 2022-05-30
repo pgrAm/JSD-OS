@@ -7,9 +7,16 @@ extern "C" {
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <kernel/syscall.h>
+
+	SYSCALL_HANDLER void wait_umtex(uint32_t* futex);
 
 #ifndef __I386_ONLY
 #define SYNC_HAS_CAS_FUNC 1
+#endif
+
+#ifdef __I386_ONLY
+#define SINGLE_CPU_ONLY 1
 #endif
 
 	typedef uint32_t int_lock;
@@ -35,7 +42,7 @@ extern "C" {
 	typedef struct
 	{
 		int value;
-#ifndef SYNC_HAS_CAS_FUNC
+#if !defined(SYNC_HAS_CAS_FUNC) || !defined(SINGLE_CPU_ONLY)
 		uint8_t tas_lock;
 #endif
 	} lockable_val;

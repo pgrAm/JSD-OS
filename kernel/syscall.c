@@ -71,6 +71,8 @@ const void* syscall_table[] =
 	yield_to,
 	load_driver,
 	diagnostic_print,
+	get_process_info,
+	set_tls_addr,
 };
 
 const size_t num_syscalls = sizeof(syscall_table) / sizeof(void*);
