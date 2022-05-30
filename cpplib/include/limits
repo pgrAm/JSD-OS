@@ -1,0 +1,178 @@
+#ifndef STD_LIMITS_H
+#define STD_LIMITS_H
+
+#include <type_traits>
+#include <limits.h>
+
+namespace std
+{
+
+enum float_round_style
+{
+	round_indeterminate		  = -1,
+	round_toward_zero		  = 0,
+	round_to_nearest		  = 1,
+	round_toward_infinity	  = 2,
+	round_toward_neg_infinity = 3
+};
+
+enum float_denorm_style
+{
+	denorm_indeterminate = -1,
+	denorm_absent		 = 0,
+	denorm_present		 = 1
+};
+
+template<class T>
+	requires is_integral_v<T>
+class numeric_limits 
+{
+	static constexpr const bool is_specialized = true;
+	static constexpr const bool is_signed	   = is_signed_v<T>;
+	static constexpr const bool is_integer	   = true;
+	static constexpr const bool is_exact	   = true;
+
+	static constexpr const bool has_infinity			 = false;
+	static constexpr const bool has_quiet_NaN			 = false;
+	static constexpr const bool has_signaling_NaN		 = false;
+	static constexpr const float_denorm_style has_denorm = denorm_absent;
+	static constexpr const bool has_denorm_loss			 = false;
+
+	static constexpr const float_round_style round_style = round_toward_zero;
+
+	static constexpr const bool is_iec559  = false;
+	static constexpr const bool is_bounded = true;
+	static constexpr const bool is_modulo  = !is_signed_v<T>;
+
+	static constexpr const int digits =
+		static_cast<int>(sizeof(T) * CHAR_BIT - is_signed);
+	static constexpr const int digits10		= digits * 3 / 10;
+	static constexpr const int max_digits10 = 0;
+	static constexpr const int radix = 2;
+
+	static constexpr const int min_exponent	  = 0;
+	static constexpr const int min_exponent10 = 0;
+	static constexpr const int max_exponent	  = 0;
+	static constexpr const int max_exponent10 = 0;
+
+		static constexpr const bool traps =
+#if defined(__i386__) || defined(__x86_64__)
+		true;
+#else
+		false;
+#endif
+	static constexpr const bool tinyness_before = false;
+
+	static constexpr T min() noexcept
+	{
+		return is_signed ? T(T(1) << digits) : 0;
+	}
+	static constexpr T lowest() noexcept
+	{
+		return min();
+	}
+	static constexpr T max() noexcept
+	{
+		return is_signed ? T(T(~0) ^ min()) : T(~0);
+	}
+	inline static constexpr T epsilon() noexcept
+	{
+		return T(0);
+	}
+	inline static constexpr T round_error() noexcept
+	{
+		return T(0);
+	}
+	inline static constexpr T infinity() noexcept
+	{
+		return T(0);
+	}
+	inline static constexpr T quiet_NaN() noexcept
+	{
+		return T(0);
+	}
+	inline static constexpr T signaling_NaN() noexcept
+	{
+		return T(0);
+	}
+	inline static constexpr T denorm_min() noexcept
+	{
+		return T(0);
+	}
+};
+
+template<>
+class numeric_limits<bool>
+{
+protected:
+	static constexpr const bool is_specialized = true;
+	static constexpr const bool is_signed	   = false;
+	static constexpr const bool is_integer	   = true;
+	static constexpr const bool is_exact	   = true;
+
+	static constexpr const bool has_infinity			 = false;
+	static constexpr const bool has_quiet_NaN			 = false;
+	static constexpr const bool has_signaling_NaN		 = false;
+	static constexpr const float_denorm_style has_denorm = denorm_absent;
+	static constexpr const bool has_denorm_loss			 = false;
+
+	static constexpr const float_round_style round_style = round_toward_zero;
+
+	static constexpr const bool is_iec559	= false;
+	static constexpr const bool is_bounded	= true;
+	static constexpr const bool is_modulo	= false;
+
+	static constexpr const int digits		= 1;
+	static constexpr const int digits10		= 0;
+	static constexpr const int max_digits10 = 0;
+	static constexpr const int radix		= 2;
+
+	static constexpr const int min_exponent	  = 0;
+	static constexpr const int min_exponent10 = 0;
+	static constexpr const int max_exponent	  = 0;
+	static constexpr const int max_exponent10 = 0;
+
+	static constexpr const bool traps			= false;
+	static constexpr const bool tinyness_before = false;
+
+	inline static constexpr bool min() noexcept
+	{
+		return false;
+	}
+	inline static constexpr bool lowest() noexcept
+	{
+		return false;
+	}
+	inline static constexpr bool max() noexcept
+	{
+		return true;
+	}
+	inline static constexpr bool epsilon() noexcept
+	{
+		return bool(0);
+	}
+	inline static constexpr bool round_error() noexcept
+	{
+		return bool(0);
+	}
+	inline static constexpr bool infinity() noexcept
+	{
+		return bool(0);
+	}
+	inline static constexpr bool quiet_NaN() noexcept
+	{
+		return bool(0);
+	}
+	inline static constexpr bool signaling_NaN() noexcept
+	{
+		return bool(0);
+	}
+	inline static constexpr bool denorm_min() noexcept
+	{
+		return bool(0);
+	}
+};
+
+};
+
+#endif
