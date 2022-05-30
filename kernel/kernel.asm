@@ -241,10 +241,17 @@ gdt_usr_data :
 	db 0xF2
 	db 0xCF ;flags and top nibble of limit
 	db 0x00
-gdt_tss_location:
+gdt_tls_data : 	
+	dw 0xffff 	
+	dw 0x0000 
+	db 0x00 		
+	db 0xF2
+	db 0xCF ;flags and top nibble of limit
+	db 0x00	
+gdt_tss_location :
 gdt_tss:
-	dw 0		;this is the limit for the tss
-	dw 0		;this is the base for the tss
+	dw 0	;this is the limit for the tss
+	dw 0	;this is the base for the tss
 	db 0	;this the the high bits	fot the base
 	db 0	
 	db 0	;= ((limit & 0xF0000) >> 16) | 0x40
@@ -260,6 +267,7 @@ GDT_CODE_SEG equ gdt_code - gdt_start
 GDT_DATA_SEG equ gdt_data - gdt_start
 GDT_USER_CODE_SEG equ gdt_usr_code - gdt_start
 GDT_USER_DATA_SEG equ gdt_usr_data - gdt_start
+GDT_TLS_DATA_SEG equ gdt_tls_data - gdt_start
 GDT_TSS_SEG equ gdt_tss - gdt_start
 
 global run_user_code
@@ -270,9 +278,14 @@ run_user_code:
 	mov ax,	GDT_USER_DATA_SEG | 3
 	mov ds,	ax
 	mov es,	ax 
-	mov fs,	ax 
-	mov gs,	ax ;we don't need to worry about SS. it's handled by iret
+	mov fs,	ax
+
+	;GS can be left as is (TLS seg)
+	;mov ax, GDT_TLS_DATA_SEG | 3
+	;mov gs,	ax					
 	
+	;SS & CS set up here for iret to hande:	
+
 	push GDT_USER_DATA_SEG | 3 	;user data segment with bottom 2 bits set for ring 3
 	push ecx 					;push the new user stack
 	pushf						;push flags
@@ -280,14 +293,24 @@ run_user_code:
 	push ebx 					;address of the user function
 	iret
 
-global current_task_TCB
-current_task_TCB dd 0
+[extern current_task_TCB] 
+
+struc GDT_SEG
+    .limit_lo:		resw 1
+    .base_lo:		resw 1
+    .base_mid:		resb 1
+	.access:		resb 1
+	.granularity:	resb 1
+	.base_hi:		resb 1
+endstruc
 
 struc TCB
-    .esp:		resd 1
-    .esp0:		resd 1
-    .cr3:		resd 1
-	.tss_ptr:	resd 1
+    .esp:			resd 1
+    .esp0:			resd 1
+    .cr3:			resd 1
+	.tss_ptr:		resd 1
+	.tls_gdt_hi:	resd 1
+	.tls_base_lo:	resw 1
 endstruc
 
 global switch_task_no_return
@@ -316,11 +339,22 @@ switch_task:
 load_new_task:
     mov [current_task_TCB], esi		;Current task's TCB is the next task TCB
 
+	;copy the required data into the gdt
+	mov ax, [esi + TCB.tls_base_lo]
+	mov [gdt_tls_data + GDT_SEG.base_lo], ax
+	mov eax, [esi + TCB.tls_gdt_hi]
+	mov [gdt_tls_data + GDT_SEG.base_mid], eax
+
+	;reload gs
+	mov ax, GDT_TLS_DATA_SEG | 3
+	mov gs,	ax		
+
     mov esp, [esi + TCB.esp]		;Load ESP for next task's kernel stack from the thread's TCB
     mov eax, [esi + TCB.cr3]		;eax = address of page directory for next task
     mov ebx, [esi + TCB.esp0]		;ebx = address for the top of the next task's kernel stack
 	mov edi, [esi + TCB.tss_ptr]
-	mov [edi+4], ebx					;Adjust the ESP0 field in the TSS (used by CPU for for CPL=3 -> CPL=0 privilege level changes)
+
+	mov [edi+4], ebx				;Adjust the ESP0 field in the TSS (used by CPU for for CPL=3 -> CPL=0 privilege level changes)
     mov ecx, cr3					;ecx = previous task's virtual address space
 
     cmp eax, ecx					;Does the virtual address space need to being changed?

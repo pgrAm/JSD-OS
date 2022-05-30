@@ -11,10 +11,10 @@
 
 #include <string_view>
 
-typedef struct ELF_linker_data
+struct ELF_linker_data
 {
 	ELF_dyn32* dynamic_section;
-	void* base_address;
+	uintptr_t base_address;
 
 	void (*init_func)(void);
 	void (**array_init_funcs)(void);
@@ -32,9 +32,8 @@ typedef struct ELF_linker_data
 	dynamic_object::sym_map* lib_set;
 	dynamic_object::sym_map* symbol_map;
 	dynamic_object::sym_map* glob_data_symbol_map;
-	bool userspace;
-} ELF_linker_data;
-
+	bool is_userspace;
+};
 
 static int elf_is_readable(ELF_ident* file_identifer)
 {
@@ -120,6 +119,38 @@ static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* t
 static int elf_process_dynamic_section(dynamic_object* dyn_obj, directory_stream* lib_dir);
 int load_elf(const file_handle* file, dynamic_object* object, bool user, directory_stream* lib_dir);
 
+struct seg_info
+{
+	uintptr_t aligned_addr;
+	uintptr_t virtual_addr;
+	size_t num_pages;
+	uint32_t flags;
+};
+
+static seg_info calculate_segment_info(const ELF_program_header32& pg_header,
+									   uintptr_t base_adress, bool user)
+{
+	uintptr_t aligned_address =
+		base_adress + (pg_header.virtual_address & ~(PAGE_SIZE - 1));
+	uintptr_t virtual_address = base_adress + pg_header.virtual_address;
+
+	size_t num_pages = memmanager_minimum_pages(
+		(virtual_address - aligned_address) + pg_header.mem_size);
+
+
+	uint32_t flags = 0;
+	if(pg_header.flags & PF_WRITE)
+	{
+		flags |= PAGE_RW;
+	}
+	if(user)
+	{
+		flags |= PAGE_USER;
+	}
+
+	return {aligned_address, virtual_address, num_pages, flags};
+}
+
 int load_elf(const file_handle* file, dynamic_object* object, bool user, directory_stream* lib_dir)
 {
 	k_assert(file);
@@ -179,45 +210,42 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, directo
 				{
 				case ELF_PTYPE_DYNAMIC:
 				{
-					auto linker_data = new ELF_linker_data();
+					object->linker_data = new ELF_linker_data{
+						.dynamic_section =
+							(ELF_dyn32*)(base_adress +
+										 pg_header.virtual_address),
+						.base_address		  = base_adress,
+						.lib_set			  = object->lib_set,
+						.symbol_map			  = object->symbol_map,
+						.glob_data_symbol_map = object->glob_data_symbol_map,
+						.is_userspace		  = user,
+					};
 
-					memset(linker_data, 0, sizeof(ELF_linker_data));
-
-					linker_data->base_address = (void*)base_adress;
-					linker_data->dynamic_section = (ELF_dyn32*)(base_adress + pg_header.virtual_address);
-					linker_data->symbol_map = object->symbol_map;
-					linker_data->glob_data_symbol_map = object->glob_data_symbol_map;
-					linker_data->lib_set = object->lib_set;
-					linker_data->userspace = user;
-
-					object->linker_data = (void*)linker_data;
 					//printf("found dynamic section at %X\n", ((ELF_linker_data*)object->linker_data)->dynamic_section);
 					break;
 				}
 				case ELF_PTYPE_LOAD:
 				{
-					uintptr_t aligned_address = base_adress + (pg_header.virtual_address & ~(PAGE_SIZE - 1));
-					uintptr_t virtual_address = base_adress + pg_header.virtual_address;
+					auto seg =
+						calculate_segment_info(pg_header, base_adress, user);
 
-					size_t num_pages = memmanager_minimum_pages((virtual_address - aligned_address) 
-																+ pg_header.mem_size);
-
-					uint32_t flags = 0;
-					if(pg_header.flags & PF_WRITE) { flags |= PAGE_RW; }
-					if(user) { flags |= PAGE_USER; }
-
-					memmanager_set_page_flags((void*)aligned_address, num_pages, flags);
-
-					/*
-					printf("loaded section at %X from %X, size %X\n",
-						   virtual_address, pg_header.offset, pg_header.file_size);
-					printf("Page %X - %X, %X\n",
-						   aligned_address, aligned_address + num_pages * 0x1000, pg_header.mem_size);
-					*/
+					memmanager_set_page_flags((void*)seg.aligned_addr,
+											  num_pages, seg.flags);
 
 					//copy file_size bytes from offset to virtual_address
 					f.seek(pg_header.offset);
-					f.read((void*)virtual_address, pg_header.file_size);
+					f.read((void*)seg.virtual_addr, pg_header.file_size);		
+				}
+				break;
+				case ELF_PTYPE_TLS:
+				{
+					object->tls_image = tls_image_data{
+						.pointer =
+							(void*)(base_adress + pg_header.virtual_address),
+						.image_size = pg_header.file_size,
+						.total_size = pg_header.mem_size,
+						.alignment	= pg_header.alignment,
+					};
 				}
 				break;
 				default:
@@ -256,29 +284,24 @@ static int elf_process_dynamic_section(dynamic_object* dyn_obj, directory_stream
 		size_t plt_relocation_entries = 0;
 		ELF_rel32* plt_relocation_addr = nullptr;
 
-		//cursorpos = 3442;
-
 		for(ELF_dyn32* entry = object->dynamic_section; entry->d_tag != DT_NULL; entry++)
 		{
-			//cursorpos = 3442;
-			//cursorpos = 3840;
-
 			switch(entry->d_tag)
 			{
 			case DT_PLTRELSZ:
 				plt_relocation_entries = entry->d_un.d_val / sizeof(ELF_rel32);
 				break;
 			case DT_JMPREL:
-				plt_relocation_addr = (ELF_rel32*)((uintptr_t)object->base_address + entry->d_un.d_ptr);
+				plt_relocation_addr = (ELF_rel32*)(object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_REL:
-				relocation_addr = (ELF_rel32*)((uintptr_t)object->base_address + entry->d_un.d_ptr);
+				relocation_addr = (ELF_rel32*)(object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_RELSZ:
 				relocation_entries = entry->d_un.d_val / sizeof(ELF_rel32);
 				break;
 			case DT_HASH:
-				object->hash_table = (uint32_t*)((uintptr_t)object->base_address + entry->d_un.d_ptr);
+				object->hash_table = (uint32_t*)(object->base_address + entry->d_un.d_ptr);
 				if(object->hash_table == NULL)
 				{
 					printf("NULL ptr access\n");
@@ -286,20 +309,20 @@ static int elf_process_dynamic_section(dynamic_object* dyn_obj, directory_stream
 				object->symbol_table_size = object->hash_table[1];
 				break;
 			case DT_STRTAB:
-				object->string_table = (char*)((uintptr_t)object->base_address + entry->d_un.d_ptr);
+				object->string_table = (char*)(object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_SYMTAB:
 				//printf("found symtab at %X\n", entry->d_un.d_ptr);
-				object->symbol_table = (ELF_sym32*)((uintptr_t)object->base_address + entry->d_un.d_ptr);
+				object->symbol_table = (ELF_sym32*)(object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_STRSZ:
 				object->string_table_size = entry->d_un.d_val;
 				break;
 			case DT_INIT:
-				object->init_func = (void (*)(void))((uintptr_t)object->base_address + entry->d_un.d_ptr);
+				object->init_func = (void (*)(void))(object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_INIT_ARRAY:
-				object->array_init_funcs = (void (**)(void))((uintptr_t)object->base_address + entry->d_un.d_ptr);
+				object->array_init_funcs = (void (**)(void))(object->base_address + entry->d_un.d_ptr);
 				break;
 			case DT_INIT_ARRAYSZ:
 				object->num_array_init_funcs = entry->d_un.d_val / sizeof(uintptr_t);
@@ -328,7 +351,7 @@ static int elf_process_dynamic_section(dynamic_object* dyn_obj, directory_stream
 
 					if(auto lib_handle = find_file_by_path(lib_dir, lib_name, 0, 0))
 					{
-						if(load_elf(&(*lib_handle), &lib, object->userspace, lib_dir))
+						if(load_elf(&(*lib_handle), &lib, object->is_userspace, lib_dir))
 						{
 							lib.lib_set->insert(lib_name, 1);
 
@@ -374,8 +397,8 @@ static int elf_read_symbols(ELF_linker_data* object)
 			{
 				std::string_view symbol_name{object->string_table + symbol->name};
 
-				object->symbol_map->insert(symbol_name, 
-										   (uintptr_t)object->base_address + symbol->value);
+				object->symbol_map->insert(symbol_name, object->base_address +
+															symbol->value);
 			}
 		}
 	}
@@ -398,7 +421,6 @@ static inline bool elf_relocation_uses_symbol(uint8_t type)
 	}
 }
 
-
 static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* table, size_t rel_entries)
 {
 	if(table == NULL)
@@ -418,8 +440,8 @@ static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* t
 		uint32_t symbol_index = ELF32_R_SYM(table[entry].info);
 		uint8_t relocation_type = ELF32_R_TYPE(table[entry].info);
 
-		ELF_sym32* symbol = &object->symbol_table[symbol_index];
-		uintptr_t symbol_val = (uintptr_t)object->base_address + symbol->value;
+		ELF_sym32* symbol	 = &object->symbol_table[symbol_index];
+		uintptr_t symbol_val = object->base_address + symbol->value;
 		std::string_view symbol_name;
 
 		if(elf_relocation_uses_symbol(relocation_type))
@@ -443,7 +465,7 @@ static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* t
 			}
 		}
 
-		uintptr_t address = (uintptr_t)object->base_address + table[entry].offset;
+		const uintptr_t address = object->base_address + table[entry].offset;
 
 		switch(relocation_type)
 		{
@@ -461,10 +483,10 @@ static void elf_process_relocation_section(ELF_linker_data* object, ELF_rel32* t
 			*(uintptr_t*)(address) = symbol_val + *((size_t*)(address));
 			break;
 		case R_386_PC32:
-			*(uintptr_t*)(address) = symbol_val + *((size_t*)(address)) - (uintptr_t)(address);
+			*(uintptr_t*)(address) = symbol_val + *((size_t*)(address)) - address;
 			break;
 		case R_386_RELATIVE:
-			*(uintptr_t*)(address) = (uintptr_t)object->base_address + *((size_t*)(address));
+			*(uintptr_t*)(address) = object->base_address + *((size_t*)(address));
 			break;
 		case R_386_COPY:
 			if(symbol_val == (uintptr_t)0)

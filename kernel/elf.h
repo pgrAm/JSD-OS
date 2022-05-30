@@ -30,51 +30,52 @@ enum ELF_type
 
 enum ELF_pgheader_types
 {
-	ELF_PTYPE_NULL 		= 0x00000000, 	//Program header table entry unused
-	ELF_PTYPE_LOAD 		= 0x00000001,	//Loadable segment
-	ELF_PTYPE_DYNAMIC	= 0x00000002, 	//Dynamic linking information
-	ELF_PTYPE_INTERP 	= 0x00000003, 	//Interpreter information
-	ELF_PTYPE_NOTE 		= 0x00000004, 	//Auxiliary information
-	ELF_PTYPE_SHLIB		= 0x00000005, 	//reserved
-	ELF_PTYPE_PHDR 		= 0x00000006, 	//segment containing program header table itself
-	ELF_PTYPE_LOOS 		= 0x60000000, 	
-	ELF_PTYPE_HIOS		= 0x6FFFFFFF, 	
-	ELF_PTYPE_LOPROC	= 0x70000000, 	
-	ELF_PTYPE_HIPROC	= 0x7FFFFFFF 	
+	ELF_PTYPE_NULL	  = 0x00000000, //Program header table entry unused
+	ELF_PTYPE_LOAD	  = 0x00000001, //Loadable segment
+	ELF_PTYPE_DYNAMIC = 0x00000002, //Dynamic linking information
+	ELF_PTYPE_INTERP  = 0x00000003, //Interpreter information
+	ELF_PTYPE_NOTE	  = 0x00000004, //Auxiliary information
+	ELF_PTYPE_SHLIB	  = 0x00000005, //reserved
+	ELF_PTYPE_PHDR	  = 0x00000006, //segment wth program header table
+	ELF_PTYPE_TLS	  = 0x00000007,
+	ELF_PTYPE_LOOS	  = 0x60000000,
+	ELF_PTYPE_HIOS	  = 0x6FFFFFFF,
+	ELF_PTYPE_LOPROC  = 0x70000000,
+	ELF_PTYPE_HIPROC  = 0x7FFFFFFF
 };
 
 enum ELF_secheader_types
 {
-	SHT_NULL			= 0x0, 	//Section header table entry unused
-	SHT_PROGBITS		= 0x1, 	//Program data
-	SHT_SYMTAB			= 0x2, 	//Symbol table
-	SHT_STRTAB			= 0x3, 	//String table
-	SHT_RELA			= 0x4, 	//Relocation entries with addends
-	SHT_HASH			= 0x5, 	//Symbol hash table
-	SHT_DYNAMIC			= 0x6, 	//Dynamic linking information
-	SHT_NOTE			= 0x7, 	//Notes
-	SHT_NOBITS			= 0x8, 	//Program space with no data(bss)
-	SHT_REL				= 0x9, 	//Relocation entries, no addends
-	SHT_SHLIB			= 0x0A, //Reserved
-	SHT_DYNSYM			= 0x0B, //Dynamic linker symbol table
-	SHT_INIT_ARRAY		= 0x0E, //Array of constructors
-	SHT_FINI_ARRAY		= 0x0F, //Array of destructors
-	SHT_PREINIT_ARRAY	= 0x10, //Array of pre - constructors
-	SHT_GROUP			= 0x11, //Section group
-	SHT_SYMTAB_SHNDX	= 0x12, //Extended section indices
-	SHT_NUM				= 0x13, //Number of defined types.
-	SHT_LOOS			= 0x60000000 	//Start OS - specific.
+	SHT_NULL		  = 0x0,	   //Section header table entry unused
+	SHT_PROGBITS	  = 0x1,	   //Program data
+	SHT_SYMTAB		  = 0x2,	   //Symbol table
+	SHT_STRTAB		  = 0x3,	   //String table
+	SHT_RELA		  = 0x4,	   //Relocation entries with addends
+	SHT_HASH		  = 0x5,	   //Symbol hash table
+	SHT_DYNAMIC		  = 0x6,	   //Dynamic linking information
+	SHT_NOTE		  = 0x7,	   //Notes
+	SHT_NOBITS		  = 0x8,	   //Program space with no data(bss)
+	SHT_REL			  = 0x9,	   //Relocation entries, no addends
+	SHT_SHLIB		  = 0x0A,	   //Reserved
+	SHT_DYNSYM		  = 0x0B,	   //Dynamic linker symbol table
+	SHT_INIT_ARRAY	  = 0x0E,	   //Array of constructors
+	SHT_FINI_ARRAY	  = 0x0F,	   //Array of destructors
+	SHT_PREINIT_ARRAY = 0x10,	   //Array of pre - constructors
+	SHT_GROUP		  = 0x11,	   //Section group
+	SHT_SYMTAB_SHNDX  = 0x12,	   //Extended section indices
+	SHT_NUM			  = 0x13,	   //Number of defined types.
+	SHT_LOOS		  = 0x60000000 //Start OS - specific.
 };
 
 #pragma pack(push, 1)
-typedef struct 
+typedef struct
 {
-	char 		magic[4]; 		//should be 0x7F followed by "ELF"
-	uint8_t 	bit_width; 		//1 for 32 bit, 2 for 64 
-	uint8_t 	endianness; 	//1 for little endian, 2 for big
-	uint8_t 	elf_version; 	//version of the elf format
-	uint8_t 	abi;			//don't really care, set to 0
-	uint8_t 	padding[8];
+	char magic[4];		 //should be 0x7F followed by "ELF"
+	uint8_t bit_width;	 //1 for 32 bit, 2 for 64
+	uint8_t endianness;	 //1 for little endian, 2 for big
+	uint8_t elf_version; //version of the elf format
+	uint8_t abi;		 //don't really care, set to 0
+	uint8_t padding[8];
 } ELF_ident;
 
 typedef struct 
@@ -185,44 +186,44 @@ typedef struct
 
 enum ELF_dyn_section_tags
 {
-	DT_NULL = 0,
-	DT_NEEDED = 1,
-	DT_PLTRELSZ = 2,
-	DT_HASH = 4,
-	DT_STRTAB = 5, // Dynamic String Table
-	DT_SYMTAB = 6, // Dynamic Symbol Table
-	DT_RELA = 7,
-	DT_RELASZ = 8,
-	DT_RELAENT = 9,
-	DT_STRSZ = 10, // Size of string table
-	DT_INIT = 11, // initialization function
-	DT_REL = 17,
-	DT_RELSZ = 18,
-	DT_RELENT = 19,
-	DT_JMPREL = 23,
-	DT_INIT_ARRAY = 25, // array of constructors
-	DT_INIT_ARRAYSZ = 26 // size of the table of constructors
+	DT_NULL			= 0,
+	DT_NEEDED		= 1,
+	DT_PLTRELSZ		= 2,
+	DT_HASH			= 4,
+	DT_STRTAB		= 5, // Dynamic String Table
+	DT_SYMTAB		= 6, // Dynamic Symbol Table
+	DT_RELA			= 7,
+	DT_RELASZ		= 8,
+	DT_RELAENT		= 9,
+	DT_STRSZ		= 10, // Size of string table
+	DT_INIT			= 11, // initialization function
+	DT_REL			= 17,
+	DT_RELSZ		= 18,
+	DT_RELENT		= 19,
+	DT_JMPREL		= 23,
+	DT_INIT_ARRAY	= 25, // array of constructors
+	DT_INIT_ARRAYSZ = 26  // size of the table of constructors
 };
 
 enum ELF_reloc_types
 {
-	R_386_NONE = 0,
-	R_386_32 = 1,
-	R_386_PC32 = 2,
-	R_386_GOT32 = 3,
-	R_386_PLT32 = 4,
-	R_386_COPY = 5,
+	R_386_NONE	   = 0,
+	R_386_32	   = 1,
+	R_386_PC32	   = 2,
+	R_386_GOT32	   = 3,
+	R_386_PLT32	   = 4,
+	R_386_COPY	   = 5,
 	R_386_GLOB_DAT = 6,
 	R_386_JMP_SLOT = 7,
 	R_386_RELATIVE = 8,
-	R_386_GOTOFF = 9,
-	R_386_GOTPC = 10,
-	R_386_32PLT = 11,
-	R_386_16 = 20,
-	R_386_PC16 = 21,
-	R_386_8 = 22,
-	R_386_PC8 = 23,
-	R_386_SIZE32 = 38
+	R_386_GOTOFF   = 9,
+	R_386_GOTPC	   = 10,
+	R_386_32PLT	   = 11,
+	R_386_16	   = 20,
+	R_386_PC16	   = 21,
+	R_386_8		   = 22,
+	R_386_PC8	   = 23,
+	R_386_SIZE32   = 38
 };
 
 enum ELF_program_flags

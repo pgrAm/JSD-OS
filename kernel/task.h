@@ -21,9 +21,12 @@ SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 									  directory_stream* cwd, int flags);
 SYSCALL_HANDLER void exit_process(int val);
 
-SYSCALL_HANDLER task_id spawn_thread(void* function_ptr);
+SYSCALL_HANDLER task_id spawn_thread(void* function_ptr, void* tls_ptr);
 SYSCALL_HANDLER void exit_thread(int val);
 SYSCALL_HANDLER void yield_to(task_id task);
+
+SYSCALL_HANDLER void get_process_info(process_info* data);
+SYSCALL_HANDLER void set_tls_addr(void* tls_ptr);
 
 void run_next_task();
 void run_background_tasks();

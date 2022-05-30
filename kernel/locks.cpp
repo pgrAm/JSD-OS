@@ -39,6 +39,9 @@ static inline void tas_release(uint8_t* l)
 
 static inline int_lock atomic_lock_aquire(uint8_t* tas_lock)
 {
+#ifdef SINGLE_CPU_ONLY
+	return lock_interrupts();
+#else
 	while(true)
 	{
 		int_lock l = lock_interrupts();
@@ -46,11 +49,14 @@ static inline int_lock atomic_lock_aquire(uint8_t* tas_lock)
 			return l;
 		unlock_interrupts(l);
 	}
+#endif
 }
 
 static inline void atomic_lock_release(int_lock l, uint8_t* tas_lock)
 {
+#ifndef SINGLE_CPU_ONLY
 	tas_release(tas_lock);
+#endif
 	unlock_interrupts(l);
 }
 
@@ -69,23 +75,24 @@ static inline T cas_func(lockable_val* ptr, T oldval, T newval)
 
 #endif
 
-static inline bool do_try_lock_mutex(kernel_mutex* m, task_id* pid)
+static inline task_id do_try_lock_mutex(kernel_mutex* m, task_id my_pid)
 {
-	*pid = cas_func(&m->ownerPID, INVALID_TASK_ID, get_running_process());
-	return *pid == INVALID_TASK_ID;
+	return cas_func(&m->ownerPID, INVALID_TASK_ID, my_pid);
 }
 
 bool kernel_try_lock_mutex(kernel_mutex* m)
 {
-	task_id pid;
-	return do_try_lock_mutex(m, &pid);
+	return do_try_lock_mutex(m, get_running_process()) == INVALID_TASK_ID;
 }
 
 void kernel_lock_mutex(kernel_mutex* m)
 {
-	task_id pid;
-	while(!do_try_lock_mutex(m, &pid))
+	const auto my_pid = get_running_process();
+	while(true)
 	{
+		auto pid = do_try_lock_mutex(m, my_pid);
+		if(pid == INVALID_TASK_ID) [[likely]]
+			break;
 		switch_to_task(pid);
 	}
 }
@@ -115,3 +122,8 @@ void kernel_wait_cv(kernel_mutex* locked_mutex, kernel_cv* m)
 		run_background_tasks();
 	}
 }
+
+/*void wait_umtex(uint32_t* mutex)
+{
+	kernel_lock_mutex(mutex);
+}*/
