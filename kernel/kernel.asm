@@ -12,6 +12,7 @@ global _boot_edx
 global _kernel_location
 global gdt_location
 global gdt_tss_location
+global gdt_tls_data
 global gdt_data_location
 global tss_location
 global gdt_descriptor_location
@@ -282,7 +283,7 @@ run_user_code:
 
 	;GS can be left as is (TLS seg)
 	;mov ax, GDT_TLS_DATA_SEG | 3
-	;mov gs,	ax					
+	;mov gs, ax					
 	
 	;SS & CS set up here for iret to hande:	
 
@@ -347,7 +348,7 @@ load_new_task:
 
 	;reload gs
 	mov ax, GDT_TLS_DATA_SEG | 3
-	mov gs,	ax		
+	mov gs,	ax
 
     mov esp, [esi + TCB.esp]		;Load ESP for next task's kernel stack from the thread's TCB
     mov eax, [esi + TCB.cr3]		;eax = address of page directory for next task

@@ -29,9 +29,9 @@ struct tls_data
 	size_t image_size;
 };
 
-tls_data gen_process_tls_data(tls_image_data img)
+tls_data gen_process_tls_data(const tls_image_data& img)
 {
-	auto align = std::max(img.alignment, alignof(tls_thread_block));
+	const auto align = std::max(img.alignment, alignof(tls_thread_block));
 
 	return tls_data{
 		.alloc_align = align,
@@ -55,14 +55,15 @@ void* create_tls_block(void (*func)())
 
 	auto tls_image_base = thread_block_location - tls.local_image_offset;
 
-	tls_thread_block* thread_block =
-		std::bit_cast<tls_thread_block*>(thread_block_location);
+	auto thread_block = std::bit_cast<tls_thread_block*>(thread_block_location);
 
 	thread_block->self		 = thread_block;
 	thread_block->start_func = func;
 
 	memcpy(std::bit_cast<void*>(tls_image_base), tls.master_image_ptr,
 		   tls.image_size);
+
+	return thread_block;
 }
 
 void init_first_thread()
@@ -72,7 +73,9 @@ void init_first_thread()
 
 	tls = gen_process_tls_data(p_info.tls);
 
-	set_tls_addr(create_tls_block(nullptr));
+	auto addr = create_tls_block(nullptr);
+
+	set_tls_addr(addr);
 }
 
 task_id spawn_thread(void (*func)())

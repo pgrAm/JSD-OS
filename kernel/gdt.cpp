@@ -43,6 +43,27 @@ static constinit sync::mutex tss_mtx{};
 
 extern "C" void load_TSS(uint16_t tss_seg);
 
+uintptr_t get_TLS_seg_base()
+{
+	return (uintptr_t)(gdt_tls_data.base_lo << 0) |
+		   (uintptr_t)(gdt_tls_data.base_mid << 16) |
+		   (uintptr_t)(gdt_tls_data.base_hi << 24);
+}
+
+void set_TLS_seg_base(uintptr_t val)
+{
+	gdt_tls_data.base_lo = val & 0xFFFF;
+	gdt_tls_data.base_mid = (val >> 16) & 0xFF;
+	gdt_tls_data.base_hi  = (val >> 24) & 0xFF;
+	reload_TLS_seg();
+}
+
+void reload_TLS_seg()
+{
+	auto seg =  (uint16_t)((uintptr_t)&gdt_tls_data - (uintptr_t)&gdt_location) | 3;
+	asm volatile("mov %0, %%fs" : : "r"(seg));
+}
+
 tss* create_TSS(uintptr_t stack_addr)
 {
 	//lock modifications to the TSS
