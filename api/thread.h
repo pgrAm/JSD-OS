@@ -9,4 +9,6 @@ tls_thread_block* get_thread_ptr();
 
 task_id spawn_thread(void (*func)());
 
+void init_first_thread();
+
 #endif

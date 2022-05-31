@@ -8,6 +8,7 @@
 #include <kernel/task.h>
 #include <kernel/interrupt.h>
 #include <kernel/display.h>
+#include <kernel/tss.h>
 #include <drivers/portio.h>
 
 enum {
@@ -286,6 +287,15 @@ void irq_remap(void)
 
 extern "C" uint32_t getcr2reg(void);
 
+static inline uint64_t
+rdmsr(uint32_t msrid)
+{
+	uint32_t low;
+	uint32_t high;
+	__asm__ __volatile__("rdmsr" : "=a"(low), "=d"(high) : "c"(msrid));
+	return (uint64_t)low << 0 | (uint64_t)high << 32;
+}
+
 #include <stdio.h>
 extern "C" void fault_handler(interrupt_info * r)
 {
@@ -346,6 +356,9 @@ extern "C" void fault_handler(interrupt_info * r)
 			print_string("violation\n");
 
 			printf("At address %X\n", getcr2reg());
+
+			printf("GSBASE=%X\n", get_TLS_seg_base());
+
 			//printf("cr3 = %X\n", get_page_directory());
 			//printf("flags= %X\n", memmanager_get_page_flags(getcr2reg()));
 		}
@@ -359,6 +372,8 @@ extern "C" void fault_handler(interrupt_info * r)
 			print_string("The kernel has crashed, we're boned so just restart\n");
 			__asm__ volatile ("cli;hlt");
 		}
+
+		__asm__ volatile("cli;hlt");
 
 		exit_process(-1);
 	}

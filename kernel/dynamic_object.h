@@ -21,7 +21,12 @@ struct dynamic_object
 	void* entry_point = nullptr;
 	std::vector<segment> segments;
 
-	tls_image_data tls_image;
+	tls_image_data tls_image = {
+		.alignment	= 1,
+		.image_size = 0,
+		.total_size = 0,
+		.pointer	= nullptr,
+	};
 
 	void* linker_data = nullptr;
 

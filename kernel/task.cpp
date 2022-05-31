@@ -100,7 +100,7 @@ constinit task init_task{
 	&init_process,
 	0,//std::bit_cast<uintptr_t>(nullptr),
 	0,//std::bit_cast<uintptr_t>(init_stack),
-	0,
+	0xFFFFFFFF,
 	nullptr,
 	0,
 };
@@ -345,6 +345,7 @@ SYSCALL_HANDLER void set_tls_addr(void* ptr)
 	current_task_TCB->tls_gdt_hi =
 		(tls_ptr & 0xFF000000) | 0x00CFF200 | ((tls_ptr >> 16) & 0xFF);
 	current_task_TCB->tls_base_lo = static_cast<uint16_t>(tls_ptr & 0xFFFF);
+	set_TLS_seg_base(std::bit_cast<uintptr_t>(ptr));
 }
 
 task* create_new_task(process* parent, void* execution_addr, void* tls_ptr)
@@ -365,14 +366,13 @@ task* create_new_task(process* parent, void* execution_addr, void* tls_ptr)
 	//these will be pop'ed into registers later
 	auto* stack_ptr		  = ((stack_items*)new_task->tc_block.esp);
 	stack_ptr->code_addr  = (uintptr_t)execution_addr;
-	stack_ptr->stack_addr = (user_stack_top + PAGE_SIZE);
+	stack_ptr->stack_addr = (user_stack_top + PAGE_SIZE) - 2*sizeof(task_id);
 	//this is where the new process will start executing
 	stack_ptr->eip	 = (uintptr_t)run_user_code; 
 	stack_ptr->flags = (uintptr_t)0x0200; //flags are all off, except interrupt
 
-	//pass this on the user stack
-	*(task_id*)(new_task->user_stack_top + PAGE_SIZE - sizeof(task_id)) =
-		new_task->tc_block.tid;
+	//pass this on the user stack, the value above this is the "return addr"
+	*(task_id*)(stack_ptr->stack_addr) = new_task->tc_block.tid;
 
 	//lock tasks
 	running_tasks.push_back(&new_task->tc_block);
