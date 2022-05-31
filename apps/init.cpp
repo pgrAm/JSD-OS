@@ -154,11 +154,11 @@ static void process_init_file(directory_stream* cwd, file_stream* f)
 	}
 }
 
+static constexpr std::string_view init_path = "init.sys";
+
 int main(int argc, char** argv)
 {
 	print_strings("Loading drivers\n"sv);
-
-	std::string_view init_path = "init.sys";
 
 	directory_ptr cwd{open_dir_handle(get_root_directory(0), 0)};
 

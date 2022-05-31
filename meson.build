@@ -252,12 +252,12 @@ crtn = asm_gen.process(['api/crtn.asm'])
 
 init_loader = executable(
 	'init.elf', 
-	crti, ['api/crt0.c', 'apps/init.cpp'], crtn,
+	crti, ['api/crt0.c', 'apps/init.cpp', 'cpplib/cppruntime.cpp'], crtn,
 	include_directories: clib_include + ['api/'],
 	c_args: c_args + ['-flto', '-Os'],
 	cpp_args: cpp_args + ['-flto', '-Os'],
 	link_args: ['-s', '-Wl,--image-base=0x8000000'] + common_linker_flags,
-	link_with: [clib_static, cpp_runtime]
+	link_with: [clib_static]
 )
 
 shell = executable(
