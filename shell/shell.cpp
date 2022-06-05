@@ -171,7 +171,7 @@ static int execute_line(std::string_view current_line)
 
 					auto dataBuf = std::make_unique<char[]>(file.size);
 
-					read(&dataBuf[0], file.size, f.get());
+					read(0, &dataBuf[0], file.size, f.get());
 
 					auto lines = tokenize(std::string_view(&dataBuf[0], file.size), '\n');
 					for(auto ln : lines)

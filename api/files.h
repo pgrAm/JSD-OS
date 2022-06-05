@@ -20,7 +20,6 @@ enum file_mode
 {
 	FILE_READ = 0x01,
 	FILE_WRITE = 0x02,
-	FILE_APPEND = 0x04,
 	FILE_CREATE = 0x08
 };
 
@@ -33,6 +32,8 @@ typedef struct
 	size_t name_len;
 	char name[MAX_PATH];
 } file_info;
+
+typedef uint64_t file_size_t;
 
 #ifdef __cplusplus
 }

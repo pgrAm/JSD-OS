@@ -130,16 +130,21 @@ static void process_init_file(directory_stream* cwd, file_stream* f)
 {
 	assert(cwd);
 
+	file_size_t offset = 0;
+
 	std::string buffer;
 	bool eof = false;
 	while(!eof)
 	{
 		char c;
-		if(read(&c, sizeof(char), f) != sizeof(char))
+		if(read(offset, &c, sizeof(char), f) != sizeof(char))
 		{
 			eof = true;
 			c	= '\n';
 		}
+
+		offset += sizeof(char);
+
 		switch(c)
 		{
 		case '\r':

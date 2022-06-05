@@ -257,8 +257,8 @@ constexpr std::array builtin_commands = []()
 
 					auto dataBuf = std::make_unique<char[]>(file.size);
 
-					read(&dataBuf[0], file.size, src_stream.get());
-					write(&dataBuf[0], file.size, dst_stream.get());
+					read(0, &dataBuf[0], file.size, src_stream.get());
+					write(0, &dataBuf[0], file.size, dst_stream.get());
 
 					return 0;
 				}},
@@ -295,7 +295,7 @@ constexpr std::array builtin_commands = []()
 						{
 							auto dataBuf = std::make_unique<char[]>(file.size);
 
-							read(&dataBuf[0], file.size, fs.get());
+							read(0, &dataBuf[0], file.size, fs.get());
 
 							print_strings(std::string_view{&dataBuf[0], file.size}, '\n');
 

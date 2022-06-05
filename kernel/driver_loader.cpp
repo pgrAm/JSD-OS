@@ -127,8 +127,6 @@ static constexpr std::array func_list
 	func_info{"filesystem_create_stream"sv,		(void*)&filesystem_create_stream},
 	func_info{"filesystem_open_file"sv,			(void*)&filesystem_open_file},
 	func_info{"filesystem_close_file"sv,		(void*)&filesystem_close_file},
-	func_info{"filesystem_seek_file"sv,			(void*)&filesystem_seek_file},
-	func_info{"filesystem_get_pos"sv,			(void*)&filesystem_get_pos},
 	func_info{"filesystem_read_file"sv,			(void*)&filesystem_read_file},
 	func_info{"filesystem_write_file"sv,		(void*)&filesystem_write_file},
 	func_info{"irq_install_handler"sv,			(void*)&irq_install_handler},

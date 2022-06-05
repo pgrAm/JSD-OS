@@ -97,10 +97,11 @@ static span elf_get_size(ELF_header32* file_header, fs::stream_ref f)
 	for(size_t i = 0; i < file_header->pgh_entries; i++)
 	{
 		//seek ahead to the program header table
-		f.seek(file_header->pgh_offset + i * sizeof(ELF_program_header32));
+		const auto pos =
+			file_header->pgh_offset + i * sizeof(ELF_program_header32);
 		//read the program header
 		ELF_program_header32 pg_header;
-		f.read(&pg_header, sizeof(ELF_program_header32));
+		f.read(pos, &pg_header, sizeof(ELF_program_header32));
 
 		if(pg_header.type == ELF_PTYPE_LOAD)
 		{
@@ -171,11 +172,11 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, directo
 		return 0;
 	}
 
-	f.read(&file_identifer, sizeof(ELF_ident));
+	f.read(0, &file_identifer, sizeof(ELF_ident));
 
 	if(elf_is_readable(&file_identifer))
 	{
-		f.read(&file_header, sizeof(ELF_header32));
+		f.read(0 + sizeof(ELF_ident), &file_header, sizeof(ELF_header32));
 
 		if(elf_is_compatible(&file_header))
 		{
@@ -201,10 +202,10 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, directo
 			for(size_t i = 0; i < file_header.pgh_entries; i++)
 			{
 				//seek ahead to the program header table
-				f.seek(file_header.pgh_offset + i * sizeof(ELF_program_header32));
+				const auto pos = file_header.pgh_offset + i * sizeof(ELF_program_header32);
 				//read the program header
 				ELF_program_header32 pg_header;
-				f.read(&pg_header, sizeof(ELF_program_header32));
+				f.read(pos, &pg_header, sizeof(ELF_program_header32));
 
 				switch(pg_header.type)
 				{
@@ -233,8 +234,8 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, directo
 											  num_pages, seg.flags);
 
 					//copy file_size bytes from offset to virtual_address
-					f.seek(pg_header.offset);
-					f.read((void*)seg.virtual_addr, pg_header.file_size);		
+					f.read(pg_header.offset, (void*) seg.virtual_addr,
+						   pg_header.file_size);		
 				}
 				break;
 				case ELF_PTYPE_TLS:

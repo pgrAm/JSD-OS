@@ -78,6 +78,21 @@ static inline uint32_t do_syscall_5(size_t syscall_index, uint32_t arg0, uint32_
 	return retval;
 }
 
+static inline uint64_t do_syscall_4l_0l(size_t syscall_index, uint64_t arg0,
+										uint32_t arg1, uint32_t arg2,
+										uint32_t arg3)
+{
+	uint32_t lretval, hretval;
+	__asm__ volatile("int $0x80"
+					 : "=a"(lretval), "=c"(hretval), "+d"(arg1), "+D"(arg2),
+					   "+S"(arg3)
+					 : "b"(syscall_index), "a"((uint32_t)arg0),
+					   "c"((uint32_t)(arg0 >> 32))
+					 : "memory");
+	return lretval | ((uint64_t)hretval << 32);
+}
+
+
 static inline uint32_t do_syscall_4(size_t syscall_index, uint32_t arg0, uint32_t arg1, uint32_t arg2, uint32_t arg3)
 {
 	uint32_t retval;
@@ -119,6 +134,16 @@ static inline uint32_t do_syscall_1(size_t syscall_index, const uint32_t arg)
 	return retval;
 }
 
+static inline uint64_t do_syscall_1l(size_t syscall_index, const uint32_t arg)
+{
+	uint32_t lretval, hretval;
+	__asm__ volatile("int $0x80"
+					 : "=a"(lretval), "=c"(hretval)
+					 : "b"(syscall_index), "a"(arg)
+					 : "%edx", "memory");
+	return lretval | ((uint64_t)hretval << 32);
+}
+
 static inline uint32_t do_syscall_0(size_t syscall_index)
 {
 	uint32_t retval;
@@ -127,6 +152,16 @@ static inline uint32_t do_syscall_0(size_t syscall_index)
 						:"b"(syscall_index)
 						:"%ecx", "%edx", "memory");
 	return retval;
+}
+
+static inline uint64_t do_syscall_0l(size_t syscall_index)
+{
+	uint32_t lretval, hretval;
+	__asm__ volatile("int $0x80"
+					 : "=a"(lretval), "=c"(hretval)
+					 : "b"(syscall_index)
+					 : "%edx", "memory");
+	return lretval | ((uint64_t)hretval << 32);
 }
 
 static inline void iopl(int a)
@@ -150,16 +185,20 @@ static inline int close(file_stream* file)
 	return (int)do_syscall_1(SYSCALL_CLOSE, (uint32_t)file);
 }
 
-static inline size_t read(void* dst, size_t len, file_stream* file)
+static inline file_size_t read(file_size_t offset, void* dst, size_t len,
+							   file_stream* file)
 {
-	return (size_t)do_syscall_3(SYSCALL_READ, (uint32_t)dst, (uint32_t)len,
-								(uint32_t)file);
+	return (file_size_t)do_syscall_4l_0l(SYSCALL_READ, (uint64_t)offset,
+										 (uint32_t)dst, (uint32_t)len,
+										 (uint32_t)file);
 }
 
-static inline size_t write(const void* dst, size_t len, file_stream* file)
+static inline file_size_t write(file_size_t offset, const void* dst, size_t len,
+								file_stream* file)
 {
-	return (size_t)do_syscall_3(SYSCALL_WRITE, (uint32_t)dst, (uint32_t)len,
-								(uint32_t)file);
+	return (file_size_t)do_syscall_4l_0l(SYSCALL_WRITE, (uint64_t)offset,
+										 (uint32_t)dst, (uint32_t)len,
+										 (uint32_t)file);
 }
 
 static inline task_id spawn_process(const file_handle* file,
@@ -171,7 +210,7 @@ static inline task_id spawn_process(const file_handle* file,
 
 static inline time_t master_time()
 {
-	return (time_t)do_syscall_0(SYSCALL_TIME);
+	return (time_t)do_syscall_0l(SYSCALL_TIME);
 }
 
 static inline size_t get_free_memory()

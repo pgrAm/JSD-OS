@@ -31,7 +31,7 @@ clock_t sysclock_get_ticks()
 	return static_cast<clock_t>(pit_get_ticks());
 }
 
-SYSCALL_HANDLER time_t sysclock_get_master_time(void)
+SYSCALL_HANDLER time_t sysclock_get_master_time()
 {
 	return sysclock_begin_time +
 		   static_cast<time_t>(pit_get_ticks() / pit_get_tick_rate());

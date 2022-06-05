@@ -421,9 +421,10 @@ static size_t ext2_write(const uint8_t* buf, size_t start_cluster,
 }
 
 
-static size_t ext2_allocate_blocks(size_t start_block, size_t size_in_bytes,
-								   const file_data_block* file,
-								   const filesystem_virtual_drive* d)
+static file_size_t ext2_allocate_blocks(size_t start_block,
+										size_t size_in_bytes,
+										const file_data_block* file,
+										const filesystem_virtual_drive* d)
 {
 	auto fs = (ext2fs*)d->fs_impl_data;
 	ext2_format_data fdata;
@@ -539,7 +540,8 @@ static void ext2_update_file(const file_data_block* file,
 	inode inod;
 	fs->locate_inode(fdata.curr_inode, &inod);
 
-	inod.size = file->size;
+	inod.size	 = static_cast<uint32_t>(file->size);
+	inod.dir_acl = static_cast<uint32_t>(file->size >> 32);
 
 	fs->update_inode(fdata.curr_inode, &inod);
 }

@@ -7,14 +7,13 @@
 struct file_stream
 {
 	file_data_block file;
-	size_t seekpos;
 	bool modified;
 };
 
 file_stream* filesystem_create_stream(const file_data_block* f)
 {
 	k_assert(f);
-	return new file_stream { *f, 0, false };
+	return new file_stream { *f, false };
 }
 
 file_stream* filesystem_open_file_handle(const file_handle* f, int mode)
@@ -41,11 +40,6 @@ file_stream* filesystem_open_file_handle(const file_handle* f, int mode)
 	if(data.flags & IS_DIR) { return nullptr; }
 
 	auto stream = filesystem_create_stream(&data);
-
-	if(mode & FILE_APPEND)
-	{
-		stream->seekpos = data.size;
-	}
 
 	return stream;
 }
@@ -83,22 +77,23 @@ int filesystem_close_file(file_stream* s)
 	return 0;
 }
 
-size_t filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
+file_size_t filesystem_read_file(file_size_t offset, void* dst_buf, size_t len,
+								 file_stream* s)
 {
 	k_assert(dst_buf);
 	k_assert(s);
 
 	if(!(s->file.flags & IS_DIR))
 	{
-		if(s->seekpos >= s->file.size)
+		if(offset >= s->file.size)
 		{
 			return 0; // EOF
 		}
 
-		if(s->seekpos + len > s->file.size)
+		if(offset + len > s->file.size)
 		{
 			//only read what is available
-			len = s->file.size - s->seekpos;
+			len = s->file.size - offset;
 		}
 	}
 
@@ -106,24 +101,24 @@ size_t filesystem_read_file(void* dst_buf, size_t len, file_stream* s)
 
 	uint8_t* dst_ptr = (uint8_t*)dst_buf;
 
-	drive->fs_driver->read_chunks(dst_ptr, s->file.location_on_disk, s->seekpos, len, &s->file, drive);
-
-	s->seekpos += len;
-
+	drive->fs_driver->read_chunks(dst_ptr, s->file.location_on_disk, offset,
+								  len, &s->file, drive);
 	return len;
 }
 
-void filesystem_allocate_space(file_stream* s, fs_index location, size_t requested_size)
+void filesystem_allocate_space(file_stream* s, fs_index location,
+							   file_size_t requested_size)
 {
 	auto drive = filesystem_get_drive(s->file.disk_id);
-
-	size_t allocated_size = 
-		drive->fs_driver->allocate_chunks(location, requested_size, &s->file, drive);
+	auto allocated_size =
+		drive->fs_driver->allocate_chunks(location, requested_size, &s->file,
+										  drive);
 
 	s->file.size = std::min(allocated_size, requested_size);
 }
 
-size_t filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
+file_size_t filesystem_write_file(file_size_t offset, const void* dst_buf,
+							 size_t len, file_stream* s)
 {
 	k_assert(dst_buf);
 	k_assert(s);
@@ -133,51 +128,39 @@ size_t filesystem_write_file(const void* dst_buf, size_t len, file_stream* s)
 
 	k_assert(drive->fs_driver->write_chunks);
 
-	if(!(s->file.flags & IS_DIR) && s->seekpos + len >= s->file.size)
+	if(!(s->file.flags & IS_DIR) && offset + len >= s->file.size)
 	{
-		filesystem_allocate_space(s, s->file.location_on_disk, s->seekpos + len);
-		len = s->file.size - s->seekpos;
+		filesystem_allocate_space(s, s->file.location_on_disk, offset + len);
+		len = s->file.size - offset;
 	}
 
 	const uint8_t* dst_ptr = (const uint8_t*)dst_buf;
 
-	drive->fs_driver->write_chunks(dst_ptr, s->file.location_on_disk, s->seekpos, len, &s->file, drive);
-
-	s->seekpos += len;
+	drive->fs_driver->write_chunks(dst_ptr, s->file.location_on_disk, offset,
+								   len, &s->file, drive);
 	s->modified = true;
-
 	return len;
 }
 
-size_t filesystem_get_pos(file_stream* f)
-{
-	k_assert(f);
-	return f->seekpos;
-}
-
-void filesystem_seek_file(file_stream* f, size_t pos)
-{
-	k_assert(f);
-	f->seekpos = pos;
-}
-
-SYSCALL_HANDLER size_t syscall_read_file(void* dst, size_t len, file_stream* f)
+SYSCALL_HANDLER file_size_t syscall_read_file(file_size_t offset, void* dst,
+											  size_t len, file_stream* f)
 {
 	if(f == nullptr || dst == nullptr)
 	{
 		return 0;
 	}
-	return filesystem_read_file(dst, len, f);
+	return filesystem_read_file(offset, dst, len, f);
 }
 
-SYSCALL_HANDLER size_t syscall_write_file(const void* dst, size_t len,
-										  file_stream* f)
+SYSCALL_HANDLER file_size_t syscall_write_file(file_size_t offset,
+											   const void* dst, size_t len,
+											   file_stream* f)
 {
 	if(f == nullptr || dst == nullptr || (f->file.flags & IS_READONLY))
 	{
 		return 0;
 	}
-	return filesystem_write_file(dst, len, f);
+	return filesystem_write_file(offset, dst, len, f);
 }
 
 SYSCALL_HANDLER

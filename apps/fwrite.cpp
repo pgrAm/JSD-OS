@@ -15,7 +15,7 @@ int main(int argc, char** argv)
 
 	auto dt = ctime(&tm);
 
-	write(dt, strlen(dt), file);
+	write(0, dt, strlen(dt), file);
 
 	close(file);
 

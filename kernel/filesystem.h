@@ -23,7 +23,7 @@ typedef struct
 {
 	fs_index location_on_disk;
 	size_t disk_id;
-	size_t size;
+	file_size_t size;
 	uint32_t flags;
 
 	uint8_t format_data[sizeof(size_t) * 2];
@@ -36,10 +36,10 @@ int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
 file_stream* filesystem_open_file_handle(const file_handle* f, int mode);
 file_stream* filesystem_open_file(directory_stream* rel, std::string_view path, int mode);
-size_t filesystem_read_file(void* buf, size_t len, file_stream* f);
-size_t filesystem_write_file(const void* buf, size_t len, file_stream* f);
-void filesystem_seek_file(file_stream* f, size_t pos);
-size_t filesystem_get_pos(file_stream* f);
+file_size_t filesystem_read_file(file_size_t offset, void* buf, size_t len,
+								 file_stream* f);
+file_size_t filesystem_write_file(file_size_t offset, const void* buf,
+								  size_t len, file_stream* f);
 int filesystem_close_file(file_stream* f);
 
 directory_stream* filesystem_open_directory_handle(const file_handle* f, int flags);
@@ -60,9 +60,11 @@ SYSCALL_HANDLER directory_stream* syscall_open_directory_handle(const file_handl
 SYSCALL_HANDLER int syscall_close_directory(directory_stream* dir);
 SYSCALL_HANDLER file_stream* syscall_open_file_handle(const file_handle* f, int mode);
 SYSCALL_HANDLER file_stream* syscall_open_file(directory_stream* rel, const char* path, size_t path_len, int mode);
-SYSCALL_HANDLER size_t syscall_read_file(void* dst, size_t len, file_stream* f);
-SYSCALL_HANDLER size_t syscall_write_file(const void* dst, size_t len,
-										  file_stream* f);
+SYSCALL_HANDLER file_size_t syscall_read_file(file_size_t offset, void* dst,
+											  size_t len, file_stream* f);
+SYSCALL_HANDLER file_size_t syscall_write_file(file_size_t offset,
+											   const void* dst, size_t len,
+											   file_stream* f);
 SYSCALL_HANDLER int syscall_close_file(file_stream* f);
 SYSCALL_HANDLER int syscall_delete_file(const file_handle* f);
 SYSCALL_HANDLER int syscall_dispose_file_handle(const file_handle* f);
@@ -105,29 +107,19 @@ namespace fs
 	namespace {
 		class stream_base {
 		public:
-			size_t read(void* dst, size_t len)
+			file_size_t read(file_size_t offset, void* dst, size_t len)
 			{
-				return filesystem_read_file(dst, len, get_ptr());
+				return filesystem_read_file(offset, dst, len, get_ptr());
 			}
 
-			size_t write(const void* dst, size_t len)
+			file_size_t write(file_size_t offset, const void* dst, size_t len)
 			{
-				return filesystem_write_file(dst, len, get_ptr());
+				return filesystem_write_file(offset, dst, len, get_ptr());
 			}
 
-			size_t write(const uint8_t dst)
+			file_size_t write(file_size_t offset, const uint8_t dst)
 			{
-				return filesystem_write_file(&dst, 1, get_ptr());
-			}
-
-			void seek(size_t pos)
-			{
-				filesystem_seek_file(get_ptr(), pos);
-			}
-
-			size_t get_pos() 
-			{
-				return filesystem_get_pos(get_ptr());
+				return filesystem_write_file(offset, &dst, 1, get_ptr());
 			}
 
 			constexpr operator bool() const

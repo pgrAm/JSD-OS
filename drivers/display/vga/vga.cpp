@@ -213,7 +213,7 @@ static uint8_t* loadpsf(std::string_view file)
 	if (!f) return nullptr;
 
 	PSF_font font;
-	f.read(&font, sizeof(PSF_font));
+	auto offset = f.read(0, &font, sizeof(PSF_font));
 
 	size_t size = 256 * font.charsize;
 	
@@ -222,7 +222,7 @@ static uint8_t* loadpsf(std::string_view file)
 	if (font.magic == PSF_MAGIC)
 	{
 		buffer = (uint8_t*)malloc(size);
-		f.read(buffer, size);
+		f.read(offset, buffer, size);
 	}
 
 	return buffer;
