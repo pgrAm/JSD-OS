@@ -1,13 +1,16 @@
 #ifndef LOCKS_H
 #define LOCKS_H
-#ifdef __cplusplus
-extern "C" {
-#endif
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <kernel/syscall.h>
+#include <kernel/task.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 	SYSCALL_HANDLER void wait_umtex(uint32_t* futex);
 
@@ -17,6 +20,10 @@ extern "C" {
 
 #ifdef __I386_ONLY
 #define SINGLE_CPU_ONLY 1
+#endif
+
+#if !defined(SYNC_HAS_CAS_FUNC) && !defined(SINGLE_CPU_ONLY)
+	#define EMULATE_CAS_W_TAS 1
 #endif
 
 	typedef uint32_t int_lock;
@@ -42,7 +49,7 @@ extern "C" {
 	typedef struct
 	{
 		int value;
-#if !defined(SYNC_HAS_CAS_FUNC) || !defined(SINGLE_CPU_ONLY)
+#ifdef EMULATE_CAS_W_TAS
 		uint8_t tas_lock;
 #endif
 	} lockable_val;
@@ -67,11 +74,13 @@ extern "C" {
 #ifdef __cplusplus
 }
 
+#include <atomic>
+
 namespace sync {
 
 consteval lockable_val init_lockable()
 {
-#ifndef SYNC_HAS_CAS_FUNC
+#ifdef EMULATE_CAS_W_TAS
 	return {-1, 0};
 #else
 	return {-1};
@@ -161,7 +170,9 @@ public:
 			m_mutex->unlock();
 	}
 	unique_lock(const unique_lock&) = delete;
-	unique_lock(unique_lock&& o) : m_mutex(o.m_mutex)
+	unique_lock(unique_lock&& o)
+		: m_mutex(o.m_mutex)
+		, m_owns_lock(o.m_owns_lock)
 	{
 		o.m_owns_lock = false;
 		o.m_mutex = nullptr;
@@ -216,6 +227,7 @@ public:
 
 	void wait(unique_lock<mutex>& m)
 	{
+		assert(m.mutex());
 		return kernel_wait_cv(m.mutex()->native_handle(), &m_cv);
 	}
 private:
@@ -320,6 +332,7 @@ public:
 	shared_lock(unique_lock<upgradable_shared_mutex>&& o)
 		: m_mutex(o.m_mutex)
 	{
+		assert(o.m_owns_lock);
 		o.m_owns_lock = false;
 		o.m_mutex = nullptr;
 		m_mutex->downgrade();
@@ -336,6 +349,51 @@ private:
 };
 
 template<class T> shared_lock(T)->shared_lock<T>;
+
+class atomic_flag
+{
+public:
+	constexpr atomic_flag() noexcept = default;
+	atomic_flag(const atomic_flag&) = delete;
+
+	bool
+	test(std::memory_order order = std::memory_order::seq_cst) const noexcept
+	{
+		return __atomic_load_n(&value, order);
+	}
+
+	bool
+	test_and_set(std::memory_order order = std::memory_order_seq_cst) noexcept
+	{
+		return __atomic_test_and_set(&value, order);
+	}
+
+	void clear(std::memory_order order = std::memory_order_seq_cst) noexcept
+	{
+		__atomic_clear(&value, order);
+	}
+
+	void notify_one() noexcept
+	{
+		switch_to_active_task();
+	}
+
+	void
+	wait(bool old,
+		 std::memory_order order = std::memory_order::seq_cst) const noexcept
+	{
+		while(old == test(order))
+		{
+			run_background_tasks();
+		}
+	}
+
+	atomic_flag& operator=(const atomic_flag&) = delete;
+
+private:
+	bool value = false;
+};
+
 }
 #endif
 #endif

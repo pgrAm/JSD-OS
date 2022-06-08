@@ -468,6 +468,7 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 
 void switch_to_task(task_id tid)
 {
+	assert(tid < running_tasks.size());
 	if(running_tasks[tid]->tid != INVALID_TASK_ID && !task_is_running(tid))
 	{
 		switch_task(running_tasks[tid]);

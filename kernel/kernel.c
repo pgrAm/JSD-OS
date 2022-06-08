@@ -70,7 +70,7 @@ void kernel_main()
 
 	for(;;)
 	{
-		run_background_tasks();
+		__asm__ volatile("hlt");
 	}
 }
 

@@ -149,6 +149,8 @@ static constexpr std::array func_list
 	func_info{"add_realtime_device"sv,			(void*)&add_realtime_device},
 	func_info{"find_realtime_device"sv,			(void*)&find_realtime_device},
 	func_info{"handle_input_event"sv,			(void*)&handle_input_event},
+	func_info{"switch_to_active_task"sv,		(void*)&switch_to_active_task},
+	func_info{"run_background_tasks"sv,			(void*)&run_background_tasks},
 #ifndef NDEBUG
 	func_info{"__kassert_fail"sv,				(void*)&__kassert_fail},
 #endif

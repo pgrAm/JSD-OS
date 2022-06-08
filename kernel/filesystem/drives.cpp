@@ -183,7 +183,7 @@ private:
 		uint8_t* data = nullptr;
 		bool dirty = false;
 		bool valid = false;
-		std::unique_ptr<sync::upgradable_shared_mutex> mtx = std::make_unique<sync::upgradable_shared_mutex>();
+		sync::upgradable_shared_mutex mtx{};
 	};
 
 	class writable_block {
@@ -389,7 +389,7 @@ void filesystem_drive::block_flush(size_t index, size_t num_blocks) const
 		if(index + num_blocks < it->index) continue;
 		if(index > it->index + m_num_blocks_per_cache) continue;
 
-		sync::unique_lock lock{*it->mtx};
+		sync::unique_lock lock{it->mtx};
 		if(it->dirty)
 		{
 			write_blocks(it->index, it->data, m_num_blocks_per_cache);
@@ -409,7 +409,7 @@ void filesystem_drive::block_invalidate(size_t index, size_t num_blocks) const
 		if(index + num_blocks < it->index) continue;
 		if(index > it->index + m_num_blocks_per_cache) continue;
 
-		sync::unique_lock lock{*it->mtx};
+		sync::unique_lock lock{it->mtx};
 		it->valid = false;
 	}
 
@@ -436,7 +436,7 @@ T filesystem_drive::block_rw(size_t index, bool write_all) const
 		auto& item = block_cache.refresh_oldest_item();
 
 		{
-			sync::unique_lock lock{*item.mtx};
+			sync::unique_lock lock{item.mtx};
 
 			auto old_index = item.index;
 			item.index = block;
@@ -470,7 +470,9 @@ T filesystem_drive::block_rw(size_t index, bool write_all) const
 		}
 	}
 
-	typename T::lock_t lock{*it->mtx};
+	//printf("a");
+	typename T::lock_t lock{it->mtx};
+	//printf("g");
 
 	cache_write_mutex.unlock_shared();
 

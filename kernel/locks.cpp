@@ -37,25 +37,25 @@ static inline void tas_release(uint8_t* l)
 	__sync_lock_release(l);
 }
 
-static inline int_lock atomic_lock_aquire(uint8_t* tas_lock)
+static inline int_lock atomic_lock_aquire(lockable_val* ptr)
 {
-#ifdef SINGLE_CPU_ONLY
+#ifndef EMULATE_CAS_W_TAS
 	return lock_interrupts();
 #else
 	while(true)
 	{
 		int_lock l = lock_interrupts();
-		if(tas_aquire(tas_lock) == 0)
+		if(tas_aquire(&ptr->tas_lock) == 0)
 			return l;
 		unlock_interrupts(l);
 	}
 #endif
 }
 
-static inline void atomic_lock_release(int_lock l, uint8_t* tas_lock)
+static inline void atomic_lock_release(int_lock l, lockable_val* ptr)
 {
-#ifndef SINGLE_CPU_ONLY
-	tas_release(tas_lock);
+#ifdef EMULATE_CAS_W_TAS
+	tas_release(&ptr->tas_lock);
 #endif
 	unlock_interrupts(l);
 }
@@ -63,12 +63,12 @@ static inline void atomic_lock_release(int_lock l, uint8_t* tas_lock)
 template<typename T>
 static inline T cas_func(lockable_val* ptr, T oldval, T newval)
 {
-	int_lock l = atomic_lock_aquire(&ptr->tas_lock);
+	int_lock l = atomic_lock_aquire(ptr);
 
 	T old_ptr_val = std::bit_cast<T>(ptr->value);
 	if(old_ptr_val == oldval) { ptr->value = std::bit_cast<int>(newval); }
 
-	atomic_lock_release(l, &ptr->tas_lock);
+	atomic_lock_release(l, ptr);
 
 	return old_ptr_val;
 }
