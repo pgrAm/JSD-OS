@@ -16,7 +16,15 @@ void free(void* ptr);
 
 #ifndef __KERNEL
 void exit(int status);
+
+int system(const char* command);
 #endif
+
+
+inline int abs(int n)
+{
+	return n > 0 ? n : -n;
+}
 
 #ifdef __cplusplus
 }

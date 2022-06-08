@@ -310,8 +310,9 @@ constexpr std::array builtin_commands = []()
 				{
 					auto dir =
 						directory_ptr{open_dir_handle(get_current_dir(), 0)};
-					return !!find_path(dir.get(), keywords[1].data(),
-									   keywords[1].size(), FILE_CREATE, IS_DIR)
+					return !!file_h{find_path(dir.get(), keywords[1].data(),
+											  keywords[1].size(), FILE_CREATE,
+											  IS_DIR)}
 							   ? 0
 							   : -1;
 				}},

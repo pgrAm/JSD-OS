@@ -24,32 +24,189 @@
 
 #ifndef __KERNEL
 
+#include <string_view>
+
 struct FILE
 {
 	void* impl_ptr;
-	void (*write)(const char* buf, size_t size, void* impl);
-	void (*read)(char* buf, size_t size, void* impl);
-	void (*close)(void* impl);
+	size_t (*write)(const char* buf, size_t size, void* impl);
+	size_t (*read)(char* buf, size_t size, void* impl);
+	int (*close)(void* impl);
 };
 
-static FILE m_stdout = {NULL, NULL, NULL};
+static FILE m_stdout = {nullptr, nullptr, nullptr, nullptr};
 
-static FILE* stdout = &m_stdout;
+FILE* stdout = &m_stdout;
+FILE* stderr = stdout;
 
-void set_stdout(void (*write)(const char* buf, size_t size, void* impl))
+void set_stdout(size_t (*write)(const char* buf, size_t size, void* impl))
 {
 	stdout->write = write;
 }
 
-static void file_write(const char* buf, size_t size, FILE* f)
+static std::string_view s_cwd;
+
+void set_cwd(const char* cwd, size_t cwd_len)
+{
+	s_cwd = std::string_view{cwd, cwd_len};
+}
+
+struct sys_file_state
+{
+	file_size_t offset;
+	file_info info;
+	file_stream* file;
+};
+
+long int ftell(FILE* stream)
+{
+	sys_file_state* f = (sys_file_state*)stream->impl_ptr;
+	return f->offset;
+}
+
+int fseek(FILE* stream, long offset, int origin)
+{
+	sys_file_state* f = (sys_file_state*)stream->impl_ptr;
+
+	switch(origin)
+	{
+	case SEEK_SET:
+		f->offset = offset;
+		return 0;
+	case SEEK_CUR:
+		f->offset += offset;
+		return 0;
+	case SEEK_END:
+		f->offset = f->info.size + offset;
+		return 0;
+	}
+
+	return -1;
+}
+
+int fflush(FILE* stream)
+{
+}
+
+FILE* fopen(const char* file, const char* mode)
+{
+	using namespace std::literals;
+
+	if(!mode)
+	{
+		return 0;
+	}
+
+	std::string_view mode_str{mode};
+
+	if(mode_str.ends_with('b')) mode_str.substr(0, mode_str.size() - 1);
+
+	bool append	   = false;
+	int mode_flags = 0;
+
+	if(mode == "w"sv)
+		mode_flags = FILE_CREATE | FILE_WRITE;
+	else if(mode == "a"sv)
+	{
+		append	   = true;
+		mode_flags = FILE_CREATE | FILE_WRITE;
+	}
+	else if(mode == "r+"sv)
+		mode_flags = FILE_READ | FILE_WRITE;
+	else if(mode == "w+"sv)
+		mode_flags = FILE_CREATE | FILE_READ | FILE_WRITE;
+	else if(mode == "a+"sv)
+	{
+		append	   = true;
+		mode_flags = FILE_READ;
+	}
+	else if(mode == "r"sv)
+	{
+		mode_flags = FILE_READ;
+	}
+
+	auto cwd_dir = open_dir(nullptr, s_cwd.data(), s_cwd.size(), 0);
+	if(!cwd_dir)
+	{
+		return nullptr;
+	}
+
+	auto handle = find_path(cwd_dir, file, strlen(file), mode_flags, 0);
+
+	close_dir(cwd_dir);
+
+	if(!handle)
+		return nullptr;
+
+	sys_file_state* state = (sys_file_state *)malloc(sizeof(sys_file_state));
+
+	get_file_info(&state->info, handle);
+	state->file = open_file_handle(handle, 0);
+	state->offset = append ? state->info.size : 0;
+
+	auto file_ob = (FILE*)malloc(sizeof(FILE));
+
+	file_ob->impl_ptr = state;
+	file_ob->write	  = [](const char* buf, size_t size, void* impl)
+	{
+		sys_file_state* f = (sys_file_state*)impl;
+		auto amt		  = write(f->offset, buf, size, f->file);
+		f->offset += amt;
+		return (size_t)amt;
+	};
+	file_ob->read = [](char* buf, size_t size, void* impl)
+	{
+		sys_file_state* f = (sys_file_state*)impl;
+		auto amt		  = read(f->offset, buf, size, f->file);
+		f->offset += amt;
+		return (size_t)amt;
+	};
+	file_ob->close = [](void* impl)
+	{
+		sys_file_state* f = (sys_file_state*)impl;
+		auto ret		  = close(f->file);
+		free(f);
+		return ret;
+	};
+
+	dispose_file_handle(handle);
+
+	return file_ob;
+}
+
+static size_t file_write(const char* buf, size_t size, FILE* f)
 {
 	if(f != NULL && f->write != NULL)
 	{
-		f->write(buf, size, f->impl_ptr);
+		return f->write(buf, size, f->impl_ptr);
 	}
+	return 0;
+}
+
+size_t fread(void* ptr, size_t size, size_t count, FILE* stream)
+{
+	if(stream != NULL && stream->write != NULL)
+	{
+		return stream->read((char*)ptr, size * count, stream->impl_ptr);
+	}
+	return 0;
+}
+
+size_t fwrite(const void* ptr, size_t size, size_t count, FILE* stream)
+{
+	return file_write((const char*)ptr, size * count, stream);
+}
+
+int fclose(FILE* stream)
+{
+	if(stream != NULL && stream->write != NULL)
+	{
+		return stream->close(stream->impl_ptr);
+	}
+	return -1;
 }
 #else
-static FILE* stdout = NULL;
+static FILE* stdout = nullptr;
 
 void file_write(const char* buf, size_t size, FILE* f)
 {
@@ -71,7 +228,7 @@ int putchar(int character)
 int vsnprintf(char *buffer, size_t n, const char *fmt, va_list args)
 {
 	unsigned state = 0, flags = 0, radix = 0, actual_wd = 0, count = 0, given_wd = 0;
-	char* where = NULL;
+	char* where = nullptr;
 	char buf[PR_BUFLEN];
 
 	char* ptr = buffer;
@@ -110,7 +267,7 @@ int vsnprintf(char *buffer, size_t n, const char *fmt, va_list args)
 			}
 			state++; /* not a flag char: advance state to check if it's field width */
 
-			if(*fmt == '0') /* check now for '%0...' */
+			if(*fmt == '0' || *fmt == '.') /* check now for '%0...' */
 			{
 				flags |= PR_LZ;
 				fmt++;
@@ -315,6 +472,16 @@ void perror(const char* str)
 	//stderr->print_func(stderr, str);
 }
 
+int vfprintf(FILE* stream, const char* format, va_list args)
+{
+	char buffer[128];
+
+	int len = vsnprintf(buffer, 128, format, args);
+	file_write(buffer, (size_t)len, stream);
+
+	return len;
+}
+
 int vsprintf(char *s, const char *format, va_list arg)
 {
 	return vsnprintf(s, 256, format, arg);
@@ -371,3 +538,51 @@ int printf(const char* format, ...)
 	
 	return len;
 }
+
+#ifndef __KERNEL
+
+int remove(const char* filename)
+{
+	const file_handle* f = find_path(nullptr, filename, strlen(filename), 0, 0);
+	if(f)
+	{
+		delete_file(f);
+		dispose_file_handle(f);
+		return 0;
+	}
+
+	return -1;
+}
+
+int rename(const char* old_path, const char* new_path)
+{
+	const file_handle* old_handle =
+		find_path(nullptr, old_path, strlen(old_path), 0, 0);
+	if(old_handle)
+	{
+		file_info f;
+		if(get_file_info(&f, old_handle) == 0 && !(f.flags & IS_DIR))
+		{
+			file_stream* old_file = open_file_handle(old_handle, 0);
+			file_stream* new_file = open(nullptr, new_path, strlen(new_path),
+										 FILE_WRITE | FILE_CREATE);
+			if(new_file)
+			{
+				char* dataBuf = (char*)malloc(f.size);
+
+				read(0, dataBuf, f.size, old_file);
+				write(0, dataBuf, f.size, new_file);
+
+				free(dataBuf);
+
+				delete_file(old_handle);
+			}
+		}
+
+		dispose_file_handle(old_handle);
+		return 0;
+	}
+
+	return -1;
+}
+#endif

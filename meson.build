@@ -53,7 +53,7 @@ kernel_src = [
 ]	
 clib_src = [	
 	'clib/string.c',
-	'clib/stdio.c',
+	'clib/stdio.cpp',
 	'clib/ctype.c',
 	'clib/time.cpp',
 	'clib/stdlib.cpp',

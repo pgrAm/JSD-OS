@@ -1,6 +1,15 @@
 #ifndef TERMINAL_H
 #define TERMINAL_H
 
+enum terminal_open_mode
+{
+	TERMINAL_CREATE_NEW = 0,
+	TERMINAL_CREATE_IF_NOT_FOUND,
+	TERMINAL_OPEN_EXISTING
+};
+
+#ifdef __cplusplus
+
 #include <stdint.h>
 #include <string_view>
 
@@ -9,11 +18,7 @@ class terminal
 public:
 	static const int tab_size = 4;
 
-	enum open_mode {
-		CREATE_NEW = 0,
-		CREATE_IF_NOT_FOUND,
-		OPEN_EXISTING
-	};
+	using open_mode = terminal_open_mode;
 
 	terminal(const char* name, size_t name_len, size_t width, size_t height, open_mode mode);
 
@@ -21,7 +26,8 @@ public:
 		: terminal{name.data(), name.size(), width, height, mode}
 	{}
 
-	terminal(std::string_view name, open_mode mode = CREATE_IF_NOT_FOUND)
+	terminal(std::string_view name,
+			 open_mode mode = TERMINAL_CREATE_IF_NOT_FOUND)
 		: terminal{name.data(), name.size(), 0, 0, mode}
 	{}
 
@@ -67,5 +73,27 @@ private:
 	class impl;
 	impl* m_impl;
 };
+
+extern "C"
+{
+#endif
+	typedef enum terminal_open_mode terminal_open_mode;
+
+	struct terminal_instance;
+	typedef struct terminal_instance terminal_instance;
+
+	terminal_instance* open_terminal(const char* name, size_t name_len,
+									 size_t width, size_t height,
+									 terminal_open_mode mode);
+
+	void print_terminal(const char* buf, size_t size,
+						terminal_instance* terminal);
+	void close_terminal(terminal_instance* terminal);
+
+	void reset_terminal_mode(terminal_instance* terminal);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

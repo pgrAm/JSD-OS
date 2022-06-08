@@ -9,8 +9,12 @@ thread_local int tls_test = 55;
 
 int main(int argc, char** argv)
 {
-	set_stdout([](const char* buf, size_t size, void* impl)
-			   { s_term.print(buf, size); });
+	set_stdout(
+		[](const char* buf, size_t size, void* impl)
+		{
+			s_term.print(buf, size);
+			return size;
+		});
 
 	init_first_thread();
 

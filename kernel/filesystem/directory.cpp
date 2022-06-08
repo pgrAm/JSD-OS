@@ -201,8 +201,6 @@ directory_stream* filesystem_open_directory(directory_stream* rel,
 											std::string_view path,
 											int mode)
 {
-	k_assert(rel);
-
 	if(auto f = find_file_by_path(rel, path, mode, IS_DIR))
 		return filesystem_open_directory_handle(&(*f), 0);
 	else
@@ -251,7 +249,7 @@ const file_handle* syscall_get_file_in_dir(const directory_stream* d, size_t ind
 SYSCALL_HANDLER
 const file_handle* syscall_find_file_by_path(directory_stream* d, const char* name, size_t name_len, int mode, int flags)
 {
-	if(name == nullptr || d == nullptr)
+	if(name == nullptr)
 	{
 		return nullptr;
 	};

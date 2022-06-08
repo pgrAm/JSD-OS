@@ -12,8 +12,10 @@
 
 #ifdef __cplusplus
 extern "C" {
+
+typedef bool booltype_t;
 #else
-#include <stdbool.h>
+typedef _Bool booltype_t;
 #endif
 
 enum syscall_indices
@@ -332,7 +334,7 @@ static inline directory_stream* open_dir(directory_stream* rel, const char* path
 	return ds;
 }
 
-static inline int get_input_event(input_event* e, bool wait)
+static inline int get_input_event(input_event* e, booltype_t wait)
 {
 	return (int)do_syscall_2(SYSCALL_GET_INPUT_EVENT, (uint32_t)e, (uint32_t)wait);
 }

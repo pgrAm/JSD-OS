@@ -73,6 +73,11 @@ void exit(int status)
 {
 	sys_exit(status);
 }
+
+int system(const char* command)
+{
+}
+
 #endif
 
 #ifdef __KERNEL

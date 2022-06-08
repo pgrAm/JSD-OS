@@ -66,10 +66,10 @@ static int set_display_mode(size_t width, size_t height, shared_terminal_state& 
 
 static buf_handle_data get_buf_handle(const char* name, size_t name_len, terminal::open_mode mode)
 {
-	if(mode != terminal::OPEN_EXISTING)
+	if(mode != terminal::open_mode::TERMINAL_OPEN_EXISTING)
 	{
 		auto buf = create_shared_buffer(name, name_len, sizeof(shared_terminal_state));
-		if(buf || mode == terminal::CREATE_NEW)
+		if(buf || mode == terminal::open_mode::TERMINAL_CREATE_NEW)
 		{
 			return{buf, true};
 		}
@@ -386,4 +386,32 @@ int terminal::impl::handle_char(char source, text_char* dest, size_t pos)
 		*dest = {source, m_state.color};
 		return 1;
 	}
+}
+
+struct terminal_instance
+{
+	terminal term;
+};
+
+terminal_instance* open_terminal(const char* name, size_t name_len,
+								 size_t width, size_t height,
+								 terminal_open_mode mode)
+{
+	return new terminal_instance{
+		.term = terminal{name, name_len, width, height, mode}};
+}
+
+void print_terminal(const char* buf, size_t size, terminal_instance* terminal)
+{
+	terminal->term.print(buf, size);
+}
+
+void close_terminal(terminal_instance* terminal)
+{
+	delete terminal;
+}
+
+void reset_terminal_mode(terminal_instance* terminal)
+{
+	terminal->term.set_mode(terminal->term.width(), terminal->term.height());
 }

@@ -48,8 +48,6 @@ file_stream* filesystem_open_file(directory_stream* rel,
 								  std::string_view path,
 								  int mode)
 {
-	k_assert(rel);
-
 	if(auto f = find_file_by_path(rel, path, mode, 0))
 		return filesystem_open_file_handle(&(*f), mode);
 	else
@@ -169,7 +167,7 @@ file_stream* syscall_open_file(directory_stream* rel,
 							   size_t path_len,
 							   int mode)
 {
-	if(!rel || !path)
+	if(!path)
 		return nullptr;
 	else
 		return filesystem_open_file(rel, {path, path_len}, mode);

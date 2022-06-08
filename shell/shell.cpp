@@ -312,9 +312,12 @@ static void splash_text(size_t w)
 
 int main(int argc, char** argv)
 {
-	set_stdout([](const char* buf, size_t size, void* impl) {
-					s_term.print(buf, size);
-			   });
+	set_stdout(
+		[](const char* buf, size_t size, void* impl)
+		{
+			s_term.print(buf, size);
+			return size;
+		});
 
 	s_term.clear();
 	splash_text(s_term.width());

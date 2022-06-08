@@ -64,16 +64,6 @@ int strcmp(const char* s1, const char* s2)
 	return *(const unsigned char*)s1 - *(const unsigned char*)s2;
 }
 
-int strcasecmp(const char* s1, const char* s2)
-{
-	while(*s1 && (toupper(*s1) == toupper(*s2)))
-	{
-		s1++;
-		s2++;
-	}
-	return *(const unsigned char*)s1 - *(const unsigned char*)s2;
-}
-
 //void* memcpy(void* dest, const void* src, size_t num) 
 //{
 //	char* dst8 = (char*)dest;
@@ -153,6 +143,16 @@ size_t strlen(const char* str)
 	return len;
 }
 
+int strncmp(const char* s1, const char* s2, size_t count)
+{
+	while(count-- && *s1 && (*s1 == *s2))
+	{
+		s1++;
+		s2++;
+	}
+	return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+}
+
 char* strcat(char* destination, const char* source)
 {
 	memcpy(destination + strlen(destination), source, strlen(source) + 1);
@@ -163,6 +163,27 @@ char* strcpy(char* destination, const char* source)
 {
 	memcpy(destination, source, strlen(source) + 1);
 	return destination;
+}
+
+char* strncpy(char* dst, const char* src, size_t count)
+{
+	if(dst == NULL)
+	{
+		return NULL;
+	}
+
+	char* dst_ptr = dst;
+
+	while(*src && count)
+	{
+		*dst_ptr++ = *src++;
+		count--;
+	}
+
+	if(count)
+		*dst_ptr = '\0';
+
+	return dst;
 }
 
 void* memmove(void* dest, const void* src, size_t num)
@@ -188,4 +209,23 @@ void* memmove(void* dest, const void* src, size_t num)
 	}
 
 	return dest;
+}
+
+void* memchr(const void* str, int c, size_t n)
+{
+	if(!str) return NULL;
+
+	char* p = (char*)str;
+	while(n--)
+	{
+		if(*p != (char)c)
+		{
+			p++;
+		}
+		else
+		{
+			return p;
+		}
+	}
+	return NULL;
 }

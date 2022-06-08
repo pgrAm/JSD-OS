@@ -18,7 +18,27 @@ extern "C" {
 typedef size_t fpos_t;
 typedef struct FILE FILE;
 
-//extern FILE* stdin;
+#ifndef __KERNEL
+extern FILE* stderr;
+extern FILE* stdout;
+
+size_t fwrite(const void* ptr, size_t size, size_t count, FILE* stream);
+size_t fread(void* ptr, size_t size, size_t count, FILE* stream);
+long int ftell(FILE* stream);
+int fflush(FILE* stream);
+
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
+int fseek(FILE* stream, long offset, int origin);
+
+int remove(const char* filename);
+int rename(const char* old_path, const char* new_path);
+
+int vfprintf(FILE* stream, const char* format, va_list arg);
+
+#endif
 
 void clearerr(FILE* stream);
 FILE* fopen(const char* filename, const char* mode);
@@ -42,7 +62,8 @@ int puts(const char* str);
 void perror(const char* str);
 //int fflush(FILE* stream);
 
-void set_stdout(void (*write)(const char* buf, size_t size, void* impl));
+void set_stdout(size_t (*write)(const char* buf, size_t size, void* impl));
+void set_cwd(const char* cwd, size_t cwd_len);
 
 #ifdef __cplusplus
 }
