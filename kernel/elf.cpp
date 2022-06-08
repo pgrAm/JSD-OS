@@ -259,6 +259,10 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, directo
 			elf_process_dynamic_section(object, lib_dir);
 		}
 	}
+	else
+	{
+		printf("Error loading %s\n", info.name);
+	}
 
 	return 1;
 }
