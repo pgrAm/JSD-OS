@@ -519,8 +519,7 @@ static void fat_do_read_dir(std::vector<file_handle>& file_list,
 
 	std::string lfn{};
 
-	file_size_t offset = 0;
-	while(true)
+	for(file_size_t offset = 0; true; offset += sizeof(fat_directory_entry))
 	{
 		fat_directory_entry entry;
 		if(dir_stream.read(offset, &entry, sizeof(fat_directory_entry))
@@ -574,8 +573,6 @@ static void fat_do_read_dir(std::vector<file_handle>& file_list,
 		}
 
 		file_list.push_back(out);
-
-		offset += sizeof(fat_directory_entry);
 	}
 }
 
@@ -741,17 +738,14 @@ static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset,
 		buf += chunks.start_size;
 	}
 
-	if(chunks.num_full_chunks)
+	size_t num_clusters = chunks.num_full_chunks;
+	while(num_clusters-- && cluster < f->eof_value)
 	{
-		size_t num_clusters = chunks.num_full_chunks;
-		while(num_clusters-- && cluster < f->eof_value)
-		{
-			auto lba = fat_cluster_to_block(f, cluster);
-			filesystem_write(d, lba, 0, buf, f->cluster_size);
+		auto lba = fat_cluster_to_block(f, cluster);
+		filesystem_write(d, lba, 0, buf, f->cluster_size);
 
-			cluster = fat_get_next_cluster(cluster, d);
-			buf += f->cluster_size;
-		}
+		cluster = fat_get_next_cluster(cluster, d);
+		buf += f->cluster_size;
 	}
 
 	if(chunks.end_size != 0 && cluster < f->eof_value)
@@ -794,17 +788,14 @@ static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t
 		buf += chunks.start_size;
 	}
 
-	if(chunks.num_full_chunks)
+	size_t num_clusters = chunks.num_full_chunks;
+	while(num_clusters-- && cluster < f->eof_value)
 	{
-		size_t num_clusters = chunks.num_full_chunks;
-		while(num_clusters-- && cluster < f->eof_value)
-		{
-			auto lba = fat_cluster_to_block(f, cluster);
-			filesystem_read(d, lba, 0, buf, f->cluster_size);
+		auto lba = fat_cluster_to_block(f, cluster);
+		filesystem_read(d, lba, 0, buf, f->cluster_size);
 
-			cluster = fat_get_next_cluster(cluster, d);
-			buf += f->cluster_size;
-		}
+		cluster = fat_get_next_cluster(cluster, d);
+		buf += f->cluster_size;
 	}
 
 	if(chunks.end_size != 0 && cluster < f->eof_value)
@@ -971,8 +962,7 @@ static int fat_delete_file(const file_data_block* file,
 	fs::stream dir{filesystem_create_stream(&dir_block)};
 	k_assert(dir);
 
-	file_size_t offset = 0;
-	while(true)
+	for(file_size_t offset = 0; true; offset += sizeof(fat_directory_entry))
 	{
 		fat_directory_entry entry;
 		if(dir.read(offset, &entry, sizeof(fat_directory_entry)) !=
@@ -991,7 +981,6 @@ static int fat_delete_file(const file_data_block* file,
 			dir.write(offset, (uint8_t*)&entry, sizeof(fat_directory_entry));
 			break;
 		}
-		offset += sizeof(fat_directory_entry);
 	}
 
 	fat_drive* f = (fat_drive*)fd->fs_impl_data;
@@ -1023,9 +1012,7 @@ static void fat_update_file(const file_data_block* file, const filesystem_virtua
 	fs::stream dir{filesystem_create_stream(&dir_block)};
 	k_assert(dir);
 
-	file_size_t offset = 0;
-
-	while(true)
+	for(file_size_t offset = 0; true; offset += sizeof(fat_directory_entry))
 	{
 		fat_directory_entry entry;
 		if(dir.read(offset, &entry, sizeof(fat_directory_entry))
@@ -1053,8 +1040,6 @@ static void fat_update_file(const file_data_block* file, const filesystem_virtua
 							 sizeof(fat_directory_entry));
 			break;
 		}
-
-		offset += sizeof(fat_directory_entry);
 	}
 }
 
@@ -1121,9 +1106,7 @@ static void fat_create_file(const char* name, size_t name_len, uint32_t flags, d
 	fs::stream dir{filesystem_create_stream(&parent_dir->data)};
 	k_assert(dir);
 
-	file_size_t offset = 0;
-
-	while(true)
+	for(file_size_t offset = 0; true; offset += sizeof(fat_directory_entry))
 	{
 		fat_directory_entry entry;
 		if(dir.read(offset, &entry, sizeof(fat_directory_entry))
@@ -1179,8 +1162,6 @@ static void fat_create_file(const char* name, size_t name_len, uint32_t flags, d
 			}
 			break;
 		}
-
-		offset += sizeof(fat_directory_entry);
 	}
 }
 

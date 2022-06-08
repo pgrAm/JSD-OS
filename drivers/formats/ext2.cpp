@@ -348,35 +348,35 @@ static size_t ext2_read(uint8_t* buf, size_t start_cluster, size_t offset,
 	memcpy(&fdata, &file->format_data[0], sizeof(ext2_format_data));
 	inode inod;
 	fs->locate_inode(fdata.curr_inode, &inod);
-	size_t br = 0;
-	if(offset)
-	{
-		// handle first unaligned section
-		size_t count = std::min(size, fs->block_size - offset);
-		fs->read(fs->get_block_n(inod, start_cluster), offset, buf, count);
-		buf += count;
-		size -= count;
-		start_cluster++;
-		br += count;
-	}
-	if(!size) return br;
 
-	auto blocks = size >> fs->log2_block_size;
-	for(size_t i = 0; i < blocks; i++)
+	auto chunks	   = filesystem_chunkify(offset, size, fs->block_size - 1,
+										 fs->log2_block_size);
+	auto block_num = start_cluster + chunks.start_chunk;
+
+	if(chunks.start_size != 0)
 	{
-		// read aligned blocks
-		fs->read(fs->get_block_n(inod, start_cluster), 0, buf, fs->block_size);
+		auto lba = fs->get_block_n(inod, block_num++);
+		fs->read(lba, chunks.start_offset, buf, chunks.start_size);
+
+		buf += chunks.start_size;
+	}
+
+	size_t num_clusters = chunks.num_full_chunks;
+	while(num_clusters--)
+	{
+		auto lba = fs->get_block_n(inod, block_num++);
+		fs->read(lba, 0, buf, fs->block_size);
+
 		buf += fs->block_size;
-		size -= fs->block_size;
-		start_cluster++;
-		br += fs->block_size;
 	}
-	if(!size) return br;
 
-	// read the last part that's smaller than a block
-	fs->read(fs->get_block_n(inod, start_cluster), 0, buf, size);
+	if(chunks.end_size != 0)
+	{
+		auto lba = fs->get_block_n(inod, block_num);
+		fs->read(lba, 0, buf, chunks.end_size);
+	}
 
-	return br;
+	return block_num;
 }
 
 static size_t ext2_write(const uint8_t* buf, size_t start_cluster,
@@ -389,37 +389,36 @@ static size_t ext2_write(const uint8_t* buf, size_t start_cluster,
 	memcpy(&fdata, &file->format_data[0], sizeof(ext2_format_data));
 	inode inod;
 	fs->locate_inode(fdata.curr_inode, &inod);
-	size_t bw = 0;
-	if(offset)
-	{
-		// handle first unaligned section
-		size_t count = std::min(size, fs->block_size - offset);
-		fs->write(fs->get_block_n(inod, start_cluster), offset, buf, count);
-		buf += count;
-		size -= count;
-		start_cluster++;
-		bw += count;
-	}
-	if(!size) return bw;
 
-	auto blocks = size >> fs->log2_block_size;
-	for(size_t i = 0; i < blocks; i++)
+	auto chunks	   = filesystem_chunkify(offset, size, fs->block_size - 1,
+										 fs->log2_block_size);
+	auto block_num = start_cluster + chunks.start_chunk;
+
+	if(chunks.start_size != 0)
 	{
-		// write aligned blocks
-		fs->write(fs->get_block_n(inod, start_cluster), 0, buf, fs->block_size);
+		auto lba = fs->get_block_n(inod, block_num++);
+		fs->write(lba, chunks.start_offset, buf, chunks.start_size);
+
+		buf += chunks.start_size;
+	}
+
+	size_t num_clusters = chunks.num_full_chunks;
+	while(num_clusters--)
+	{
+		auto lba = fs->get_block_n(inod, block_num++);
+		fs->write(lba, 0, buf, fs->block_size);
+
 		buf += fs->block_size;
-		size -= fs->block_size;
-		start_cluster++;
-		bw += fs->block_size;
 	}
-	if(!size) return bw;
 
-	 // write the last part that's smaller than a block
-	fs->write(fs->get_block_n(inod, start_cluster), 0, buf, size);
+	if(chunks.end_size != 0)
+	{
+		auto lba = fs->get_block_n(inod, block_num);
+		fs->write(lba, 0, buf, chunks.end_size);
+	}
 
-	return bw;
+	return block_num;
 }
-
 
 static file_size_t ext2_allocate_blocks(size_t start_block,
 										size_t size_in_bytes,
@@ -497,6 +496,7 @@ static void ext2_read_dir(directory_stream* dest, const file_data_block* dir,
 				.time_created  = child.ctime,
 				.time_modified = child.mtime,
 			};
+
 			ext2_format_data child_fdata = {.curr_inode	  = d->inode,
 											.parent_inode = fdata.curr_inode};
 			memcpy(&f.data.format_data[0], &child_fdata,
@@ -534,9 +534,11 @@ static size_t get_last_entry_in_dir(const inode& inod, dirent* d,
 static void ext2_update_file(const file_data_block* file,
 							 const filesystem_virtual_drive* fd)
 {
-	auto fs = (ext2fs*)fd->fs_impl_data;
 	ext2_format_data fdata;
 	memcpy(&fdata, &file->format_data[0], sizeof(ext2_format_data));
+
+	const auto fs = static_cast<ext2fs*>(fd->fs_impl_data);
+
 	inode inod;
 	fs->locate_inode(fdata.curr_inode, &inod);
 
@@ -547,8 +549,8 @@ static void ext2_update_file(const file_data_block* file,
 }
 
 static void ext2_create_file(const char* name, size_t name_len, uint32_t flags,
-							directory_stream* dir,
-							const filesystem_virtual_drive* fd)
+							 directory_stream* dir,
+							 const filesystem_virtual_drive* fd)
 {
 	auto fs = (ext2fs*)fd->fs_impl_data;
 

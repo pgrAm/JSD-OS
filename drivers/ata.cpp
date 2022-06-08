@@ -108,7 +108,7 @@ struct ata_drive
 static ata_channel channels[2];
 static ata_drive ide_drives[4];
 static constinit sync::mutex irq_mtx[2];
-static constinit sync::condition_variable irq_condition[2];
+static constinit sync::atomic_flag irq_flags[2];
 
 template<size_t N, typename Func, typename Buf>
 ata_error foreach_n_sectors(ata_drive& drive, size_t lba, size_t num_sectors,
@@ -130,8 +130,8 @@ ata_error foreach_n_sectors(ata_drive& drive, size_t lba, size_t num_sectors,
 
 static void ata_wait_irq(size_t index)
 {
-	sync::unique_lock l{irq_mtx[index]};
-	irq_condition[index].wait(l);
+	irq_flags[index].wait(false);
+	irq_flags[index].clear();
 }
 
 static void ata_delay400(uint8_t channel)
@@ -379,7 +379,8 @@ static INTERRUPT_HANDLER void ata_irq_handler0(interrupt_frame* r)
 {
 	inb(channels[0].base + ATA_REG_STATUS);
 	acknowledge_irq(14);
-	irq_condition[0].notify_one();
+	irq_flags[0].test_and_set();
+	irq_flags[0].notify_one();
 }
 
 static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
@@ -389,7 +390,8 @@ static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
 	{
 		inb(channels[1].base + ATA_REG_STATUS);
 		acknowledge_irq(15);
-		irq_condition[1].notify_one();
+		irq_flags[1].test_and_set();
+		irq_flags[1].notify_one();
 	}
 	else
 	{
@@ -402,7 +404,7 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 	auto channel = drive.channel;
 	uint32_t num_words = ATAPI_SECTOR_SIZE / sizeof(uint16_t);
 
-	//irq_condition[channel].unavailable = 1;
+	irq_flags[channel].clear();
 
 	uint16_t base_port = channels[channel].base;
 	uint16_t ctrl_port = channels[channel].ctrl;
@@ -443,8 +445,10 @@ static ata_error ata_atapi_read(ata_drive& drive, uint32_t lba, uint8_t num_sect
 		num_sectors,
 		0x0, 0x0
 	};
-	//irq_condition[channel].unavailable = 1;
-	outsw(base_port, (uint16_t*)atapi_packet, sizeof(atapi_packet) / sizeof(uint16_t));
+
+	irq_flags[channel].clear();
+	outsw(base_port, (uint16_t*)atapi_packet,
+		  sizeof(atapi_packet) / sizeof(uint16_t));
 
 	// receive data:
 	for(size_t i = 0; i < num_sectors; i++)
@@ -755,8 +759,10 @@ static INTERRUPT_HANDLER void ata_irq_handler(interrupt_frame* r)
 
 	inb(channels[0].base + ATA_REG_STATUS);
 	inb(channels[1].base + ATA_REG_STATUS);
-	irq_condition[0].notify_one();
-	irq_condition[1].notify_one();
+	irq_flags[0].test_and_set();
+	irq_flags[1].test_and_set();
+	irq_flags[0].notify_one();
+	irq_flags[1].notify_one();
 
 	//outb(channels[0].bus_master + 0x2, inb(channels[0].bus_master + 0x2) | 4);
 
