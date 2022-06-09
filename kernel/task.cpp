@@ -348,7 +348,7 @@ SYSCALL_HANDLER void set_tls_addr(void* ptr)
 	set_TLS_seg_base(std::bit_cast<uintptr_t>(ptr));
 }
 
-task* create_new_task(process* parent, void* execution_addr, void* tls_ptr)
+task* create_new_task(process* parent, void* execution_addr, void* tls_ptr, size_t args_size)
 {
 	uintptr_t user_stack_top =
 		(uintptr_t)memmanager_virtual_alloc(nullptr, 1, PAGE_RW | PAGE_USER);
@@ -366,13 +366,15 @@ task* create_new_task(process* parent, void* execution_addr, void* tls_ptr)
 	//these will be pop'ed into registers later
 	auto* stack_ptr		  = ((stack_items*)new_task->tc_block.esp);
 	stack_ptr->code_addr  = (uintptr_t)execution_addr;
-	stack_ptr->stack_addr = (user_stack_top + PAGE_SIZE) - 2*sizeof(task_id);
+	stack_ptr->stack_addr = (user_stack_top + PAGE_SIZE) -
+							(sizeof(uintptr_t) + sizeof(task_id) + args_size);
 	//this is where the new process will start executing
 	stack_ptr->eip	 = (uintptr_t)run_user_code; 
 	stack_ptr->flags = (uintptr_t)0x0200; //flags are all off, except interrupt
 
 	//pass this on the user stack, the value above this is the "return addr"
-	*(task_id*)(stack_ptr->stack_addr) = new_task->tc_block.tid;
+	*(task_id*)(stack_ptr->stack_addr + sizeof(uintptr_t)) =
+		new_task->tc_block.tid;
 
 	//lock tasks
 	running_tasks.push_back(&new_task->tc_block);
@@ -384,7 +386,7 @@ extern "C" SYSCALL_HANDLER task_id spawn_thread(void* function_ptr, void* tls_pt
 {
 	auto parent_process = current_task_TCB->t_data->p_data;
 
-	auto new_task = create_new_task(parent_process, function_ptr, tls_ptr);
+	auto new_task = create_new_task(parent_process, function_ptr, tls_ptr, 0);
 
 	return new_task->tc_block.tid;
 }
@@ -409,10 +411,15 @@ extern "C" SYSCALL_HANDLER void yield_to(task_id tid)
 
 extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 												 directory_stream* cwd,
+												 const void* arg_ptr,
+												 size_t args_size,
 												 int flags)
 {
 	if(!file || !cwd)
 		return INVALID_TASK_ID;
+
+	//TODO: check the mapping of arg_ptr
+	std::vector<uint8_t> args_buf((uint8_t*)arg_ptr, args_size);
 
 	uintptr_t oldcr3 = (uintptr_t)get_page_directory();
 	
@@ -440,7 +447,16 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 		return INVALID_TASK_ID;
 	}
 
-	auto new_task = create_new_task(new_process, new_process->objects[0]->entry_point, nullptr);
+	auto new_task = create_new_task(new_process, new_process->objects[0]->entry_point, nullptr, args_size + sizeof(size_t));
+
+	auto* stack_ptr = ((stack_items*)new_task->tc_block.esp);
+
+
+	memcpy((void*)(stack_ptr->stack_addr + sizeof(uintptr_t) + sizeof(size_t)),
+		   &args_size, sizeof(size_t));
+	memcpy((void*)(stack_ptr->stack_addr + sizeof(uintptr_t) +
+				   2 * sizeof(size_t)),
+		   &args_buf[0], args_buf.size());
 
 	auto new_pid = new_task->tc_block.tid;
 

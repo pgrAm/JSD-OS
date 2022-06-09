@@ -204,10 +204,14 @@ static inline file_size_t write(file_size_t offset, const void* dst, size_t len,
 }
 
 static inline task_id spawn_process(const file_handle* file,
-									directory_stream* cwd, int flags)
+									directory_stream* parent_dir,
+									const void* arg_ptr,
+									size_t args_size, int flags)
 {
-	return (task_id)do_syscall_3(SYSCALL_SPAWN, (uint32_t)file, (uint32_t)cwd,
-								 (uint32_t)flags);
+	return (task_id)do_syscall_5(SYSCALL_SPAWN, (uintptr_t)file,
+								 (uintptr_t)parent_dir,
+								 (uintptr_t)arg_ptr, (uintptr_t)args_size,
+								 (uintptr_t)flags);
 }
 
 static inline time_t master_time()

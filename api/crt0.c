@@ -1,3 +1,8 @@
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <stdlib.h>
+
 extern void exit(int status);
 extern int main(int argc, char** argv);
 extern void _init();
@@ -19,13 +24,79 @@ void handle_fini_array(void)
 		(*func)();
 }
 
-void _start()
+static char* _find(char* first, char* last, char value)
 {
+	for(; first != last; ++first)
+	{
+		if(*first == value)
+		{
+			return first;
+		}
+	}
+	return NULL;
+}
+
+static int count_tokens(char* input, size_t input_size, char delim)
+{
+	int num_tokens = 0;
+
+	char* first = input;
+	char* last	= input + input_size;
+	while(first < last)
+	{
+		char* second = (char*)_find(first, last, delim);
+
+		if(first != second) num_tokens++;
+
+		if(second == NULL) break;
+
+		first = second + 1;
+	}
+	return num_tokens;
+}
+
+static void tokenize(char** buf, char* input, size_t input_size, char delim)
+{
+	size_t index = 0;
+
+	char* first = input;
+	char* last	= input + input_size;
+	while(first < last)
+	{
+		char* second = (char*)_find(first, last, delim);
+		if(first != second)
+		{
+			if(second)
+				*second = '\0';
+			buf[index++] = first;
+		}
+		if(second == NULL)
+		{
+			break;
+		}
+		first = second + 1;
+	}
+}
+
+void _start(uintptr_t args)
+{
+	uintptr_t args_begin = (uintptr_t)&args + sizeof(uintptr_t);
+	size_t args_size;
+	memcpy(&args_size, (void*)args_begin, sizeof(size_t));
+
+	char* args_ptr = (char*)(args_begin + sizeof(size_t));
+
+	int argc = count_tokens(args_ptr, args_size, ' ');
+
+	char** argv = (char**)malloc(sizeof(char**) * (size_t)argc);
+
+	tokenize(argv, args_ptr, args_size, ' ');
+
 	_init();
 
 	handle_init_array();
 
-	int r = main(0, 0);
+	int r = main(argc, argv);
 
 	handle_fini_array();
 

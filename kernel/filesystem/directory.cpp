@@ -140,7 +140,9 @@ static std::optional<file_handle> do_find_file_by_path(directory_stream* d, std:
 	return std::nullopt;
 }
 
-std::optional<file_handle> find_file_by_path(directory_stream* d, std::string_view path, int mode, int flags)
+std::optional<file_handle> find_file_by_path(directory_stream* d,
+											 std::string_view path, int mode,
+											 int flags)
 {
 	size_t colon = path.find_first_of(':');
 
@@ -148,7 +150,8 @@ std::optional<file_handle> find_file_by_path(directory_stream* d, std::string_vi
 	{
 		size_t drive = 0;
 		if(auto r = std::from_chars(path.cbegin(), path.cend(), drive);
-		   r.ec == std::errc::invalid_argument)
+		   r.ec == std::errc::invalid_argument ||
+		   (drive >= filesystem_get_num_drives()))
 		{
 			return std::nullopt;
 		}
@@ -161,7 +164,7 @@ std::optional<file_handle> find_file_by_path(directory_stream* d, std::string_vi
 				return *r_dir;
 			}
 
-			fs::dir_stream ds{r_dir, 0};
+			fs::dir_stream ds{&*r_dir, 0};
 
 			return do_find_file_by_path(ds.get_ptr(), path.substr(colon + 1), mode, flags);
 		}

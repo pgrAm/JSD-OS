@@ -167,7 +167,9 @@ extern "C" void load_drivers()
 
 	std::string_view init_path = "init.elf";
 
-	fs::dir_stream cwd{filesystem_get_root_directory(0), 0};
+	auto root = filesystem_get_root_directory(0);
+
+	fs::dir_stream cwd{&*root, 0};
 
 	if(!cwd)
 	{
@@ -183,5 +185,5 @@ extern "C" void load_drivers()
 		while(true);
 	}
 
-	spawn_process(&(*f), cwd.get_ptr(), WAIT_FOR_PROCESS);
+	spawn_process(&(*f), cwd.get_ptr(), nullptr, 0, WAIT_FOR_PROCESS);
 }

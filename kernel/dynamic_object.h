@@ -22,10 +22,10 @@ struct dynamic_object
 	std::vector<segment> segments;
 
 	tls_image_data tls_image = {
-		.alignment	= 1,
+		.pointer = nullptr,
 		.image_size = 0,
 		.total_size = 0,
-		.pointer	= nullptr,
+		.alignment	= 1,
 	};
 
 	void* linker_data = nullptr;

@@ -613,7 +613,7 @@ void filesystem_read_from_disk(const filesystem_drive* disk,
 	}
 }
 
-const file_handle* filesystem_get_root_directory(size_t drive_number)
+std::optional<file_handle> filesystem_get_root_directory(size_t drive_number)
 {
 	k_assert(drive_number < virtual_drives.size());
 
@@ -621,18 +621,25 @@ const file_handle* filesystem_get_root_directory(size_t drive_number)
 
 	if(filesystem_mount_drive(drive))
 	{
-		return new file_handle{drive->root_dir};
+		return drive->root_dir;
 	}
 
-	return nullptr;
+	return std::nullopt;
 }
 
-SYSCALL_HANDLER const file_handle* syscall_get_root_directory(size_t drive_number)
+SYSCALL_HANDLER const file_handle*
+syscall_get_root_directory(size_t drive_number)
 {
 	if(drive_number >= virtual_drives.size())
 	{
 		return nullptr;
 	}
-
-	return filesystem_get_root_directory(drive_number);
+	else if(auto root = filesystem_get_root_directory(drive_number))
+	{
+		return new file_handle{*root};
+	}
+	else
+	{
+		return nullptr;
+	}
 }

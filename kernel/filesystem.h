@@ -31,7 +31,6 @@ typedef struct
 file_data_block;
 
 size_t filesystem_get_num_drives();
-const file_handle* filesystem_get_root_directory(size_t drive);
 int filesystem_get_file_info(file_info* dst, const file_handle* src);
 
 file_stream* filesystem_open_file_handle(const file_handle* f, int mode);
@@ -101,6 +100,7 @@ struct file_handle
 };
 
 std::optional<file_handle> find_file_by_path(directory_stream* d, std::string_view path, int mode, int flags);
+std::optional<file_handle> filesystem_get_root_directory(size_t drive_number);
 
 namespace fs
 {

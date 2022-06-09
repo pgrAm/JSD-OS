@@ -18,7 +18,9 @@ typedef struct dynamic_object dynamic_object;
 
 
 SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
-									  directory_stream* cwd, int flags);
+									  directory_stream* cwd,
+									  const void* arg_ptr, size_t args_size,
+									  int flags);
 SYSCALL_HANDLER void exit_process(int val);
 
 SYSCALL_HANDLER task_id spawn_thread(void* function_ptr, void* tls_ptr);
