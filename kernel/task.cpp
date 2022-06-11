@@ -410,12 +410,11 @@ extern "C" SYSCALL_HANDLER void yield_to(task_id tid)
 }
 
 extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
-												 directory_stream* cwd,
 												 const void* arg_ptr,
 												 size_t args_size,
 												 int flags)
 {
-	if(!file || !cwd)
+	if(!file)
 		return INVALID_TASK_ID;
 
 	//TODO: check the mapping of arg_ptr
@@ -439,7 +438,10 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 			new dynamic_object::sym_map()
 		));
 
-	if(!load_elf(file, new_process->objects[0].get(), true, cwd))
+	assert(file->dir_path);
+	fs::dir_stream cwd{nullptr, *file->dir_path, 0};
+
+	if(!load_elf(file, new_process->objects[0].get(), true, cwd.get_ptr()))
 	{
 		delete new_process;
 		set_page_directory((uintptr_t*)oldcr3);

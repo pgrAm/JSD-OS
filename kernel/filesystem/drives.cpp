@@ -490,9 +490,10 @@ filesystem_virtual_drive::filesystem_virtual_drive(filesystem_drive* disk_,
 	, num_blocks(size)
 	, block_size(disk->block_size())
 	, root_dir{}
+	, root_name{std::to_string(id) + ':'}
 	, mounted(false)
 	, read_only(false)
-{}
+	{}
 
 void filesystem_drive::write_to_block(size_t block,
 									  size_t offset,

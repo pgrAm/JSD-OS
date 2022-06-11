@@ -91,6 +91,7 @@ typedef enum {
 //information about a file on disk
 struct file_handle
 {
+	std::shared_ptr<std::string> dir_path;
 	std::string name;
 
 	file_data_block data;

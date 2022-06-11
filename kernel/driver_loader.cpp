@@ -185,5 +185,5 @@ extern "C" void load_drivers()
 		while(true);
 	}
 
-	spawn_process(&(*f), cwd.get_ptr(), nullptr, 0, WAIT_FOR_PROCESS);
+	spawn_process(&(*f), nullptr, 0, WAIT_FOR_PROCESS);
 }

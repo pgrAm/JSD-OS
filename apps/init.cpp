@@ -121,7 +121,7 @@ static void execute_line(std::string_view line, directory_stream* cwd)
 		{
 			print_strings("Executing ", filename, '\n');
 
-			spawn_process(&(*f), cwd, nullptr, 0, WAIT_FOR_PROCESS);
+			spawn_process(&(*f), nullptr, 0, WAIT_FOR_PROCESS);
 		}
 	}
 }

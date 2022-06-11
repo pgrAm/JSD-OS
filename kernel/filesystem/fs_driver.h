@@ -62,6 +62,7 @@ file_stream* filesystem_create_stream(const file_data_block* f);
 //information about a directory on disk
 struct directory_stream
 {
+	std::shared_ptr<std::string> full_path;
 	file_data_block data;
 	std::vector<file_handle> file_list;
 };
@@ -80,6 +81,8 @@ struct filesystem_virtual_drive
 	size_t block_size;
 
 	file_handle root_dir;
+
+	std::string root_name;
 
 	bool mounted;
 	bool read_only;
