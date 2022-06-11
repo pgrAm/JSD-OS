@@ -3,6 +3,8 @@
 
 #include <type_traits>
 #include <functional>
+#include <assert.h>
+
 namespace std
 {
 
@@ -755,4 +757,118 @@ template <class T> T* addressof(const T&&) noexcept = delete;
 
 };
 
+namespace std
+{
+template<class T>
+requires(!std::is_array_v<T>)
+class shared_ptr
+{
+public:
+	constexpr shared_ptr() noexcept = default;
+	constexpr shared_ptr(std::nullptr_t) noexcept
+	{
+	}
+
+	template<class Y>
+	explicit shared_ptr(Y* ptr) :
+		ptr{ptr}, ctrl{new control_block{.ref_count = 1}}
+	{
+		assert(ctrl);
+		assert(ctrl->ref_count);
+	}
+
+	shared_ptr(const shared_ptr& s) : ptr{s.ptr}, ctrl{s.ctrl}
+	{
+		if(ptr)
+		{
+			assert(ctrl);
+			assert(ctrl->ref_count);
+			++ctrl->ref_count;
+
+		}
+	}
+
+	shared_ptr& operator=(const shared_ptr& s) noexcept
+	{
+		ptr = s.ptr;
+		ctrl = s.ctrl;
+		if(ptr)
+		{
+			assert(ctrl);
+			assert(ctrl->ref_count);
+			++ctrl->ref_count;
+		}
+		return *this;
+	}
+
+	shared_ptr& operator=(shared_ptr&& s) noexcept
+	{
+		std::swap(ptr, s.ptr);
+		std::swap(ctrl, s.ctrl);
+		return *this;
+	}
+
+
+	shared_ptr(shared_ptr&& s) noexcept
+	{
+		ptr = s.ptr;
+		ctrl = s.ctrl;
+		s.ptr = nullptr;
+		s.ctrl = nullptr;
+
+		if(ptr)
+		{
+			assert(ctrl);
+			assert(ctrl->ref_count);
+		}
+	}
+
+	~shared_ptr()
+	{
+		if(ptr)
+		{
+			assert(ctrl);
+			assert(ctrl->ref_count);
+			if(--ctrl->ref_count == 0)
+			{
+				delete ptr;
+				delete ctrl;
+			}
+		}
+	}
+
+	T& operator*() const noexcept
+	{
+		assert(ptr);
+		return *ptr;
+	}
+
+	T* operator->() const noexcept
+	{
+		assert(ptr);
+		return ptr;
+	}
+
+	explicit operator bool() const noexcept
+	{
+		return !!ptr;
+	}
+
+private:
+	struct control_block
+	{
+		size_t ref_count = 0;
+	};
+
+	T* ptr				= nullptr;
+	control_block* ctrl = nullptr;
+};
+
+template<class T, class... Args>
+shared_ptr<T> make_shared(Args&&... args)
+{
+	return shared_ptr<T>(new T{std::forward<Args>(args)...});
+}
+
+}
 #endif
