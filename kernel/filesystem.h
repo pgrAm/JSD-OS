@@ -19,6 +19,11 @@ extern "C" {
 
 typedef size_t fs_index;
 
+typedef struct 
+{
+	uint8_t data[sizeof(size_t) * 2];
+} fs_fmt_data;
+
 typedef struct
 {
 	fs_index location_on_disk;
@@ -26,7 +31,7 @@ typedef struct
 	file_size_t size;
 	uint32_t flags;
 
-	uint8_t format_data[sizeof(size_t) * 2];
+	fs_fmt_data format_data;
 }
 file_data_block;
 

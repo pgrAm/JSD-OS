@@ -17,16 +17,22 @@
 #include <optional>
 #include <charconv>
 
-directory_stream* filesystem_open_directory_handle(const file_handle* f, int flags)
+directory_stream* filesystem_open_directory_handle(const file_handle* f,
+												   int flags)
 {
 	k_assert(f);
 
-	if(!(f->data.flags & IS_DIR)) { return nullptr; }
+	if(!(f->data.flags & IS_DIR))
+	{
+		return nullptr;
+	}
 
 	directory_stream* d =
 		new directory_stream{std::make_shared<std::string>(
-								 !!f->dir_path ? *f->dir_path + '/' + f->name
-											   : f->name),
+								 !!f->dir_path
+									 ? filesystem_create_path(*f->dir_path,
+															  f->name)
+									 : f->name),
 							 f->data};
 
 	k_assert(d);
