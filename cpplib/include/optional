@@ -104,13 +104,14 @@ public:
 		, active(true)
 	{}
 	
-	template <typename U = value_type, typename = enable_if_t<
-		!is_same_v<T, U>&&
-		is_constructible_v<T, U>>>
-		constexpr explicit(!is_convertible_v<U&&, T>) optional(U&& v)
-		: val(forward<U>(v))
-		, active(true)
-	{}
+	template<typename U = value_type>
+	constexpr explicit(!is_convertible_v<U&&, T>)
+		optional(U&& v) requires(is_constructible_v<T, U> &&
+								 !is_same_v<remove_cvref_t<U>, in_place_t> &&
+								 !is_same_v<remove_cvref_t<U>, optional>) :
+		val(forward<U>(v)), active(true)
+	{
+	}
 
 	constexpr optional& operator=(nullopt_t) noexcept
 	{

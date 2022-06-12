@@ -278,7 +278,7 @@ public:
 	{
 		if(size() + 1 > capacity())
 		{
-			reserve(capacity() * 2);
+			__reallocate(capacity() * 2);
 		}
 		if(__is_long())
 		{
@@ -298,11 +298,50 @@ public:
 		const auto new_size = size() + count;
 		if(new_size > capacity())
 		{
-			reserve(new_size * 2);
+			__reallocate(new_size * 2);
 		}
 		assert(new_size <= capacity());
 		memcpy(end(), str, count * sizeof(value_type));
 		__terminate_at(new_size);
+		return *this;
+	}
+
+	constexpr basic_string& insert(size_t index, const basic_string& s)
+	{
+		return insert(index, s.c_str(), s.size());
+	}
+
+	constexpr basic_string& insert(size_t index, const CharT* s,
+								   size_type count)
+	{
+		const auto new_size = size() + count;
+		if(new_size > capacity())
+		{
+			auto cap = new_size * 2;
+			auto buf = __duplicate_buffer(index, cap);
+			
+			memcpy(buf + index + count, begin() + index, (size() + 1) - index);
+			
+			__replace_buffer(buf, cap);
+		}
+		else
+		{
+			std::copy_backward(begin() + index + count, end() - count, end() + 1);
+		}
+
+		memcpy(begin() + index, s, count);
+
+		if(__is_long())
+		{
+			m_rep.l.size = new_size;
+			assert(__is_long());
+		}
+		else
+		{
+			__set_short_size(new_size);
+			assert(!__is_long());
+		}
+
 		return *this;
 	}
 
@@ -490,22 +529,31 @@ public:
 
 private:
 
-	constexpr void __reallocate(size_t n) __attribute__((noinline))
+	constexpr void __replace_buffer(value_type* new_buffer, size_t new_cap)
 	{
-		const auto old_size = size();
-		const auto new_cap	= n + 1;
-		value_type* new_ptr = new value_type[new_cap];
-		memcpy(new_ptr, cbegin(), (old_size + 1) * sizeof(value_type));
-
 		if(__is_long())
 		{
 			delete[] m_rep.l.data;
 		}
 
-		m_rep.l.data = new_ptr;
-		m_rep.l.size = old_size;
+		m_rep.l.data = new_buffer;
+		m_rep.l.size = size();
 		__set_long_cap(new_cap);
 		assert(__is_long());
+	}
+
+	constexpr value_type* __duplicate_buffer(size_t size, size_t capacity)
+	{
+		value_type* new_ptr = new value_type[capacity];
+		memcpy(new_ptr, cbegin(), size * sizeof(value_type));
+		return new_ptr;
+	}
+
+	constexpr void __reallocate(size_t n) __attribute__((noinline))
+	{
+		const auto new_cap = n + 1;
+
+		__replace_buffer(__duplicate_buffer(size() + 1, new_cap), new_cap);
 	}
 
 	constexpr void __copy_from_terminated_string(const value_type* str,
@@ -620,6 +668,13 @@ namespace std
 {
 
 template<typename C>
+constexpr basic_string<C> operator+(std::basic_string<C>&& lhs,
+									std::basic_string<C>&& rhs)
+{
+	return std::move(lhs.append(rhs));
+}
+
+template<typename C>
 constexpr std::basic_string<C> operator+(const std::basic_string<C>& lhs,
 										 const std::basic_string<C>& rhs)
 {
@@ -689,6 +744,15 @@ operator+(const std::basic_string<C>& lhs,
 	auto new_str = lhs;
 	new_str.push_back(rhs);
 	return new_str;
+}
+
+template<typename C>
+constexpr std::basic_string<C>
+operator+(std::basic_string<C>&& lhs,
+		  const typename std::basic_string<C>::value_type rhs)
+{
+	lhs.push_back(rhs);
+	return std::move(lhs);
 }
 
 std::string to_string(int value);
