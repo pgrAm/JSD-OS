@@ -170,21 +170,12 @@ static time_t iso9660_time_to_time_t(const iso9660_dir_time& t)
 	return mktime(&file_time);
 }
 
-static size_t iso9660_read_dir_entry(std::shared_ptr<std::string> parent_dir, file_handle& dest,
-									 const uint8_t* entry_ptr, size_t disk_id)
+static std::string_view iso9660_read_entry_name(const char* data,
+												size_t name_len)
 {
-	auto* entry = (const iso9660_directory_entry*)entry_ptr;
+	using namespace std::literals;
 
-	if(entry->length == 0)
-		return entry->length;
-
-	size_t name_size = entry->name_len;
-
-	std::string_view full_name =
-	{
-		(const char*)entry_ptr + offsetof(iso9660_directory_entry, name),
-		name_size
-	};
+	std::string_view full_name = {data, name_len};
 
 	if(auto pos = full_name.find(';'); pos != std::string_view::npos)
 	{
@@ -193,21 +184,28 @@ static size_t iso9660_read_dir_entry(std::shared_ptr<std::string> parent_dir, fi
 
 	if(full_name.empty() || full_name[0] == '\0')
 	{
-		dest.name = ".";
+		return "."sv;
 	}
 	else if(full_name == "\1")
 	{
-		dest.name = "..";
+		return ".."sv;
 	}
 	else
 	{
-		dest.name = full_name;
+		return full_name;
 	}
+}
 
-	dest.dir_path = parent_dir;
+static file_handle
+iso9660_read_dir_entry(std::shared_ptr<std::string> parent_dir,
+					   const uint8_t* entry_ptr, size_t disk_id)
+{
+	auto* entry = (const iso9660_directory_entry*)entry_ptr;
 
-	dest.time_created = iso9660_time_to_time_t(entry->record_date);
-	dest.time_modified = dest.time_created;
+	auto entry_name =
+		iso9660_read_entry_name((const char*)entry_ptr +
+									offsetof(iso9660_directory_entry, name),
+								size_t{entry->name_len});
 
 	uint32_t flags = 0;
 	if(entry->flags & flags::DIRECTORY)
@@ -215,14 +213,22 @@ static size_t iso9660_read_dir_entry(std::shared_ptr<std::string> parent_dir, fi
 		flags |= IS_DIR;
 	}
 
-	dest.data = {
-		.location_on_disk = entry->extent_start.get(),
-		.disk_id = disk_id,
-		.size = entry->extent_length.get(),
-		.flags = flags
-	};
+	auto time = iso9660_time_to_time_t(entry->record_date);
 
-	return entry->length;
+	return file_handle{
+		.dir_path = parent_dir,
+		.name	  = std::string{entry_name},
+		.data =
+			{
+				.location_on_disk = entry->extent_start.get(),
+				.disk_id		  = disk_id,
+				.size			  = entry->extent_length.get(),
+				.flags			  = flags,
+			},
+
+		.time_created  = time,
+		.time_modified = time,
+	};
 }
 
 #define ISO_DEFAULT_SECTOR_SIZE 0x800
@@ -251,17 +257,16 @@ static void iso9660_read_dir(directory_stream* dest, const file_data_block* file
 
 	while((size_t)(dir_ptr - &dir_data[0]) < file->size)
 	{
-		file_handle out;
-		if(auto length = iso9660_read_dir_entry(dest->full_path, out, dir_ptr, fd->id);
-		   length == 0)
+		if(auto* entry = (const iso9660_directory_entry*)dir_ptr;
+		   entry->length == 0)
 		{
 			dir_ptr++;
 			continue;
 		}
 		else
 		{
-			dest->file_list.push_back(out);
-			dir_ptr += length;
+			dest->file_list.emplace_back(iso9660_read_dir_entry(dest->full_path, dir_ptr, fd->id));
+			dir_ptr += entry->length;
 		}	
 	}
 }
@@ -303,9 +308,8 @@ static mount_status iso9660_mount_disk(filesystem_virtual_drive* fd)
 		return DRIVE_NOT_SUPPORTED;
 	}
 
-
-	iso9660_read_dir_entry(nullptr, fd->root_dir, (uint8_t*)&(descriptor.root),
-						   fd->id);
+	fd->root_dir =
+		iso9660_read_dir_entry(nullptr, (uint8_t*)&(descriptor.root), fd->id);
 
 	fd->root_dir.name = fd->root_name;
 

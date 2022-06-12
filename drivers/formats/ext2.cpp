@@ -149,12 +149,14 @@ struct ext2fs
 		write(block, offset, &value, sizeof(uint32_t));
 	}
 
-	void locate_inode(uint32_t ino, inode* i) const
+	inode locate_inode(uint32_t ino) const
 	{
 		auto blkgrp = (ino - 1) / sb.inodes_per_group;
 		auto idx	= (ino - 1) % sb.inodes_per_group;
-		read(blkgrps[blkgrp].inode_table, idx * sb.inode_size, (uint8_t*)i,
+		inode i;
+		read(blkgrps[blkgrp].inode_table, idx * sb.inode_size, (uint8_t*)&i,
 			 sizeof(inode));
+		return i;
 	}
 
 	void update_inode(uint32_t ino, const inode* i) const
@@ -327,13 +329,11 @@ static mount_status ext2_mount_disk(filesystem_virtual_drive* d)
 			 sizeof(blkgrp) * fs->num_blkgrps);
 	d->root_dir = {
 		.name		   = d->root_name,
-		.data		   = {0, d->id, 0, IS_DIR},
+		.data		   = {0, d->id, 0, IS_DIR,
+						  std::bit_cast<fs_fmt_data>(ext2_format_data{2, 2})},
 		.time_created  = 0,
 		.time_modified = 0,
 	};
-	ext2_format_data child_fdata = {.curr_inode = 2, .parent_inode = 2};
-	memcpy(&d->root_dir.data.format_data[0], &child_fdata,
-		   sizeof(ext2_format_data));
 
 	d->fs_impl_data = fs;
 	return MOUNT_SUCCESS;
@@ -343,14 +343,13 @@ static size_t ext2_read(uint8_t* buf, size_t start_cluster, size_t offset,
 						size_t size, const file_data_block* file,
 						const filesystem_virtual_drive* d)
 {
-	auto fs = (ext2fs*)d->fs_impl_data;
-	ext2_format_data fdata;
-	memcpy(&fdata, &file->format_data[0], sizeof(ext2_format_data));
-	inode inod;
-	fs->locate_inode(fdata.curr_inode, &inod);
+	auto fs	   = (ext2fs*)d->fs_impl_data;
+	auto fdata = std::bit_cast<ext2_format_data>(file->format_data);
 
-	auto chunks	   = filesystem_chunkify(offset, size, fs->block_size - 1,
-										 fs->log2_block_size);
+	const auto inod = fs->locate_inode(fdata.curr_inode);
+
+	const auto chunks = filesystem_chunkify(offset, size, fs->block_size - 1,
+											fs->log2_block_size);
 	auto block_num = start_cluster + chunks.start_chunk;
 
 	if(chunks.start_size != 0)
@@ -385,13 +384,12 @@ static size_t ext2_write(const uint8_t* buf, size_t start_cluster,
 						 const filesystem_virtual_drive* d)
 {
 	auto fs = (ext2fs*)d->fs_impl_data;
-	ext2_format_data fdata;
-	memcpy(&fdata, &file->format_data[0], sizeof(ext2_format_data));
-	inode inod;
-	fs->locate_inode(fdata.curr_inode, &inod);
+	auto fdata = std::bit_cast<ext2_format_data>(file->format_data);
 
-	auto chunks	   = filesystem_chunkify(offset, size, fs->block_size - 1,
-										 fs->log2_block_size);
+	const auto inod = fs->locate_inode(fdata.curr_inode);
+
+	const auto chunks = filesystem_chunkify(offset, size, fs->block_size - 1,
+											fs->log2_block_size);
 	auto block_num = start_cluster + chunks.start_chunk;
 
 	if(chunks.start_size != 0)
@@ -426,10 +424,9 @@ static file_size_t ext2_allocate_blocks(size_t start_block,
 										const filesystem_virtual_drive* d)
 {
 	auto fs = (ext2fs*)d->fs_impl_data;
-	ext2_format_data fdata;
-	memcpy(&fdata, &file->format_data[0], sizeof(ext2_format_data));
-	inode inod;
-	fs->locate_inode(fdata.curr_inode, &inod);
+	auto fdata = std::bit_cast<ext2_format_data>(file->format_data);
+
+	auto inod = fs->locate_inode(fdata.curr_inode);
 
 	const size_t blocks_needed =
 		(size_in_bytes + (fs->block_size - 1)) >> fs->log2_block_size;
@@ -464,10 +461,9 @@ static void ext2_read_dir(directory_stream* dest, const file_data_block* dir,
 						  const filesystem_virtual_drive* fd)
 {
 	auto fs = (ext2fs*)fd->fs_impl_data;
-	ext2_format_data fdata;
-	memcpy(&fdata, &dir->format_data[0], sizeof(ext2_format_data));
-	inode inod;
-	fs->locate_inode(fdata.curr_inode, &inod);
+	auto fdata = std::bit_cast<ext2_format_data>(dir->format_data);
+
+	const auto inod = fs->locate_inode(fdata.curr_inode);
 
 	auto blocks_to_read = inod.size >> fs->log2_block_size;
 	auto temp			= std::make_unique<uint8_t[]>(fs->block_size);
@@ -486,23 +482,46 @@ static void ext2_read_dir(directory_stream* dest, const file_data_block* dir,
 				continue;
 			}
 
-			inode child;
-			fs->locate_inode(d->inode, &child);
+			inode child = fs->locate_inode(d->inode);
 
-			file_handle f = {
-				.dir_path	   = dest->full_path,
-				.name		   = {(char*)d->name, d->name_len},
-				.data		   = {0, fs->d->id, child.size,
-						  (d->file_type == EXT2_FT_DIR) ? IS_DIR : 0},
+			dest->file_list
+				.emplace_back(dest->full_path,
+							  std::string{(char*)d->name, d->name_len},
+							  file_data_block{
+								  .location_on_disk = 0,
+								  .disk_id			= fs->d->id,
+								  .size				= child.size,
+								  .flags	   = (d->file_type == EXT2_FT_DIR)
+													 ? IS_DIR
+													 : 0u,
+								  .format_data = std::bit_cast<fs_fmt_data>(
+									  ext2_format_data{
+										  .curr_inode	= d->inode,
+										  .parent_inode = fdata.curr_inode,
+									  }),
+							  },
+							  child.ctime, child.mtime);
+
+			/*file_handle f = {
+				.dir_path = dest->full_path,
+				.name	  = {(char*)d->name, d->name_len},
+				.data =
+					{
+						.location_on_disk = 0,
+						.disk_id		  = fs->d->id,
+						.size			  = child.size,
+						.flags = (d->file_type == EXT2_FT_DIR) ? IS_DIR : 0,
+						.format_data =
+							std::bit_cast<fs_fmt_data>(ext2_format_data{
+								.curr_inode	  = d->inode,
+								.parent_inode = fdata.curr_inode,
+							}),
+					},
 				.time_created  = child.ctime,
 				.time_modified = child.mtime,
 			};
 
-			ext2_format_data child_fdata = {.curr_inode	  = d->inode,
-											.parent_inode = fdata.curr_inode};
-			memcpy(&f.data.format_data[0], &child_fdata,
-				   sizeof(ext2_format_data));
-			dest->file_list.push_back(f);
+			dest->file_list.emplace_back(std::move(f));*/
 
 			j += d->rec_len;
 		} 
@@ -535,13 +554,10 @@ static size_t get_last_entry_in_dir(const inode& inod, dirent* d,
 static void ext2_update_file(const file_data_block* file,
 							 const filesystem_virtual_drive* fd)
 {
-	ext2_format_data fdata;
-	memcpy(&fdata, &file->format_data[0], sizeof(ext2_format_data));
+	const auto fs	 = static_cast<ext2fs*>(fd->fs_impl_data);
+	const auto fdata = std::bit_cast<ext2_format_data>(file->format_data);
 
-	const auto fs = static_cast<ext2fs*>(fd->fs_impl_data);
-
-	inode inod;
-	fs->locate_inode(fdata.curr_inode, &inod);
+	auto inod = fs->locate_inode(fdata.curr_inode);
 
 	inod.size	 = static_cast<uint32_t>(file->size);
 	inod.dir_acl = static_cast<uint32_t>(file->size >> 32);
@@ -553,24 +569,29 @@ static void ext2_create_file(const char* name, size_t name_len, uint32_t flags,
 							 directory_stream* dir,
 							 const filesystem_virtual_drive* fd)
 {
-	auto fs = (ext2fs*)fd->fs_impl_data;
-
-	ext2_format_data fdata;
-	memcpy(&fdata, &dir->data.format_data[0], sizeof(ext2_format_data));
+	const auto fs	 = (ext2fs*)fd->fs_impl_data;
+	const auto fdata = std::bit_cast<ext2_format_data>(dir->data.format_data);
 
 	auto ts = time(nullptr);
 
+	auto new_inode = fs->allocate_inode();
+
 	file_handle new_file = {
-		.name		   = {(char*)name, name_len},
-		.data		   = {0, fs->d->id, 0, flags},
+		.name = {(char*)name, name_len},
+		.data =
+			{
+				.location_on_disk = 0,
+				.disk_id		  = fs->d->id,
+				.size			  = 0,
+				.flags			  = flags,
+				.format_data	  = std::bit_cast<fs_fmt_data>(ext2_format_data{
+					.curr_inode	  = new_inode,
+					.parent_inode = fdata.curr_inode,
+				}),
+			},
 		.time_created  = ts,
 		.time_modified = ts,
 	};
-	ext2_format_data new_fdata = {
-		.curr_inode	  = fs->allocate_inode(),
-		.parent_inode = fdata.curr_inode,
-	};
-	memcpy(&new_file.data.format_data[0], &new_fdata, sizeof(ext2_format_data));
 
 	inode new_inod = {
 		.mode		 = (uint16_t)((flags & IS_DIR) ? 0x4000u : 0x8000u),
@@ -591,15 +612,14 @@ static void ext2_create_file(const char* name, size_t name_len, uint32_t flags,
 		.faddr		 = 0,
 	};
 
-	fs->update_inode(new_fdata.curr_inode, &new_inod);
+	fs->update_inode(new_inode, &new_inod);
 
-	inode inod;
-	fs->locate_inode(fdata.curr_inode, &inod);
+	auto inod = fs->locate_inode(fdata.curr_inode);
 
 	size_t i_block = inod.size >> fs->log2_block_size;
 
 	dirent new_entry = {
-		.inode	   = new_fdata.curr_inode,
+		.inode	   = new_inode,
 		.rec_len   = (uint16_t)fs::round_up(sizeof(dirent) + name_len, 4u),
 		.name_len  = (uint8_t)name_len,
 		.file_type = (uint8_t)((flags & IS_DIR) ? 2 : 1),

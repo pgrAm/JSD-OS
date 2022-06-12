@@ -361,12 +361,17 @@ static constexpr void write_field(char* field, std::string_view src,
 	}
 }
 
-static constexpr uint32_t fat_convert_flags(uint8_t fat_flags)
+static constexpr uint32_t fat_convert_flags(uint8_t fat_flags, bool is_root = false)
 {
 	uint32_t flags = 0;
 	if(fat_flags & DIRECTORY)
 	{
 		flags |= file_flags::IS_DIR;
+
+		if(is_root)
+		{
+			flags |= FAT_ROOT_DIR_FLAG;
+		}
 	}
 
 	if(fat_flags & READ_ONLY)
@@ -396,35 +401,22 @@ static constexpr uint8_t to_fat_flags(uint32_t flags)
 static constexpr fat_short_filename
 get_short_filename(std::string_view src_name)
 {
-	//using namespace std::literals;
-	//
-	//if(src_name == "."sv)
-	//{
-	//	return dot_dir;
-	//}
-	//else if(src_name == ".."sv)
-	//{
-	//	return dot_dot_dir;
-	//}
-	//else
-	//{
-		const auto dot = src_name.find_last_of('.');
+	const auto dot = src_name.find_last_of('.');
 
-		auto root = dot == src_name.npos ? src_name : src_name.substr(0, dot);
+	auto root = dot == src_name.npos ? src_name : src_name.substr(0, dot);
 
-		fat_short_filename name;
-		write_field(&name.root[0], root, 8);
+	fat_short_filename name;
+	write_field(&name.root[0], root, 8);
 
-		if(dot != src_name.npos)
-		{
-			auto ext = src_name.substr(dot + 1);
-			write_field(&name.ext[0], ext, 3);
-		}
-		return name;
-	//}
+	if(dot != src_name.npos)
+	{
+		auto ext = src_name.substr(dot + 1);
+		write_field(&name.ext[0], ext, 3);
+	}
+	return name;
 }
 
-static fat_directory_entry fat_create_dir_entry(const file_handle& src)
+static constexpr fat_directory_entry fat_create_dir_entry(const file_handle& src)
 {
 	auto create = time_t_time_to_fat_time(*gmtime(&src.time_created));
 	auto modify = time_t_time_to_fat_time(*gmtime(&src.time_modified));
@@ -466,52 +458,40 @@ fat_create_dir_entry(const file_data_block& data, fat_short_filename name, const
 	};
 }
 
-static bool fat_read_dir_entry(std::shared_ptr<std::string> parent_dir,
-							   file_handle& dest,
-							   const fat_directory_entry& entry, size_t disk_id)
+static std::string read_fat_short_name(const fat_short_filename& name)
 {
-	if(entry.name.root[0] == 0) {
-		return false;
-	} //end of directory
-
-	//if(entry.name.root[0] == '\x2e') 
-	//{
-	//	dest.name += '.';
-	//	if(entry.name.root[1] == '\x2e')
-	//		dest.name += '.';
-	//}
-	//else
+	auto root = read_field(name.root, 8);
+	if(auto ext = read_field(name.ext, 3); !ext.empty())
 	{
-		dest.name = read_field(entry.name.root, 8);
-		if(auto ext = read_field(entry.name.ext, 3); !ext.empty())
-		{
-			dest.name += '.';
-			dest.name += ext;
-		}
+		return (std::string{root} + '.').append(ext);
 	}
 
-	dest.dir_path = parent_dir;
+	return std::string{root};
+}
 
-	dest.time_created = fat_time_to_time_t({entry.created_date, 
-											entry.created_time});
+static file_handle fat_read_dir_entry(const directory_stream* dir,
+									  const fat_directory_entry& entry,
+									  size_t disk_id)
+{
+	const auto location = fat_file_location(entry);
 
-	dest.time_modified = fat_time_to_time_t({entry.modified_date, 
-											 entry.modified_time});
-
-	dest.data = {
-		.location_on_disk = fat_file_location(entry),
-		.disk_id = disk_id,
-		.size = entry.file_size,
-		.flags = fat_convert_flags(entry.attributes)
+	return file_handle{
+		.dir_path = dir->full_path,
+		.name	  = read_fat_short_name(entry.name),
+		.data = {
+			.location_on_disk = location,
+			.disk_id		  = disk_id,
+			.size			  = entry.file_size,
+			.flags = fat_convert_flags(entry.attributes, location == 0),
+			.format_data = std::bit_cast<fs_fmt_data>(
+				fat_format_data{dir->data.location_on_disk,
+								dir->data.flags}),
+		},
+		.time_created =
+			fat_time_to_time_t({entry.created_date, entry.created_time}),
+		.time_modified =
+			fat_time_to_time_t({entry.modified_date, entry.modified_time}),
 	};
-
-	if((dest.data.flags & IS_DIR) && 
-	   dest.data.location_on_disk == 0)
-	{
-		dest.data.flags |= FAT_ROOT_DIR_FLAG;
-	}
-
-	return true;
 }
 
 static void fat_do_read_dir(directory_stream* dest,
@@ -552,18 +532,18 @@ static void fat_do_read_dir(directory_stream* dest,
 			lfn_buf += utf8_encode(utf16_decode(sv_type{&e.chars1[0], 6}));
 			lfn_buf += utf8_encode(utf16_decode(sv_type{&e.chars2[0], 2}));
 
-			lfn = lfn_buf + lfn;
+			lfn = std::move(lfn_buf.append(lfn));
+
+			//lfn.insert(0, lfn_buf);
 			continue;
 		}
-
-		file_handle out;
-		if(!fat_read_dir_entry(dest->full_path, out, entry, fd->id))
+		
+		if(entry.name.root[0] == 0)
 		{
 			break;
 		}
 
-		fat_format_data fdata{dir->location_on_disk, dir->flags};
-		memcpy(&out.data.format_data[0], &fdata, sizeof(fat_format_data));
+		auto out = fat_read_dir_entry(dest, entry, fd->id);
 
 		if(!lfn.empty())
 		{
@@ -576,7 +556,7 @@ static void fat_do_read_dir(directory_stream* dest,
 			lfn.clear();
 		}
 
-		dest->file_list.push_back(out);
+		dest->file_list.emplace_back(std::move(out));
 	}
 }
 
@@ -1123,21 +1103,21 @@ static void fat_create_file(const char* name, size_t name_len, uint32_t flags, d
 		{
 			auto ts = time(nullptr);
 
-			file_handle new_file{parent_dir->full_path,
-								 {name, name_len},
+			file_handle new_file{
+				parent_dir->full_path,
+				{name, name_len},
 				{
 					.location_on_disk = fat_claim_clusters(0, 1, fd),
-					.disk_id = fd->id,
-					.size = 0,
-					.flags = flags,
+					.disk_id		  = fd->id,
+					.size			  = 0,
+					.flags			  = flags,
+					.format_data	  = std::bit_cast<fs_fmt_data>(
+						 fat_format_data{parent_dir->data.location_on_disk,
+										 parent_dir->data.flags}),
 				},
-				ts, ts
+				ts,
+				ts,
 			};
-
-			fat_format_data fdata{parent_dir->data.location_on_disk,
-								  parent_dir->data.flags};
-			memcpy(&new_file.data.format_data[0], &fdata,
-				   sizeof(fat_format_data));
 
 			auto new_file_entry = fat_create_dir_entry(new_file);
 
@@ -1147,8 +1127,6 @@ static void fat_create_file(const char* name, size_t name_len, uint32_t flags, d
 			offset += dir.write(offset, (uint8_t*)&new_file_entry,
 								sizeof(fat_directory_entry));
 			offset += dir.write(offset, 0);
-
-			parent_dir->file_list.push_back(new_file);
 
 			if(flags & IS_DIR)
 			{
@@ -1164,6 +1142,8 @@ static void fat_create_file(const char* name, size_t name_len, uint32_t flags, d
 				auto foffset = f.write(0, (uint8_t*)&ents[0], sizeof(ents));
 				f.write(foffset, 0);
 			}
+
+			parent_dir->file_list.emplace_back(std::move(new_file));
 			break;
 		}
 	}
