@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <limits>
 #include <bit>
+#include <utility>
 #include <assert.h>
 
 template<unsigned long MaxVal>
@@ -26,5 +27,99 @@ constexpr static inline uintptr_t align_addr(uintptr_t addr, size_t align)
 	assert(std::has_single_bit(align));
 	return (addr + (align - 1)) & ~(align - 1);
 }
+
+template<class T>
+	requires(!std::is_array_v<T>)
+class intrusive_ptr
+{
+public:
+	constexpr intrusive_ptr() noexcept = default;
+	constexpr intrusive_ptr(std::nullptr_t) noexcept
+	{
+	}
+
+	template<typename... Args>
+	explicit intrusive_ptr(Args&&... args) :
+		ctrl{new control_block{{std::forward<Args>(args)...}, 1}}
+	{
+		assert(ctrl);
+		assert(ctrl->ref_count);
+	}
+
+	intrusive_ptr(const intrusive_ptr& s) : ctrl{s.ctrl}
+	{
+		if(ctrl)
+		{
+			assert(ctrl->ref_count);
+			++ctrl->ref_count;
+		}
+	}
+
+	intrusive_ptr& operator=(const intrusive_ptr& s) noexcept
+	{
+		ctrl = s.ctrl;
+		if(ctrl)
+		{
+			assert(ctrl->ref_count);
+			++ctrl->ref_count;
+		}
+		return *this;
+	}
+
+	intrusive_ptr& operator=(intrusive_ptr&& s) noexcept
+	{
+		std::swap(ctrl, s.ctrl);
+		return *this;
+	}
+
+	intrusive_ptr(intrusive_ptr&& s) noexcept
+	{
+		ctrl   = s.ctrl;
+		s.ctrl = nullptr;
+
+		if(ctrl)
+		{
+			assert(ctrl->ref_count);
+		}
+	}
+
+	~intrusive_ptr()
+	{
+		if(ctrl)
+		{
+			assert(ctrl->ref_count);
+			if(--ctrl->ref_count == 0)
+			{
+				delete ctrl;
+			}
+		}
+	}
+
+	T& operator*() const noexcept
+	{
+		assert(ctrl);
+		return ctrl->value;
+	}
+
+	T* operator->() const noexcept
+	{
+		assert(ctrl);
+		return &ctrl->value;
+	}
+
+	explicit operator bool() const noexcept
+	{
+		return !!ctrl;
+	}
+
+private:
+	struct control_block
+	{
+		T value;
+		size_t ref_count = 0;
+	};
+
+	control_block* ctrl = nullptr;
+};
 
 #endif

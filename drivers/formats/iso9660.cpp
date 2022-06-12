@@ -197,7 +197,7 @@ static std::string_view iso9660_read_entry_name(const char* data,
 }
 
 static file_handle
-iso9660_read_dir_entry(std::shared_ptr<std::string> parent_dir,
+iso9660_read_dir_entry(intrusive_ptr<std::string> parent_dir,
 					   const uint8_t* entry_ptr, size_t disk_id)
 {
 	auto* entry = (const iso9660_directory_entry*)entry_ptr;

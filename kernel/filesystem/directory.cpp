@@ -28,11 +28,11 @@ directory_stream* filesystem_open_directory_handle(const file_handle* f,
 	}
 
 	directory_stream* d =
-		new directory_stream{std::make_shared<std::string>(
+		new directory_stream{intrusive_ptr<std::string>{
 								 !!f->dir_path
 									 ? filesystem_create_path(*f->dir_path,
 															  f->name)
-									 : f->name),
+									 : f->name},
 							 f->data};
 
 	k_assert(d);
