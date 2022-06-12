@@ -86,7 +86,13 @@ static void list_directory(const file_handle* dir_handle)
 
 		total_bytes += f.size;
 
-		const std::string_view name{f.name, f.name_len};
+
+		std::string_view name{f.full_path, f.full_path_len};
+
+		auto slash = name.find_last_of('/');
+		auto begin = (slash == name.npos) ? 0 : slash + 1;
+
+		name = name.substr(begin);
 
 		print_strings(' ');
 		if(f.flags & IS_DIR)
@@ -198,7 +204,7 @@ constexpr std::array builtin_commands = []()
 						return -1;
 					}
 
-					current_path.assign(file.name, file.name_len);
+					current_path.assign(file.full_path, file.full_path_len);
 					current_directory = std::move(f_handle);
 					return 1;
 				}},

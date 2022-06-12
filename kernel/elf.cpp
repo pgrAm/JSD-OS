@@ -168,7 +168,7 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, directo
 
 	if(!f)
 	{
-		printf("could not open elf file %s\n", info.name);
+		printf("could not open elf file %s\n", info.full_path);
 		return 0;
 	}
 
@@ -261,7 +261,7 @@ int load_elf(const file_handle* file, dynamic_object* object, bool user, directo
 	}
 	else
 	{
-		printf("Error loading %s\n", info.name);
+		printf("Error loading %s\n", info.full_path);
 	}
 
 	return 1;

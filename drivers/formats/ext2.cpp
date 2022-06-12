@@ -326,7 +326,7 @@ static mount_status ext2_mount_disk(filesystem_virtual_drive* d)
 	fs->read((fs->block_size == 1024u ? 2 : 1), 0, (uint8_t*)fs->blkgrps.get(),
 			 sizeof(blkgrp) * fs->num_blkgrps);
 	d->root_dir = {
-		.name		   = {},
+		.name		   = d->root_name,
 		.data		   = {0, d->id, 0, IS_DIR},
 		.time_created  = 0,
 		.time_modified = 0,
@@ -490,6 +490,7 @@ static void ext2_read_dir(directory_stream* dest, const file_data_block* dir,
 			fs->locate_inode(d->inode, &child);
 
 			file_handle f = {
+				.dir_path	   = dest->full_path,
 				.name		   = {(char*)d->name, d->name_len},
 				.data		   = {0, fs->d->id, child.size,
 						  (d->file_type == EXT2_FT_DIR) ? IS_DIR : 0},
@@ -504,7 +505,7 @@ static void ext2_read_dir(directory_stream* dest, const file_data_block* dir,
 			dest->file_list.push_back(f);
 
 			j += d->rec_len;
-		}
+		} 
 	}
 }
 

@@ -466,7 +466,9 @@ fat_create_dir_entry(const file_data_block& data, fat_short_filename name, const
 	};
 }
 
-static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& entry, size_t disk_id)
+static bool fat_read_dir_entry(std::shared_ptr<std::string> parent_dir,
+							   file_handle& dest,
+							   const fat_directory_entry& entry, size_t disk_id)
 {
 	if(entry.name.root[0] == 0) {
 		return false;
@@ -487,6 +489,8 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 			dest.name += ext;
 		}
 	}
+
+	dest.dir_path = parent_dir;
 
 	dest.time_created = fat_time_to_time_t({entry.created_date, 
 											entry.created_time});
@@ -510,7 +514,7 @@ static bool fat_read_dir_entry(file_handle& dest, const fat_directory_entry& ent
 	return true;
 }
 
-static void fat_do_read_dir(std::vector<file_handle>& file_list,
+static void fat_do_read_dir(directory_stream* dest,
 							const file_data_block* dir,
 							const filesystem_virtual_drive* fd)
 {
@@ -553,7 +557,7 @@ static void fat_do_read_dir(std::vector<file_handle>& file_list,
 		}
 
 		file_handle out;
-		if(!fat_read_dir_entry(out, entry, fd->id))
+		if(!fat_read_dir_entry(dest->full_path, out, entry, fd->id))
 		{
 			break;
 		}
@@ -572,7 +576,7 @@ static void fat_do_read_dir(std::vector<file_handle>& file_list,
 			lfn.clear();
 		}
 
-		file_list.push_back(out);
+		dest->file_list.push_back(out);
 	}
 }
 
@@ -580,7 +584,7 @@ static void fat_read_dir(directory_stream* dest, const file_data_block* dir,
 						 const filesystem_virtual_drive* fd)
 {
 	k_assert(dest);
-	fat_do_read_dir(dest->file_list, dir, fd);
+	fat_do_read_dir(dest, dir, fd);
 }
 
 template<fat_type T>
@@ -702,9 +706,9 @@ static mount_status fat_mount_disk(filesystem_virtual_drive* d)
 	auto loc = (f->type == FAT_12 || f->type == FAT_16) ? 0 : f->root_location;
 
 	d->root_dir = {
-		.name = {},
-		.data = {loc, d->id, 0, IS_DIR | FAT_ROOT_DIR_FLAG},
-		.time_created = 0,
+		.name		   = d->root_name,
+		.data		   = {loc, d->id, 0, IS_DIR | FAT_ROOT_DIR_FLAG},
+		.time_created  = 0,
 		.time_modified = 0,
 	};
 
@@ -1119,8 +1123,8 @@ static void fat_create_file(const char* name, size_t name_len, uint32_t flags, d
 		{
 			auto ts = time(nullptr);
 
-			file_handle new_file{
-				{name, name_len},
+			file_handle new_file{parent_dir->full_path,
+								 {name, name_len},
 				{
 					.location_on_disk = fat_claim_clusters(0, 1, fd),
 					.disk_id = fd->id,

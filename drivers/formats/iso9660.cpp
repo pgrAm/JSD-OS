@@ -170,7 +170,8 @@ static time_t iso9660_time_to_time_t(const iso9660_dir_time& t)
 	return mktime(&file_time);
 }
 
-static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr, size_t disk_id)
+static size_t iso9660_read_dir_entry(std::shared_ptr<std::string> parent_dir, file_handle& dest,
+									 const uint8_t* entry_ptr, size_t disk_id)
 {
 	auto* entry = (const iso9660_directory_entry*)entry_ptr;
 
@@ -202,6 +203,8 @@ static size_t iso9660_read_dir_entry(file_handle& dest, const uint8_t* entry_ptr
 	{
 		dest.name = full_name;
 	}
+
+	dest.dir_path = parent_dir;
 
 	dest.time_created = iso9660_time_to_time_t(entry->record_date);
 	dest.time_modified = dest.time_created;
@@ -249,7 +252,8 @@ static void iso9660_read_dir(directory_stream* dest, const file_data_block* file
 	while((size_t)(dir_ptr - &dir_data[0]) < file->size)
 	{
 		file_handle out;
-		if(auto length = iso9660_read_dir_entry(out, dir_ptr, fd->id); length == 0)
+		if(auto length = iso9660_read_dir_entry(dest->full_path, out, dir_ptr, fd->id);
+		   length == 0)
 		{
 			dir_ptr++;
 			continue;
@@ -299,7 +303,11 @@ static mount_status iso9660_mount_disk(filesystem_virtual_drive* fd)
 		return DRIVE_NOT_SUPPORTED;
 	}
 
-	iso9660_read_dir_entry(fd->root_dir, (uint8_t*)&(descriptor.root), fd->id);
+
+	iso9660_read_dir_entry(nullptr, fd->root_dir, (uint8_t*)&(descriptor.root),
+						   fd->id);
+
+	fd->root_dir.name = fd->root_name;
 
 	return MOUNT_SUCCESS;
 }

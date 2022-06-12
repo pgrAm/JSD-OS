@@ -18,7 +18,7 @@ static mount_status rdfs_mount_disk(filesystem_virtual_drive* fd)
 	if(memcmp(magic, "RDSK", 4) == 0)
 	{
 		fd->root_dir = {
-			.name = {},
+			.name = fd->root_name,
 			.data = {sizeof(magic), fd->id, 0, IS_DIR},
 			.time_created = 0,
 			.time_modified = 0,
@@ -78,6 +78,8 @@ static void rdfs_read_dir(directory_stream* dest, const file_data_block* f, cons
 			file.name += '.';
 			file.name += ext;
 		}
+
+		file.dir_path = dest->full_path;
 
 		file.time_created = entry.created;
 		file.time_modified = entry.modified;

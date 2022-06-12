@@ -33,7 +33,7 @@ int cursor_x = 0, cursor_y = 0;
 static void select_drive(size_t index)
 {
 	drive_index = index;
-	current_path.clear();
+	current_path = std::to_string(index) + ':';
 	current_directory.reset(get_root_directory(drive_index));
 }
 
@@ -142,7 +142,7 @@ static int execute_line(std::string_view current_line)
 		file_info file;
 		if(auto file_h = find_file_in_dir(dir.get(), &file, keyword))
 		{
-			const std::string_view name{file.name, file.name_len};
+			const std::string_view name{file.full_path, file.full_path_len};
 
 			if(auto dot = name.find('.'); dot != name.npos)
 			{
@@ -298,8 +298,7 @@ static void prompt()
 		drive = drive_names[drive_index];
 	}
 
-	print_strings("\x1b[32;22m", drive, "\x1b[37m ", drive_index, ":/",
-				  current_path, prompt_char);
+	print_strings("\x1b[32;22m", drive, "\x1b[37m ", current_path, prompt_char);
 }
 
 static void splash_text(size_t w)
@@ -331,7 +330,7 @@ int main(int argc, char** argv)
 
 	//printf("t=%u\n", clock_ticks(nullptr));
 
-	current_directory.reset(get_root_directory(drive_index));
+	select_drive(drive_index);
 
 	if(current_directory == nullptr)
 	{

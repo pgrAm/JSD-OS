@@ -187,8 +187,22 @@ int filesystem_get_file_info(file_info* dst, const file_handle* src)
 
 	k_assert(src->name.size() < MAX_PATH);
 
-	memcpy(dst->name, src->name.c_str(), src->name.size() + 1);
-	dst->name_len = src->name.size();
+	if(src->dir_path)
+	{
+		memcpy(dst->full_path, src->dir_path->c_str(),
+			   src->dir_path->size());
+
+		dst->full_path[src->dir_path->size()] = '/';
+		dst->full_path_len = src->dir_path->size() + 1;
+	}
+	else
+	{
+		dst->full_path_len = 0;
+	}
+
+	memcpy(dst->full_path + dst->full_path_len, src->name.c_str(),
+		   src->name.size() + 1);
+	dst->full_path_len += src->name.size();
 
 	dst->size = src->data.size;
 	dst->flags = src->data.flags;
