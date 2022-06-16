@@ -21,5 +21,10 @@ typedef long double max_align_t;
 
 #ifdef __cplusplus
 }
+
+namespace std
+{
+	using nullptr_t = decltype(nullptr);
+}
 #endif
 #endif
