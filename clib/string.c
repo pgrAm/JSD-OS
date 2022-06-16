@@ -15,6 +15,18 @@ char* strchr(const char* str, int character)
 	return (char*)str;
 }
 
+char* strrchr(const char* str, int character)
+{
+	for(const char* ptr = str + strlen(str); ptr >= str; --ptr)
+	{
+		if(*ptr == (char)character)
+		{
+			return (char*)ptr;
+		}
+	}
+	return NULL;
+}
+
 char* strtok(char* str, const char* delimiters)
 {
 	static char* buffer = NULL;
