@@ -303,7 +303,7 @@ constexpr std::array builtin_commands = []()
 
 							read(0, &dataBuf[0], file.size, fs.get());
 
-							print_strings(std::string_view{&dataBuf[0], file.size}, '\n');
+							print_strings(std::string_view{&dataBuf[0], (size_t)file.size}, '\n');
 
 							return 0;
 						}
