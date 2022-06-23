@@ -95,17 +95,17 @@ static inline void* liballoc_memcpy(void* s1, const void* s2, size_t n)
 static void liballoc_dump()
 {
 #ifdef DEBUG
-	major_block* maj = l_memRoot;
-	minor_block* min = NULL;
+	heap_allocator::major_block* maj = l_memRoot;
+	heap_allocator::minor_block* min = NULL;
 #endif
 
-	printf("liballoc: ------ Memory data ---------------\n");
+	/*printf("liballoc: ------ Memory data ---------------\n");
 	printf("liballoc: System memory allocated: %i bytes\n", l_allocated);
 	printf("liballoc: Memory in used (malloc'ed): %i bytes\n", l_inuse);
 	printf("liballoc: Warning count: %i\n", l_warningCount);
 	printf("liballoc: Error count: %i\n", l_errorCount);
 	printf("liballoc: Possible overruns: %i\n", l_possibleOverruns);
-
+	*/
 #ifdef DEBUG
 	while(maj != NULL)
 	{

@@ -76,6 +76,7 @@ void exit(int status)
 
 int system(const char* command)
 {
+	return 0;
 }
 
 #endif
@@ -88,6 +89,7 @@ int system(const char* command)
 	
 static void* liballoc_alloc(size_t n)
 {
+	assert(n < 1000);
 	return alloc_pages(NULL, n, MALLOC_FLAGS);
 }
 

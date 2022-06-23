@@ -50,17 +50,23 @@ kernel_src = [
 	'drivers/cmos.cpp',
 	'drivers/pit.cpp'
 ]	
-clib_src = [	
+kernel_clib_src = [	
 	'clib/string.c',
 	'clib/stdio.cpp',
 	'clib/ctype.c',
 	'clib/time.cpp',
 	'clib/stdlib.cpp',
 	'clib/liballoc.cpp',	
+	'clib/assert.cpp'
 ]
 clib_asm = asm_gen.process([
 	'clib/string.asm'
 ])
+
+clib_src = [	
+	kernel_clib_src,
+	'clib/scanf.cpp',
+]
 
 common_flags = [
 		'-Wuninitialized',
@@ -114,7 +120,7 @@ kernal = executable(
 		kernel_asm,
 		kernel_src,
 		clib_asm,
-		clib_src,
+		kernel_clib_src,
 		'cpplib/cppruntime.cpp'
 	],
 	include_directories: kernel_include,
