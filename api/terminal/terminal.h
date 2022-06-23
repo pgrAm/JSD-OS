@@ -38,6 +38,7 @@ public:
 	void set_cursor_pos(size_t offset);
 
 	void set_color(uint8_t bgr, uint8_t fgr, uint8_t bright);
+	void set_ansi_color(uint8_t bgr, uint8_t fgr);
 
 	size_t cursor_pos() const;
 
@@ -59,6 +60,14 @@ public:
 	void print(char c, size_t num);
 
 	uint8_t* get_underlying_buffer() const;
+
+	void write_chars_at_pos(size_t x, size_t y, char chars, size_t num_chars);
+	void write_chars_at_pos(size_t x, size_t y, const char* chars,
+							size_t num_chars);
+	void write_chars_at_pos(size_t x, size_t y, std::string_view text)
+	{
+		write_chars_at_pos(x, y, text.data(), text.size());
+	}
 
 	void clear();
 	void clear_row(size_t row);

@@ -182,6 +182,12 @@ void terminal::set_color(uint8_t bgr, uint8_t fgr, uint8_t bright)
 	m_impl->set_color(bgr, fgr, bright);
 }
 
+void terminal::set_ansi_color(uint8_t bgr, uint8_t fgr)
+{
+	m_impl->set_color(vt100_colors[bgr & 0x07], vt100_colors[fgr & 0x07],
+					  m_impl->m_state.is_bright);
+}
+
 size_t terminal::cursor_pos() const
 {
 	return m_impl->m_state.cursor_pos;
@@ -190,6 +196,30 @@ size_t terminal::cursor_pos() const
 uint8_t* terminal::get_underlying_buffer() const
 {
 	return (uint8_t*)m_impl->m_screen_ptr;
+}
+
+void terminal::write_chars_at_pos(size_t x, size_t y, char c,
+								  size_t num_chars)
+{
+	auto buf   = m_impl->m_screen_ptr;
+	auto coord = (x + y * (int)width());
+
+	for(size_t i = 0; i < num_chars; i++)
+	{
+		buf[coord++] = {c, m_impl->m_state.color};
+	}
+}
+
+void terminal::write_chars_at_pos(size_t x, size_t y, const char* chars,
+								  size_t num_chars)
+{
+	auto buf   = m_impl->m_screen_ptr;
+	auto coord = (x + y * (int)width());
+
+	for(size_t i = 0; i < num_chars; i++)
+	{
+		buf[coord++] = {chars[i], m_impl->m_state.color};
+	}
 }
 
 void terminal::delete_chars(size_t num)
