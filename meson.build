@@ -42,7 +42,6 @@ kernel_src = [
 	'kernel/boot_info.c',
 	'kernel/rt_device.cpp',	
 	'kernel/input.cpp',	
-	'kernel/kassert.cpp',
 	'kernel/shared_mem.cpp',
 
 	'drivers/display/basic_text/basic_text.cpp',
@@ -57,7 +56,7 @@ clib_src = [
 	'clib/ctype.c',
 	'clib/time.cpp',
 	'clib/stdlib.cpp',
-	'clib/liballoc.cpp',
+	'clib/liballoc.cpp',	
 ]
 clib_asm = asm_gen.process([
 	'clib/string.asm'
@@ -76,7 +75,8 @@ common_flags = [
 		'-D__I386_ONLY',
 		'-O2',
 		'-fomit-frame-pointer',
-		'-nodefaultlibs'
+		'-nodefaultlibs',
+		'-Werror=return-type'
 	]
 c_args = common_flags + [
 		'-std=c99',
@@ -127,7 +127,7 @@ kernal = executable(
 
 kernal_sys = custom_target(
 	'kernal',
-	output : 'kernal.bin',
+	output : 'kernal.sys',
 	input : kernal,
 	command : [
 		'objcopy', 
