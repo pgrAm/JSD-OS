@@ -24,7 +24,7 @@ void handle_fini_array(void)
 		(*func)();
 }
 
-static char* _find(char* first, char* last, char value)
+static const char* _find(const char* first, const char* last, char value)
 {
 	for(; first != last; ++first)
 	{
@@ -33,46 +33,39 @@ static char* _find(char* first, char* last, char value)
 			return first;
 		}
 	}
-	return NULL;
+	return last;
 }
 
-static int count_tokens(char* input, size_t input_size, char delim)
+static int count_tokens(const char* input, size_t input_size, char delim)
 {
 	int num_tokens = 0;
 
-	char* first = input;
-	char* last	= input + input_size;
+	const char* first = input;
+	const char* last  = input + input_size;
 	while(first < last)
 	{
-		char* second = (char*)_find(first, last, delim);
+		const char* second = (const char*)_find(first, last, delim);
 
 		if(first != second) num_tokens++;
-
-		if(second == NULL) break;
 
 		first = second + 1;
 	}
 	return num_tokens;
 }
 
-static void tokenize(char** buf, char* input, size_t input_size, char delim)
+static void tokenize(const char** buf, const char* input, size_t input_size,
+					 char delim)
 {
 	size_t index = 0;
 
-	char* first = input;
-	char* last	= input + input_size;
+	const char* first = input;
+	const char* last  = input + input_size;
 	while(first < last)
 	{
-		char* second = (char*)_find(first, last, delim);
+		const char* second = (const char*)_find(first, last, delim);
 		if(first != second)
 		{
-			if(second)
-				*second = '\0';
 			buf[index++] = first;
-		}
-		if(second == NULL)
-		{
-			break;
 		}
 		first = second + 1;
 	}
@@ -86,11 +79,11 @@ void _start(uintptr_t args)
 
 	char* args_ptr = (char*)(args_begin + sizeof(size_t));
 
-	int argc = count_tokens(args_ptr, args_size, ' ');
+	int argc = count_tokens(args_ptr, args_size, '\0');
 
 	char** argv = (char**)malloc(sizeof(char**) * (size_t)argc);
 
-	tokenize(argv, args_ptr, args_size, ' ');
+	tokenize(argv, args_ptr, args_size, '\0');
 
 	_init();
 

@@ -155,8 +155,15 @@ static int execute_line(std::string_view current_line)
 
 					auto mode = keywords.back().ends_with('&') ? 0 : WAIT_FOR_PROCESS;
 
-					spawn_process(file_h.get(), current_line.data(),
-								  current_line.size(), mode);
+					std::string cmd_buf;
+					for(auto k : keywords)
+					{
+						cmd_buf += k;
+						cmd_buf += '\0';
+					}
+
+					spawn_process(file_h.get(), cmd_buf.data(), cmd_buf.size(),
+								  mode);
 					return 0;
 				}
 
