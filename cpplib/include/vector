@@ -19,26 +19,26 @@ public:
 	using iterator = T*;
 	using const_iterator = const T*;
 
-	constexpr vector() :
-		m_begin(nullptr),
-		m_end(m_begin),
-		m_capacity(0)
+	constexpr vector() 
+		: m_begin(nullptr)
+		, m_end(m_begin)
+		, m_max(m_begin)
 	{}
 
 	constexpr vector(const T* s, size_t len)
 	{
-		m_capacity = len;
-		m_begin = __allocate(m_capacity);
-		m_end = m_begin + len;
+		m_begin = __allocate(len);
+		m_end	= m_begin + len;
+		m_max	= m_end;
 
 		__copy_init_range(s, s + len, m_begin);
 	}
 
 	constexpr explicit vector(size_t count, const T& value = {})
 	{
-		m_capacity = count;
-		m_begin = __allocate(m_capacity);
-		m_end = m_begin + count;
+		m_begin = __allocate(count);
+		m_end	= m_begin + count;
+		m_max	= m_end;
 
 		__value_init_range(m_begin, m_end, value);
 	}
@@ -81,7 +81,7 @@ public:
 
 	constexpr size_t capacity() const
 	{
-		return m_capacity;
+		return static_cast<size_t>(m_max - m_begin);
 	}
 
 	constexpr T& operator[](size_t n)
@@ -98,17 +98,7 @@ public:
 	{
 		if(n > capacity())
 		{
-			T* new_ptr = __allocate(n);
-
-			__move_init_range(m_begin, m_end, new_ptr);
-			__destruct_range(m_begin, m_end);
-			__deallocate(m_begin);
-
-			auto sz = size();
-
-			m_capacity = n;
-			m_begin = new_ptr;
-			m_end = m_begin + sz;
+			__reallocate(n);
 		}
 	}
 
@@ -124,9 +114,9 @@ public:
 
 	constexpr vector(const vector& v)
 	{
-		m_capacity = v.size();
-		m_begin = __allocate(m_capacity);
-		m_end = m_begin + v.size();
+		m_begin = __allocate(v.size());
+		m_end	= m_begin + v.size();
+		m_max	= m_end;
 
 		__copy_init_range(v.cbegin(), v.cend(), m_begin);
 	}
@@ -155,7 +145,7 @@ public:
 
 	constexpr void swap(vector& v) noexcept
 	{
-		std::swap(m_capacity, v.m_capacity);
+		std::swap(m_max, v.m_max);
 		std::swap(m_begin, v.m_begin);
 		std::swap(m_end, v.m_end);
 	}
@@ -165,12 +155,17 @@ public:
 		emplace_back(c);
 	}
 
+	constexpr void push_back(T&& c)
+	{
+		emplace_back(std::move(c));
+	}
+
 	template <typename... Args>
 	constexpr T& emplace_back(Args&&... args)
 	{
-		if(size() + 1 > capacity())
+		if(m_end == m_max)
 		{
-			reserve((m_capacity + 1) * 2);
+			__reallocate((capacity() + 1) * 2);
 		}
 		new(m_end) T{std::forward<Args>(args)...};
 		return *(m_end++);
@@ -221,28 +216,53 @@ public:
 
 		std::move(begin() + index + 1, end(), begin() + index);
 		pop_back();
-		return end();
+		return begin() + index;
 	}
 
 	constexpr iterator insert(const_iterator pos, const T& value)
 	{
-		reserve(size() + 1);
-		new(m_end) T{std::move(back())};
-		if(size() > 1)
-		{
-			std::move_backward(pos, cend() - 1, end());
-		}
-		++m_end;
+		auto index = pos - begin();
 
-		auto index = (pos - cbegin());
+		if(m_end == m_max)
+		{
+			__reallocate(size() + 1);
+		}
+
 		auto it = begin() + index;
 
-		*it = value;
+		if(it == end())
+		{
+			new(m_end) T{value};
+			return m_end++;
+		}
+		else
+		{
+			new(m_end) T{std::move(back())};
+			std::move_backward(it, end() - 1, end());
+			++m_end;
+			*it = value;
+		}
 
 		return it;
 	}
 
 private:
+
+	constexpr void __reallocate(size_t n)
+	{
+		T* new_ptr = __allocate(n);
+
+		__move_init_range(m_begin, m_end, new_ptr);
+		__destruct_range(m_begin, m_end);
+		__deallocate(m_begin);
+
+		auto sz = size();
+
+		m_begin = new_ptr;
+		m_end	= m_begin + sz;
+		m_max	= m_begin + n;
+	}
+
 	constexpr static T* __allocate(size_t size)
 	{
 		return (T*)::operator new(sizeof(T) * size,
@@ -284,6 +304,6 @@ private:
 
 	T* m_begin;
 	T* m_end;
-	size_t m_capacity;
+	T* m_max;
 };
 #endif

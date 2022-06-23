@@ -95,5 +95,57 @@ struct iterator_traits<T*>
 	using reference			= T&;
 	using iterator_category = random_access_iterator_tag;
 };
+
+template<class Container>
+class back_insert_iterator
+{
+public:
+	using iterator_category = output_iterator_tag;
+	using value_type		= void;
+	using difference_type	= ptrdiff_t;
+	using pointer			= void;
+	using reference			= void;
+	using container_type	= Container;
+
+	constexpr explicit back_insert_iterator(Container& x) : container(&x)
+	{
+	}
+
+	constexpr back_insert_iterator&
+	operator=(const typename Container::value_type& value)
+	{
+		container->push_back(value);
+		return *this;
+	}
+
+	constexpr back_insert_iterator&
+	operator=(typename Container::value_type&& value)
+	{
+		container->push_back(std::move(value));
+		return *this;
+	}
+
+	constexpr back_insert_iterator& operator++()
+	{
+		return *this;
+	}
+	constexpr back_insert_iterator& operator++(int)
+	{
+		return *this;
+	}
+	constexpr back_insert_iterator& operator*()
+	{
+		return *this;
+	}
+protected:
+	Container* container;
+};
+
+template<class Container>
+constexpr back_insert_iterator<Container> back_inserter(Container& c)
+{
+	return back_insert_iterator<Container>(c);
+}
+
 }
 #endif

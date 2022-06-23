@@ -109,7 +109,7 @@ public:
 		optional(U&& v) requires(is_constructible_v<T, U> &&
 								 !is_same_v<remove_cvref_t<U>, in_place_t> &&
 								 !is_same_v<remove_cvref_t<U>, optional>) :
-		val(forward<U>(v)), active(true)
+		val(std::forward<U>(v)), active(true)
 	{
 	}
 

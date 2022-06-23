@@ -306,6 +306,15 @@ public:
 		return *this;
 	}
 
+	constexpr iterator erase(const_iterator pos)
+	{
+		auto index = (pos - cbegin());
+
+		std::move(begin() + index + 1, end(), begin() + index);
+		pop_back();
+		return begin() + index;
+	}
+
 	constexpr basic_string& insert(size_t index, const basic_string& s)
 	{
 		return insert(index, s.c_str(), s.size());
@@ -320,13 +329,13 @@ public:
 			auto cap = new_size * 2;
 			auto buf = __duplicate_buffer(index, cap);
 			
-			memcpy(buf + index + count, begin() + index, (size() + 1) - index);
+			memcpy(buf + index + count, begin() + index, size() - index);
 			
 			__replace_buffer(buf, cap);
 		}
 		else
 		{
-			std::copy_backward(begin() + index + count, end() - count, end() + 1);
+			std::copy_backward(begin() + index, end(), end() + count);
 		}
 
 		memcpy(begin() + index, s, count);
@@ -343,6 +352,12 @@ public:
 		}
 
 		return *this;
+	}
+
+	constexpr iterator insert(const_iterator pos, CharT ch)
+	{
+		insert(static_cast<size_t>(pos - begin()), &ch, 1);
+		return begin() + (pos - cbegin());
 	}
 
 	constexpr basic_string& append(const value_type* str)
@@ -440,18 +455,18 @@ public:
 							 std::min(size() - pos, count) };
 	}
 
-	constexpr size_t find_first_of(const basic_string& str, size_t pos = 0) const
+	template<class StringViewLike>
+	constexpr size_t find_first_of(const StringViewLike& str,
+								   size_t pos = 0) const
+		requires(__is_sv_convertible<StringViewLike>::value)
 	{
-		for(auto it = cbegin() + pos; it < cend(); it++)
-		{
-			for(auto c = str.cbegin(); c < str.cend(); c++)
-			{
-				if(*c == *it)
-					return it - cbegin();
-			}
-		}
+		return __find_first_of(str.cbegin(), str.cend(), pos);
+	}
 
-		return npos;
+	constexpr size_t find_first_of(const basic_string& str,
+								   size_t pos = 0) const
+	{
+		return __find_first_of(str.cbegin(), str.cend(), pos);
 	}
 
 	constexpr size_t find(value_type c, size_t pos = 0) const noexcept
@@ -528,6 +543,21 @@ public:
 	}
 
 private:
+
+	template<class Iterator>
+	constexpr size_t __find_first_of(Iterator begin, Iterator end,
+									 size_t pos) const
+	{
+		for(auto it = cbegin() + pos; it < cend(); it++)
+		{
+			for(auto c = begin; c < end; c++)
+			{
+				if(*c == *it) return static_cast<size_t>(it - cbegin());
+			}
+		}
+
+		return npos;
+	}
 
 	constexpr void __replace_buffer(value_type* new_buffer, size_t new_cap)
 	{
