@@ -690,6 +690,8 @@ static bool vesa_do_mode_switch(uint16_t mode_num, bool vesa)
 	else
 	{
 		int10h(mode_num, 0, 0, 0, 0, 0);
+		int10h(0x0100, 0, 0x2607, 0, 0, 0);
+
 	}
 	return true;
 }
