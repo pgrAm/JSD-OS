@@ -107,7 +107,6 @@ struct ata_drive
 
 static ata_channel channels[2];
 static ata_drive ide_drives[4];
-static constinit sync::mutex irq_mtx[2];
 static constinit sync::atomic_flag irq_flags[2];
 
 template<size_t N, typename Func, typename Buf>
