@@ -3,6 +3,7 @@
 AccessModifierOffset: -4
 AlignConsecutiveAssignments: Consecutive
 AlignOperands: Align
+AllowAllConstructorInitializersOnNextLine: true
 AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: None
 AllowShortLoopsOnASingleLine: false
@@ -30,7 +31,7 @@ BraceWrapping:
   BeforeWhile: false
 BreakBeforeBraces: Allman
 BreakBeforeTernaryOperators: true
-BreakConstructorInitializers: AfterColon
+BreakConstructorInitializers: BeforeComma
 BreakStringLiterals: false
 ColumnLimit: 80
 DeriveLineEnding: false
@@ -44,7 +45,7 @@ IndentRequires: true
 IndentWidth: 4
 MaxEmptyLinesToKeep: 2
 ObjCBlockIndentWidth: 4
-PenaltyBreakBeforeFirstCallParameter: 10000
+PenaltyBreakBeforeFirstCallParameter: 100000
 PenaltyReturnTypeOnItsOwnLine: 60
 ReflowComments: false
 SortIncludes: false

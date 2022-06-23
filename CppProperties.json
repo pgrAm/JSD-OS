@@ -6,10 +6,11 @@
       ],
       "name": "clang",
       "includePath": [
-        "${workspaceRoot}\\**"
+        "${workspaceRoot}\\**",
+        "${workspaceRoot}\\cpplib\\include"
       ],
       "intelliSenseMode": "windows-clang-x86",
-      "compilerSwitches": "-std=c99"
+      "compilerSwitches": "-std=c++20 --target=i386-pc-freebsd-elf -nostdlib -nostdinc -Wconversion -Wall"
     }
   ]
 }
