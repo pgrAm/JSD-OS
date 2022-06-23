@@ -76,6 +76,19 @@ void init_first_thread()
 	auto addr = create_tls_block(nullptr);
 
 	set_tls_addr(addr);
+
+	get_thread_ptr()->tid = p_info.pid;
+}
+
+void cleanup_thread_block(tls_thread_block* block)
+{
+	auto buf_loc = (uintptr_t)block - tls.thread_block_offset;
+	free(std::bit_cast<void*>(buf_loc));
+}
+
+void cleanup_thread()
+{
+	cleanup_thread_block(get_thread_ptr()->self);
 }
 
 task_id spawn_thread(void (*func)())
@@ -86,10 +99,7 @@ task_id spawn_thread(void (*func)())
 			get_thread_ptr()->tid = this_thread;
 			get_thread_ptr()->start_func();
 
-			auto buf_loc =
-				(uintptr_t)get_thread_ptr() - tls.thread_block_offset;
-
-			free(std::bit_cast<void*>(buf_loc));
+			cleanup_thread();
 
 			exit_thread(0);
 		},
