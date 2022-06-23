@@ -284,6 +284,16 @@ shell = executable(
 	link_with: [clib, terminal, kbrd, cpp_runtime]
 )
 
+edit = executable(
+	'edit.elf', 
+	crti, ['api/crt0.c', 'apps/edit.cpp'], crtn,
+	include_directories: clib_include + ['api/'],
+	c_args: c_args + ['-flto'],
+	cpp_args: cpp_args + ['-flto'],
+	link_args: ['-s', '-Wl,--image-base=0x8000000'] + common_linker_flags,
+	link_with: [clib, terminal, kbrd, cpp_runtime]
+)
+
 primes = executable(
 	'primes.elf', 
 	crti, ['api/crt0.c', 'apps/primes.cpp'], crtn,
@@ -363,6 +373,7 @@ iso_contents = [
 	[primes.name(), primes],
 	[threads.name(), threads],
 	[bkgrndtest.name(), bkgrndtest],
+	[edit.name(), edit],
 	['drivers/' + fs.name(driver_map.get('fat').full_path()), driver_map.get('fat')],
 	['drivers/' + fs.name(driver_map.get('floppy').full_path()), driver_map.get('floppy')],
 	['drivers/' + fs.name(driver_map.get('isa_dma').full_path()), driver_map.get('isa_dma')],
