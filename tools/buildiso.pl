@@ -55,12 +55,12 @@ mkpath("$output_path/boot");
 copy("$toolsdir/limine/LICENSE.md", "$output_path/boot/LICENSE.md");
 copy("$toolsdir/limine/limine.sys", "$output_path/boot/limine.sys");
 copy("$toolsdir/limine/limine-cd.bin", "$output_path/boot/limine-cd.bin");
-copy("$toolsdir/limine/limine-eltorito-efi.bin", "$output_path/boot/limine-eltorito-efi.bin");
+copy("$toolsdir/limine/limine-cd-efi.bin", "$output_path/boot/limine-cd-efi.bin");
 
 if ($^O eq "linux") {
-	system("xorriso -as mkisofs -b boot/limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot boot/limine-eltorito-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label \"$output_path\" -o $imgfile");
+	system("xorriso -as mkisofs -b boot/limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot boot/limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label \"$output_path\" -o $imgfile");
 } else {
-	system("$toolsdir/xorriso/xorriso -as mkisofs -b boot/limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot boot/limine-eltorito-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label \"$output_path\" -o $imgfile");
+	system("$toolsdir/xorriso/xorriso -as mkisofs -b boot/limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot boot/limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label \"$output_path\" -o $imgfile");
 }
 
-system("tools/limine-install \"$imgfile\"");
+system("tools/limine-deploy \"$imgfile\"");
