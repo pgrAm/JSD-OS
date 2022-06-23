@@ -201,11 +201,13 @@ static void set_mouse_color(uint8_t color)
 	buf[coord] = (uint8_t)(buf[coord] & 0x0Fu) | (uint8_t)(color << 4);
 }
 
+
 static int get_command()
 {
-	std::string command_buffer;
+	std::string input;
 
 	size_t history_index = command_history.size();
+	size_t char_index	 = 0;
 
 	while(true)
 	{
@@ -233,11 +235,29 @@ static int get_command()
 				}
 				else if(e.type == KEY_DOWN)
 				{
-					if(e.data == VK_UP || e.data == VK_DOWN)
+					if(e.data == VK_RIGHT) 
+					{
+						if(char_index < input.size())
+						{
+							char_index++;
+							s_term.set_cursor_pos(s_term.cursor_pos() + 1);
+						}
+					}
+					else if(e.data == VK_LEFT)
+					{
+						if(char_index > 0)
+						{
+							char_index--;
+							s_term.set_cursor_pos(s_term.cursor_pos() - 1);
+						}
+					}
+					else if(e.data == VK_UP || e.data == VK_DOWN)
 					{
 						if(!command_history.empty())
 						{
-							s_term.delete_chars(command_buffer.size());
+							s_term.set_cursor_pos(s_term.cursor_pos() +
+												  input.size() - char_index);
+							s_term.delete_chars(input.size());
 
 							if(e.data == VK_UP)
 							{
@@ -250,9 +270,10 @@ static int get_command()
 									++history_index;
 							}
 
-							command_buffer = command_history[history_index];
+							input = command_history[history_index];
 
-							s_term.print(command_buffer);
+							s_term.print(input);
+							char_index = input.size();
 						}
 					}
 					else
@@ -261,10 +282,18 @@ static int get_command()
 
 						if(in_char == '\b')
 						{
-							if(!command_buffer.empty())
+							if(char_index > 0)
 							{
-								command_buffer.pop_back();
+								--char_index;
+								input.erase(input.begin() + char_index);
+								auto cursor = s_term.cursor_pos();
+								s_term.set_cursor_pos(cursor + input.size() -
+													  char_index);
 								s_term.delete_chars(1);
+								s_term.set_cursor_pos(--cursor);
+								s_term.print(
+									std::string_view{input}.substr(char_index));
+								s_term.set_cursor_pos(cursor);
 							}
 						}
 						else if(in_char == '\n')
@@ -275,7 +304,12 @@ static int get_command()
 						else if(in_char != '\0')
 						{
 							putchar(in_char);
-							command_buffer += in_char;
+							input.insert(input.begin() + char_index, in_char);
+							char_index++;
+							auto cursor = s_term.cursor_pos();
+							s_term.print(
+								std::string_view{input}.substr(char_index));
+							s_term.set_cursor_pos(cursor);
 						}
 					}
 				}
@@ -283,7 +317,7 @@ static int get_command()
 		}
 	}
 
-	command_history.emplace_back(std::move(command_buffer));
+	command_history.emplace_back(std::move(input));
 
 	return execute_line(command_history.back());
 }
