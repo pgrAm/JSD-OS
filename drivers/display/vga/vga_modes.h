@@ -283,7 +283,6 @@ struct vga_mode
 {
 	size_t char_height;
 	const uint8_t* regs;
-	display_mode mode;
 };
 
 #define NUM_GRAPHICS_MODES 13

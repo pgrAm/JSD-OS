@@ -33,7 +33,7 @@ static dynamic_object::sym_map driver_lib_set{32};
 static dynamic_object::sym_map driver_symbol_map{32};
 static dynamic_object::sym_map driver_glob_data_symbol_map{};
 
-extern "C" SYSCALL_HANDLER int load_driver(directory_stream* cwd,
+extern "C" SYSCALL_HANDLER int load_driver(directory_stream* ,
 											const file_handle* file)
 {
 	if(!this_task_is_active())
@@ -41,7 +41,6 @@ extern "C" SYSCALL_HANDLER int load_driver(directory_stream* cwd,
 		return -1;
 	}
 
-	assert(cwd);
 	assert(file);
 
 	std::string_view filename{file->name};
@@ -52,9 +51,6 @@ extern "C" SYSCALL_HANDLER int load_driver(directory_stream* cwd,
 	else
 		slash++;
 
-	auto lib_path = slash != std::string_view::npos ? filename.substr(0, slash)
-													: std::string_view{};
-
 	auto dot			  = filename.find_first_of('.');
 	std::string init_func = std::string{filename.substr(slash, dot - slash)};
 	init_func += "_init"sv;
@@ -63,7 +59,8 @@ extern "C" SYSCALL_HANDLER int load_driver(directory_stream* cwd,
 	for(auto& c : init_func)
 		c = (char)tolower(c);
 
-	fs::dir_stream lib_dir{cwd, lib_path, 0};
+	fs::dir_stream lib_dir{nullptr, *file->dir_path, 0};
+	assert(lib_dir);
 
 	dynamic_object ob{
 		&driver_lib_set,
@@ -71,12 +68,12 @@ extern "C" SYSCALL_HANDLER int load_driver(directory_stream* cwd,
 		&driver_glob_data_symbol_map,
 	};
 
-	if(load_elf(file, &ob, false, lib_dir ? lib_dir.get_ptr() : cwd))
+	if(load_elf(file, &ob, false, lib_dir.get_ptr()))
 	{
 		uint32_t func_address;
 		if(ob.symbol_map->lookup(init_func, &func_address))
 		{
-			((driver_init_func)func_address)(cwd);
+			((driver_init_func)func_address)(lib_dir.get_ptr());
 		}
 		else
 		{
@@ -129,6 +126,8 @@ static constexpr std::array func_list
 	func_info{"filesystem_close_file"sv,		(void*)&filesystem_close_file},
 	func_info{"filesystem_read_file"sv,			(void*)&filesystem_read_file},
 	func_info{"filesystem_write_file"sv,		(void*)&filesystem_write_file},
+	func_info{"filesystem_open_directory"sv,	(void*)&filesystem_open_directory},
+	func_info{"filesystem_close_directory"sv,	(void*)&filesystem_close_directory},
 	func_info{"irq_install_handler"sv,			(void*)&irq_install_handler},
 	func_info{"sysclock_sleep"sv,				(void*)&sysclock_sleep},
 	func_info{"sysclock_get_ticks"sv,			(void*)&sysclock_get_ticks},
@@ -152,10 +151,9 @@ static constexpr std::array func_list
 	func_info{"switch_to_active_task"sv,		(void*)&switch_to_active_task},
 	func_info{"run_background_tasks"sv,			(void*)&run_background_tasks},
 #ifndef NDEBUG
-	func_info{"__kassert_fail"sv,				(void*)&__kassert_fail},
+	func_info{"__assert_fail"sv,				(void*)&__assert_fail},
 #endif
 	func_info{"clock"sv, (void*)&clock},
-
 };
 
 extern "C" void load_drivers()

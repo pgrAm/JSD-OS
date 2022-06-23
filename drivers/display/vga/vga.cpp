@@ -16,13 +16,14 @@ To do:
 #include <stdio.h>
 
 #include <kernel/filesystem.h>
+#include <kernel/filesystem/fs_driver.h>
 #include <kernel/memorymanager.h>
 #include <kernel/display.h>
 #include <kernel/kassert.h>
 
 #include <drivers/portio.h>
 
-directory_stream* parent_dir = nullptr;
+std::string* parent_dir;
 
 #define	VGA_AC_INDEX		0x3C0
 #define	VGA_AC_WRITE		0x3C0
@@ -55,8 +56,6 @@ directory_stream* parent_dir = nullptr;
 #define VRETRACE			0x08
 
 #include "vga_modes.h"
-
-static const vga_mode* current_mode = nullptr;
 
 static uint8_t* vga_memory = nullptr;
 
@@ -202,28 +201,26 @@ static void write_font(const uint8_t* buf, unsigned font_height)
 
 static uint8_t* loadpsf(std::string_view file)
 {
-	typedef struct {
-		uint16_t magic;		// Magic number
-		uint8_t mode;		// PSF font mode
-		uint8_t charsize;	// Character size
+	typedef struct
+	{
+		uint16_t magic;	  // Magic number
+		uint8_t mode;	  // PSF font mode
+		uint8_t charsize; // Character size
 	} __attribute__((packed)) PSF_font;
 
-	fs::stream f{parent_dir, file, 0};
-
-	if (!f) return nullptr;
+	fs::dir_stream dir{nullptr, *parent_dir, 0};
+	fs::stream f{dir.get_ptr(), file, 0};
+	if(!f) return nullptr;
 
 	PSF_font font;
 	auto offset = f.read(0, &font, sizeof(PSF_font));
 
-	size_t size = 256 * font.charsize;
-	
-	uint8_t* buffer = nullptr;
+	if(font.magic != PSF_MAGIC) return nullptr;
 
-	if (font.magic == PSF_MAGIC)
-	{
-		buffer = (uint8_t*)malloc(size);
-		f.read(offset, buffer, size);
-	}
+	size_t size = 256 * font.charsize;
+
+	uint8_t* buffer = (uint8_t*)malloc(size);
+	f.read(offset, buffer, size);
 
 	return buffer;
 }
@@ -231,31 +228,32 @@ static uint8_t* loadpsf(std::string_view file)
 static uint8_t* font16 = nullptr;
 static uint8_t* font08 = nullptr;
 
-static bool vga_do_mode_switch(const vga_mode* m)
+static bool vga_set_mode(size_t index)
 {
-	write_regs(m->regs);
+	auto& m = mode_data[index];
 
-	if (m->mode.flags & DISPLAY_TEXT_MODE)
+	write_regs(m.regs);
+
+	if(available_modes[index].flags & DISPLAY_TEXT_MODE)
 	{
-		if (m->char_height == 16 && font16 == nullptr)
+		if (m.char_height == 16 && font16 == nullptr)
 		{
 			font16 = loadpsf("font16.psf");
 		}
-		if (m->char_height == 8 && font08 == nullptr)
+		if (m.char_height == 8 && font08 == nullptr)
 		{
 			font08 = loadpsf("font08.psf");
 		}
-		uint8_t* f = m->char_height == 16 ? font16 : font08;
+		uint8_t* f = m.char_height == 16 ? font16 : font08;
 		if (f)
 		{
-			write_font(f, m->char_height);
+			write_font(f, m.char_height);
 		}
 	}
 
-	current_mode = m;
-
 	return true;
 }
+
 
 static void vga_set_cursor_visibility(bool on)
 {
@@ -284,11 +282,6 @@ static void vga_set_cursor_offset(size_t offset)
 	// cursor HIGH port to vga INDEX register
 	outb(VGA_CRTC_INDEX, 0x0E);
 	outb(VGA_CRTC_DATA, (uint8_t)((offset >> 8) & 0xFF));
-}
-
-static bool vga_set_mode(size_t index)
-{
-	return vga_do_mode_switch(&mode_data[index]);
 }
 
 static void vga_set_display_offset(size_t offset, bool on_retrace)
@@ -320,7 +313,7 @@ static display_driver vga_driver =
 
 extern "C" void vga_init(directory_stream* cwd)
 {
-	parent_dir = cwd;
+	parent_dir = new std::string{*cwd->full_path};
 
 	uintptr_t begin = 0xA0000;
 	uintptr_t memory_size = 256 * 1024; //256k
