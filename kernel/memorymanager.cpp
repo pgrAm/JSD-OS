@@ -152,7 +152,7 @@ static uintptr_t memmanager_get_unmapped_pages(const size_t num_pages, page_flag
 		}
 	}
 
-	printf("couldn't find page\n");
+	printf("couldn't find page, num_pages = %d, flags = %X\n", num_pages, flags);
 	k_assert(false);
 
 	return (uintptr_t)nullptr;
