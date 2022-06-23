@@ -528,9 +528,10 @@ static void fat_do_read_dir(directory_stream* dest,
 
 			using sv_type = std::basic_string_view<uint16_t>;
 
-			std::string lfn_buf = utf8_encode(utf16_decode(sv_type{&e.chars0[0], 5}));
-			lfn_buf += utf8_encode(utf16_decode(sv_type{&e.chars1[0], 6}));
-			lfn_buf += utf8_encode(utf16_decode(sv_type{&e.chars2[0], 2}));
+			std::string lfn_buf;
+			utf16_to_utf8(std::back_inserter(lfn_buf), sv_type{&e.chars0[0], 5});
+			utf16_to_utf8(std::back_inserter(lfn_buf), sv_type{&e.chars1[0], 6});
+			utf16_to_utf8(std::back_inserter(lfn_buf), sv_type{&e.chars2[0], 2});
 
 			lfn = std::move(lfn_buf.append(lfn));
 
@@ -1047,7 +1048,7 @@ static file_size_t fat_write_lfn_entries(fat_directory_entry entry,
 	auto checksum =
 		fat_lfn_checksum(std::bit_cast<std::array<char, 11>>(entry.name));
 
-	auto lfn = utf16_encode<uint16_t>(utf8_decode(long_name)) + '\0';
+	auto lfn = utf8_to_utf16<uint16_t>(long_name) + '\0';
 	auto num_entries = (lfn.size() + (fat_lfn_entry::num_chars - 1)) /
 					   fat_lfn_entry::num_chars;
 
