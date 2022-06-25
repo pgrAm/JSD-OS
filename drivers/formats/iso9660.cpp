@@ -233,20 +233,29 @@ iso9660_read_dir_entry(intrusive_ptr<std::string> parent_dir,
 
 #define ISO_DEFAULT_SECTOR_SIZE 0x800
 
-static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* fd)
+static fs_index iso9660_read_chunks(uint8_t* dest, fs_index location,
+									file_size_t offset, size_t num_bytes,
+									const file_data_block* file,
+									const filesystem_virtual_drive* fd)
 {
+
 	iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
-	filesystem_read(fd, location << f->blocks_per_sector_log2, offset, dest, num_bytes);
+	const size_t f_offset = static_cast<size_t>(offset);
 
-	return location + ((offset + num_bytes) >> f->sector_size_log2);
+	filesystem_read(fd, location << f->blocks_per_sector_log2, f_offset, dest,
+					num_bytes);
+
+	return location + ((f_offset + num_bytes) >> f->sector_size_log2);
 }
 
 static void iso9660_read_dir(directory_stream* dest, const file_data_block* file, const filesystem_virtual_drive* fd)
 {
 	const iso9660_drive* f = (iso9660_drive*)fd->fs_impl_data;
 
-	const size_t num_sectors = (file->size + (f->sector_size - 1)) >> f->sector_size_log2;
+	const size_t dir_size = static_cast<size_t>(file->size);
+	const size_t num_sectors =
+		(dir_size + (f->sector_size - 1)) >> f->sector_size_log2;
 	const size_t buffer_size = num_sectors << f->sector_size_log2;
 
 	auto dir_data = std::make_unique<uint8_t[]>(buffer_size);
@@ -255,7 +264,7 @@ static void iso9660_read_dir(directory_stream* dest, const file_data_block* file
 
 	const uint8_t* dir_ptr = &dir_data[0];
 
-	while((size_t)(dir_ptr - &dir_data[0]) < file->size)
+	while((size_t)(dir_ptr - &dir_data[0]) < dir_size)
 	{
 		if(auto* entry = (const iso9660_directory_entry*)dir_ptr;
 		   entry->length == 0)

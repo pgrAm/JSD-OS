@@ -339,7 +339,7 @@ static mount_status ext2_mount_disk(filesystem_virtual_drive* d)
 	return MOUNT_SUCCESS;
 }
 
-static size_t ext2_read(uint8_t* buf, size_t start_cluster, size_t offset,
+static size_t ext2_read(uint8_t* buf, size_t start_cluster, file_size_t offset,
 						size_t size, const file_data_block* file,
 						const filesystem_virtual_drive* d)
 {
@@ -379,7 +379,7 @@ static size_t ext2_read(uint8_t* buf, size_t start_cluster, size_t offset,
 }
 
 static size_t ext2_write(const uint8_t* buf, size_t start_cluster,
-						 size_t offset, size_t size,
+						 file_size_t offset, size_t size,
 						 const file_data_block* file,
 						 const filesystem_virtual_drive* d)
 {

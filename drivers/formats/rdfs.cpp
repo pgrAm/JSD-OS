@@ -29,10 +29,13 @@ static mount_status rdfs_mount_disk(filesystem_virtual_drive* fd)
 	return UNKNOWN_FILESYSTEM;
 }
 
-static fs_index rdfs_read(uint8_t* dest, fs_index location, size_t offset, size_t num_bytes, const file_data_block* file, const filesystem_virtual_drive* fd)
+static fs_index rdfs_read(uint8_t* dest, fs_index location, file_size_t offset,
+						  size_t num_bytes, const file_data_block* file,
+						  const filesystem_virtual_drive* fd)
 {
-	filesystem_read(fd, location, offset, dest, num_bytes);
-	return location + offset + num_bytes;
+	const size_t f_offset = static_cast<size_t>(offset);
+	filesystem_read(fd, location, f_offset, dest, num_bytes);
+	return location + f_offset + num_bytes;
 }
 
 typedef struct

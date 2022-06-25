@@ -36,13 +36,15 @@ inline fs_chunks filesystem_chunkify_npow(size_t offset, size_t length, size_t c
 	return {first_chunk, start_offset, start_size, num_chunks, end_size};
 }
 
-inline fs_chunks filesystem_chunkify(size_t offset, size_t length, size_t chunk_size_mask, size_t chunk_size_log2)
+inline fs_chunks filesystem_chunkify(file_size_t offset, size_t length,
+									 size_t chunk_size_mask,
+									 size_t chunk_size_log2)
 {
-	size_t first_chunk = offset >> chunk_size_log2;
-	size_t start_offset = offset & chunk_size_mask;
+	size_t first_chunk	= static_cast<size_t>(offset >> chunk_size_log2);
+	size_t start_offset = static_cast<size_t>(offset) & chunk_size_mask;
 
-	size_t last_chunk = (offset + length) >> chunk_size_log2;
-	size_t end_size = (offset + length) & chunk_size_mask;
+	size_t last_chunk = static_cast<size_t>((offset + length) >> chunk_size_log2);
+	size_t end_size	  = static_cast<size_t>(offset + length) & chunk_size_mask;
 
 	if(first_chunk == last_chunk)
 	{

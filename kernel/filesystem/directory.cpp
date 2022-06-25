@@ -181,7 +181,9 @@ std::optional<file_handle> find_file_by_path(directory_stream* d,
 	}
 
 	if(!d)
+	{
 		return std::nullopt;
+	}
 	else
 		return do_find_file_by_path(d, path, mode, flags);
 }

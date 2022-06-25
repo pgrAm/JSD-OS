@@ -696,14 +696,20 @@ static mount_status fat_mount_disk(filesystem_virtual_drive* d)
 	return MOUNT_SUCCESS;
 }
 
-static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset, size_t size, const file_data_block* file, const filesystem_virtual_drive* d)
+static size_t fat_write(const uint8_t* buf, size_t start_cluster,
+						file_size_t offset, size_t size,
+						const file_data_block* file,
+						const filesystem_virtual_drive* d)
 {
 	fat_drive* f = (fat_drive*)d->fs_impl_data;
 
 	if((f->type == FAT_12 || f->type == FAT_16) && (file->flags & FAT_ROOT_DIR_FLAG))
 	{
-		filesystem_write(d, f->root_location + start_cluster, offset, buf, size);
-		return offset & (f->bytes_per_sector - 1);
+		auto f_offset = static_cast<size_t>(offset);
+
+		filesystem_write(d, f->root_location + start_cluster, f_offset, buf,
+						 size);
+		return f_offset & (f->bytes_per_sector - 1);
 	}
 
 	if(start_cluster >= f->eof_value)
@@ -742,7 +748,9 @@ static size_t fat_write(const uint8_t* buf, size_t start_cluster, size_t offset,
 	return cluster;
 }
 
-static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t size, const file_data_block* file, const filesystem_virtual_drive* d)
+static size_t fat_read(uint8_t* buf, size_t start_cluster, file_size_t offset,
+					   size_t size, const file_data_block* file,
+					   const filesystem_virtual_drive* d)
 {
 	fat_drive* f = (fat_drive*)d->fs_impl_data;
 
@@ -751,10 +759,13 @@ static size_t fat_read(uint8_t* buf, size_t start_cluster, size_t offset, size_t
 		return start_cluster;
 	}
 
-	if((f->type == FAT_12 || f->type == FAT_16) && (file->flags & FAT_ROOT_DIR_FLAG))
+	if((f->type == FAT_12 || f->type == FAT_16) &&
+	   (file->flags & FAT_ROOT_DIR_FLAG))
 	{
-		filesystem_read(d, f->root_location + start_cluster, offset, buf, size);
-		return offset & (f->bytes_per_sector - 1);
+		auto f_offset = static_cast<size_t>(offset);
+		filesystem_read(d, f->root_location + start_cluster, f_offset, buf,
+						size);
+		return f_offset & (f->bytes_per_sector - 1);
 	}
 
 	auto chunks = filesystem_chunkify(offset, size, f->cluster_size - 1, f->cluster_size_log2);
@@ -1017,7 +1028,7 @@ static void fat_update_file(const file_data_block* file, const filesystem_virtua
 			auto curr_time = time(nullptr);
 			auto mod = time_t_time_to_fat_time(*gmtime(&curr_time));
 
-			entry.file_size = file->size;
+			entry.file_size = static_cast<uint32_t>(file->size);
 			entry.modified_date = mod.date;
 			entry.modified_time = mod.time;
 
