@@ -438,13 +438,13 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 			new dynamic_object::sym_map()
 		));
 
-	assert(file->dir_path);
+	assert(!!file->dir_path);
 	fs::dir_stream cwd{nullptr, *file->dir_path, 0};
 
 	if(!load_elf(file, new_process->objects[0].get(), true, cwd.get_ptr()))
 	{
 		delete new_process;
-		set_page_directory((uintptr_t*)oldcr3);
+		set_page_directory(oldcr3);
 		memmanager_destroy_memory_space(address_space);
 		return INVALID_TASK_ID;
 	}
@@ -464,7 +464,7 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 
 	new_process->pid = new_pid;
 
-	set_page_directory((uintptr_t*)oldcr3);
+	set_page_directory(oldcr3);
 
 	if(flags & WAIT_FOR_PROCESS)
 	{

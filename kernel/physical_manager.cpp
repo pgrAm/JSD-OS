@@ -287,6 +287,9 @@ void physical_memory_init(void)
 	memory_map.emplace_back(0x500u, (boot_information.low_memory * 1024) - 0x500);
 	memory_map.emplace_back(0x00100000u, boot_information.high_memory * 1024);
 
+	//for whenever we need a free low memory area
+	physical_memory_reserve(0x7c00, 0x200);
+
 	//reserve kernel
 	physical_memory_reserve(boot_information.kernel_location, boot_information.kernel_size);
 

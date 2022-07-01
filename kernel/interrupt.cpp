@@ -298,6 +298,8 @@ extern "C" void fault_handler(interrupt_info * r)
 			return; //page fault handled, we can resume execution
 		}
 
+		__asm__ volatile("cli;hlt");
+
 		display_mode requested = {
 			80, 25,
 			0,0,0,
@@ -363,8 +365,6 @@ extern "C" void fault_handler(interrupt_info * r)
 			print_string("The kernel has crashed, we're boned so just restart\n");
 			__asm__ volatile ("cli;hlt");
 		}
-
-		__asm__ volatile("cli;hlt");
 
 		exit_process(-1);
 	}

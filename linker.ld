@@ -1,8 +1,8 @@
 ENTRY(start)
-phys = 0xF000;
+phys = 0xFF800000;
 SECTIONS
 {
-  . = 0xF000;
+  . = 0xFF800000;
   .text phys : AT(phys) {
     code = .;
     *(.text)

@@ -4,11 +4,12 @@
 [extern boot_remap_addresses]
 [extern _BSS_END_]
 [extern _IMAGE_END_]
+[extern _DATA_END_]
 [extern init_stack]
 
 global load_TSS
 global _boot_eax
-global _boot_edx
+global _boot_ebx
 global _kernel_location
 global gdt_location
 global gdt_tss_location
@@ -20,7 +21,8 @@ global gdt_descriptor_location
 global _KERNEL_START_
 _KERNEL_START_:
 	cli
-	pushad
+	push eax
+	push ebx
 	call get_ip
 get_ip:
 	pop		ebx
@@ -35,44 +37,57 @@ get_ip:
 	add		ebx, (boot_remap_addresses - _KERNEL_START_)
 	call	ebx
 
-	add		esp, 8
-	pop		ebx
-
 	; set cr3 to value returned by boot_remap_addresses
 	mov		cr3, eax 
 
-	push	ebx
+	add		esp, 8
+	pop		ebx
 
-	; copy trampoline code into the stack
-	mov edx, trampoline_end - trampoline_begin
-	mov ecx, edx
-	sub esp, ecx
-	mov edi, esp
-	mov esi, ebx
-	add esi, (trampoline_begin - _KERNEL_START_)
-	rep movsb
+	pop		eax ;contains boot ebx
+	mov		dword [ebx + (_boot_ebx - _KERNEL_START_)], eax
+	pop		eax
+	mov		dword [ebx + (_boot_eax - _KERNEL_START_)], eax
+	mov		dword [ebx + (_kernel_location - _KERNEL_START_)], ebx
+
+	mov ebp, init_stack + 0x1000
+	mov esp, ebp
+
+	mov eax, pf_handler
+	mov [ebx + (pf_handler_lo_addr - _KERNEL_START_)], ax
+	shr eax, 0x10
+	mov [ebx + (pf_handler_hi_addr - _KERNEL_START_)], ax
+
+	;mov ax, cs
+	;mov [ebx + (pf_handler_seg - _KERNEL_START_)], ax
+
+	lgdt [ebx + (gdt_descriptor - _KERNEL_START_)]
+	
+	lidt [ebx + (idtr - _KERNEL_START_)]
 
 	; set up out paging values
 	mov eax, cr0
 	or  eax, 0x80000001 
+	mov cr0, eax			; enable paging, the next instruction will page fault
+	ud2
 
-	; jump into the trampoline, where we can safely change address spaces
-	jmp esp
-
-trampoline_begin:
-	mov cr0, eax			; enable paging
-	mov eax, begin_in_VM	; jump back to our code
-	jmp eax					; which is now in virtual address space
-trampoline_end:
+pf_handler:
+	mov ax, GDT_DATA_SEG
+	mov ds, ax
+	mov ss, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+	mov byte [pf_handler_flags], 0
+	mov dword [esp+4], GDT_CODE_SEG
+	mov dword [esp], begin_in_VM
+	iret
 
 begin_in_VM:
-	add esp, edx ; clean up trampoline off stack
+	mov ebp, init_stack + 0x1000
+	mov esp, ebp
 
-	pop		ebx
-	mov		[_kernel_location], ebx
-	popad
-start:
-	jmp header_end
+	call kernel_main	; invoke main () in our C kernel
+	jmp $ 				; Hang forever when we return from the kernel
 	
 header_start:
 	align 8
@@ -114,38 +129,21 @@ multiboot2_header_end:
 	align 4
 multiboot1_header:
     dd 0x1BADB002
-	dd 0x00010006			; bit 16 & 2 & 1 set
+	dd 0x00010006										; bit 16 & 2 & 1 set
 	dd -(0x1BADB002 + 0x00010006)
 	dd 0x200000 + (multiboot1_header - _KERNEL_START_)	; header_address
 	dd 0x200000 ;start				; load_address
-	dd 0x200000 + (_IMAGE_END_ - _KERNEL_START_)			; load_end_address
-	dd 0x200000 + (_IMAGE_END_ - _KERNEL_START_)			; bss_end_address
-	dd 0x200000 ;start				; entry_address
+	dd 0x200000 + (_DATA_END_ - _KERNEL_START_)			; load_end_address
+	dd 0x200000 + (_IMAGE_END_ - _KERNEL_START_)		; bss_end_address
+	dd 0x200000 ;start									; entry_address
 	dd 1 ; text mode
 	dd 80
 	dd 25
 	dd 0
 multiboot1_header_end:
 header_end:
-	cli
-	mov ebp, init_stack + 0x1000
-	mov esp, ebp
-
-	mov dword [_boot_edx], ebx
-	mov dword [_boot_eax], eax
 
 	;call adjust_gdt
-
-	; set gdt
-	lgdt [gdt_descriptor]
-	jmp GDT_CODE_SEG : set_regs
-set_regs:
-	mov ax, GDT_DATA_SEG
-	mov ds, ax
-	mov ss, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
 
 	;pushad
 	;mov edi, 0x112345 ;odd megabyte address.
@@ -155,53 +153,50 @@ set_regs:
 	;cmpsd             ;compare addresses to see if the're equivalent.
 	;popad
 	;jne A20_on
-	call deal_with_a20
-	A20_on:
-
-	call kernel_main	; invoke main () in our C kernel
-	jmp $ 				; Hang forever when we return from the kernel
+	;call deal_with_a20
+	;A20_on:
 
 _boot_eax dd 0
-_boot_edx dd 0
+_boot_ebx dd 0
 _kernel_location dd 0
 
-deal_with_a20:
-	mov		dx, 0x64
-    call    a20wait
-
-    mov     al, 0xAD
-    call    sendkbd_cmd
-
-    mov     al, 0xD0
-	out     dx, al
-a20wait2:
-    in      al, dx
-    test    al, 1
-    jz      a20wait2
-
-    in      al, 0x60
-    push    eax
-    call    a20wait
-
-    mov     al, 0xD1
-    call    sendkbd_cmd
-
-    pop     eax
-    or      al, 2
-    out     0x60, al
-    call    a20wait
-
-    mov     al, 0xAE
-    call    sendkbd_cmd
-    ret
-
-sendkbd_cmd:
-	out     dx, al
-a20wait:
-    in      al, dx
-    test    al, 2
-    jnz     a20wait
-    ret
+;deal_with_a20:
+;	mov		dx, 0x64
+;    call    a20wait
+;
+;    mov     al, 0xAD
+;    call    sendkbd_cmd
+;
+;    mov     al, 0xD0
+;	out     dx, al
+;a20wait2:
+;    in      al, dx
+;    test    al, 1
+;    jz      a20wait2
+;
+;    in      al, 0x60
+;    push    eax
+;    call    a20wait
+;
+;    mov     al, 0xD1
+;    call    sendkbd_cmd
+;
+;    pop     eax
+;    or      al, 2
+;    out     0x60, al
+;    call    a20wait
+;
+;    mov     al, 0xAE
+;    call    sendkbd_cmd
+;    ret
+;
+;sendkbd_cmd:
+;	out     dx, al
+;a20wait:
+;    in      al, dx
+;    test    al, 2
+;    jnz     a20wait
+;    ret
 
 load_TSS:
 	mov ax, [esp + 4]
@@ -368,4 +363,22 @@ load_new_task:
     pop ebx
 	popfd
     ret
-	
+
+temp_idt:	
+
+times 14 dq 0
+
+pf_handler_lo_addr:
+	dw 0
+pf_handler_seg:
+	dw GDT_CODE_SEG
+	db 0
+pf_handler_flags:
+	db 0x8e
+pf_handler_hi_addr:
+	dw 0
+temp_idt_end:
+
+idtr:
+	dw (temp_idt_end - temp_idt) - 1
+	dd temp_idt

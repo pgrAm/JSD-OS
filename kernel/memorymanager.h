@@ -31,10 +31,28 @@ bool memmanager_destroy_memory_space(uintptr_t memspace);
 
 bool memmanager_handle_page_fault(page_flags_t err, uintptr_t page);
 
-extern void set_page_directory(uintptr_t* address);
-extern void enable_paging(void);
-extern void disable_paging(void);
-extern void* get_page_directory(void);
+inline void set_page_directory(uintptr_t address)
+{
+	__asm__ __volatile__("mov %0, %%cr3\n" : : "a"(address));
+}
+
+inline void enable_paging(void)
+{
+	__asm__ __volatile__(
+		"mov %%cr0, %%eax\n"
+		"or $0x80000001, %%eax\n"
+		"mov %%eax, %%cr0\n"
+		:
+		:
+		:);
+}
+
+inline void* get_page_directory()
+{
+	uint32_t cr3val;
+	__asm__ __volatile__("mov %%cr3, %%eax\n" : "=a"(cr3val) : :);
+	return (void*)cr3val;
+}
 
 #ifdef __cplusplus
 enum page_flags : uintptr_t

@@ -27,7 +27,7 @@ static inline void __flush_tlb_page(uintptr_t addr)
 
 //this mutex must be locked when accessing/modfying kernel address space mappings
 static constinit sync::mutex kernel_addr_mutex{};
-static uintptr_t* kernel_page_directory;
+static uintptr_t kernel_page_directory;
 
 extern "C" void memmanager_print_all_mappings_to_physical_DEBUG();
 
@@ -425,7 +425,7 @@ uintptr_t memmanager_new_memory_space()
 
 void memmanager_enter_memory_space(uintptr_t memspace)
 {
-	set_page_directory((uintptr_t*)memmanager_get_physical((uintptr_t)memspace));
+	set_page_directory(memmanager_get_physical((uintptr_t)memspace));
 }
 
 bool memmanager_destroy_memory_space(uintptr_t pdir)
@@ -525,18 +525,15 @@ extern "C" void memmanager_print_all_mappings_to_physical_DEBUG()
 extern uint8_t _IMAGE_END_;
 extern uint8_t _KERNEL_START_;
 
-static uintptr_t* allocate_low_page()
-{
-	return (uintptr_t*)
-		physical_memory_allocate_in_range(0, 0x100000, PAGE_SIZE, PAGE_SIZE);
-}
+extern "C" uintptr_t boot_mapper_map_mem(uintptr_t addr, size_t bytes);
+extern "C" void boot_mapper_remap_mem(uintptr_t virt, uintptr_t phys);
 
 void memmanager_init(void)
 {
-	kernel_page_directory = (uintptr_t*)allocate_low_page();
-	uintptr_t* first_page_table = (uintptr_t*)allocate_low_page();
+	kernel_page_directory	   = memmanager_allocate_physical_page();
+	uintptr_t first_page_table = memmanager_allocate_physical_page();
 
-	if(first_page_table == nullptr || kernel_page_directory == nullptr)
+	if(first_page_table == 0 || kernel_page_directory == 0)
 	{
 		//were completelty f'cked in this case
 		puts("There's not enough ram to run the OS :(");
@@ -548,14 +545,18 @@ void memmanager_init(void)
 		return;
 	}
 
-	memmanager_init_page_dir(kernel_page_directory, (uintptr_t)kernel_page_directory);
+	auto new_page_dir =
+		(uintptr_t*)boot_mapper_map_mem(kernel_page_directory, PAGE_SIZE);
+	auto new_page_tbl = (uintptr_t*)boot_mapper_map_mem(first_page_table, PAGE_SIZE);
 
-	memset(first_page_table, 0, PAGE_SIZE);
+	memmanager_init_page_dir(new_page_dir, (uintptr_t)kernel_page_directory);
 
-	first_page_table[0] = PAGE_RESERVED; //reserve page but don't map it
+	//memset(new_page_tbl, 0, PAGE_SIZE);
+
+	//new_page_tbl[0] = PAGE_RESERVED; //reserve page but don't map it
 
 	//Add the first pt to the page dir
-	kernel_page_directory[0] = ((uintptr_t)first_page_table) | PAGE_PRESENT | PAGE_RW;
+	//new_page_dir[0] = ((uintptr_t)first_page_table) | PAGE_PRESENT | PAGE_RW;
 
 	uintptr_t k_pg_start = (uintptr_t)&_KERNEL_START_ & PAGE_ADDRESS_MASK;
 	uintptr_t k_pg_end = (uintptr_t)&_IMAGE_END_;
@@ -563,18 +564,20 @@ void memmanager_init(void)
 
 	uintptr_t kernel_addr = boot_information.kernel_location & PAGE_ADDRESS_MASK;
 
-	uintptr_t* current_pt = first_page_table;
+	uintptr_t* current_pt	  = new_page_tbl;
+	uintptr_t current_pt_phys = first_page_table;
 
 	for(size_t i = 0; i < num_k_pages; i++)
 	{
-		uintptr_t* pd_entry = &kernel_page_directory[get_page_dir_index(k_pg_start)];
+		uintptr_t* pd_entry = &new_page_dir[get_page_dir_index(k_pg_start)];
 
 		if(*pd_entry == (uintptr_t)nullptr)
 		{
-			current_pt = (uintptr_t*)allocate_low_page();
+			current_pt_phys = memmanager_allocate_physical_page();
+			boot_mapper_remap_mem((uintptr_t)current_pt, current_pt_phys);
 			memset(current_pt, 0, PAGE_SIZE);
 
-			*pd_entry = (uintptr_t)current_pt | PAGE_PRESENT | PAGE_RW;
+			*pd_entry = current_pt_phys | PAGE_PRESENT | PAGE_RW;
 		}
 
 		size_t pt_index = get_page_tbl_index(k_pg_start);
@@ -589,4 +592,7 @@ void memmanager_init(void)
 	enable_paging();
 
 	printf("paging enabled\n");
+
+	//create an identity mapping here, sometimes this is neccesary
+	memmanager_map_page(0x7000, 0x7000, PAGE_PRESENT | PAGE_RW);
 }

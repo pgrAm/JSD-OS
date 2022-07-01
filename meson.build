@@ -11,7 +11,6 @@ asm_gen = generator(
 kernel_asm = asm_gen.process([
 	'kernel/kernel.asm',
 	'kernel/interrupt.asm',
-	'kernel/paging.asm',
 	'kernel/syscall.asm'
 ])
 
@@ -82,7 +81,7 @@ common_flags = [
 		'-O2',
 		'-fomit-frame-pointer',
 		'-nodefaultlibs',
-		'-Werror=return-type'
+		'-Werror=return-type',
 	]
 c_args = common_flags + [
 		'-std=c99',
@@ -126,7 +125,7 @@ kernal = executable(
 	include_directories: kernel_include,
 	c_args: c_args + kernel_flags + ['-flto'],
 	cpp_args: cpp_args + kernel_flags + ['-flto'],
-	link_args: ['-Tlinker.ld'] + common_linker_flags + ['-Wl,-N','-Wl,-z,notext', '-Wl,-Ttext=0xF000'],
+	link_args: ['-Tlinker.ld'] + common_linker_flags + ['-Wl,-N','-Wl,-z,notext', '-Wl,-Ttext=0xFF800000'],
 	link_depends: linker_script_deps, 
 	link_with: boot_mapper
 )
@@ -136,12 +135,12 @@ kernal_sys = custom_target(
 	output : 'kernal.sys',
 	input : kernal,
 	command : [
-		'objcopy', 
+		'llvm-objcopy', 
 		'-x', 
 		'-S', '-O', 'binary', 
 		'@INPUT@', '@OUTPUT@',
-		'--set-section-flags', '.bss=alloc,load,contents',
-		'--gap-fill', '0'
+		#'--set-section-flags', '.bss=alloc,load,contents',
+		#'--gap-fill', '0'
 	], 
 	build_by_default: true
 )
@@ -179,7 +178,7 @@ drivers = [
 		['iso9660', ['drivers/formats/iso9660.cpp'], []],
 		['i8042', ['drivers/i8042.cpp'], []],
 		['ps2mouse', ['drivers/ps2mouse.cpp'], []],
-		]
+]
 
 foreach d : drivers
 
