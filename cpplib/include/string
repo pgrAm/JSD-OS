@@ -38,6 +38,15 @@ public:
 		: basic_string(s, traits_type::length(s))
 	{}
 
+	/*constexpr basic_string(const basic_string& other, size_type pos)
+		: basic_string(other.data() + pos, other.size())
+	{}
+
+	constexpr basic_string(const basic_string& other, size_type pos,
+						   size_type count)
+		: basic_string(other.data() + pos, count)
+	{}*/
+
 	constexpr basic_string(const value_type* s, size_t len)
 	{
 		if(len > __min_cap)
@@ -194,7 +203,10 @@ public:
 
 	constexpr iterator end() noexcept
 	{
-		return begin() + size();
+		if(__is_long())
+			return __long_end();
+		else
+			return __short_end();
 	}
 
 	constexpr const_iterator begin() const noexcept
@@ -207,7 +219,10 @@ public:
 
 	constexpr const_iterator end() const noexcept
 	{
-		return cbegin() + size();
+		if(__is_long())
+			return __long_end();
+		else
+			return __short_end();
 	}
 
 	constexpr const_iterator cbegin() const noexcept
@@ -276,33 +291,57 @@ public:
 
 	constexpr void push_back(value_type c)
 	{
-		if(size() + 1 > capacity())
+		if(size() != capacity()) [[likely]]
 		{
-			__reallocate(capacity() * 2);
-		}
-		if(__is_long())
-		{
-			m_rep.l.data[m_rep.l.size++] = c;
-			m_rep.l.data[m_rep.l.size]	 = value_type();
+			if(__is_long())
+			{
+				auto end   = __long_end();
+				*end	   = c;
+				*(end + 1) = value_type();
+				++m_rep.l.size;
+			}
+			else
+			{
+				//we must decrement inv_sz before we null terminate
+				//because the termination could overwrite inv_sz
+				//which is fine if its 0
+				auto end   = __short_end();
+				--m_rep.s.inv_sz;
+
+				*end	   = c;
+				*(end + 1) = value_type();
+			}
 		}
 		else
 		{
-			m_rep.s.data[__get_short_size()] = c;
-			m_rep.s.inv_sz--;
-			m_rep.s.data[__get_short_size()] = value_type();
+			__push_back_and_reallocate(c);
 		}
 	}
 
 	constexpr basic_string& append(const value_type* str, size_type count)
 	{
 		const auto new_size = size() + count;
-		if(new_size > capacity())
+		if(new_size <= capacity())
 		{
-			__reallocate(new_size * 2);
+			if(__is_long()) [[likely]]
+			{
+				memcpy(__long_end(), str, count * sizeof(value_type));
+				m_rep.l.size		   = new_size;
+				m_rep.l.data[new_size] = value_type();
+				assert(__is_long());
+			}
+			else
+			{
+				memcpy(__short_end(), str, count * sizeof(value_type));
+				__set_short_size(new_size);
+				m_rep.s.data[new_size] = value_type();
+				assert(!__is_long());
+			}
 		}
-		assert(new_size <= capacity());
-		memcpy(end(), str, count * sizeof(value_type));
-		__terminate_at(new_size);
+		else
+		{
+			__append_and_reallocate(str, count);
+		}
 		return *this;
 	}
 
@@ -324,31 +363,25 @@ public:
 								   size_type count)
 	{
 		const auto new_size = size() + count;
-		if(new_size > capacity())
-		{
-			auto cap = new_size * 2;
-			auto buf = __duplicate_buffer(index, cap);
-			
-			memcpy(buf + index + count, begin() + index, size() - index);
-			
-			__replace_buffer(buf, cap);
-		}
-		else
+		if(new_size <= capacity()) [[likely]]
 		{
 			std::copy_backward(begin() + index, end(), end() + count);
-		}
+			memcpy(begin() + index, s, count);
 
-		memcpy(begin() + index, s, count);
-
-		if(__is_long())
-		{
-			m_rep.l.size = new_size;
-			assert(__is_long());
+			if(__is_long())
+			{
+				m_rep.l.size = new_size;
+				assert(__is_long());
+			}
+			else
+			{
+				__set_short_size(new_size);
+				assert(!__is_long());
+			}
 		}
 		else
 		{
-			__set_short_size(new_size);
-			assert(!__is_long());
+			__insert_and_reallocate(index, s, size(), count);
 		}
 
 		return *this;
@@ -544,6 +577,64 @@ public:
 
 private:
 
+	constexpr const_iterator __long_end() const
+	{
+		return m_rep.l.data + m_rep.l.size;
+	}
+
+	constexpr const_iterator __short_end() const
+	{
+		return &m_rep.s.data[0] + __get_short_size();
+	}
+
+	constexpr iterator __long_end()
+	{
+		return m_rep.l.data + m_rep.l.size;
+	}
+
+	constexpr iterator __short_end()
+	{
+		return &m_rep.s.data[0] + __get_short_size();
+	}
+
+	constexpr void __push_back_and_reallocate(CharT c)
+	{
+		auto old_size = size();
+		auto new_size = old_size + 1;
+		auto new_cap  = new_size * 2 + 1;
+		__replace_buffer(__duplicate_buffer(old_size, new_cap), new_cap,
+						 new_size);
+		m_rep.l.data[m_rep.l.size - 1] = c;
+		m_rep.l.data[m_rep.l.size]	   = value_type();
+	}
+
+	constexpr void __append_and_reallocate(const CharT* s, size_t count)
+	{
+		auto old_size = size();
+		auto new_size = old_size + count;
+		auto new_cap  = new_size * 2 + 1;
+		__replace_buffer(__duplicate_buffer(old_size, new_cap), new_cap,
+						 new_size);
+
+		memcpy(m_rep.l.data + old_size, s, count * sizeof(value_type));
+
+		m_rep.l.data[m_rep.l.size] = value_type();
+	}
+
+	constexpr void __insert_and_reallocate(size_t index, const CharT* s,
+										   size_type old_size, size_type count)
+	{
+		auto new_size = old_size + count;
+		auto cap	  = new_size * 2 + 1;
+		auto buf	  = __duplicate_buffer(index, cap);
+
+		memcpy(buf + index, s, count);
+		//the additional +1 is for the null terminator
+		memcpy(buf + index + count, begin() + index, (old_size - index) + 1);
+
+		__replace_buffer(buf, cap, new_size);
+	}
+
 	template<class Iterator>
 	constexpr size_t __find_first_of(Iterator begin, Iterator end,
 									 size_t pos) const
@@ -559,15 +650,17 @@ private:
 		return npos;
 	}
 
-	constexpr void __replace_buffer(value_type* new_buffer, size_t new_cap)
+	constexpr void __replace_buffer(value_type* new_buffer, size_t new_cap, size_t new_size)
 	{
 		if(__is_long())
 		{
 			delete[] m_rep.l.data;
 		}
 
+		assert(new_size <= new_cap);
+
 		m_rep.l.data = new_buffer;
-		m_rep.l.size = size();
+		m_rep.l.size = new_size;
 		__set_long_cap(new_cap);
 		assert(__is_long());
 	}
@@ -583,7 +676,8 @@ private:
 	{
 		const auto new_cap = n + 1;
 
-		__replace_buffer(__duplicate_buffer(size() + 1, new_cap), new_cap);
+		__replace_buffer(__duplicate_buffer(size() + 1, new_cap), new_cap,
+						 size());
 	}
 
 	constexpr void __copy_from_terminated_string(const value_type* str,

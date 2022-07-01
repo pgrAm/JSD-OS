@@ -49,12 +49,22 @@ public:
 		__deallocate(m_begin);
 	}
 
-	constexpr iterator begin()
+	constexpr iterator begin() noexcept
 	{
 		return m_begin;
 	}
 
-	constexpr iterator end()
+	constexpr iterator end() noexcept
+	{
+		return m_end;
+	}
+
+	constexpr const_iterator begin() const noexcept
+	{
+		return m_begin;
+	}
+
+	constexpr const_iterator end() const noexcept
 	{
 		return m_end;
 	}
@@ -171,7 +181,7 @@ public:
 		return *(m_end++);
 	}
 
-	constexpr bool empty()
+	constexpr bool empty() const
 	{
 		return size() == 0;
 	}
@@ -221,6 +231,17 @@ public:
 
 	constexpr iterator insert(const_iterator pos, const T& value)
 	{
+		return emplace(pos, value);
+	}
+
+	constexpr iterator insert(const_iterator pos, T&& value)
+	{
+		return emplace(pos, std::move(value));
+	}
+
+	template<class... Args>
+	constexpr iterator emplace(const_iterator pos, Args&&... args)
+	{
 		auto index = pos - begin();
 
 		if(m_end == m_max)
@@ -232,7 +253,7 @@ public:
 
 		if(it == end())
 		{
-			new(m_end) T{value};
+			new(m_end) T{std::forward<Args>(args)...};
 			return m_end++;
 		}
 		else
@@ -240,7 +261,7 @@ public:
 			new(m_end) T{std::move(back())};
 			std::move_backward(it, end() - 1, end());
 			++m_end;
-			*it = value;
+			*it = T{std::forward<Args>(args)...};
 		}
 
 		return it;

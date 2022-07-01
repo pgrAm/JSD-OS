@@ -90,6 +90,12 @@ public:
 		std::swap(m_size, v.m_size);
 	}
 
+	constexpr int compare(size_type pos, size_type count,
+						  const basic_string_view& str) const
+	{
+		return substr(pos, pos + count).compare(str);
+	}
+
 	constexpr int compare(const value_type* s) const
 	{
 		return compare(string_view(s));
@@ -130,6 +136,12 @@ public:
 	constexpr bool ends_with(value_type c) const noexcept
 	{
 		return !empty() && back() == c;
+	}
+
+	constexpr bool ends_with(basic_string_view sv) const noexcept
+	{
+		return size() >= sv.size() &&
+			   compare(size() - sv.size(), npos, sv) == 0;
 	}
 
 	constexpr size_type find_first_of( basic_string_view str, 

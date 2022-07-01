@@ -278,6 +278,27 @@ constexpr void sort(RandomIt first, RandomIt last, Compare cmp)
 {
 	__pvt::quick_sort(first, last, cmp);
 }
+
+template<typename InputIt, typename T>
+constexpr T accumulate(InputIt first, InputIt last, T init)
+{
+	for(; first != last; ++first)
+	{
+		init = std::move(init) + *first;
+	}
+	return init;
+}
+
+template<typename InputIt, typename T, typename BinaryOp>
+constexpr T accumulate(InputIt first, InputIt last, T init, BinaryOp op)
+{
+	for(; first != last; ++first)
+	{
+		init = op(std::move(init), *first);
+	}
+	return init;
+}
+
 }
 
 
