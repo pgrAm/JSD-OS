@@ -7,7 +7,7 @@ The actual meaning of the acronym is intentionally ambigous but might stand for 
 
 ## Getting in Touch
 
-Check out the official discord server: https://discord.gg/eBZxfESW
+Check out the official discord server: https://discord.gg/cvK7hhSBgJ
 
 ## Goals
 
