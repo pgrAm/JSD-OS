@@ -66,8 +66,14 @@ static void store_int(void* dest, unsigned int size, unsigned long long i)
 	}
 }
 
-template<typename H>
-static int do_scanf(H& handler, const char* fmt, va_list args)
+struct scanf_handler
+{
+	int num_consumed = 0;
+	virtual char consume() = 0;
+	virtual char look_ahead() = 0;
+};
+
+static int do_scanf(scanf_handler& handler, const char* fmt, va_list args)
 {
 	int match_count = 0;
 	for(; *fmt; fmt++)
@@ -490,7 +496,7 @@ int sscanf(const char* __restrict buffer, const char* __restrict format, ...)
 int vfscanf(FILE* __restrict stream, const char* __restrict format,
 			va_list args)
 {
-	struct
+	struct file_handler : scanf_handler
 	{
 		char look_ahead()
 		{
@@ -509,10 +515,13 @@ int vfscanf(FILE* __restrict stream, const char* __restrict format,
 		}
 
 		FILE* file;
-		int num_consumed;
-	} handler = {stream, 0};
 
-	return do_scanf(handler, format, args);
+		file_handler(FILE* _file) : scanf_handler{}, file{_file}
+		{}
+	};
+
+	file_handler h{stream};
+	return do_scanf(h, format, args);
 }
 
 /*int vscanf(const char* __restrict, va_list)
@@ -524,24 +533,27 @@ int vfscanf(FILE* __restrict stream, const char* __restrict format,
 int vsscanf(const char* __restrict buffer, const char* __restrict format,
 			va_list args)
 {
-	struct
+	struct raw_handler : scanf_handler
 	{
-		char look_ahead()
+		virtual char look_ahead() override
 		{
 			return *buffer;
 		}
 
-		char consume()
+		virtual char consume() override
 		{
 			num_consumed++;
 			return *buffer++;
 		}
 
 		const char* buffer;
-		int num_consumed;
-	} handler = {buffer, 0};
 
-	int result = do_scanf(handler, format, args);
+		raw_handler(const char* _buffer) : scanf_handler{}, buffer{_buffer}
+		{}
+	};
+
+	raw_handler h{buffer};
+	int result = do_scanf(h, format, args);
 
 	return result;
 }
