@@ -91,7 +91,7 @@ public:
 extern "C" [[noreturn]] void run_user_code(void* address, void* stack);
 extern "C" [[noreturn]] void switch_task_no_return(TCB* t);
 extern "C" void switch_task(TCB* t);
-extern uint8_t* const init_stack;
+alignas(4096) constinit uint8_t init_stack[PAGE_SIZE];
 uint8_t* spare_stack = nullptr;
 
 constinit process init_process{.pid = 0};
@@ -178,7 +178,7 @@ void run_background_tasks()
 
 void setup_first_task()
 {
-	uintptr_t esp0	 = std::bit_cast<uintptr_t>(init_stack) + PAGE_SIZE;
+	uintptr_t esp0	 = std::bit_cast<uintptr_t>(&init_stack[0]) + PAGE_SIZE;
 	current_TSS = create_TSS(esp0);
 
 	init_task.kernel_stack_top = esp0;

@@ -267,24 +267,6 @@ INT_CALLABLE void acknowledge_irq(uint8_t irq)
 	outb(PIC1_COMMAND_PORT, PIC_EOI_CMD);
 }
 
-void irq_remap(void)
-{
-	outb(PIC1_COMMAND_PORT, 0x11); //Init PIC#1
-	outb(PIC2_COMMAND_PORT, 0x11); //Init PIC#2
-
-	outb(PIC1_COMMAND_PORT + 1, 0x20); //PIC#1 sends interrupt 32-39
-	outb(PIC2_COMMAND_PORT + 1, 0x28); //PIC#2 sends interrupt 40-47
-
-	outb(PIC1_COMMAND_PORT + 1, 0x04); //Inform PIC#1 that PIC#2 is at 0x02
-	outb(PIC2_COMMAND_PORT + 1, 0x02);
-
-	outb(PIC1_COMMAND_PORT + 1, 0x01);
-	outb(PIC2_COMMAND_PORT + 1, 0x01);
-
-	outb(PIC1_COMMAND_PORT + 1, 0x0);
-	outb(PIC2_COMMAND_PORT + 1, 0x0);
-}
-
 extern "C" uint32_t getcr2reg(void);
 
 #include <stdio.h>
@@ -370,7 +352,25 @@ extern "C" void fault_handler(interrupt_info * r)
 	}
 }
 
-void interrupts_init()
+RECLAIMABLE static void irq_remap(void)
+{
+	outb(PIC1_COMMAND_PORT, 0x11); //Init PIC#1
+	outb(PIC2_COMMAND_PORT, 0x11); //Init PIC#2
+
+	outb(PIC1_COMMAND_PORT + 1, 0x20); //PIC#1 sends interrupt 32-39
+	outb(PIC2_COMMAND_PORT + 1, 0x28); //PIC#2 sends interrupt 40-47
+
+	outb(PIC1_COMMAND_PORT + 1, 0x04); //Inform PIC#1 that PIC#2 is at 0x02
+	outb(PIC2_COMMAND_PORT + 1, 0x02);
+
+	outb(PIC1_COMMAND_PORT + 1, 0x01);
+	outb(PIC2_COMMAND_PORT + 1, 0x01);
+
+	outb(PIC1_COMMAND_PORT + 1, 0x0);
+	outb(PIC2_COMMAND_PORT + 1, 0x0);
+}
+
+RECLAIMABLE void interrupts_init()
 {
 	irq_remap();
 

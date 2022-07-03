@@ -11,6 +11,7 @@ asm_gen = generator(
 kernel_asm = asm_gen.process([
 	'kernel/kernel.asm',
 	'kernel/interrupt.asm',
+	'kernel/task.asm',
 	'kernel/syscall.asm'
 ])
 
@@ -125,7 +126,7 @@ kernal = executable(
 	include_directories: kernel_include,
 	c_args: c_args + kernel_flags + ['-flto'],
 	cpp_args: cpp_args + kernel_flags + ['-flto'],
-	link_args: ['-Tlinker.ld'] + common_linker_flags + ['-Wl,-N','-Wl,-z,notext', '-Wl,-Ttext=0xFF800000'],
+	link_args: ['-Tlinker.ld'] + common_linker_flags + ['-Wl,-N','-Wl,-z,notext'],
 	link_depends: linker_script_deps, 
 	link_with: boot_mapper
 )

@@ -17,27 +17,36 @@ extern void _KERNEL_START_;
 
 extern uintptr_t boot_mapper_map_mem(uintptr_t addr, size_t bytes);
 
-void reserve_boot_mem()
+RECLAIMABLE void reserve_boot_mem()
 {
-	if(!boot_information.memmap_location)
-		return;
-
-	size_t mmap_entries = boot_information.memmap_size / sizeof(multiboot_mmap_entry);
-
-	multiboot_mmap_entry* memmap = (multiboot_mmap_entry*)
-		boot_mapper_map_mem(boot_information.memmap_location,
-							boot_information.memmap_size);
-
-	for(size_t i = 0; i < mmap_entries; i++)
+	if(boot_information.memmap_location)
 	{
-		if(memmap[i].m_type != 1)
+		uintptr_t memmap = boot_mapper_map_mem(boot_information.memmap_location,
+											   boot_information.memmap_size);
+
+		for(uintptr_t addr = memmap;
+			(uintptr_t)addr < (memmap + boot_information.memmap_size);)
 		{
-			physical_memory_reserve((uintptr_t)memmap[i].m_addr, (size_t)memmap[i].m_length);
+			multiboot_mmap_entry* entry = (multiboot_mmap_entry*)addr;
+			if(entry->m_type == 1 && entry->m_length)
+			{
+				physical_memory_free((uintptr_t)entry->m_addr,
+									 (size_t)entry->m_length);
+			}
+			addr += entry->m_size + sizeof(uint32_t);
 		}
+	}
+	else
+	{
+		physical_memory_free(0u, boot_information.low_memory * 1024);
+		physical_memory_free(0x00100000u, boot_information.high_memory * 1024);
+
+		//reserve BIOS & VRAM & EBDA
+		physical_memory_reserve(0x80000, 0x100000 - 0x80000);
 	}
 }
 
-void parse_boot_info()
+RECLAIMABLE void parse_boot_info()
 {
 	boot_information.kernel_location = _kernel_location;
 	boot_information.kernel_size =

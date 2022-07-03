@@ -1,4 +1,5 @@
 #include <kernel/physical_manager.h>
+#include <kernel/sections.h>
 #include <kernel/boot_info.h>
 #include <kernel/kassert.h>
 #include <utility>
@@ -126,7 +127,7 @@ void physical_memory_reserve(uintptr_t address, size_t size)
 	{
 		if(it->offset > address + size)
 		{
-			printf(">= %d bytes already reserved at %X\n", size, address);
+			//printf(">= %d bytes already reserved at %X\n", size, address);
 			return;
 		}
 
@@ -148,7 +149,7 @@ void physical_memory_reserve(uintptr_t address, size_t size)
 		{
 			memory_map.claim_from_block(it, padding, claimed_space);
 
-			printf("%X bytes reserved at %X\n", claimed_space, address);
+			//printf("%X bytes reserved at %X\n", claimed_space, address);
 
 			address += claimed_space;
 			size -= claimed_space;
@@ -261,14 +262,7 @@ SYSCALL_HANDLER size_t physical_num_bytes_free(void)
 	return sum;
 }
 
-size_t total_mem_size = 0;
-
-size_t physical_mem_size(void)
-{
-	return total_mem_size;
-}
-
-void print_free_map()
+extern "C" void print_free_map()
 {
 	for(size_t i = 0; i < memory_map.size(); i++)
 	{
@@ -278,24 +272,16 @@ void print_free_map()
 	}
 }
 
-void physical_memory_init(void)
+RECLAIMABLE void physical_memory_init(void)
 {
-	total_mem_size = boot_information.low_memory * 1024 + boot_information.high_memory * 1024;
-
-	k_assert(memory_map.size() == 0);
-
-	memory_map.emplace_back(0x500u, (boot_information.low_memory * 1024) - 0x500);
-	memory_map.emplace_back(0x00100000u, boot_information.high_memory * 1024);
+	physical_memory_reserve(0x0u, 0x500u);
 
 	//for whenever we need a free low memory area
-	physical_memory_reserve(0x7c00, 0x200);
+	physical_memory_reserve(0x7000, 0x200);
 
 	//reserve kernel
 	physical_memory_reserve(boot_information.kernel_location, boot_information.kernel_size);
 
 	//reserve modules
 	physical_memory_reserve(boot_information.ramdisk_location, boot_information.ramdisk_size);
-
-	//reserve BIOS & VRAM
-	physical_memory_reserve(0x80000, 0x100000 - 0x80000);
 }

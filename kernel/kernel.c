@@ -31,19 +31,41 @@ static void handle_init_array(void)
 
 extern void memmanager_print_free_map();
 
-void kernel_main()
+extern void _RECLAIMABLE_CODE_BEGIN_, _RECLAIMABLE_CODE_END_;
+extern void _RECLAIMABLE_DATA_BEGIN_, _RECLAIMABLE_DATA_END_;
+extern void _RECLAIMABLE_BSS_BEGIN_, _RECLAIMABLE_BSS_END_;
+
+RECLAIMABLE void init_kernel_state() __attribute__((noinline))
 {
 	parse_boot_info();
 
 	interrupts_init();
 
-	physical_memory_init();
-
 	reserve_boot_mem();
 
-	memmanager_init();
+	physical_memory_init();
 
+	memmanager_init();
+}
+extern void print_free_map();
+
+void kernel_main()
+{
+	init_kernel_state();
+
+	//jettison the boostrap code
+	physical_memory_free(memmanager_get_physical(&_RECLAIMABLE_CODE_BEGIN_),
+						 &_RECLAIMABLE_CODE_END_ - &_RECLAIMABLE_CODE_BEGIN_);
+	physical_memory_free(memmanager_get_physical(&_RECLAIMABLE_DATA_BEGIN_),
+						 &_RECLAIMABLE_DATA_END_ - &_RECLAIMABLE_DATA_BEGIN_);
+	physical_memory_free(memmanager_get_physical(&_RECLAIMABLE_BSS_BEGIN_),
+						 &_RECLAIMABLE_BSS_END_ - &_RECLAIMABLE_BSS_BEGIN_);
+	
 	basic_text_init();
+
+	
+	print_free_map();
+	__asm__ volatile("cli;hlt");
 
 	//call global constructors
 	handle_init_array();

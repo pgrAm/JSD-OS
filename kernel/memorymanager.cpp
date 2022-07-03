@@ -29,8 +29,6 @@ static inline void __flush_tlb_page(uintptr_t addr)
 static constinit sync::mutex kernel_addr_mutex{};
 static uintptr_t kernel_page_directory;
 
-extern "C" void memmanager_print_all_mappings_to_physical_DEBUG();
-
 #define PT_INDEX_MASK (PAGE_TABLE_SIZE - 1)
 #define PAGE_FLAGS_MASK (PAGE_SIZE - 1)
 #define PAGE_ADDRESS_MASK (~PAGE_FLAGS_MASK)
@@ -495,7 +493,7 @@ bool memmanager_handle_page_fault(page_flags_t err, uintptr_t virtual_address)
 	return false;
 }
 
-extern "C" void memmanager_print_all_mappings_to_physical_DEBUG()
+static void memmanager_print_all_mappings_to_physical_DEBUG()
 {
 	for(size_t pd_index = 0; pd_index < PAGE_TABLE_SIZE; pd_index++)
 	{
@@ -528,7 +526,7 @@ extern uint8_t _KERNEL_START_;
 extern "C" uintptr_t boot_mapper_map_mem(uintptr_t addr, size_t bytes);
 extern "C" void boot_mapper_remap_mem(uintptr_t virt, uintptr_t phys);
 
-void memmanager_init(void)
+RECLAIMABLE void memmanager_init(void)
 {
 	kernel_page_directory	   = memmanager_allocate_physical_page();
 	uintptr_t first_page_table = memmanager_allocate_physical_page();
@@ -538,10 +536,7 @@ void memmanager_init(void)
 		//were completelty f'cked in this case
 		puts("There's not enough ram to run the OS :(");
 		//we're totally hosed so just give up
-		while(true)
-		{
-			__asm__ volatile ("cli;hlt");
-		}
+		__asm__ volatile ("cli;hlt");
 		return;
 	}
 
@@ -587,6 +582,7 @@ void memmanager_init(void)
 		kernel_addr += PAGE_SIZE;
 		k_pg_start += PAGE_SIZE;
 	}
+
 	set_page_directory(kernel_page_directory);
 
 	enable_paging();

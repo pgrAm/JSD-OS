@@ -8,6 +8,7 @@ extern "C" {
 #include <string.h>
 
 #include <kernel/syscall.h>
+#include <kernel/sections.h>
 
 void memmanager_init(void);
 uintptr_t memmanager_get_physical(uintptr_t virtual_address);
