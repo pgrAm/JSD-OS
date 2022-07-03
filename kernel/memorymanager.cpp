@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <kernel/boot_info.h>
+#include <kernel/bootstrap/boot_info.h>
 #include <kernel/memorymanager.h>
 #include <kernel/physical_manager.h>
 #include <kernel/locks.h>

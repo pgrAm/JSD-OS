@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include <kernel/memorymanager.h>
-#include <kernel/boot_info.h>
+#include <kernel/bootstrap/boot_info.h>
 #include <kernel/filesystem/fs_driver.h>
 
 #include "ramdisk.h"

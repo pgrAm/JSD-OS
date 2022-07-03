@@ -1,6 +1,6 @@
 #include <kernel/physical_manager.h>
 #include <kernel/sections.h>
-#include <kernel/boot_info.h>
+#include <kernel/bootstrap/boot_info.h>
 #include <kernel/kassert.h>
 #include <utility>
 #include <algorithm>

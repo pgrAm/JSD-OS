@@ -1,4 +1,4 @@
-#include <kernel/boot_info.h>
+#include <kernel/bootstrap/boot_info.h>
 #include <kernel/multiboot.h>
 #include <kernel/physical_manager.h>
 #include <kernel/memorymanager.h>

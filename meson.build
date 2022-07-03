@@ -9,10 +9,10 @@ asm_gen = generator(
 )
 
 kernel_asm = asm_gen.process([
-	'kernel/kernel.asm',
 	'kernel/interrupt.asm',
 	'kernel/task.asm',
-	'kernel/syscall.asm'
+	'kernel/syscall.asm',
+	'kernel/bootstrap/entry.asm'
 ])
 
 boot = custom_target(
@@ -39,10 +39,11 @@ kernel_src = [
 	'kernel/display.cpp',
 	'kernel/sysclock.cpp',
 	'kernel/gdt.cpp',
-	'kernel/boot_info.c',
 	'kernel/rt_device.cpp',	
 	'kernel/input.cpp',	
 	'kernel/shared_mem.cpp',
+
+	'kernel/bootstrap/boot_info.c',
 
 	'drivers/display/basic_text/basic_text.cpp',
 	'drivers/formats/rdfs.cpp',
@@ -107,7 +108,7 @@ subdir('tools')
 
 boot_mapper = static_library(
 	'boot_mapper', 
-	'kernel/boot_mapper.cpp',
+	'kernel/bootstrap/boot_mapper.cpp',
 	c_args: c_args + kernel_flags + ['-fno-lto'],
 	cpp_args: cpp_args + ['-fno-lto'],
 	include_directories: kernel_include,

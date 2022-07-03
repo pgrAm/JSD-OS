@@ -7,7 +7,7 @@
 #include <kernel/interrupt.h>
 #include <kernel/memorymanager.h>
 #include <kernel/physical_manager.h>
-#include <kernel/boot_info.h>
+#include <kernel/bootstrap/boot_info.h>
 #include <kernel/driver_loader.h>
 #include <kernel/task.h>
 #include <kernel/elf.h>
@@ -62,10 +62,6 @@ void kernel_main()
 						 &_RECLAIMABLE_BSS_END_ - &_RECLAIMABLE_BSS_BEGIN_);
 	
 	basic_text_init();
-
-	
-	print_free_map();
-	__asm__ volatile("cli;hlt");
 
 	//call global constructors
 	handle_init_array();
