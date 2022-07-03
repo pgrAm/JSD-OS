@@ -163,6 +163,28 @@ lib_emu = static_library(
 	pic: true
 )
 
+ap_bootstrap_bin = custom_target(
+	'ap_bootstrap_bin',
+	output : 'ap_bootstrap.bin',
+	input : 'drivers/cpu/ap_bootstrap.asm',
+	command : ['nasm', '@INPUT@', '-f', 'bin', '-o', '@OUTPUT@'], 
+	build_by_default: true
+)
+
+ap_bootstrap = custom_target(
+	'ap_bootstrap',
+	output : 'ap_bootstrap.o',
+	input : ap_bootstrap_bin,
+	command : [
+		'llvm-objcopy', 
+		'-B', 'i386',
+		'-I', 'binary',
+		'-O', 'elf32-i386', 
+		'@INPUT@', '@OUTPUT@',
+	], 
+	build_by_default: true
+)
+
 driver_map = {}
 drivers = [
 		['at_kbrd', ['drivers/at_kbrd.cpp'], []],
@@ -178,6 +200,7 @@ drivers = [
 		['iso9660', ['drivers/formats/iso9660.cpp'], []],
 		['i8042', ['drivers/i8042.cpp'], []],
 		['ps2mouse', ['drivers/ps2mouse.cpp'], []],
+		['mp_table', ['drivers/cpu/mp_table.cpp', ap_bootstrap], []],
 ]
 
 foreach d : drivers
@@ -382,6 +405,7 @@ iso_contents = [
 	['drivers/' + fs.name(driver_map.get('i8042').full_path()), driver_map.get('i8042')],
 	['drivers/' + fs.name(driver_map.get('ps2mouse').full_path()), driver_map.get('ps2mouse')],
 	['drivers/' + fs.name(driver_map.get('ext2').full_path()), driver_map.get('ext2')],
+	['drivers/' + fs.name(driver_map.get('mp_table').full_path()), driver_map.get('mp_table')],
 	['drivers/font08.psf', meson.project_source_root() / 'fonts/font08.psf'],
 	['drivers/font16.psf', meson.project_source_root() / 'fonts/font16.psf'],
 #] + [
