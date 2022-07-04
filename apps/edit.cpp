@@ -130,6 +130,20 @@ static constexpr std::string_view newline_chars = "\r\n";
 
 struct line
 {
+	line(std::string_view s, std::string_view nl) : text{s}, ending{nl}
+	{
+	}
+
+	line(line&&)				 = default;
+	line& operator=(line&&)		 = default;
+	line(const line&)			 = default;
+	line& operator=(const line&) = default;
+
+	std::string_view get_view()
+	{
+		return std::string_view{text};
+	}
+
 	std::string text;
 	std::string ending;
 };
@@ -253,7 +267,7 @@ static void draw_rect(rect dst, rect src)
 
 	for(size_t y = 0; y < height; y++)
 	{
-		std::string_view line{line_buffer[src.y + y].text};
+		auto line = line_buffer[src.y + y].get_view();
 
 		const auto width =
 			std::min(std::min(dst.w,
@@ -413,7 +427,7 @@ static void insert_blank_line()
 
 static void print_rest_of_line()
 {
-	const std::string_view line{line_buffer[cursor_y].text};
+	const auto line = line_buffer[cursor_y].get_view();
 
 	write_at_position(cursor_x - window_x_offset, cursor_y - window_y_offset,
 					  line.substr(cursor_x));
@@ -423,9 +437,9 @@ static void handle_char_insert(char in_char)
 {
 	if(newline_chars.find(in_char) != newline_chars.npos)
 	{
-		line_buffer.insert(line_buffer.begin() + cursor_y + 1,
-						   {line_buffer[cursor_y].text.substr(cursor_x),
-							line_buffer[cursor_y].ending});
+		line_buffer.emplace(line_buffer.begin() + cursor_y + 1,
+							line_buffer[cursor_y].get_view().substr(cursor_x),
+							line_buffer[cursor_y].ending);
 		line_buffer[cursor_y].text.resize(cursor_x);
 
 		write_clearline(cursor_x - window_x_offset, cursor_y - window_y_offset,
@@ -538,7 +552,8 @@ static void save_file()
 			{
 				current_file_name.push_back(in_char);
 				write_at_position(msg.size() + pos, term_height,
-								  current_file_name.substr(pos));
+								  std::string_view{current_file_name}.substr(
+									  pos));
 				pos++;
 			}
 		}
@@ -561,6 +576,28 @@ static void save_file()
 	write_info_message("File saved as ", current_file_name);
 }
 
+void build_lines_from_raw_str(std::string_view buffer)
+{
+	size_t first = 0;
+	while(first < buffer.size())
+	{
+		auto second = buffer.find_first_of(newline_chars, first);
+
+		auto next = second;
+		line_buffer.emplace_back(buffer.substr(first, second - first),
+								 buffer.substr(second,
+											   buffer[next++] == '\r' ? 2 : 1));
+
+		if(second == buffer.npos)
+		{
+			line_buffer.emplace_back(buffer.substr(first, second - first), "");
+			break;
+		}
+
+		first = next + 1;
+	}
+}
+
 static bool load_file(std::string_view name)
 {
 	auto f = fopen(name.data(), "rb");
@@ -579,24 +616,7 @@ static bool load_file(std::string_view name)
 
 	fclose(f);
 
-	size_t first = 0;
-	while(first < buffer.size())
-	{
-		auto second = buffer.find_first_of(newline_chars, first);
-
-		auto next = second;
-		line_buffer.emplace_back(buffer.substr(first, second - first),
-								 buffer.substr(second,
-											   buffer[next++] == '\r' ? 2 : 1));
-
-		if(second == buffer.npos)
-		{
-			line_buffer.emplace_back(buffer.substr(first, second - first));
-			break;
-		}
-
-		first = next + 1;
-	}
+	build_lines_from_raw_str(buffer);
 
 	current_file_name = name;
 
@@ -712,14 +732,13 @@ int main(int argc, char** argv)
 		offset++)
 	{
 		write_at_position(0, offset - window_y_offset,
-						  std::string_view{line_buffer[offset].text}
-							  .substr(0, term_width));
+						  line_buffer[offset].get_view().substr(0, term_width));
 	}
 
 	toggle_cell_highlighted(cursor_x - window_x_offset,
 							cursor_y - window_y_offset);
 
-	if(!line_buffer.size()) line_buffer.push_back({});
+	if(!line_buffer.size()) line_buffer.emplace_back("", "");
 
 	while(true)
 	{
