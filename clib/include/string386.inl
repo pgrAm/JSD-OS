@@ -46,7 +46,7 @@ static inline void* __do_memcpy_const_sz(void* dest, const void* src, size_t num
 		"   mov %3, %%ecx\n"
 		"   rep movsb\n"
 		: "+D"(dest), "+S"(src), "+c"(size_4) // output
-		: "i"(size_x)						  // input
+		: "ri"(size_x)						  // input
 		: "cc", "memory" // clobbered register
 	);
 	return od;
