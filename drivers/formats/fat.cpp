@@ -416,7 +416,7 @@ get_short_filename(std::string_view src_name)
 	return name;
 }
 
-static constexpr fat_directory_entry fat_create_dir_entry(const file_handle& src)
+static fat_directory_entry fat_create_dir_entry(const file_handle& src)
 {
 	auto create = time_t_time_to_fat_time(*gmtime(&src.time_created));
 	auto modify = time_t_time_to_fat_time(*gmtime(&src.time_modified));
