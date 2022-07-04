@@ -46,7 +46,10 @@ SECTIONS
     KEEP(*(.bss*))
   }
   _BSS_END_ = .;
-  .interp (NOLOAD) : { *(.interp) }
   end = .;
   _IMAGE_END_ = .;
+  /DISCARD/ : {
+    *(.note*)
+    *(.interp)
+  }
 }
