@@ -250,7 +250,7 @@ static inline int free_pages(void *p, size_t n)
 
 static inline int unmap_pages(void* p, size_t n)
 {
-	return (int)do_syscall_2(SYSCALL_FREE_PAGES, (uint32_t)p, (uint32_t)n);
+	return (int)do_syscall_2(SYSCALL_UNMAP_PAGES, (uint32_t)p, (uint32_t)n);
 }
 
 static inline const file_handle* get_file_in_dir(const directory_stream* d, size_t index)
