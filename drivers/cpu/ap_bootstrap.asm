@@ -45,9 +45,9 @@ flat_gdt:
     dd 0x0000FFFF
 	dd 0x00CF9A00
     dd 0x0000FFFF
-	dd 0x008F9200
-    dd 0x00000068
-	dd 0x00CF8900
+	dd 0x00CF9200
+    ;dd 0x00000068
+	;dd 0x00CF8900
 flat_gdt_end:
 
 flat_gdt_descriptor :

@@ -58,9 +58,6 @@ extern "C" RECLAIMABLE uintptr_t boot_remap_addresses(uintptr_t kernel_VM,
 													  size_t kernel_size,
 													  uintptr_t kernel_offset)
 {
-	//Mark pages not present
-	memset(pd, 0, PAGE_SIZE);
-
 	//the last entry in the page dir is mapped to the page dir
 	pd[PAGE_TABLE_SIZE - 1] = (uintptr_t)pd | PAGE_PRESENT | PAGE_RW;
 

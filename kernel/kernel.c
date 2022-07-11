@@ -39,6 +39,8 @@ RECLAIMABLE void init_kernel_state() __attribute__((noinline))
 {
 	parse_boot_info();
 
+	setup_boot_cpu();
+
 	interrupts_init();
 
 	reserve_boot_mem();
@@ -46,6 +48,8 @@ RECLAIMABLE void init_kernel_state() __attribute__((noinline))
 	physical_memory_init();
 
 	memmanager_init();
+
+	setup_first_task(); //we are now running as a kernel level task
 }
 extern void print_free_map();
 
@@ -77,8 +81,6 @@ void kernel_main()
 	sysclock_init();
 
 	setup_syscalls();
-
-	setup_first_task(); //we are now running as a kernel level task
 
 	ramdisk_init();
 

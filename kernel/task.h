@@ -32,12 +32,17 @@ SYSCALL_HANDLER void set_tls_addr(void* tls_ptr);
 void run_next_task();
 void run_background_tasks();
 void setup_first_task();
+void setup_boot_cpu();
 task_id task_is_running(task_id pid);
 task_id this_task_is_active();
 void switch_to_task(task_id pid);
 void switch_to_active_task();
 task_id get_active_process();
 task_id get_running_process();
+
+//should be called by a new cpu after boostrap
+void add_cpu(size_t id);
+void cpu_entry_point(size_t id, uint8_t* spinlock);
 
 #ifdef __cplusplus
 }

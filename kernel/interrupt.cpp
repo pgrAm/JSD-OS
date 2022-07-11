@@ -267,8 +267,6 @@ INT_CALLABLE void acknowledge_irq(uint8_t irq)
 	outb(PIC1_COMMAND_PORT, PIC_EOI_CMD);
 }
 
-extern "C" uint32_t getcr2reg(void);
-
 #include <stdio.h>
 extern "C" void fault_handler(interrupt_info * r)
 {
@@ -330,7 +328,7 @@ extern "C" void fault_handler(interrupt_info * r)
 
 			printf("At address %X\n", getcr2reg());
 
-			printf("GSBASE=%X\n", get_TLS_seg_base());
+			//printf("GSBASE=%X\n", get_TLS_seg_base());
 
 			//printf("cr3 = %X\n", get_page_directory());
 			//printf("flags= %X\n", memmanager_get_page_flags(getcr2reg()));

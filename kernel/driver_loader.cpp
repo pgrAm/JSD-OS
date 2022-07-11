@@ -150,6 +150,9 @@ static constexpr std::array func_list
 	func_info{"handle_input_event"sv,			(void*)&handle_input_event},
 	func_info{"switch_to_active_task"sv,		(void*)&switch_to_active_task},
 	func_info{"run_background_tasks"sv,			(void*)&run_background_tasks},
+	func_info{"add_cpu"sv,						(void*)&add_cpu},
+	func_info{"cpu_entry_point"sv,				(void*)&cpu_entry_point},
+
 #ifndef NDEBUG
 	func_info{"__assert_fail"sv,				(void*)&__assert_fail},
 #endif

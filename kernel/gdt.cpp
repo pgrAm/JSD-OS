@@ -2,93 +2,92 @@
 #include <kernel/memorymanager.h>
 #include <kernel/locks.h>
 #include <kernel/tss.h>
+#include <kernel/cpu.h>
+
 #include <stdio.h>
 
-struct __attribute__((packed)) gdt_entry
-{
-	uint16_t limit_lo; 
-	uint16_t base_lo;  
-	uint8_t  base_mid;
-	uint8_t  access;
-	uint8_t  granularity;
-	uint8_t  base_hi; 
-};
+extern cpu_state boot_cpu_state;
 
-struct __attribute__((packed)) gdt_descriptor
-{
-	uint16_t size;
-	uint32_t offset;
-};
+RECLAIMABLE_DATA constinit gdt_descriptor gdt_descriptor_location =
+	{sizeof(gdt) - 1, &boot_cpu_state.arch.m_gdt};
 
-struct __attribute__((packed)) tss
+void load_TSS(uint16_t tss_seg)
 {
-	uint16_t lin;
-	uint16_t reserved0;
-	uint32_t esp0;
-	uint16_t stack_seg;
-	uint16_t reserved1;
-	uint32_t r[23];
-};
-
-extern "C" 
-{
-	extern gdt_descriptor gdt_descriptor_location;
-	extern gdt_entry gdt_location;
-	extern gdt_entry gdt_data_location;
-	extern gdt_entry gdt_tls_data;
-	extern gdt_entry gdt_tss_location;
+	asm volatile("ltr %0" : : "r"(tss_seg));
 }
 
-static constinit sync::mutex tss_mtx{};
-
-extern "C" void load_TSS(uint16_t tss_seg);
-
-uintptr_t get_TLS_seg_base()
+constexpr uintptr_t get_seg_base(gdt_entry& e)
 {
-	return (uintptr_t)(gdt_tls_data.base_lo << 0) |
-		   (uintptr_t)(gdt_tls_data.base_mid << 16) |
-		   (uintptr_t)(gdt_tls_data.base_hi << 24);
+	return (uintptr_t)(e.base_lo << 0) |
+		   (uintptr_t)(e.base_mid << 16) |
+		   (uintptr_t)(e.base_hi << 24);
 }
 
-void set_TLS_seg_base(uintptr_t val)
+uintptr_t get_TLS_seg_base(arch_data* n_cpu)
 {
-	gdt_tls_data.base_lo = val & 0xFFFF;
-	gdt_tls_data.base_mid = (val >> 16) & 0xFF;
-	gdt_tls_data.base_hi  = (val >> 24) & 0xFF;
+	return get_seg_base(n_cpu->m_gdt.tls_data);
+}
+
+uintptr_t get_CPU_seg_base(arch_data* n_cpu)
+{
+	return get_seg_base(n_cpu->m_gdt.cpu_data);
+}
+
+void reload_CPU_seg()
+{
+	auto seg = (uint16_t)(offsetof(gdt, cpu_data));
+	asm volatile("mov %0, %%fs" : : "r"(seg));
+}
+void set_seg_base(gdt_entry& e, uintptr_t val)
+{
+	e.base_lo  = val & 0xFFFF;
+	e.base_mid = (val >> 16) & 0xFF;
+	e.base_hi  = (val >> 24) & 0xFF;
+}
+void set_CPU_seg_base(arch_data* n_cpu, uintptr_t val)
+{
+	set_seg_base(n_cpu->m_gdt.cpu_data, val);
+	reload_CPU_seg();
+}
+
+void set_TLS_seg_base(arch_data* n_cpu, uintptr_t val)
+{
+	set_seg_base(n_cpu->m_gdt.tls_data, val);
 	reload_TLS_seg();
 }
 
 void reload_TLS_seg()
 {
-	auto seg =  (uint16_t)((uintptr_t)&gdt_tls_data - (uintptr_t)&gdt_location) | 3;
-	asm volatile("mov %0, %%fs" : : "r"(seg));
+	auto seg = (uint16_t)(offsetof(gdt, tls_data)) | 3;
+	asm volatile("mov %0, %%gs" : : "r"(seg));
 }
 
-tss* create_TSS(uintptr_t stack_addr)
+void setup_GDT(arch_data* cpu)
 {
-	//lock modifications to the TSS
-	sync::lock_guard l{tss_mtx};
+	gdt_descriptor gdt_descriptor_location = {sizeof(gdt) - 1, &cpu->m_gdt};
 
-	auto n_tss = new tss{};
+	asm volatile("lgdt %0" : : "m"(gdt_descriptor_location));
+}
 
-	memset(n_tss, 0, sizeof(tss));
+void create_TSS(arch_data* cpu, uintptr_t stack_addr)
+{
+	memset(&cpu->m_tss, 0, sizeof(tss));
 
-	n_tss->stack_seg = (uint16_t)((uintptr_t)&gdt_data_location - (uintptr_t)&gdt_location);
-	n_tss->esp0 = stack_addr;
+	cpu->m_tss.stack_seg = (uint16_t)(offsetof(gdt, data));
+	cpu->m_tss.esp0	  = stack_addr;
 
-	auto tss_addr = (uintptr_t)n_tss;
+	auto tss_addr = std::bit_cast<uintptr_t>(&cpu->m_tss);
 
-	gdt_tss_location.limit_lo = sizeof(tss) & 0x0000FFFF;
-	gdt_tss_location.base_lo = tss_addr & 0x0000FFFF;
-	gdt_tss_location.base_mid = (tss_addr >> 16) & 0xFF;
-	gdt_tss_location.access = 0x89;
-	gdt_tss_location.base_hi = (tss_addr >> 24) & 0xFF;
-	gdt_tss_location.granularity = ((sizeof(tss) >> 16) & 0x0F) | 0x40;
+	cpu->m_gdt.tss_data = {
+		.limit_lo	 = sizeof(tss) & 0x0000FFFF,
+		.base_lo	 = (uint16_t)(tss_addr & 0x0000FFFF),
+		.base_mid	 = (uint8_t)((tss_addr >> 16) & 0xFF),
+		.access		 = 0x89,
+		.granularity = ((sizeof(tss) >> 16) & 0x0F) | 0x40,
+		.base_hi	 = (uint8_t)((tss_addr >> 24) & 0xFF),
+	};
 
-	uint16_t tss_seg =
-		(uint16_t)((uintptr_t)&gdt_tss_location - (uintptr_t)&gdt_location) | 3;
+	uint16_t tss_seg = (uint16_t)(offsetof(gdt, tss_data)) | 3;
 	
 	load_TSS(tss_seg);
-
-	return n_tss;
 }

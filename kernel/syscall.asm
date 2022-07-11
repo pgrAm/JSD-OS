@@ -11,6 +11,10 @@ handle_syscall:
 	push es
 	push fs
 	push gs
+
+	push 0x30
+	pop fs
+
 	call [syscall_table+4*ebx]
 	pop gs
 	pop fs

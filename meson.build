@@ -202,7 +202,8 @@ drivers = [
 		['iso9660', ['drivers/formats/iso9660.cpp'], []],
 		['i8042', ['drivers/i8042.cpp'], []],
 		['ps2mouse', ['drivers/ps2mouse.cpp'], []],
-		['mp_table', ['drivers/cpu/mp_table.cpp', ap_bootstrap], []],
+		['mp_table', ['drivers/cpu/mp_table.cpp', 'drivers/cpu/lapic.cpp', ap_bootstrap], []],
+		['madt', ['drivers/cpu/madt.cpp', 'drivers/cpu/lapic.cpp' ,ap_bootstrap], []],
 ]
 
 foreach d : drivers
@@ -408,6 +409,7 @@ iso_contents = [
 	['drivers/' + fs.name(driver_map.get('ps2mouse').full_path()), driver_map.get('ps2mouse')],
 	['drivers/' + fs.name(driver_map.get('ext2').full_path()), driver_map.get('ext2')],
 	['drivers/' + fs.name(driver_map.get('mp_table').full_path()), driver_map.get('mp_table')],
+	['drivers/' + fs.name(driver_map.get('madt').full_path()), driver_map.get('madt')],
 	['drivers/font08.psf', meson.project_source_root() / 'fonts/font08.psf'],
 	['drivers/font16.psf', meson.project_source_root() / 'fonts/font16.psf'],
 #] + [

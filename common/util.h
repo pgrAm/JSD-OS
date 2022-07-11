@@ -122,4 +122,12 @@ private:
 	control_block* ctrl = nullptr;
 };
 
+template<typename T>
+T read_addr(uintptr_t addr) requires(std::is_trivially_copyable_v<T>)
+{
+	T value;
+	memcpy(&value, (void*)addr, sizeof(T));
+	return value;
+}
+
 #endif

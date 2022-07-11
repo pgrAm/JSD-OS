@@ -32,6 +32,12 @@ bool memmanager_destroy_memory_space(uintptr_t memspace);
 
 bool memmanager_handle_page_fault(page_flags_t err, uintptr_t page);
 
+inline uint32_t getcr2reg()
+{
+	uint32_t cr2val;
+	__asm__ __volatile__("mov %%cr2, %%eax\n" : "=a"(cr2val) : :);
+	return (uint32_t)cr2val;
+}
 inline void set_page_directory(uintptr_t address)
 {
 	__asm__ __volatile__("mov %0, %%cr3\n" : : "a"(address));

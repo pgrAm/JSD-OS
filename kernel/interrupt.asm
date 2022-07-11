@@ -57,8 +57,8 @@ isr_common_stub:
     mov ax, ss
     mov ds, ax
     mov es, ax
-    mov fs, ax
-    mov gs, ax
+    ;mov fs, ax
+    ;mov gs, ax
     mov eax, esp
     push eax
     call fault_handler
@@ -71,8 +71,3 @@ isr_common_stub:
     add esp, 8
 	;sti
     iret
-
-global getcr2reg
-getcr2reg:
-	mov eax, cr2
-	ret
