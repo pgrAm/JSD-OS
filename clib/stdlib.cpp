@@ -89,7 +89,6 @@ int system(const char* command)
 	
 static void* liballoc_alloc(size_t n)
 {
-	assert(n < 1000);
 	return alloc_pages(NULL, n, MALLOC_FLAGS);
 }
 
@@ -98,7 +97,7 @@ static int liballoc_free(void* p, size_t n)
 	return free_pages(p, n);
 }
 
-static heap_allocator library_allocator{
+static constinit heap_allocator library_allocator{
 	liballoc_lock,
 	liballoc_unlock,
 	liballoc_alloc,
