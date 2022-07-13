@@ -46,6 +46,8 @@ struc TCB
     .cr3:			resd 1
 	.tls_gdt_hi:	resd 1
 	.tls_base_lo:	resw 1
+
+	.running:		resb 1
 endstruc
 
 section .text
@@ -96,6 +98,11 @@ switch_task:
 
 	;Load next task's state
     mov esi, [esp + (5+1)*4]		; esi = address of the next task's "thread control block" (parameter passed on stack)
+
+	; atomically mark the previous task as not running
+	; don't touch the stack after this
+	xor al, al
+	xchg [edi + TCB.running], al
 
 load_new_task:
     mov [fs:CPU_state.tcb_ptr], esi		; Current task's TCB is the next task TCB

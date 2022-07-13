@@ -82,12 +82,12 @@ static inline task_id do_try_lock_mutex(kernel_mutex* m, task_id my_pid)
 
 bool kernel_try_lock_mutex(kernel_mutex* m)
 {
-	return do_try_lock_mutex(m, get_running_process()) == INVALID_TASK_ID;
+	return do_try_lock_mutex(m, get_running_task_id()) == INVALID_TASK_ID;
 }
 
 void kernel_lock_mutex(kernel_mutex* m)
 {
-	const auto my_pid = get_running_process();
+	const auto my_pid = get_running_task_id();
 	while(true)
 	{
 		auto pid = do_try_lock_mutex(m, my_pid);

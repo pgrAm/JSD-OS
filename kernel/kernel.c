@@ -49,6 +49,9 @@ RECLAIMABLE void init_kernel_state() __attribute__((noinline))
 
 	memmanager_init();
 
+	//call global constructors
+	handle_init_array();
+
 	setup_first_task(); //we are now running as a kernel level task
 }
 extern void print_free_map();
@@ -66,9 +69,6 @@ void kernel_main()
 						 &_RECLAIMABLE_BSS_END_ - &_RECLAIMABLE_BSS_BEGIN_);
 	
 	basic_text_init();
-
-	//call global constructors
-	handle_init_array();
 
 	printf(	"Found Kernel: %X - %X\n", 
 			boot_information.kernel_location, 

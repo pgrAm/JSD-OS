@@ -78,6 +78,21 @@ extern "C" {
 
 namespace sync {
 
+class interrupt_lock
+{
+public:
+	interrupt_lock() : m_lock(lock_interrupts())
+	{
+	}
+	~interrupt_lock()
+	{
+		unlock_interrupts(m_lock);
+	}
+	interrupt_lock(const interrupt_lock&) = delete;
+private:
+	int_lock m_lock;
+};
+
 consteval lockable_val init_lockable()
 {
 #ifdef EMULATE_CAS_W_TAS
@@ -134,6 +149,16 @@ template<typename T>
 void atomic_store(T* ptr, T newval)
 {
 	__atomic_store_n(ptr, newval, __ATOMIC_RELEASE);
+}
+template<typename T>
+T atomic_add(T* ptr, T amount)
+{
+#ifdef SINGLE_CPU_ONLY
+	interrupt_lock l{};
+	return *ptr += amount;
+#else
+	return __atomic_fetch_add(ptr, amount, __ATOMIC_SEQ_CST);
+#endif
 }
 
 template<typename Mutex> class shared_lock;

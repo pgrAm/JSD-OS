@@ -12,19 +12,27 @@
 #include <kernel/cpu.h>
 #include <vector>
 #include <memory>
+#include <algorithm>
 
 using dynamic_object_ptr = std::unique_ptr<dynamic_object>;
 
 class task;
+
+static task_id last_id = 1;
+task_id generate_tid()
+{
+	return sync::atomic_add(&last_id, (task_id)1u);
+}
 
 //Thread control block
 struct __attribute__((packed)) TCB //tcb man, tcb...
 {
 	saved_regs regs;
 
-	task_id tid;
-	task* t_data;
 	sync::atomic_flag running;
+	uint8_t padding[sizeof(uintptr_t) - sizeof(sync::atomic_flag)];
+
+	task_id tid;
 };
 
 struct process
@@ -37,7 +45,7 @@ struct process
 	sync::mutex mtx;
 };
 
-class task
+class task : public TCB
 {
 public:
 	constexpr task(
@@ -47,18 +55,16 @@ public:
 		: kernel_stack_top{_kernel_stack_top}
 		, user_stack_top{_user_stack_top}
 		, p_data{parent}
-		, tc_block{
+		, TCB{
 			  .regs =
 				  init_tcb_regs(_kernel_stack_top + PAGE_SIZE, pdir, tls_ptr),
 			  .tid	  = _tid,
-			  .t_data = this,
 		  }
 	{}
 
 	uintptr_t kernel_stack_top = (uintptr_t)nullptr;
 	uintptr_t user_stack_top   = (uintptr_t)nullptr;
 	process* p_data;
-	TCB tc_block;
 };
 
 extern "C" [[noreturn]] void run_user_code(void* address, void* stack);
@@ -77,10 +83,11 @@ constinit task init_task{
 	0
 };
 
-constinit cpu_state boot_cpu_state{.arch = {.tcb = &init_task.tc_block}};
+constinit cpu_state boot_cpu_state{.arch = {.tcb = &init_task}};
 
 static std::vector<cpu_state*> cpus;
-static std::vector<TCB*> running_tasks;
+static hash_map<task_id, task*> tasks;
+static std::vector<task*> runnable;
 
 static constinit task_id active_process = 0;
 
@@ -117,16 +124,12 @@ template<typename Functor>
 		:);
 	__builtin_unreachable();
 }
-
-[[noreturn]] void switch_to_task_no_return(task_id pid)
+task* get_running_task()
 {
-	k_assert(running_tasks[pid]->tid != INVALID_TASK_ID);
-
-	switch_task_no_return(running_tasks[pid]);
-	__builtin_unreachable();
+	return static_cast<task*>(get_current_tcb());
 }
 
-task_id get_running_process()
+task_id get_running_task_id()
 {
 	return get_current_tcb()->tid;
 }
@@ -152,6 +155,8 @@ extern "C" void cpu_entry_point(size_t id, uint8_t* l)
 
 			printf("CPU %d initialized\n", id);
 
+			runnable.push_back(static_cast<task*>(self->arch.tcb));
+
 			for(;;)
 			{
 				__asm__ volatile("hlt");
@@ -165,14 +170,14 @@ extern "C" void add_cpu(size_t id)
 	auto new_stack = std::bit_cast<uintptr_t>(
 		memmanager_virtual_alloc(nullptr, 1, PAGE_PRESENT | PAGE_RW));
 
-	task_id new_pid = running_tasks.size();
+	task_id new_pid = generate_tid();
 
 	auto new_task = new task{new_pid, &init_process, 0, new_stack, 0};
-	auto new_cpu  = new cpu_state{.arch = {.tcb = &new_task->tc_block}};
+	auto new_cpu  = new cpu_state{.arch = {.tcb = new_task}};
 
 	cpus.push_back(new_cpu);
 	init_process.tasks.push_back(new_task);
-	running_tasks.push_back(&new_task->tc_block);
+	tasks.emplace(new_pid, new_task);
 }
 
 task_id get_active_process()
@@ -180,22 +185,16 @@ task_id get_active_process()
 	return active_process;
 }
 
-task_id task_is_running(task_id tid)
-{
-	return (get_running_process() == tid);
-}
-
 task_id this_task_is_active()
 {
-	return get_current_tcb()->t_data->p_data->pid == active_process;
-	//return task_is_running(active_process);
+	return get_running_task()->p_data->pid == active_process;
 }
 
 void run_next_task()
 {
 	int_lock l = lock_interrupts();
 	//lock tasks
-	active_process = (active_process + 1) % running_tasks.size();
+	active_process = (active_process + 1) % runnable.size();
 	task_id next   = active_process;
 	//unlock tasks
 	unlock_interrupts(l);
@@ -205,27 +204,20 @@ void run_next_task()
 
 void run_background_tasks()
 {
-	int_lock l = lock_interrupts();
-	//lock tasks
+	sync::interrupt_lock l{};
 
-	task_id pid	 = get_running_process();
-	task_id next = pid;
+	task_id tid = get_running_task_id();
 
-	size_t i = running_tasks.size() - 1;
-	while(i--)
+	for(auto task : runnable)
 	{
-		next = (next + 1) % running_tasks.size();
-		if(running_tasks[next]->tid != INVALID_TASK_ID &&
-		   !running_tasks[next]->running.test())
+		if(task->tid == tid) continue;
+
+		if(task->running.test_and_set() == 0)
 		{
-			unlock_interrupts(l);
-			switch_task(running_tasks[next]);
-			return;
+			switch_task(task);
+			break;
 		}
 	}
-
-	//unlock tasks
-	unlock_interrupts(l);
 }
 
 RECLAIMABLE void setup_boot_cpu()
@@ -245,13 +237,15 @@ RECLAIMABLE void setup_first_task()
 	uintptr_t esp0 = std::bit_cast<uintptr_t>(&init_stack[0]) + PAGE_SIZE;
 
 	init_task.kernel_stack_top	 = esp0;
-	init_task.tc_block.regs.esp0 = esp0;
-	init_task.tc_block.regs.esp	 = esp0 - sizeof(user_transition_stack_items);
-	init_task.tc_block.regs.cr3	 = (uintptr_t)get_page_directory();
+	init_task.regs.esp0 = esp0;
+	init_task.regs.esp	 = esp0 - sizeof(user_transition_stack_items);
+	init_task.regs.cr3	 = (uintptr_t)get_page_directory();
+	init_task.running.test_and_set();
 
 	//no locks needed yet, we are the only task
 	init_process.tasks.push_back(&init_task);
-	running_tasks.push_back(&init_task.tc_block);
+	tasks.emplace(init_task.tid, &init_task);
+	runnable.push_back(&init_task);
 
 	//force page to be resident
 	spare_stack =
@@ -260,7 +254,7 @@ RECLAIMABLE void setup_first_task()
 
 [[noreturn]] static void switch_task_post_terminate(task* current)
 {
-	auto old_id = current->tc_block.tid;
+	auto old_id = current->tid;
 
 	{
 		sync::lock_guard l{current->p_data->mtx};
@@ -272,21 +266,42 @@ RECLAIMABLE void setup_first_task()
 		tasks.erase(it);
 	}
 
+	runnable.erase(std::find(runnable.begin(), runnable.end(), current));
+
 	task_id next_pid	  = current->p_data->parent_pid;
-	current->tc_block.tid = INVALID_TASK_ID;
+	tasks.remove(old_id);
 
 	if(active_process == old_id)
 	{
 		active_process = next_pid;
 	}
 
-	switch_to_task_no_return(next_pid);
-	__builtin_unreachable();
+	auto task = tasks.lookup(next_pid);
+	if(task && (*task)->running.test_and_set() == 0)
+	{
+		switch_task_no_return(*task);
+		__builtin_unreachable();
+	}
+	else
+	{
+		while(true)
+		{
+			for(auto task : runnable)
+			{
+				if(task->running.test_and_set() == 0)
+				{
+					switch_task_no_return(task);
+					__builtin_unreachable();
+				}
+			}
+		}
+		__builtin_unreachable();
+	}
 }
 
 SYSCALL_HANDLER void exit_thread(int val)
 {
-	auto current = get_current_tcb()->t_data;
+	auto current = get_running_task();
 
 	memmanager_free_pages((void*)current->user_stack_top, 1);
 
@@ -328,8 +343,8 @@ SYSCALL_HANDLER void exit_thread(int val)
 
 SYSCALL_HANDLER void exit_process(int val)
 {
-	auto current_process = get_current_tcb()->t_data->p_data;
-	auto current_task	 = get_current_tcb()->t_data;
+	auto current_task = get_running_task();
+	auto current_process = current_task->p_data;
 
 	auto& tasks = current_process->tasks;
 
@@ -346,7 +361,7 @@ SYSCALL_HANDLER void exit_process(int val)
 			assert(it != tasks.end());
 			current_process->mtx.unlock();
 
-			switch_task(&(*it)->tc_block);
+			switch_task(*it);
 		}
 		current_process->mtx.unlock();
 		break;
@@ -376,9 +391,8 @@ SYSCALL_HANDLER void exit_process(int val)
 SYSCALL_HANDLER void get_process_info(process_info* data)
 {
 	*data = process_info{
-		.pid = get_current_tcb()->t_data->p_data->pid,
-		.tls =
-			get_current_tcb()->t_data->p_data->objects[0]->tls_image,
+		.pid = get_running_task()->p_data->pid,
+		.tls = get_running_task()->p_data->objects[0]->tls_image,
 	};
 }
 
@@ -403,7 +417,7 @@ task* create_new_task(process* parent, void* execution_addr, void* tls_ptr, size
 		(uintptr_t)memmanager_virtual_alloc(nullptr, 1, PAGE_RW | PAGE_PRESENT);
 
 	auto new_task =
-		new task{running_tasks.size(), parent, user_stack_top, kernel_stack_top,
+		new task{generate_tid(), parent, user_stack_top, kernel_stack_top,
 				 std::bit_cast<uintptr_t>(tls_ptr)};
 
 	sync::lock_guard l{parent->mtx};
@@ -412,7 +426,7 @@ task* create_new_task(process* parent, void* execution_addr, void* tls_ptr, size
 	//we are setting up the stack of the new process
 	//these will be pop'ed into registers later
 	auto* stack_ptr =
-		((user_transition_stack_items*)new_task->tc_block.regs.esp);
+		((user_transition_stack_items*)new_task->regs.esp);
 	stack_ptr->code_addr  = (uintptr_t)execution_addr;
 	stack_ptr->stack_addr = (user_stack_top + PAGE_SIZE) -
 							(sizeof(uintptr_t) + sizeof(task_id) + args_size);
@@ -422,28 +436,28 @@ task* create_new_task(process* parent, void* execution_addr, void* tls_ptr, size
 
 	//pass this on the user stack, the value above this is the "return addr"
 	*(task_id*)(stack_ptr->stack_addr + sizeof(uintptr_t)) =
-		new_task->tc_block.tid;
+		new_task->tid;
 
 	//lock tasks
-	running_tasks.push_back(&new_task->tc_block);
+	tasks.emplace(new_task->tid, new_task);
 	//unlock tasks
 	return new_task;
 }
 
 extern "C" SYSCALL_HANDLER task_id spawn_thread(void* function_ptr, void* tls_ptr)
 {
-	auto parent_process = get_current_tcb()->t_data->p_data;
+	auto parent_process = get_running_task()->p_data;
 
 	auto new_task = create_new_task(parent_process, function_ptr, tls_ptr, 0);
 
-	return new_task->tc_block.tid;
+	runnable.push_back(new_task);
+
+	return new_task->tid;
 }
 
 extern "C" SYSCALL_HANDLER void yield_to(task_id tid)
 {
-	auto is_active = this_task_is_active();
-
-	if(tid < running_tasks.size() && is_active)
+	if(auto is_active = this_task_is_active(); tasks.contains(tid) && is_active)
 	{
 		switch_to_task(tid);
 	}
@@ -462,8 +476,6 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 												 size_t args_size,
 												 int flags)
 {
-	//__asm__ volatile("ud2");
-
 	if(!file)
 		return INVALID_TASK_ID;
 
@@ -472,7 +484,7 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 
 	uintptr_t oldcr3 = (uintptr_t)get_page_directory();
 	
-	auto parent_pid	   = get_current_tcb()->t_data->p_data->pid;
+	auto parent_pid	   = get_running_task()->p_data->pid;
 	auto address_space = memmanager_new_memory_space();
 
 	memmanager_enter_memory_space(address_space);
@@ -502,7 +514,7 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 	auto new_task = create_new_task(new_process, new_process->objects[0]->entry_point, nullptr, args_size + sizeof(size_t));
 
 	auto* stack_ptr =
-		((user_transition_stack_items*)new_task->tc_block.regs.esp);
+		((user_transition_stack_items*)new_task->regs.esp);
 
 	memcpy((void*)(stack_ptr->stack_addr + sizeof(uintptr_t) + sizeof(size_t)),
 		   &args_size, sizeof(size_t));
@@ -510,11 +522,13 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 				   2 * sizeof(size_t)),
 		   &args_buf[0], args_buf.size());
 
-	auto new_pid = new_task->tc_block.tid;
+	auto new_pid = new_task->tid;
 
 	new_process->pid = new_pid;
 
 	set_page_directory(oldcr3);
+
+	runnable.push_back(new_task);
 
 	if(flags & WAIT_FOR_PROCESS)
 	{
@@ -528,7 +542,7 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 		//unlock tasks
 		unlock_interrupts(l);
 
-		switch_task(&new_task->tc_block);
+		switch_task(new_task);
 	}
 
 	return new_pid;
@@ -536,10 +550,11 @@ extern "C" SYSCALL_HANDLER task_id spawn_process(const file_handle* file,
 
 void switch_to_task(task_id tid)
 {
-	assert(tid < running_tasks.size());
-	if(running_tasks[tid]->tid != INVALID_TASK_ID && !task_is_running(tid))
+	auto task = tasks.lookup(tid);
+	assert(task);
+	if((*task)->running.test_and_set() == 0)
 	{
-		switch_task(running_tasks[tid]);
+		switch_task(*task);
 	}
 }
 
