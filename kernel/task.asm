@@ -46,6 +46,7 @@ struc TCB
     .cr3:			resd 1
 	.tls_gdt_hi:	resd 1
 	.tls_base_lo:	resw 1
+	.padding:		resw 1
 
 	.running:		resb 1
 endstruc
