@@ -77,6 +77,8 @@ static uint8_t last_key = 0;
 
 static INTERRUPT_HANDLER void at_keyboard_handler(interrupt_frame* r)
 {
+	setup_segs();
+
 	const uint8_t key_data = inb(0x60);
 	acknowledge_irq(1);
 

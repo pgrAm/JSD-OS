@@ -87,11 +87,13 @@ extern "C" {
 
 static INTERRUPT_HANDLER void irq_stub1(interrupt_frame* r)
 {
+	setup_segs();
 	acknowledge_irq(0);
 }
 
 static INTERRUPT_HANDLER void irq_stub2(interrupt_frame* r)
 {
+	setup_segs();
 	acknowledge_irq(8);
 }
 

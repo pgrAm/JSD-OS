@@ -88,6 +88,8 @@ static disk_driver floppy_driver = {
 
 static INTERRUPT_HANDLER void floppy_irq_handler(interrupt_frame* r)
 {
+	setup_segs();
+
 	acknowledge_irq(6);
 	irq6_condition.notify_one();
 }

@@ -64,6 +64,8 @@ static void pit_set_irq_period(uint32_t divisor)
 
 static INTERRUPT_HANDLER void pit_irq(interrupt_frame* r)
 {
+	setup_segs();
+
 	pit_time_elapsed_count += pit_timer_divisor;
 
 	acknowledge_irq(0);

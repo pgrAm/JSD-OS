@@ -376,6 +376,8 @@ static ata_error ata_do_write(ata_drive& drive, size_t lba, uint8_t num_sectors,
 
 static INTERRUPT_HANDLER void ata_irq_handler0(interrupt_frame* r)
 {
+	setup_segs();
+
 	inb(channels[0].base + ATA_REG_STATUS);
 	acknowledge_irq(14);
 	irq_flags[0].test_and_set();
@@ -384,6 +386,8 @@ static INTERRUPT_HANDLER void ata_irq_handler0(interrupt_frame* r)
 
 static INTERRUPT_HANDLER void ata_irq_handler1(interrupt_frame* r)
 {
+	setup_segs();
+
 	outb(0xA0, 0x0B);
 	if(inb(0xA0) & (1 << 7))
 	{
@@ -493,6 +497,7 @@ static ata_error ata_read_sectors(ata_drive& drive, size_t num_sectors,
 			foreach_n_sectors<255>(drive, lba, num_sectors, buffer,
 								   ATAPI_SECTOR_SIZE, ata_atapi_read);
 		}
+
 		return ata_print_error(drive, err);
 	}
 }
@@ -736,6 +741,7 @@ static size_t ata_initialize_drives(uint16_t base_port0, uint16_t base_port1,
 
 static INTERRUPT_HANDLER void ata_irq_handler(interrupt_frame* r)
 {
+	setup_segs();
 
 	/*auto status = pci_read<uint16_t>(channels[0].pci_device, PCI_STATUS);
 

@@ -103,6 +103,8 @@ static void i8042_device_send(size_t channel, uint8_t data)
 
 static INTERRUPT_HANDLER void port0_handler(interrupt_frame* r)
 {
+	setup_segs();
+
 	const uint8_t data = inb(DATA_PORT);
 	acknowledge_irq(1);
 
@@ -114,6 +116,8 @@ static INTERRUPT_HANDLER void port0_handler(interrupt_frame* r)
 
 static INTERRUPT_HANDLER void port1_handler(interrupt_frame* r)
 {
+	setup_segs();
+
 	const uint8_t data = inb(DATA_PORT);
 	acknowledge_irq(12);
 

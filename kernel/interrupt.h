@@ -11,10 +11,10 @@ extern "C" {
 #include <drivers/portio.h>
 typedef struct
 {
-	uint32_t gs, fs, es, ds;      /* pushed the segs last */
-	uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;  /* pushed by 'pusha' */
-	uint32_t int_no, err_code;    /* our 'push byte #' and ecodes do this */
-	uint32_t eip, cs, eflags, sp, ss;   /* pushed by the processor automatically */ 
+	uint32_t gs, fs, es, ds;			// pushed the segs last 
+	uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;  // pushed by 'pusha'
+	uint32_t int_no, err_code;			// our 'push byte #' and ecodes do this
+	uint32_t eip, cs, eflags, sp, ss;	// pushed by the processor automatically
 } __attribute__((packed)) interrupt_info;
 
 #define IDT_INT_PRESENT	0x80
@@ -38,6 +38,11 @@ typedef struct
 #define INTERRUPT_HANDLER __attribute__((interrupt))
 
 typedef INTERRUPT_HANDLER void (irq_func)(interrupt_frame* r);
+
+inline INT_CALLABLE void setup_segs()
+{
+	__asm__ volatile("push $0x30\npop %fs");
+}
 
 INT_CALLABLE void acknowledge_irq(uint8_t irq);
 void interrupts_init();
