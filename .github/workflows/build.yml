@@ -7,6 +7,8 @@ jobs:
     name: Build ISO
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout submodules
+        run: git submodule update --init --recursive
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v1
       - uses: egor-tensin/setup-clang@v1
