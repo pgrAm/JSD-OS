@@ -32,3 +32,8 @@ jobs:
           directory: build
           setup-options: --cross-file mesoncross.ini
           meson-version: 0.56.2
+          
+      - uses: actions/upload-artifact@v3
+        with:
+          name: os-image
+          path: build/jsd-os+limine.iso
