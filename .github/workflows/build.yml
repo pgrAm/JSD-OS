@@ -1,0 +1,32 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+   build-iso:
+    name: Build ISO
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v1
+      - uses: egor-tensin/setup-clang@v1
+        with:
+          version: latest
+          platform: x64
+          
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: '5.34'
+          
+      - uses: ConorMacBride/install-package@v1
+        with:
+          apt: xorriso
+          
+      - uses: ilammy/setup-nasm@v1
+        
+      - uses: BSFishy/meson-build@v1.0.3
+        with:
+          action: build
+          directory: build
+          setup-options: --cross-file mesoncross.ini
+          meson-version: 0.56.2
