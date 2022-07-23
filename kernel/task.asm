@@ -61,7 +61,7 @@ run_user_code:
 	mov ax,	GDT.user_data
 	mov ds,	ax
 	mov es,	ax
-	mov fs, ax
+	;mov fs, ax
 
 	;FS can be left as is (CPU seg)		
 	;GS can be left as is (TLS seg)		
@@ -110,9 +110,9 @@ load_new_task:
 
 	;copy the required data into the gdt
 	mov ax, [esi + TCB.tls_base_lo]
-	mov [fs:(GDT.tls_data + GDT_SEG.base_lo)], ax
+	mov [fs:(CPU_state.gdt + GDT.tls_data + GDT_SEG.base_lo)], ax
 	mov eax, [esi + TCB.tls_gdt_hi]
-	mov [fs:(GDT.tls_data + GDT_SEG.base_mid)], eax
+	mov [fs:(CPU_state.gdt + GDT.tls_data + GDT_SEG.base_mid)], eax
 
 	;reload gs
 	mov ax, GDT.tls_data | 3
